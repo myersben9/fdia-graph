@@ -5,6 +5,13 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- **Shorter docstrings and comments in `fdia_graph` (no user-visible change: no line of code changed).**
+  A module docstring is at most about 10 lines, a class's 6, a function's 1 to 3 (CONTRIBUTING.md); each
+  keeps its equation, source key, units and the invariants a caller must respect. By
+  `python tools/count_lines.py`, `fdia_graph` goes from 14,897 to 13,850 lines with its 9,194 lines of
+  code unchanged. The file layout and knobs that the docstring of `timeline.py` listed are in
+  `docs/guides/generation.md`, and the fit of the within-hour load terms is in `docs/guides/new_york.md`.
+
 - **Less code to read in `fdia_graph` (breaking for the internal names below; no behaviour and no stored
   byte changed: the five whole-file digests are unchanged, an IEEE timeline is byte for byte the file the
   previous code writes, and every refused input raises the same error with the same message).**

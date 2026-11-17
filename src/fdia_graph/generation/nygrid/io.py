@@ -22,12 +22,12 @@ def write_pool(path: str | Path, pool: Pool) -> None:
         h["time"].attrs["units"] = "seconds since 1970-01-01, NYISO local clock"
         for name in POOL_ARRAYS:
             h.create_dataset(name, data=getattr(pool, name), compression="gzip", shuffle=True)
-        if pool.unit_p is not None:  # each unit's dispatch basepoint (N32), in the case's unit order
+        if pool.unit_p is not None:  # each unit's dispatch basepoint, in the case's unit order
             h.create_dataset("unit_p", data=pool.unit_p, compression="gzip", shuffle=True)
 
 
 def read_pool(path: str | Path) -> Pool:
-    """A pool file; `unit_p` is None for a pool written before N32."""
+    """A pool file; `unit_p` is None when the file holds no unit dispatch."""
     with h5py.File(path, "r") as h:
         unit_p = h["unit_p"][:] if "unit_p" in h else None
         return Pool(

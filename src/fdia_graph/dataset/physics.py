@@ -21,14 +21,9 @@ from .base import DatasetBase, _torch
 
 class AdmittanceMixin(DatasetBase):
     def _admittances(self) -> Admittances:
-        """Ybus [N,N], Yf [E,N] and Yt [E,N] from the stored branch physics, built once and cached.
-
-        Same branch model as pandapower's makeYbus: series admittance, charging split half per end,
-        tap ratio and phase shift on the from side, in-service status; bus shunts on the Ybus
-        diagonal. Rows of Yf/Yt follow edge_index, columns and Ybus follow node_x bus order. So for a
-        complex bus voltage vector V, `V[f] * conj(Yf @ V)` is the from-end branch flow and
-        `V * conj(Ybus @ V)` the bus injection, both per-unit. Static: one topology per shard.
-        """
+        """Ybus [N,N], Yf [E,N] and Yt [E,N], per unit, from the stored branch physics
+        (`branch_admittances`), built once and cached. Rows of Yf and Yt follow edge_index; columns
+        and Ybus follow the node_x bus order. Static: one topology per file."""
         cached = getattr(self, "_adm", None)
         if cached is not None:
             return cached
@@ -50,20 +45,14 @@ class AdmittanceMixin(DatasetBase):
         return self._adm
 
     def _clean_flows_full(self) -> Optional[np.ndarray]:
-        """[Tpool,E,2] = [P_from, Q_from] exact AC from-end flows on EVERY branch, from the clean state.
-
-        `edge_clean` (stored) zeroes unmetered branches to mirror `edge_x`; a graph model that supervises
-        every edge needs the flow on the unmetered ones too. This is the same physics the generator
-        used for `edge_clean` (`V[from] * conj(Yf @ V) * baseMVA` with the clean voltages), computed
-        once from the shard's own Yf and cached, so it equals `edge_clean` wherever a flow meter
-        exists. Physical units (MW, MVAr) like the stored layer; None without the clean layer or the
-        branch physics.
-        """
+        """[Tpool,E,2] = [P_from, Q_from] (MW, MVAr): the exact AC from-end flows on every branch, from
+        the clean state through Yf, cached. The stored `edge_clean` zeroes unmetered branches; this
+        equals it wherever a flow meter exists. None without the clean layer or the branch physics."""
         if self._eclean_full_np is not None:
             return self._eclean_full_np
         if not self.has_clean_full or self._clean_np is None:
             return None
-        # Only |V| and theta enter the flow; the same physics primitive the generator emits with.
+        # Only |V| and theta enter the flow.
         V = complex_voltages(
             self._clean_np[:, :, NodeChannel.V].astype(np.float64),
             self._clean_np[:, :, NodeChannel.THETA].astype(np.float64),
@@ -104,8 +93,8 @@ class AdmittanceMixin(DatasetBase):
         return _torch().as_tensor(self.yt_np)
 
     def _h(self) -> h5py.File:
-        # Open+cache the h5py handle on first access (not __init__) so each DataLoader worker gets its
-        # OWN handle — fork-safe, no shared-handle crash across processes.
+        # The h5py handle opens on first access, not in __init__, so each DataLoader worker gets its
+        # own handle (a handle shared across processes crashes).
         if self._f is None:
             self._f = h5py.File(self.path, "r")
         return self._f

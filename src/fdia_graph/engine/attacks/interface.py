@@ -1,30 +1,14 @@
-"""Am, the overload attack on a NYISO interface (N48, N49, ours): over a window of scans the reported flow
-across an interface rises to its limit, each scan the reading of one AC false state from `OpfFdia`'s local OPF
-under every one of its bounds, so the operator's residual test stays quiet.
+"""Am, the overload attack on a NYISO interface (ours): over a window of scans the reported flow across
+an interface rises to its limit, each scan the reading of one AC false state from `OpfFdia`'s local OPF.
 
-Goal (N49). The attacker strikes an interface that is already close to its limit and closes the last gap
-in above-noise steps over the rise. The model's interface flows differ from the real 2019 ones (N48), so
-the reported interface flow at the last rise scan is the model's true flow plus that hour's real headroom
-(the real limit minus the real flow): the attack adds exactly what the real grid had left. The goal rises
-to it in equal steps and, with the exit (N30), falls back to the true flow.
+Goal. The model's interface flows differ from the real 2019 ones, so the reported flow at the last rise
+scan is the model's true flow plus that hour's real headroom (real limit minus real flow), plus
+`overshoot` MW (above zero, the operator reads an interface over its limit and has to act). The goal rises
+in equal steps and, with an exit, falls back to the true flow. A window may start where its last rise
+scan falls in an hour whose real flow on some interface is at least `near` of its limit.
 
-Overshoot (N58, ours). With `overshoot` (MW) above zero the goal is the limit plus that much, so the operator
-reads an interface over its limit and has to act: the damaging variant. `max_overshoot` finds the most an
-onset allows under every bound, by bisection on the overshoot. At zero the goal is N49's exactly.
-
-Onsets (N48). A window may start where the last rise scan falls in an hour whose real 2019 flow on some
-interface is at least `near` of its real limit.
-
-Search. One interface's branches can sit far apart, so the attacker's area is anchored on one interface
-branch at a time and grows its supports from that branch's ends (all of the interface's end buses at
-once would force supports larger than needed). The interface branches with an end in the support's
-interior move with the false voltages; the others keep their true flow. Each statically feasible support
-is solved over the window first with the meter objective, which adds to OpfFdia's injection terms the
-change beyond noise on every P and Q flow meter of the branches touching the interior and every voltage
-meter of the interior (the l1 stand-in for eq. 12's count of meters, of which the injection terms alone
-cover only part), and with OpfFdia's objective where Ipopt finds no point with it. The window that tampers
-the fewest meters over every anchor is kept (eq. 12).
-"""
+Search. The area is anchored on one interface branch at a time (an interface's branches can sit far
+apart). The window that tampers the fewest meters over every anchor is kept ([WU26] eq. 12)."""
 
 from __future__ import annotations
 
@@ -56,13 +40,10 @@ class _IfaceWindow(_Window):
 
 class InterfaceFdia(OpfFdia):
     """Am against `interfaces` (from `hourly_interfaces`, over the same frames as the pool the onsets
-    index), with OpfFdia's bounds and settings; `near` the real loading an onset needs (N48, 0.9).
-    `windows_solved` (6) caps the statically feasible supports per anchor that get the full window.
-
-    What it adds to `OpfFdia`: `design` (the targets are the interfaces loaded at the window's last rise scan,
-    `_loaded`), the goal (the interface's summed flow rising by the hour's real headroom, plus `overshoot`,
-    `_prepare_interface`), and the OPF's goal constraint and objective (`_model`, `_set_scan`).
-    `with_overshoot` gives a variant as a copy."""
+    index), with OpfFdia's bounds and settings. `near` is the share of its real limit an interface's real
+    flow must reach for an onset. It adds to `OpfFdia` the `design` (the targets are the interfaces loaded
+    at the window's last rise scan), the goal (`_prepare_interface`), and the OPF's goal constraint and
+    objective (`_model`, `_set_scan`)."""
 
     def __init__(
         self,
@@ -92,7 +73,7 @@ class InterfaceFdia(OpfFdia):
 
     def onset_mask(self, vm: np.ndarray, va: np.ndarray, length: int) -> np.ndarray:
         """[T] whether a window of `length` frames may start at each frame: its last rise scan is in an
-        hour of real loading at least `near` on some interface (N48)."""
+        hour of real loading at least `near` on some interface."""
         T = vm.shape[0]
         if any(len(it.flow) != T for it in self.interfaces):
             raise ConfigError("onset_mask needs the states of the frames the interfaces were built over")
@@ -119,8 +100,8 @@ class InterfaceFdia(OpfFdia):
         return None
 
     def with_overshoot(self, overshoot: float) -> InterfaceFdia:
-        """This family with the goal `overshoot` MW past the limit (N58), as a copy; this one is unchanged. The copy
-        shares the attacker, the interfaces and the solver."""
+        """A copy of this family with the goal `overshoot` MW past the limit. The copy shares the
+        attacker, the interfaces and the solver."""
         other = copy.copy(self)
         other.overshoot = overshoot
         return other
@@ -128,10 +109,9 @@ class InterfaceFdia(OpfFdia):
     def max_overshoot(
         self, window: Window, rng: np.random.Generator, high: float = 800.0, tol: float = 25.0
     ) -> tuple[Episode | None, float]:
-        """The damaging variant at its most (N58): the largest overshoot (MW, within `tol`, at most `high`)
-        for which the window still has an attack under every bound, with that attack. Bisection, so about
-        log2(high / tol) designs. Returns (None, 0.0) where even the limit itself is out of reach. This family
-        is unchanged: the search runs on a copy of it."""
+        """The largest overshoot (MW, within `tol`, at most `high`) for which the window still has an attack
+        under every bound, with that attack; (None, 0.0) where even the limit is out of reach. Bisection on
+        a copy of this family, so about log2(high / tol) designs."""
         probe = self.with_overshoot(0.0)
         best = probe.design(window, rng)
         if best is None:
@@ -148,6 +128,9 @@ class InterfaceFdia(OpfFdia):
         return best, best_mw
 
     def _attack_interface(self, onset: int, vm: np.ndarray, va: np.ndarray, it: Interface) -> Episode | None:
+        # Each statically feasible support is solved over the window first with the meter objective (the
+        # change beyond noise on the flow and voltage meters the support touches, an l1 stand-in for the
+        # meter count of [WU26] eq. 12), then with OpfFdia's objective where Ipopt finds no point with it.
         att = self.att
         best_cost, best = None, None
         for anchor in it.branches.tolist():
@@ -172,7 +155,7 @@ class InterfaceFdia(OpfFdia):
                     vm_f, va_f, buses = res
                     a = att.attack_vector(vm, va, vm_f, va_f)
                     tam = att.tampered(vm, va, a)
-                    if self.exit_scans and tam[-1].any():  # N30: unwound by the last scan
+                    if self.exit_scans and tam[-1].any():  # unwound by the last scan
                         continue
                     cost = int(tam.any(axis=0).sum())
                     if cost >= 1 and (best_cost is None or cost < best_cost):
@@ -201,7 +184,7 @@ class InterfaceFdia(OpfFdia):
         true = pf[:, it.branches] * it.signs  # [L, n] each branch's flow in the positive direction
         total = true.sum(axis=1)
         frame = onset + rise - 1
-        headroom = it.limit[frame] - it.flow[frame]  # N49: what the real grid had left that hour
+        headroom = it.limit[frame] - it.flow[frame]  # what the real grid had left that hour
         if not np.isfinite(headroom) or headroom <= 0:
             return None
         unwound = np.arange(1, self.exit_scans + 1) / max(self.exit_scans, 1)

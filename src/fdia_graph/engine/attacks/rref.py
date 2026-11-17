@@ -1,28 +1,14 @@
-"""[WU26]'s own construction of the attack's support: row reduction of the transposed attack-area
-Jacobian with column exchanges.
+"""[WU26]'s construction of the attack's support: row reduction of the transposed area Jacobian.
 
-The paper names the method twice. For the attacker (p. 655): "the attacker can utilize the transpose of
-the measurement matrix h, applying multiple elementary row transformations and column exchanges to find
-the optimal attack vector solution [25]" ([YAN17]). For the defender's Solution 1 (p. 657, steps 1-5):
-the Jacobian transposed, reduced to row echelon form by row swaps, scaling and row additions, the row with
-the fewest nonzeros found, its nonzero columns moved to the end with a tracking matrix, the reduction
-repeated until that row stabilizes, and the row mapped back through the tracking matrix as the attack
-vector (`formulas.trust.sparsest_rows`).
-
-Here, at every snapshot of the window, the Jacobian is that of the attackable measurements of the attack
-area (the hybrid meter plan: metered injections and flows, |V| everywhere metered, angles and branch
-currents at the PMUs) with respect to |V| and angle of the area's buses, less the buses of the PMUs
-trusted by then (eqs. 27, 29: a trusted PMU's own |V| and angle rows are secure, so its bus holds its
-true voltage). Its rows are scaled by [WU26]'s noise so a channel's size is in units of its own noise.
-Each row of the reduction is an attack vector h c; its state change c, found by least squares, names the
-buses it moves. The support of a snapshot is the sparsest rows that together move every target line's
-flow (a row moves a line when the linearized flow change is not zero), and the window's support is the
-union over the snapshots [WU26 eq. 28]. The magnitudes come from the AC local flow solve on that support
-(`FalseStateMixin.solve_flow_local`), so the goal, the operating limits (21)-(23) and the D16 bounds hold
-as in the search. When the support cannot reach the goal, it grows by the next sparsest rows of each
-snapshot until it can: a fallback of ours, since the paper gives the row reduction only for the sparsest
-attack. Row reduction finds a sparse attack, not necessarily the sparsest.
-"""
+The method is [WU26] p. 655 (the attacker, after [YAN17]) and p. 657, Solution 1 steps 1-5 (the
+defender); the reduction is `formulas.trust.sparsest_rows`. At each snapshot the Jacobian is that of the
+area's attackable measurements with respect to |V| and angle of the area's buses, less the buses of the
+PMUs trusted by then [WU26 eqs. 27, 29], each row scaled by its channel's noise. Each reduced row is an
+attack vector H c; its state change c names the buses it moves. A snapshot's support is the sparsest
+rows that together move every target line's flow; the window's is their union [WU26 eq. 28]. The
+magnitudes come from the AC solve on that support (`FalseStateMixin.solve_flow_local`). A support that
+cannot reach the goal grows by the next sparsest rows (ours: the paper gives only the sparsest attack).
+Row reduction finds a sparse attack, not necessarily the sparsest."""
 
 from __future__ import annotations
 
@@ -55,10 +41,9 @@ class RrefSupport:
         prev: Optional[AttackVector] = None,
         trust: Optional[TrustSchedule] = None,
     ) -> Optional[MinimizerResult]:
-        """The support [WU26]'s row reduction gives the window of `states` and the flow `goal` (the union
-        of each snapshot's sparsest goal-moving rows, grown by the next sparsest until the AC solve
-        reaches the goal), costed as the search costs a support; None when the goal has no area.
-        `evaluated` counts the supports solved, and `devices` is -1 when none reaches the goal."""
+        """The support the row reduction gives the window of `states` and the flow `goal`, grown until
+        the AC solve reaches the goal; None when the goal has no area. `evaluated` counts the supports
+        solved, and `devices` is -1 when none reaches the goal."""
         region = self.g.window_area(states, goal, k)
         if region is None:
             return None
@@ -86,12 +71,9 @@ class RrefSupport:
         return np.array(sorted(closed & {int(b) for b in area}), dtype=np.int64)
 
     def ladder(self, window: _Window, t: int, area: np.ndarray) -> list[np.ndarray]:
-        """Snapshot t's supports in the order the row reduction ranks them: first the buses of the
-        sparsest attack that moves each target line (the column exchanges chase, for each line, the
-        sparsest row whose state change moves its flow; restricting the chased row to the goal is ours,
-        the paper chases the sparsest row outright), then the buses of each remaining row of the last
-        reduction, sparsest first. Empty when some target line moves with no free bus (every bus that
-        could move it trusted): the snapshot then adds nothing, and the AC solve decides the window."""
+        """Snapshot t's supports, in the reduction's order: first the buses of the sparsest attack that
+        moves each target line (ours: the paper chases the sparsest row outright), then the buses of each
+        remaining row, sparsest first. Empty when no free bus moves some target line."""
         free = np.array([int(b) for b in area if int(b) not in window.pinned[t]], dtype=np.int64)
         if not len(free):
             return []
@@ -119,10 +101,10 @@ class RrefSupport:
     def area_jacobian(
         self, window: _Window, t: int, free: np.ndarray
     ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-        """(H [m, 2F], G [L, 2F], devices [m]) at snapshot t by forward differences in |V| and angle of
-        the `free` buses (columns: every free bus's |V|, then its angle): H the attackable channels each
-        over its noise, the rows no free bus moves dropped; G the apparent from-end flow (MVA) of every
-        target line; the device holding each row's channel (`channel_devices`)."""
+        """(H [m, 2F], G [L, 2F], devices [m]) at snapshot t, by forward differences over the `free` buses
+        (columns: |V| of every free bus, then every angle): H the attackable channels over their noise (rows
+        no free bus moves dropped), G the apparent from-end flow (MVA) of each target line, and the device
+        of each row's channel."""
         X = np.asarray(window.states[t], np.float64)
         F = len(free)
         batch = np.repeat(X[None], 1 + 2 * F, axis=0)
@@ -137,10 +119,9 @@ class RrefSupport:
         return H[kept], G, self.channel_devices(window)[kept]
 
     def channel_devices(self, window: _Window) -> np.ndarray:
-        """The device of every channel `_scaled_channels` lists, in its order (`tampered_devices`' ids:
-        the SCADA terminal of bus b is b, its PMU N + b): a node's |V| and angle belong to its PMU when it
-        has one, its injections and the flows metered at it to its SCADA terminal, a branch current to the
-        PMU at that end."""
+        """The device of every channel `_scaled_channels` lists, in its order (the SCADA terminal of bus b
+        is b, its PMU N + b): |V| and angle belong to the bus's PMU when it has one, injections and flows
+        to its SCADA terminal, a branch current to the PMU at that end."""
         N, pmu, ei = self.g.C, window.pmu, self.g.ei
         b, c = np.nonzero(window.node_m > 0)
         at_pmu = np.isin(c, (NodeChannel.V, NodeChannel.THETA)) & pmu[b]
@@ -194,8 +175,8 @@ def _moved_lines(G: np.ndarray, c: np.ndarray) -> set[int]:
 
 
 def _moved_buses(free: np.ndarray, c: np.ndarray) -> np.ndarray:
-    """The free buses whose |V| or angle the state change c moves (columns: |V| of every free bus, then
-    its angle)."""
+    """The free buses whose |V| or angle the state change c moves (c: |V| of every free bus, then every
+    angle)."""
     F = len(free)
     size = np.abs(c)
     moved = (size[:F] > RELATIVE_ZERO * size.max()) | (size[F:] > RELATIVE_ZERO * size.max())

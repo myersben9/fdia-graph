@@ -3,7 +3,7 @@
 NYISO's real-time dispatch constrains the flow across each interface (a set of branches between zones),
 not single lines, and NYgrid applies those limits to the signed sum of each interface's branches in its
 reduced case (`updateOpCond.m` L420-430), from NYISO's published hourly limits and flows
-(`interflowHourly_2019.csv`). Decision N48: the overload attacks target these interfaces.
+(`interflowHourly_2019.csv`). The overload attacks target these interfaces.
 """
 
 from __future__ import annotations

@@ -1,13 +1,11 @@
 """The plan stage of a timeline: where its splits are cut and where each split's episodes go.
 
 A timeline is first cut into train, val and test: three blocks in time order (`split_bounds`), or whole
-weeks drawn at random, stratified on a weight per frame (`split_weeks`). Then each split gets the whole
-number of episodes whose frames come closest to its attacked fraction, shared between the families so
-each gets about the same share of attacked frames, and placed at uniform random onsets inside the split,
-never overlapping and never cut (`place_episodes`). A family may be held to the onsets a mask allows. An
-episode whose design turns out infeasible is moved to another free onset of its split (`free_onset`).
-Nothing here touches the grid: the plan is positions and counts, the design stage decides what each
-episode attacks and the emit stage writes the frames.
+weeks drawn at random, stratified on a weight per frame (`split_weeks`). Each split then gets the whole
+number of episodes whose frames come closest to its attacked fraction, shared evenly between the
+families and placed at uniform random onsets, never overlapping and never cut (`place_episodes`). An
+episode whose design is infeasible moves to another free onset of its split (`free_onset`).
+Nothing here touches the grid: the plan is positions and counts.
 """
 
 from __future__ import annotations
@@ -26,14 +24,14 @@ from ..errors import NoRoomForEpisode
 from ..models.choices import Split, family_label
 from ..models.plan import Family, Placement, Slot, SplitSpan
 
-PLACE_TRIES = 10  # whole-split placements tried before one episode is dropped (the split-first packing rule)
+PLACE_TRIES = 10  # whole-split placements tried before one episode is dropped
 STRATUM = 20  # weeks per stratum of `split_weeks`: one 14/3/3 draw at shares of 0.7, 0.15, 0.15
-REDRAWS = 20  # onsets an episode with no feasible design is moved to before it is given up (the split-first redraw rule)
+REDRAWS = 20  # onsets an episode with no feasible design is moved to before it is given up
 
 
 def split_bounds(T: int, frac: Sequence[float]) -> list[tuple[int, int]]:
-    """The three chronological splits [a, b) of T frames, cut before anything is placed: train
-    round(frac[0] T) frames, val round(frac[1] T), test the rest."""
+    """The three chronological splits [a, b) of T frames: train round(frac[0] T) frames, val
+    round(frac[1] T), test the rest."""
     n_train = min(T, int(round(frac[0] * T)))
     n_val = min(T - n_train, int(round(frac[1] * T)))
     cuts = (0, n_train, n_train + n_val, T)
@@ -58,9 +56,9 @@ def largest_remainder(total: int, weights: Union[Sequence[Fraction], np.ndarray]
 
 
 def whole_episode_counts(lengths: Sequence[int], frac: float, n: int) -> np.ndarray:
-    """Episodes per family, of `lengths` frames each, for n frames: the number of whole episodes whose frames
-    come closest to `frac * n`, shared by largest remainder over the weights 1 / length (exact fractions, so
-    every family gets the same share of attacked frames up to one episode), never more frames than n."""
+    """Episodes per family for n frames: the whole episodes whose frames come closest to `frac * n`,
+    shared by largest remainder over the weights 1 / length, so every family gets the same share of
+    attacked frames up to one episode. Never more frames than n."""
     sizes = np.array([int(length) for length in lengths], int)
     best = np.zeros(len(sizes), int)
     if not len(sizes) or frac <= 0:
@@ -106,9 +104,8 @@ def place_once(
     allowed: Optional[Mapping[Family, np.ndarray]] = None,
 ) -> list[Slot[Family]]:
     """One placement of (length, family) episodes in a split of n frames: longest first, each at an
-    onset uniform among those where it fits without touching another (and its family's `allowed` onsets,
-    when given). NoRoomForEpisode, naming the family, when one does not fit. Returns the slots, onsets
-    within the split."""
+    onset uniform among those where it fits and its family's `allowed` mask holds. Onsets are within
+    the split. Raises NoRoomForEpisode, naming the family, when one does not fit."""
     occupied = np.zeros(n, bool)
     placed: list[Slot[Family]] = []
     for length, fid in sorted(episodes, key=lambda x: -x[0]):
@@ -152,14 +149,9 @@ def place_episodes(
     n: int,
     allowed: Optional[Mapping[Family, np.ndarray]] = None,
 ) -> tuple[list[Slot[Family]], dict[Family, int], dict[Family, int]]:
-    """The episodes of one split of n frames as slots (onsets within the split), sorted by onset,
-    with the episodes requested and dropped per family.
-
-    `lengths` gives each family's episode length and `frac` the share of the split's frames to attack;
-    `allowed` (by family, [n], optional) holds a family to the onsets it may take. The count requested is
-    `capped_counts`. A placement that jams is retried whole up to PLACE_TRIES times; past that one episode
-    of the family that did not fit is dropped and the placement starts over (bounded: at most one drop per
-    episode). The caller reports what was dropped."""
+    """The episodes of one split of n frames as slots sorted by onset (within the split), then the
+    episodes requested and dropped per family. A placement that jams is retried whole PLACE_TRIES
+    times; then one episode of the family that did not fit is dropped and the placement starts over."""
     allowed = {} if allowed is None else allowed
     requested = capped_counts(lengths, frac, n, allowed)
     dropped = dict.fromkeys(lengths, 0)
@@ -169,7 +161,7 @@ def place_episodes(
         for _ in range(PLACE_TRIES):
             try:
                 return sorted(place_once(rng, episodes, n, allowed)), requested, dropped
-            except NoRoomForEpisode as e:  # the error names the family that did not fit
+            except NoRoomForEpisode as e:
                 jammed = next((x for x in episodes if x[1] == e.family), episodes[0])
         episodes.remove(jammed)
         dropped[jammed[1]] += 1
@@ -184,13 +176,9 @@ def place_split(
     rec: Placement[Family],
     masks: Optional[Mapping[Family, np.ndarray]] = None,
 ) -> list[Slot[Family]]:
-    """The episodes of the split `span`, onsets in timeline frames, with what was requested and
-    dropped recorded in `rec` (and a warning when an episode was dropped).
-
-    `lengths` gives each family's episode length and `frac` the share of the split's frames to attack.
-    An episode starts only where its frames are consecutive on the timeline (`SplitSpan.onsets_fit`:
-    always so in a block split, inside one week block in a split of whole weeks), and, for a family
-    with a mask in `masks` ([T] over the timeline's frames), only where the mask allows."""
+    """The episodes of the split `span`, onsets in timeline frames; `rec` records what was requested
+    and dropped. An episode starts only where its frames are consecutive on the timeline
+    (`SplitSpan.onsets_fit`) and where its family's mask in `masks` ([T] bool) allows."""
     index = span.index()
     allowed = {f: span.onsets_fit(length) for f, length in lengths.items()}
     for f, mask in (masks or {}).items():
@@ -210,10 +198,9 @@ def place_split(
 
 
 def planned_until(spans: Sequence[SplitSpan], k: int) -> int:
-    """The frame the walk may run up to once the splits `spans[0..k]` have their episodes: the first
-    frame of a split still to plan, or the end of the timeline when none is left. In block splits that
-    is the end of split k; in splits of whole weeks the walk waits until the weeks before it are all
-    planned."""
+    """The frame the walk may run up to once the splits `spans[0..k]` are planned: the first frame of
+    a split still to plan, or the end of the timeline. In block splits that is the end of split k; in
+    splits of whole weeks the walk waits until every earlier week is planned."""
     later = [span.start for span in spans[k + 1 :] if span.size]
     return min(later, default=max(span.stop for span in spans))
 
@@ -260,11 +247,10 @@ def split_weeks(
     rng: np.random.Generator,
     stratum: int = STRATUM,
 ) -> np.ndarray:
-    """The split code of each frame [T] (0 train, 1 val, 2 test) by whole weeks from the first frame's
-    time (`time` [T] in seconds): the weeks ranked by their summed `weight` [T] (ties in a random order),
-    cut into strata of `stratum` consecutive ranks, and each stratum's weeks drawn at random into the
-    three splits in the shares `frac` (largest remainder), so every split gets its share of weeks and of
-    weight, and no episode crosses from one split into another."""
+    """The split code of each frame [T] (0 train, 1 val, 2 test), by whole weeks (`time` [T] in seconds).
+    Weeks are ranked by their summed `weight` [T] (ties in a random order), cut into strata of `stratum`
+    ranks, and each stratum's weeks drawn at random into the splits in the shares `frac`, so each split
+    gets its share of weight."""
     week = week_index(time)
     n = int(week.max()) + 1
     w = np.bincount(week, weights=np.asarray(weight, float), minlength=n)

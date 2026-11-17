@@ -1,5 +1,5 @@
 """The CSV tables of the inputs, read whole and closed: the NYgrid checkout's bus, unit and renewable tables and
-the bus locations. One reader, so no input file is left open (each was a ResourceWarning before)."""
+the bus locations. One reader, so no input file is left open."""
 
 from __future__ import annotations
 

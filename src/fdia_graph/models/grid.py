@@ -32,9 +32,9 @@ class Admittances(NamedTuple):
 class MeterPlan(NamedTuple):
     """The sparse metering plan, sampled once per generator: which buses carry a voltage-magnitude
     meter, which carry a PMU (|V| and angle), which carry P/Q injection meters, and which branches
-    carry a flow meter. Under the hybrid meter model a voltmeter bus reads |V| only
-    and each PMU also reads the current phasor of every in-service branch at its bus; the v0.8.3
-    model (both flags off) writes an angle at every voltmeter bus and no currents."""
+    carry a flow meter. Under the hybrid meter model a voltmeter bus reads |V| only and each PMU also
+    reads the current phasor of every in-service branch at its bus; with both flags off (a v0.8.3
+    file) every voltmeter bus has an angle and there are no currents."""
 
     vbus: set[int]
     pmu: set[int]

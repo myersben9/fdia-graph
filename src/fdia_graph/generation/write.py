@@ -1,9 +1,8 @@
 """The one writer of a timeline file, for every grid: `TimelineWriter` owns the open HDF5 file.
 
-The per-frame layers are created empty at full length when the file is opened and filled in batches
-as the walk stores its frames; after the walk come the meter masks, the small per-frame columns, the
-episode tables, the ragged magnitudes, the attributes and the temporal features. This is the only
-place a timeline file is written: a source holds a writer and calls its methods.
+The per-frame layers are created empty at full length and filled in batches as the walk stores its
+frames. After the walk come the meter masks, the per-frame columns, the episode tables, the
+attributes and the temporal features. A source holds a writer and calls its methods.
 """
 
 from __future__ import annotations
@@ -33,16 +32,10 @@ Tamper = Optional[MinimizerResult]  # what the fewest-tamper search chose for an
 class TimelineWriter:
     """One timeline file, open for the whole walk, and the frames staged for it.
 
-    The frames are stored one by one in time order (`store`). node_x / edge_x are the OBSERVED
-    measurements (attacked + noisy where attacked, else benign + noisy); benign / edge_benign the same
-    scan with the attack removed and the noise kept; edge_clean the noiseless true flows on metered
-    branches. seq_id is the episode index of an attacked frame, the tamper masks the meters the
-    attacker wrote, and the magnitude lists the designed change per attacked bus. The layers reach the
-    file in batches of _BATCH frames, so memory is bounded whatever the length.
-
-    `dims` are the file's frames, buses and branches, `clean` gives the noiseless truth of a run of
-    frames and `spec` says which layers the file carries.
-    """
+    Frames are stored in time order (`store`): node_x / edge_x are the observed scan, the benign layers
+    the same scan with the attack removed and the noise kept, the clean layers the noiseless truth.
+    The layers reach the file in batches of _BATCH frames, so memory is bounded whatever the length.
+    `dims` are the file's frames, buses and branches."""
 
     # ---- the layout this writer creates: the datasets, their shapes and their types ------------------
     CHUNK_ROWS = 128  # frames per chunk: a per-frame dataset is chunked along the frame axis
@@ -61,10 +54,9 @@ class TimelineWriter:
         schema.NODE_TAMPER: ("C", 4, np.uint8),
         schema.EDGE_TAMPER: ("E", FLOW_WIDTH, np.uint8),
     }
-    # the temporal features: filled after the walk; a `LayerSet` may leave them out
+    # filled after the walk; a `LayerSet` may leave them out
     TEMPORAL_LAYERS = (schema.TEMPORAL_DELTA, schema.SWING)
-    # the PMU branch-current layers of a hybrid-meter timeline, created only when the meter plan reads
-    # currents, so a v0.8.3-meter file has exactly its old datasets
+    # the PMU branch-current layers, created only when the meter plan reads currents (hybrid meters)
     CURRENT_LAYERS = {
         schema.PMU_I: ("E", 4, np.float32),
         schema.PMU_I_BENIGN: ("E", 4, np.float32),
@@ -127,9 +119,8 @@ class TimelineWriter:
             raise
 
     def _create_layers(self) -> None:
-        """The groups and the per-frame datasets, each with a batch of frames staged for it: the
-        v0.8.3 set (without the temporal features when the layer set leaves them out), plus the
-        current layers when the meter plan reads PMU branch currents."""
+        """Create the groups and the per-frame datasets the layer set asks for, each with a batch of
+        frames staged for it."""
         for group in (Group.DATA, Group.BENIGN, Group.CLEAN, Group.ATTACK):
             self.f.create_group(group)
         spec, rows = self.spec, {"C": self.dims[1], "E": self.dims[2]}
@@ -147,10 +138,9 @@ class TimelineWriter:
         return self.f.create_dataset(name, shape=full, dtype=dtype, chunks=chunks, compression="gzip")
 
     def header(self, base_mva: float, seed: int) -> dict[str, Union[int, float, str]]:
-        """The attributes every file carries, on any grid: its size, the feature legends and their units.
-
-        Units are ENGINEERING quantities (node_x = [V pu, P_inj MW, Q_inj MVAr, theta deg], edge flows
-        MW/MVAr, at the from end or at both ends); baseMVA lets the loader also serve a per-unit view."""
+        """The attributes every file carries: its size, the feature legends and their units. Values are
+        physical (node_x = [V pu, P_inj MW, Q_inj MVAr, theta deg], flows MW/MVAr); baseMVA lets the
+        loader also serve a per-unit view."""
         T, N, E = self.dims
         flows = schema.FLOW_NAMES[: self.spec.edge_width]
         return {
@@ -172,10 +162,10 @@ class TimelineWriter:
         values: Mapping[str, Optional[np.ndarray]],
         legend: Mapping[str, str] = schema.GRAPH_LEGEND,
     ) -> None:
-        """graph/: the static topology shared by all frames (`edges [2, E]`) with the per-unit branch
-        physics and bus shunts that reconstruct Ybus exactly (verified against makeYbus to 7e-15, 3e-14
-        and 5e-13 on IEEE 14, 118 and 300). `values` are the grid's datasets by their `Static` name
-        (a file never carries what the reader's table does not name) and `legend` the attributes."""
+        """Write graph/: the static topology (`edges [2, E]`) with the per-unit branch physics and bus
+        shunts that rebuild Ybus exactly (against makeYbus: 7e-15, 3e-14 and 5e-13 on IEEE 14, 118 and
+        300). `values` are the grid's datasets by their `Static` name; a
+        name the reader's table does not list is not written."""
         gg = self.f.create_group(Group.GRAPH)
         gg.create_dataset(schema.EDGE_INDEX.split("/")[1], data=edges)
         for name in schema.STATIC_PHYSICS:  # the reader's table, in its order; what this grid has of it
@@ -212,8 +202,8 @@ class TimelineWriter:
         self._store_attack(t, fid, frame, bnx, bex)
 
     def _store_currents(self, r: int, fid: int, frame: Frame) -> np.ndarray:
-        """Stage the PMU branch-current layers of a frame (hybrid meters) and return its attack vector
-        on them (observed minus un-attacked, zero on a benign frame)."""
+        """Stage a frame's PMU branch-current layers and return its attack vector on them (observed
+        minus un-attacked, zero on a benign frame)."""
         assert frame.i_x is not None, "a hybrid-meter generator emits the currents on every frame"
         bix = frame.i_x if frame.benign_i_x is None else frame.benign_i_x
         L = self._layers
@@ -225,8 +215,8 @@ class TimelineWriter:
         return np.asarray(frame.i_x, np.float64) - np.asarray(bix, np.float64)
 
     def _store_attack(self, t: int, fid: int, frame: Frame, bnx: np.ndarray, bex: np.ndarray) -> None:
-        """The attacker's footprint on this frame: the designed magnitudes and the tamper masks
-        (zeroed on a benign frame: the staged batch rows are reused between flushes)."""
+        """Stage the designed magnitudes and the tamper masks of a frame. A benign frame zeroes its
+        masks, because the staged batch rows are reused between flushes."""
         r = t - self._base
         if fid == BENIGN_CODE:
             self._layers[schema.NODE_TAMPER][r] = 0
@@ -251,9 +241,8 @@ class TimelineWriter:
             self._clean_batch = self._clean(self._base, self._base + self._n)
 
     def add_episode(self, episode: Episode, tamper: Tamper = None, lines: AmRows = ()) -> None:
-        """Add the next row of episodes/ (its index is the `sid` its frames were stored under), with
-        what the fewest-tamper search chose for it (`tamper`) and, for an overload Am, one row per
-        target line (`lines`)."""
+        """Add the next row of episodes/; its index is the `sid` its frames were stored under. `tamper`
+        is what the fewest-tamper search chose, `lines` one row per target line of an overload Am."""
         sid = len(self.episodes)
         self.episodes.append(episode)
         if tamper is not None:
@@ -272,10 +261,8 @@ class TimelineWriter:
         frac: Sequence[float],
         tamper_rule: str = schema.IEEE_TAMPER_RULE,
     ) -> None:
-        """After the walk: the last batch, the meter masks, the per-frame columns (the grid's own
-        `columns` among them, by dataset path), the episodes (the `tamper` attribute of attack/ is
-        `tamper_rule`), the attributes (`_write_attrs`) and, when the file carries them, the temporal
-        features."""
+        """After the walk, write the last batch, the meter masks, the per-frame columns (the grid's own
+        `columns` by dataset path), the episodes, the attributes and the temporal features."""
         self.flush()
         self._write_masks()
         self._write_columns(columns)
@@ -285,12 +272,12 @@ class TimelineWriter:
             self.write_temporal_layers(self.f)
 
     def _write_masks(self) -> None:
-        """data/node_m and data/edge_m per frame (the static plan repeated, written in bounded slabs
-        so a future N-1 series can switch topology mid-file without a layout change)."""
+        """Write data/node_m and data/edge_m per frame: the static plan repeated, in bounded slabs. Per
+        frame, so a later series can change topology mid-file without a layout change."""
         assert self.node_m is not None and self.edge_m is not None
         T = self.dims[0]
         masks = [(schema.NODE_M, self.node_m), (schema.EDGE_M, self.edge_m)]
-        if self.i_m is not None:  # hybrid meters: the PMU current channels read at each branch end
+        if self.i_m is not None:  # hybrid meters
             masks.append((schema.PMU_I_M, self.i_m))
         for name, m in masks:
             ds = self._create(name, m.shape, np.uint8)
@@ -299,8 +286,8 @@ class TimelineWriter:
                 ds[a:b] = np.broadcast_to(m, (b - a, *m.shape))
 
     def _write_columns(self, columns: Mapping[str, np.ndarray]) -> None:
-        """The small per-frame columns: family, stealthy, seq_id, timestep, and the grid's own `columns`
-        by dataset path (the split, and on New York the time and each episode's target branch)."""
+        """Write the per-frame columns: family, stealthy, seq_id, timestep, and the grid's own `columns`
+        by dataset path (the split; on New York also the time and each episode's target branch)."""
         own = {
             schema.FAMILY: self.family.astype(np.int8),
             schema.STEALTHY: np.isin(self.family, sorted(STEALTHY_FAMILIES)).astype(np.uint8),
@@ -311,34 +298,33 @@ class TimelineWriter:
             self.f.create_dataset(name, data=arr)
 
     def _write_episodes(self, tamper_rule: str) -> None:
-        """episodes/ (one row per episode, buses ragged), the ragged magnitudes of attack/, then, with
-        the fewest-tamper knob, what the search chose per episode, and per target line of an overload
-        Am its rating, goal and the flow reached."""
+        """Write episodes/ (one row per episode, buses ragged), the ragged magnitudes of attack/, what
+        the fewest-tamper search chose per episode, and one row per target line of an overload Am."""
         eg = self.f.require_group(Group.EPISODES)  # a grid's own column may have made it
         ep, found = self.episodes, self.min_rows
         self._write_table(self.EPISODE_COLUMNS, [(e.onset, e.length, FAMILY_CODE[e.family]) for e in ep])
         self._write_ragged(eg, (schema.EPISODE_BUS_PTR, schema.EPISODE_BUS_IDX), [e.buses for e in ep])
         self._write_ragged(self.f, (schema.MAG_PTR, schema.MAG_BUS), self.mag_bus)
         self.f.create_dataset(schema.MAG, data=np.concatenate(self.mag))  # float32, one list per frame
-        if found:  # the fewest-tamper knob: what the search chose per episode
+        if found:  # the fewest-tamper knob is on
             self._write_table(self.MIN_COLUMNS, [(s, r.devices, r.channels, r.evaluated) for s, r in found])
             names = (schema.EPISODE_MIN_SUPPORT_PTR, schema.EPISODE_MIN_SUPPORT_IDX)
             self._write_ragged(eg, names, [r.support for _, r in found])
-        if self.am_rows:  # the overload attack: one row per target line of each Am episode
+        if self.am_rows:  # the overload attack
             self._write_table(self.AM_COLUMNS, self.am_rows)
         self.f[Group.ATTACK].attrs[Attr.TAMPER] = tamper_rule
 
     def _write_table(self, columns: Sequence[tuple[str, type]], rows: Sequence[Iterable[float]]) -> None:
-        """One dataset of episodes/ per column of `columns` (name, dtype) from `rows`, each a row's
-        values in the columns' order (a table with no row has empty columns)."""
+        """Write one dataset of episodes/ per column of `columns` (name, dtype) from `rows`, each in
+        the columns' order. A table with no row has empty columns."""
         values = list(zip(*rows)) or [()] * len(columns)
         for (name, dtype), column in zip(columns, values):
             self.f[Group.EPISODES].create_dataset(name, data=np.array(column, dtype))
 
     @staticmethod
     def _write_ragged(group: h5py.Group, names: tuple[str, str], rows: Sequence[np.ndarray]) -> None:
-        """Variable-length int rows as two datasets of `group`: the pointers [n + 1] into the flat
-        values, and the flat values."""
+        """Write variable-length int rows as two datasets of `group`: the pointers [n + 1] into the
+        flat values, and the flat values."""
         ptr = np.zeros(len(rows) + 1, np.int64)
         ptr[1:] = np.cumsum([len(r) for r in rows])
         flat = [np.asarray(r, np.int32) for r in rows]
@@ -354,12 +340,9 @@ class TimelineWriter:
         split: np.ndarray,
         frac: Sequence[float],
     ) -> None:
-        """The file's attributes, in this order: the grid's `header`, what makes the file a timeline,
-        the grid's recorded `knobs` (None written as -1), `record` (what identifies the file) as JSON
-        with its hash, and what the split-first placement `rec` asked for and got. `split` is the
-        split code of every frame and `frac` the fractions asked for; the counts are per split (rows)
-        and family (columns, `placed_families`): requested, built, moved for want of a feasible
-        design, dropped because they did not fit, and short of the request."""
+        """Write the attributes in this order: the grid's `header`, the timeline's own, the `knobs`
+        (None as -1), `record` as JSON with its hash, and what the placement `rec` asked for and got.
+        The placement counts are per split (rows) and family (columns, `placed_families`)."""
         T = self.dims[0]
         sizes = np.bincount(split, minlength=len(Split)).astype(int)
         attacked = np.bincount(split[self.seq_id >= 0], minlength=len(Split)).astype(float)
@@ -396,14 +379,9 @@ class TimelineWriter:
 
     @staticmethod
     def write_temporal_layers(f: h5py.File, block: int = 2000) -> None:
-        """`temporal_delta` and `swing` of every frame, from the observed injections alone: each frame
-        against the previous emitted frame, the swing scale from the observed changes of the frames
-        before it (formulas.temporal.recent_change_scale over `schema.SWING_WINDOW_SCANS` frames). Nothing but the
-        measurements enters, so a detector reading these features at test time sees only what an
-        operator sees. Called by `finish` and by trust.secured_copy after it pins meters (on its own
-        file). Runs in blocks of frames with bounded memory: each block's scale comes from the kernel
-        over the block and the window + 1 frames before it, which covers every window the
-        block's frames use."""
+        """Write `temporal_delta` and `swing` of every frame from the observed injections alone: each
+        frame against the previous emitted frame, scaled by `formulas.temporal.recent_change_scale`
+        over `schema.SWING_WINDOW_SCANS` frames. Runs in blocks of frames, so memory is bounded."""
         nx = f[schema.NODE_X]
         T = nx.shape[0]
         delta, swing = f[schema.TEMPORAL_DELTA], f[schema.SWING]
@@ -413,8 +391,7 @@ class TimelineWriter:
             scale = TimelineWriter._block_scale(nx, a, b)
             rows = np.asarray(nx[a:b], np.float32)
             # each frame's previous scan: the one before it in the block, the first frame's from the
-            # last block (the very first frame is its own previous, so its change is zero); every bus,
-            # the same element-wise arithmetic as temporal_delta and swing_zscore
+            # last block (the very first frame is its own previous, so its change is zero)
             before = np.concatenate([rows[:1] if prev is None else prev[None], rows[:-1]])
             change = rows[:, :, 1:3] - before[:, :, 1:3]
             delta[a:b] = change.astype(np.float32)
@@ -423,8 +400,8 @@ class TimelineWriter:
 
     @staticmethod
     def _block_scale(nx: h5py.Dataset, a: int, b: int) -> np.ndarray:
-        """The swing scale of frames a..b-1 [b - a, N, 2]: the kernel run over the frames from
-        window + 1 before a to b-1, so every frame's window lies inside the slice."""
+        """The swing scale of frames a..b-1 [b - a, N, 2]. The kernel runs from window + 1 frames
+        before a, so every frame's window lies inside the slice."""
         window = schema.SWING_WINDOW_SCANS
         g0 = max(0, a - window - 1)
         pq = np.zeros((b - g0, nx.shape[1], 4), np.float64)  # the kernel reads columns 1:3

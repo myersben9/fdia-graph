@@ -25,7 +25,7 @@ from .base import DatasetBase, _torch
 
 class ExportMixin(DatasetBase):
     def summary(self) -> Summary:
-        # Cheap overview: read only the family column for this view's rows, tally per family.
+        # Cheap overview: only the family column is read.
         with h5py.File(self.path, "r") as f:
             fam = f[schema.FAMILY][:][self.idx]  # family codes for just the kept rows
         return Summary(
@@ -36,10 +36,8 @@ class ExportMixin(DatasetBase):
             families={FAMILIES[k]: int((fam == k).sum()) for k in FAMILIES if (fam == k).any()},
         )
 
-    # ------------------------------------------------------------------ #
-    #  The whole-split export: unlike __getitem__/.loader() (stream one record), it pulls the ENTIRE
-    #  filtered split into memory. Every format shares `_arrays` as the single HDF5 read.
-    # ------------------------------------------------------------------ #
+    # The whole-split export pulls the entire filtered split into memory (`__getitem__` and `loader`
+    # stream one record). Every format shares `_arrays` as the single HDF5 read.
     def _checked_fields(self, fields: Optional[Sequence[str]]) -> list[str]:
         """The requested fields, or every field the file carries; an unknown name is an error."""
         known = self._default_fields()
@@ -86,21 +84,9 @@ class ExportMixin(DatasetBase):
         device: Optional[Union[str, torch.device]] = None,
         flatten_features: bool = True,
     ) -> Union[ArraysBundle, pd.DataFrame]:
-        """The whole selected split in one HDF5 read, as `format` asks: "numpy" (the default) and
-        "torch" return an `ArraysBundle` of arrays or tensors (floats float32, ids int64, tensors on
-        `device` when given), "tf" the same as TensorFlow tensors, "pandas" one row per record
-        (`flatten_features` spreads the per-bus and per-branch readings into columns).
-
-        Keys: node_x [n,N,4], node_m, edge_x [n,E,2], edge_m, y [n,N], family/stealthy/seq_id/
-        timestep [n], plus the static graph edge_index [2,E], always included.
-        On a timeline, `fields` may also ask for prev_node_x [n,N,4], prev_edge_x [n,E,2],
-        prev_timestep [n], prev_swing [n,N,2] (when the file carries swing) and prev_pmu_i [n,E,4]
-        (when it carries the PMU currents, a hybrid-meter file): the readings of the
-        frame emitted just before each record (file row - 1, whatever split or family it belongs to);
-        they are never part of the default set.
-        `fields` limits the per-record arrays read; a pandas frame carries every field and refuses
-        `fields`, so a typo cannot pass unnoticed.
-        """
+        """The whole selected split in one HDF5 read: an `ArraysBundle` of numpy arrays, torch or
+        TensorFlow tensors, or a pandas frame (which refuses `fields`). edge_index [2,E] is always
+        included. The prev_* fields come on request only: the readings at file row - 1, whatever its split."""
         req = ExportRequest(format, fields)
         format = req.format
         if format == "pandas":
@@ -180,10 +166,9 @@ class ExportMixin(DatasetBase):
         return ArraysBundle.ordered({k: tf.convert_to_tensor(v) for k, v in arrays.items()})
 
     def _as_pandas(self, a: ArraysBundle, flatten_features: bool) -> pd.DataFrame:
-        """One row per record: the metadata columns (family name, stealthy flag, seq_id, timestep,
-        n_attacked_buses) and, with `flatten_features`, the per-bus and per-branch readings as
-        columns (V_b{n}, Pinj_b{n}, Pflow_e{n}, ...; on a file that meters both branch ends also
-        P_to_e{n}, Q_to_e{n}) and the per-bus labels attacked_b{n}."""
+        """One row per record: the metadata columns and, with `flatten_features`, the per-bus and
+        per-branch readings as columns (V_b{n}, Pinj_b{n}, Pflow_e{n}, ...; also P_to_e{n}, Q_to_e{n}
+        on a file that meters both branch ends) and the per-bus labels attacked_b{n}."""
         try:
             import pandas as pd
         except ImportError as e:

@@ -1,15 +1,11 @@
-"""fdia-graph — load & generate ML-only dangerous FDIA localization datasets (realistic measurement graphs).
+"""fdia-graph: load and generate datasets for locating false data injection attacks on a power grid.
 
-Quickstart
-----------
+Quickstart:
     import fdia_graph as fg
-    ds = fg.load("ieee118", split="train")          # auto-downloads + caches the pinned timeline
-    loader = ds.loader(batch_size=64)               # ready-to-train PyTorch DataLoader
-    for batch in loader:
+    ds = fg.load("ieee118", split="train")          # downloads and caches the pinned timeline
+    for batch in ds.loader(batch_size=64):          # a PyTorch DataLoader
         batch["node_x"], batch["edge_x"], batch["y"], batch["family"], ...
-
-    # custom dataset with research knobs, then load it by name:
-    fg.generate("ieee118", name="my_run", attacked_frac=0.5, ramp_rate=0.003)
+    fg.generate("ieee118", name="my_run", attacked_frac=0.5, ramp_rate=0.003)   # your own dataset
     ds = fg.load("my_run", split="train")
 """
 
@@ -22,23 +18,20 @@ if TYPE_CHECKING:  # the lazy names below, with their real signatures for type c
     from .generation import generate
     from .profiles import fetch_profile, generate_states, load_profile
 
-# Re-exports so users write `fg.FdiaGraph` / `fg.load(...)` instead of reaching into submodules.
-# FdiaGraph: torch Dataset over one timeline file; FAMILIES: attack-family names/ids; STEALTHY_FAMILIES: the
-# BDD-evading subset (hard cases, e.g. Aq).
+# Re-exports, so users write `fg.FdiaGraph` and `fg.load(...)` instead of reaching into submodules.
 from .constants.families import FAMILIES, STEALTHY_FAMILIES
 from .dataset import FdiaGraph
 from .dataset.base import family_ids
 
-# download: ensure_local (resolved spec -> local .h5 path, fetching+caching if absent).
+# ensure_local: a resolved spec -> the local .h5 path, downloaded and cached if absent
 from .download import ensure_local
 
-# registry = dataset "version control": list_datasets (known built-in + local), register_local (name a local
-# dataset), resolve ((name, release) -> download spec).
+# the registry of built-in and local datasets; resolve: (name, release) -> a download spec
 from .registry import list_datasets, resolve
 from .registry import register_local as register_local  # re-exported for `fg.register_local`
 
 __version__ = "0.21.0"
-# Public API for `from fdia_graph import *`; register_local/resolve/ensure_local stay out (internal plumbing).
+# the public API of `from fdia_graph import *`; register_local, resolve and ensure_local stay out
 __all__ = [
     "load",
     "generate",
@@ -64,34 +57,24 @@ def load(
     order: str = "time",
     seed: int = 0,
 ) -> FdiaGraph:
-    """Load a dataset by name (built-in files auto-download; locally generated ones load from disk).
+    """Load a dataset by name: "ieee14" to "ieee300" (downloaded and cached), or a name you generated.
 
-    name        : "ieee14/30/57/89/118/145/200/300" (transmission ladder), or a locally-generated name.
-    split       : None (all) | "train" | "val" | "test"  (chronological 60/20/20).
-    families    : optional subset, e.g. ["At","Am"] or [5,7] (an old release also carries Aq, Ad, As, Ar, Al).
-    heldout     : unseen-attack protocol — exclude As/Ar from train/val (Boyaci et al. 2022).
-    format      : "torch" (dict batches) | "pyg" (torch_geometric Data).
-    release     : dataset VERSION. None -> the pinned release; an explicit tag e.g. "v0.8.1" -> that exact
-                  version, for reproducible experiments.
-    units       : "physical" -> [V p.u., P_inj MW, Q_inj MVAr, theta deg] (as stored; human-readable for plots);
-                  "pu" -> everything per-unit on baseMVA with theta in radians (ML/physics). Same file either way.
-    preload     : read the whole selected split into RAM once (~350MB for an ieee118 split) so .loader()
-                  epochs skip per-record HDF5 overhead — much faster training loops.
-    order       : "time" (default) keeps the file order, chronological on a timeline, so `ds.windows(W)` and
-                  `ds.episodes` work; "random" is the same records in a permutation fixed by `seed`, the
-                  record table two people get identically for the same seed (`.loader(shuffle=True)`
-                  still reshuffles per epoch).
-    seed        : the permutation seed for order="random".
+    split     None (all), "train", "val" or "test" (chronological 60/20/20)
+    families  a subset, e.g. ["At", "Am"] or [5, 7] (old releases also carry Aq, Ad, As, Ar, Al)
+    heldout   the unseen-attack protocol: As and Ar are kept out of train and val [BOY22]
+    format    "torch" (dict batches) or "pyg" (torch_geometric Data)
+    release   None: the pinned data release; a tag such as "v0.8.1": that exact release
+    units     "physical": [V pu, P_inj MW, Q_inj MVAr, theta deg], as stored; "pu": per unit, theta in rad
+    preload   read the whole split into RAM once (~350 MB for an ieee118 split), so epochs run faster
+    order     "time": the file order, which `ds.windows(W)` and `ds.episodes` need; "random": the same
+              records in a permutation fixed by `seed`
     """
-    # resolve() -> download spec, ensure_local() -> on-disk .h5 path (fetching if needed; local datasets
-    # short-circuit to their file).
     from .models.config import LoadOptions
 
     options = LoadOptions(split, units, order, format)  # checked before any download
     if families is not None:
         family_ids(families)
     path = ensure_local(resolve(name, release=release))
-    # Thin factory: the Dataset applies split/families/heldout and the export format lazily.
     return FdiaGraph(
         path,
         split=options.split,
@@ -106,10 +89,9 @@ def load(
 
 
 # The generator and the profile helpers pull in pandapower, torch or torch_geometric, so they are
-# imported on first use rather than at `import fdia_graph`. Each name is the real function (its own
-# docstring and signature), not a wrapper that could drift from it. `from fdia_graph import *` resolves
-# all of them, which loads their modules but still no optional dependency: each imports pandapower,
-# torch or torch_geometric inside the functions that need them (tests/test_namespace.py checks this).
+# imported on first use, not at `import fdia_graph`. Each name is the real function, not a wrapper.
+# `from fdia_graph import *` loads their modules but no optional dependency: each imports its
+# optional packages inside the functions that need them (tests/test_namespace.py checks this).
 def __getattr__(name: str) -> object:
     if name == "generate":
         from .generation import generate

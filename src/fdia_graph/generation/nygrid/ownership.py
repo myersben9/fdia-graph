@@ -47,13 +47,10 @@ def _distance(lon: float, lat: float, rings: list[np.ndarray]) -> float:
 
 
 def assign_clients(case: Case, territories: dict, locations: str | Path) -> Ownership:
-    """Own each NY bus by the utility territory (NYS DPS, data.ny.gov awza-4vgu) that contains its
-    substation. NPCC bus coordinates are jittered, so the substation location comes from `locations`
-    (`data/territories/ny_bus_locations.csv`): a row with `lat`, `lon` is placed in the territories,
-    a row without them names its `utility` directly (chosen by NYISO zone, see its `note`).
-    Municipal systems are not clients, so a bus inside one goes to the utility territory that also
-    covers the point, or the nearest one. Every utility is its own client, however few buses it
-    has. External buses stay -1."""
+    """Each NY bus goes to the utility territory (NYS DPS, data.ny.gov awza-4vgu) that holds its substation,
+    or the nearest one; external buses stay -1. A row of `locations` gives `lat`, `lon` (NPCC's own
+    coordinates are jittered) or names its `utility` directly. Municipal systems are not clients; every
+    utility is its own client, however few buses it has."""
     utils = [f for f in territories["features"] if f["properties"]["comp_short"] != "Municipal"]
     names = sorted({f["properties"]["comp_short"] for f in utils})
     rings = {

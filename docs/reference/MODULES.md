@@ -27,7 +27,7 @@ What every folder of the repository holds, then what every Python file does, in 
 
 | file | what it does |
 |---|---|
-| `fdia_graph` | fdia-graph — load & generate ML-only dangerous FDIA localization datasets (realistic measurement graphs). |
+| `fdia_graph` | fdia-graph: load and generate datasets for locating false data injection attacks on a power grid. |
 | `constants` | The toolkit's constants, one module per subject: facts only, each with its unit and its source. |
 | `constants.channels` | The column of each quantity on the last axis of a measurement array: `node_x[..., NodeChannel.P_INJ]`. |
 | `constants.families` | The attack families: the code a file's `data/family` column carries for each, and the named subsets. |
@@ -48,7 +48,7 @@ What every folder of the repository holds, then what every Python file does, in 
 | `dataset.physics` | The admittance matrices built from the static graph, and the clean power flow on every branch derived from the clean state through them. |
 | `dataset.records` | One record at a time: unit conversion, `__getitem__` in dict/PyG form, `collate`, and a ready DataLoader. |
 | `dataset.sequence` | The timeline as sequences: sliding windows over a time-ordered view, and the episode table. |
-| `download` | Fetch built-in shards from the GitHub Release and cache them under ~/.cache/fdia_graph. |
+| `download` | Fetch the built-in datasets from the GitHub Release and cache them under ~/.cache/fdia_graph. |
 | `engine` | The generation engine — the math/physics/theory half of the SDK, behind fg.generate(). |
 | `engine.attacks` | Every attack the generator builds, behind one mixin: `AttackMixin`, mixed into FdiaGenerator. |
 | `engine.attacks.area` | The attacker's area: the subnetwork a stealthy attack re-solves, and the boundary it holds true. |
@@ -56,15 +56,15 @@ What every folder of the repository holds, then what every Python file does, in 
 | `engine.attacks.episodes` | What one episode attacks: its design, drawn at onset (`EpisodeDesignMixin`). |
 | `engine.attacks.false_state` | The local false state of a stealthy attack: the attacker's area re-solved under false loads with the boundary held true, checked against the operating limits, and the attack vector it writes. |
 | `engine.attacks.family` | The interface the attack families share: a design is one `Episode` (`models.plan`) or a miss. |
-| `engine.attacks.interface` | Am, the overload attack on a NYISO interface (N48, N49, ours): over a window of scans the reported flow across an interface rises to its limit, each scan the reading of one AC false state from `OpfFdia`'s local OPF under every one of its bounds, so the operator's residual test stays quiet. |
+| `engine.attacks.interface` | Am, the overload attack on a NYISO interface (ours): over a window of scans the reported flow across an interface rises to its limit, each scan the reading of one AC false state from `OpfFdia`'s local OPF. |
 | `engine.attacks.minimize` | The cheapest support of an attack window [WU26 eq. 12]. |
-| `engine.attacks.opf` | The attacker's false states from a local AC optimal power flow (N35): the support search and the per-scan OPF every OPF attack shares. `OpfFdia` is their base class; a subclass adds the goal and `design` (`interface.InterfaceFdia`, the one the release builds). |
-| `engine.attacks.overload` | `Am`, the multi-snapshot overload attack of [WU26]: the reported flows of its target branches (two by default, as the paper's case studies overload two lines at once, or one; `OverloadSettings.n_lines`) driven to their ratings over the window, with the fewest devices tampered. |
+| `engine.attacks.opf` | The attacker's false states from a local AC optimal power flow: the support search and the per-scan OPF every OPF attack shares. `OpfFdia` is the base class; a subclass adds the goal and `design` (`interface.InterfaceFdia`, the one the release builds). |
+| `engine.attacks.overload` | `Am`, the multi-snapshot overload attack of [WU26]: the reported flows of its target branches (one or two, `OverloadSettings.n_lines`) driven to their ratings S_max (`use_line_ratings`) over the window, with the fewest devices tampered. |
 | `engine.attacks.ramp` | At, the slow ramp: a false load that rises a little each frame, every step below the natural five-minute load swing, so no single snapshot looks anomalous while the total drifts the state away. |
-| `engine.attacks.rref` | [WU26]'s own construction of the attack's support: row reduction of the transposed attack-area Jacobian with column exchanges. |
+| `engine.attacks.rref` | [WU26]'s construction of the attack's support: row reduction of the transposed area Jacobian. |
 | `engine.attacks.stealthy` | The stealthy ramp At: one scan at a time, a local false state added to the true scan. |
 | `engine.base` | The state FdiaGenerator's mixins share: attribute annotations only. |
-| `engine.core` | Dataset generation engine (attack simulation + realistic measurement emission). |
+| `engine.core` | The dataset generation engine: attack simulation and realistic meter readings on an IEEE case. |
 | `engine.measurement` | Measurement emission: turn a grid state into meter readings (the measurement function h(x)). |
 | `engine.pandapower_types` | The pandapower objects the engine reads, as types. |
 | `engine.physics` | A scan's load and generation, read from its stored state. |
@@ -97,29 +97,29 @@ What every folder of the repository holds, then what every Python file does, in 
 | `generation.nygrid.loads` | Per-bus load profiles by the bottom-up method of [LI21], scaled to the real zone load. |
 | `generation.nygrid.network` | Admittances of a Case, built once, and the AC quantities they give for any state, from the SDK's network formulas (`formulas.network`). |
 | `generation.nygrid.ownership` | Federated clients: each NY bus belongs to the electric utility whose service territory holds it. |
-| `generation.nygrid.pool` | The pool: one AC operating state per 5-minute frame, from a ramp-constrained real-time dispatch (N32). |
+| `generation.nygrid.pool` | The pool: one AC operating state per 5-minute frame, from a ramp-constrained real-time dispatch. |
 | `generation.nygrid.solver` | AC solutions of a Case: the hourly projection (an AC-OPF in Pyomo, solved by Ipopt) and the power flows between hours (pandapower). |
 | `generation.nygrid.source` | The New York grid as the source of a timeline: the year of pool states and its steps of the one path. |
-| `generation.nygrid.tables` | The CSV tables of the inputs, read whole and closed: the NYgrid checkout's bus, unit and renewable tables and the bus locations. One reader, so no input file is left open (each was a ResourceWarning before). |
+| `generation.nygrid.tables` | The CSV tables of the inputs, read whole and closed: the NYgrid checkout's bus, unit and renewable tables and the bus locations. One reader, so no input file is left open. |
 | `generation.plan` | The plan stage of a timeline: where its splits are cut and where each split's episodes go. |
 | `generation.source` | The system a timeline is generated on, and the one path that generates it. |
 | `generation.write` | The one writer of a timeline file, for every grid: `TimelineWriter` owns the open HDF5 file. |
 | `models` | Every data model of the generation toolkit, one module per subject; import a model from its module. |
-| `models.assets` | How files are found: where a dataset comes from, where its bytes are fetched from, and one line of the N-1 candidate list. |
-| `models.base` | Bundle: a typed record that still IS the dict it used to be. |
+| `models.assets` | How files are found: where a dataset comes from and where its bytes are fetched from. |
+| `models.base` | Bundle: a typed record that is also a dict. |
 | `models.choices` | Every argument that takes one value from a fixed set, in one place. |
 | `models.config` | The settings every consumer accepts, one model each, checked when built (`models.validation`). |
-| `models.data` | What a user gets back: one record, a batch, a whole split, a summary, the episode table, and the per-record truth an estimator is scored against. Each is a Bundle, so it is still the dict it always was. |
+| `models.data` | What a user gets back: one record, a batch, a whole split, a summary and the episode table. Each is a Bundle, so it is also a dict. |
 | `models.fields` | The fields the record bundles share, each one's meaning written once. |
 | `models.frames` | What the generator passes around per scan: a measurement scan, the emitted frame with its labels, the run's attack knobs, the design of an At ramp and of an Am overload episode, and what the fewest-tamper search returns. |
 | `models.grid` | The static description of a system: the per-branch pi model and the admittance matrices built from it, which meters exist, the constant meter bias, and the N-1 contingency a generator was built with. Nothing here changes from one scan to the next. |
 | `models.inputs` | What the formulas and the parsers accept, one model each, checked when built (`models.validation`). |
 | `models.plan` | The records of a timeline's plan and design stages: a placed episode (`Slot`), a split and its frames (`SplitSpan`), a placed episode on its way through the design stage (`Planned`), the attack as it is written (`Episode`), what is placed (`Schedule`) and what the placement asked for and got (`Placement`), and what a design worker rebuilds its generator from (`GeneratorSpec`). |
 | `models.validation` | The one place inputs are checked (CONTRIBUTING.md, "an input is checked in one place"). |
-| `profiles` | Load-profile ingestion + operating-state generation — the FRONT of the pipeline. |
+| `profiles` | Load profiles and operating states: the front of the pipeline. |
 | `ratings` | Branch thermal ratings for the overload attack of [WU26] (eqs. 24-25), stored with the package. |
-| `registry` | Dataset registry: built-in (downloadable) datasets + locally generated ones. |
-| `schema` | The file protocol: every group, dataset and attribute name an fdia-graph HDF5 file carries, defined once. The writer (`timeline`, `generation`), the readers (`dataset`) and the tools agree through these names and nowhere else; `tools/readability.py` refuses a path-shaped literal ("data/...", "graph/...") in any other module. Field names (`node_x`, `clean`, ...) are the public vocabulary of a record and stay as words in the code; `FIELD_PATH` maps them here. |
+| `registry` | The dataset registry: the built-in (downloadable) datasets and the locally generated ones. |
+| `schema` | The file protocol: every group, dataset and attribute name an fdia-graph HDF5 file carries, defined once. The writer (`generation`) and the readers (`dataset`) agree through these names; `tools/readability.py` refuses a path-shaped literal ("data/...", "graph/...") in any other module. Field names (`node_x`, `clean`, ...) stay as words in the code; `FIELD_PATH` maps them to paths. |
 | `timeline` | One continuous attacked timeline per system, written as one HDF5 file. |
 
 ## The analysis toolkit, `fdia_analysis`

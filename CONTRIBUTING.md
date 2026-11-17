@@ -65,6 +65,12 @@ checks a docs change locally.
 | a constant has one home | a value nothing in a run changes (a physical or regulatory fact, a column position, a code, a pinned input, a fitted number) is defined once in the generation toolkit's `constants/` package, with its unit and source, or in `schema.py` when it is part of the file protocol; a value a user tunes is a field of a settings model in `models/config.py`; a module-level UPPER_CASE name anywhere else in `fdia_graph` is listed in `EXEMPT` in `tools/layout.py` with its reason, and `fdia_analysis` may add none to the ones `EXEMPT_ANALYSIS` lists | `python tools/layout.py --check` |
 | speed is tracked | per-record timings against the last row from this machine, 3x tolerance | `python tools/bench.py --check` before a release, `python tools/bench.py` after |
 
+Docstrings are short, and say what the signature does not:
+
+- a module docstring is at most about 10 lines: what the module is for and where it fits, no history;
+- a class docstring is at most about 6 lines: what the class represents;
+- a function or method docstring is 1 to 3 lines (a few more when an equation or an argument table needs them): what it returns or does, the units, the equation with its source key, and the one thing a caller would not guess.
+
 ## The pull request
 
 ![the pull request flow: branch, the pre-review gate and the checklist review, create as a draft, one review by review agents and one round of fixes, the pre-review again, mark ready and post the summary, merge on green CI and the owner's approval](docs/figures/diagrams/contributing_pr_flow.png)

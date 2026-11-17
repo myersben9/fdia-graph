@@ -1,22 +1,12 @@
 """Every attack the generator builds, behind one mixin: `AttackMixin`, mixed into FdiaGenerator.
 
-A reader looking for how an attack is made starts here:
-
-    area.py            where a stealthy attack acts: the interior it moves, the boundary it holds true
-    false_state.py     the local false state of a design, its operating limits, the attack vector
-                       a = h(x_false) - h(x_true) and the meters it moves
-    stealthy.py        the frames of the ramp At, and the halving of a step that does not solve
-    minimize.py        the fewest-tamper support of an attack window [WU26 eq. 12], behind `min_tamper`:
-                       the candidate search, or the row reduction when the settings ask for it
-    rref.py            [WU26]'s row reduction as the choice of a support (`RrefSupport`)
-    overload.py        Am as the overload attack of [WU26]: the line ratings, the eligible target
-                       branches, the flow goal each snapshot must reach and its frames
-    episodes.py        what an episode attacks: its design (`ramp_design` for At,
-                       `am_overload_design` for Am)
-
-`attack_frame` is the one entry for an attacked At scan (an Am frame comes from `overload_step`);
-the timeline decides when and where an episode runs (timeline.py) and `engine.records` emits a
-benign scan.
+area.py         where a stealthy attack acts: the interior it moves, the boundary it holds true
+false_state.py  the local false state, its operating limits, the attack vector a = h(x_false) - h(x_true)
+stealthy.py     the frames of the ramp At
+minimize.py     the fewest-tamper support of an attack window [WU26 eq. 12], behind `min_tamper`
+rref.py         [WU26]'s row reduction as the choice of a support
+overload.py     Am, the overload attack of [WU26]: ratings, target branches, flow goal, frames
+episodes.py     what an episode attacks: `ramp_design` for At, `am_overload_design` for Am
 """
 
 from __future__ import annotations

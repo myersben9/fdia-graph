@@ -45,7 +45,7 @@ class Scan(NamedTuple):
     edge_x: np.ndarray  # [E, 2] P_from, Q_from
     edge_m: np.ndarray  # [E, 2] meter mask
     # the PMU branch-current phasors [E, 4] (`CurrentChannel` columns, per unit) and their mask; None when the
-    # meter plan has no currents (the v0.8.3 meter model)
+    # meter plan has no currents
     i_x: Optional[np.ndarray] = None
     i_m: Optional[np.ndarray] = None
 
@@ -127,7 +127,7 @@ class FrameKnobs(NamedTuple):
     stealth_scale: float = 1.0
     # the overload attack's load-plausibility cap tau: None leaves the load changes unbounded
     load_cap: Optional[float] = None
-    n_lines: int = 1  # the lines an overload episode drives at once (D17; new generation: 2)
+    n_lines: int = 1  # the lines an overload episode drives at once (a generated timeline: 2)
     # the overload attack's support method (`OverloadSettings.support_method`): "search" or "rref"
     support_method: str = "search"
     # what the search minimizes first (`CostUnit`): the tampered devices, or the tampered measurements
@@ -151,8 +151,7 @@ class AttackVector(NamedTuple):
 class LoadGoal(NamedTuple):
     """What a load-changing attack must realize at each snapshot of its window: the attack design of
     each snapshot (the loads it moves and their multipliers). The goal of At; the fewest-tamper
-    search holds one support for all of them. The Am overload goal of [WU26 eqs. 24-25], a target
-    line's reported flow reaching its rating, is its own goal type."""
+    search holds one support for all of them. Am's goal is `FlowGoal`."""
 
     designs: tuple[AttackDesign, ...]  # one per snapshot, in window order
     kind: str = "load"  # the solve the fewest-tamper search applies per snapshot (MinimizeMixin.goal_state)
@@ -163,10 +162,8 @@ class FlowGoal(NamedTuple):
     apparent flow (MVA) that the tampered measurements carry before noise on each target branch,
     `S_{l,t} = S_true_{l,t} + (t - kappa)/T (S_max - S_true_{l,kappa+T})` (drift-free),
     reaching the branch's rating at the window's end. The free injections of the support (attackable
-    loads and generators) move; the fewest-tamper search holds one support for all snapshots. A goal
-    drives one or more lines at once on the same support: `line` is the first target and `more` the
-    others. Generated episodes drive `OverloadSettings.n_lines` lines, two by default as the paper's
-    case studies do, or one."""
+    loads and generators) move; one support is held for all snapshots. A goal drives one or more
+    lines on that support: `line` is the first target and `more` the others."""
 
     line: int  # the first target branch (position in the edge index)
     targets: tuple[float, ...]  # the first target's MVA per snapshot, in window order

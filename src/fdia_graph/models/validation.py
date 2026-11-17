@@ -1,23 +1,12 @@
 """The one place inputs are checked (CONTRIBUTING.md, "an input is checked in one place").
 
-A model declares what each field may be in the field's annotation, and `Validated` checks every
-field when the model is built:
-
-    @dataclass(frozen=True)
-    class HuberConfig(Validated):
-        c: Annotated[float, Positive()] = 1.5
-        reweight: Annotated[Optional[str], OneOf(Reweight)] = None
-
-Every rule in a field's `Annotated` metadata is applied in order. A converting rule also replaces the
-value: `OneOf` stores the choice's canonical string ("NYISO" becomes "nyiso"), `AsArray` a numpy array,
-`Parses` whatever its parser returns. A None value skips the rules of an `Optional` field and is
-refused for any other: the annotation says the field is required. Last, the model's
-`invariants()` (conditions across fields) must hold. A failure raises `ConfigError`, a `ValueError`, with one message shape:
-"<Model>.<field> <what the rule says>, got <value>". Functions never check their arguments
-themselves; they build the model.
-
-Arrays are checked the same way: a formula or a parser builds its input model (`models.inputs`)
-from its arguments, so its body only ever sees values the model has accepted.
+A model declares its rules in each field's annotation (`c: Annotated[float, Positive()] = 1.5`), and
+`Validated` applies them in order when the model is built. A converting rule replaces the value:
+`OneOf` stores the choice's canonical string, `AsArray` a numpy array, `Parses` what its parser
+returns. None skips the rules of an `Optional` field and is refused for any other. Last, the model's
+`invariants()` (conditions across fields) must hold. A failure raises `ConfigError` (a `ValueError`):
+"<Model>.<field> <what the rule says>, got <value>". Functions never check their arguments; they
+build the model (`models.inputs` for arrays).
 """
 
 from __future__ import annotations
@@ -58,8 +47,7 @@ class Rule:
 
     def apply(self, value: object, where: str) -> object:
         """The value, unchanged, or ConfigError naming `where` when the rule does not hold. A value
-        the rule cannot even evaluate (a string where a number belongs) has failed it too, so a
-        malformed argument gets the same message as an out-of-range one."""
+        the rule cannot evaluate (a string where a number belongs) fails it with the same message."""
         try:
             holds = bool(self.holds(value))
         except (TypeError, ValueError, OverflowError):  # 10**1000 overflows a float conversion
@@ -248,8 +236,8 @@ def _checked(value: object, rules: tuple[Rule, ...], optional: bool, where: str)
 
 def _check_invariants(model: Validated, name: str) -> None:
     """The model's conditions across fields, taken lazily so a later condition never sees input an
-    earlier one refused; one that cannot even be evaluated means the input is malformed. A named
-    data condition keeps its message as it is: it says what the data lacks, not which model."""
+    earlier one refused; one that cannot be evaluated means the input is malformed. A named data
+    condition keeps its message: it says what the data lacks, not which model."""
     failed = None
     try:
         for holds, says in model.invariants():

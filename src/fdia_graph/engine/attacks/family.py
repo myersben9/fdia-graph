@@ -17,15 +17,13 @@ from fdia_graph.models.plan import Episode
 
 # A window handed to a family's `design`: the onset frame of the pool it covers, and the true state
 # over that window, `vm [L, N]` p.u. and `va [L, N]` degrees (the frames an episode would occupy, all
-# SOLVED). A plain tuple, not a record: the timeline block (D1) slices the pool into one per candidate
-# onset. `L` is the window length, `N` the bus count.
+# solved). A plain tuple: the timeline slices the pool into one per candidate onset.
 Window = tuple[int, np.ndarray, np.ndarray]
 
 
 class AttackFamily(ABC):
     """A family of attacks (Am or At). `design` draws one episode for a window of true states, or
-    None when it finds no stealthy attack there (the window stays benign). The one base class of the
-    attacks package: the families are composed around an `Attacker`, not stacked on mixins."""
+    None when it finds no stealthy attack there (the window stays benign)."""
 
     #: why the last `design_explained` found no attack, a miss reason (None after a success); inside `design` a
     #: family only leaves a hint here ("no_target" where the window has nothing to attack)
@@ -40,13 +38,13 @@ class AttackFamily(ABC):
     def onset_mask(self, vm: np.ndarray, va: np.ndarray, length: int) -> np.ndarray | None:
         """[T] bool, the frames an episode of `length` frames may start at over the pool states `vm`, `va`
         [T, N]; None when the family may start anywhere (the default). A family that waits for a loaded
-        grid, such as the interface attack, gives its mask here (N36)."""
+        grid, such as the interface attack, gives its mask here."""
         return None
 
     def design_explained(self, window: Window, rng: np.random.Generator) -> tuple[Episode | None, str | None]:
-        """`design`, and why it found no attack: (the episode, None) or (None, a miss reason), the reason also
-        kept in `last_miss`. A solver failure during the design makes the miss "solver_error", since the support
-        it failed on might have held an attack; a None the family leaves unexplained is "infeasible"."""
+        """`design`, and why it found no attack: (the episode, None) or (None, a miss reason), the reason
+        also kept in `last_miss`. A solver failure makes the miss "solver_error", since the support it
+        failed on might have held an attack; a None the family leaves unexplained is "infeasible"."""
         self.last_miss, errors = None, self.solver_errors
         ep = self.design(window, rng)
         if ep is not None:

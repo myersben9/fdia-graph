@@ -1,15 +1,12 @@
-"""Load-profile ingestion + operating-state generation — the FRONT of the pipeline.
+"""Load profiles and operating states: the front of the pipeline.
 
-Take a real load time series from any source, turn it into a sequence of AC power-flow operating points, and
-feed those into `generate()` to inject attacks. Profiles are pluggable across ISOs and time periods.
+A real load time series becomes a sequence of AC operating points, the pool `generate()` attacks:
 
-Pipeline:  load profile  ->  per-timestep scaled loads  ->  AC power flow (pandapower)  ->  operating states
-The operating states are the [T, N, 4] pool the attack generator injects onto:
-    columns = [ |V| (p.u.), P_inj (MW), Q_inj (MVAr), theta (deg) ]   (pandapower consumer-positive convention)
+    load_profile(source) or fetch_profile(iso, start, end)  ->  a load-scaling vector S [T]
+    generate_states(system, S)                              ->  the pool of states [T, N, 4]
 
-    load_profile(IsoFolder | CsvColumn | RawSeries)  ->  a normalized load-scaling vector S [T]
-    fetch_profile(iso, start, end)                     ->  the same, downloaded from the operator
-    generate_states(system, S) ->  a pool of operating states [T, N, 4]
+The pool's columns are [|V| (pu), P_inj (MW), Q_inj (MVAr), theta (deg)], in pandapower's
+consumer-positive convention.
 """
 
 from __future__ import annotations
@@ -35,7 +32,7 @@ from .models.inputs import CsvSpec, DateSpan, LoadValues, ProfileSource, Support
 
 
 def _pandas():
-    """Lazy pandas import (optional dep, needed only for load-profile ingestion)."""
+    """pandas, imported on first use: an optional dependency only load profiles need."""
     try:
         import pandas as pd
 
@@ -48,16 +45,16 @@ if TYPE_CHECKING:
     import pandas as pd
 
     from .engine.pandapower_types import PandapowerNet
-# per-bus scale at timestep t: clip(1 + K*S_t + N(0,SIGMA), CLIP_LO, CLIP_HI). K drives from the profile,
-# SIGMA is per-bus jitter, clip holds a plausible load band.
+# per-bus scale at timestep t: clip(1 + K*S_t + jitter_t, *CLIP). K is the profile's weight, SIGMA the
+# jitter's std, and the clip holds a plausible load band.
 K_DEFAULT = 0.1
 SIGMA_DEFAULT = 0.03
 CLIP_DEFAULT = (0.7, 1.3)
 
 
 def _standardize(loads: np.ndarray) -> np.ndarray:
-    """The load-scaling vector S [T]: zero mean, unit variance. Standardizing makes the K knob mean the
-    same thing across sources of different absolute magnitude; a flat series stays at zero."""
+    """The load-scaling vector S [T]: zero mean, unit variance, so the K knob means the same for
+    sources of any magnitude. A flat series stays at zero."""
     sd = loads.std()
     return (loads - loads.mean()) / (sd if sd > 0 else 1.0)
 
@@ -93,8 +90,8 @@ class CsvColumn:
 
 class IsoFolder:
     """Every CSV of one operator's load export in a directory, concatenated in time order. The operator
-    fixes the column names (`constants.files.EXPORT_COLUMNS`); `IsoExport` refuses an operator without
-    a known export format when the folder is described, not when it is read."""
+    fixes the column names (`constants.files.EXPORT_COLUMNS`); an operator with no known export
+    format is refused here, not when the folder is read."""
 
     def __init__(self, iso: str, directory: str = ".") -> None:
         self.spec = IsoExport(iso, directory)
@@ -107,7 +104,7 @@ class IsoFolder:
     def loads(self) -> np.ndarray:
         pd = _pandas()
         files = sorted(glob.glob(os.path.join(self.spec.directory, "*.csv")))
-        if not files:  # the file system, not the input: the directory holds no export
+        if not files:
             raise FileNotFoundError(f"no CSV files found under {self.spec.directory!r} for {self.spec.iso}")
         ts, load = self.columns
         frames = [pd.read_csv(f, parse_dates=[ts], index_col=ts) for f in files]
@@ -115,17 +112,15 @@ class IsoFolder:
 
 
 def load_profile(source: LoadSource) -> np.ndarray:
-    """A normalized load-scaling vector S [T] (zero mean, unit variance) from a load time series.
-
-    source : where the loads come from, `IsoFolder("nyiso", "data/nyiso")`,
-             `CsvColumn("loads.csv", "load_mw")` or `RawSeries(values)`; each reads itself.
-    """
+    """A load-scaling vector S [T] (zero mean, unit variance) from a load series: `IsoFolder("nyiso",
+    "data/nyiso")`, `CsvColumn("loads.csv", "load_mw")` or `RawSeries(values)`."""
     ProfileSource(source)  # anything else is refused here
     return _standardize(source.loads())
 
 
 def _case_buses(key: int) -> np.ndarray:
-    """Return (all_buses ordering) for a case — must match between the central jitter build and the worker."""
+    """The buses with a load or a generator, sorted: the column order of a scale-factor row. The
+    worker rebuilds the same order."""
     import pandapower.networks as pn
 
     base = getattr(pn, IEEE_CASES[key])()
@@ -133,15 +128,15 @@ def _case_buses(key: int) -> np.ndarray:
 
 
 def _solve_states_chunk(key: int, sf_chunk: np.ndarray) -> list[np.ndarray]:
-    """Solve the AC operating state for each PRECOMPUTED per-bus scale-factor row in sf_chunk [L, nbus] (aligned
-    to _case_buses order). Module-level/picklable so it runs as a multiprocessing worker. Returns a list of
-    [N,4] state arrays; non-converging steps are skipped."""
+    """The AC operating state [N, 4] of each scale-factor row of `sf_chunk` [L, nbus] (columns in
+    `_case_buses` order). A row whose power flow does not converge is skipped. Module-level, so it
+    can run in a worker process."""
     import pandapower as pp
     import pandapower.networks as pn
 
     base = getattr(pn, IEEE_CASES[key])()
     pp.runpp(base)  # seed a valid base state
-    nodelist = sorted(base.bus.index)  # consistent bus order for the [N,4] rows
+    nodelist = sorted(base.bus.index)
     base_load_p = base.load["p_mw"].to_numpy().copy()
     base_load_q = base.load["q_mvar"].to_numpy().copy()
     base_gen_p = base.gen["p_mw"].to_numpy().copy()
@@ -152,7 +147,7 @@ def _solve_states_chunk(key: int, sf_chunk: np.ndarray) -> list[np.ndarray]:
     at_load, at_gen = np.searchsorted(all_buses, load_buses), np.searchsorted(all_buses, gen_buses)
     pos = {int(b): i for i, b in enumerate(nodelist)}
     out = []
-    for sf in sf_chunk:  # sf: [nbus] scale factor per bus for this timestep
+    for sf in sf_chunk:
         sf = np.asarray(sf, np.float64)
         base.load["p_mw"] = base_load_p * sf[at_load]
         base.load["q_mvar"] = base_load_q * sf[at_load]
@@ -160,8 +155,8 @@ def _solve_states_chunk(key: int, sf_chunk: np.ndarray) -> list[np.ndarray]:
         try:
             pp.runpp(base, init="flat", max_iteration=50, tolerance_mva=1e-6)
         except Exception:
-            continue  # infeasible operating point -> skip this timestep
-        # [N,4] = [|V|, Pinj, Qinj, theta], the one column order the pool, the engine and node_x share.
+            continue  # no power-flow solution: skip this timestep
+        # [N, 4] = [|V|, Pinj, Qinj, theta], the column order the pool, the engine and node_x share
         z = base.res_bus.reindex(nodelist)[["vm_pu", "p_mw", "q_mvar", "va_degree"]].to_numpy().copy()
         _remove_shunt_injections(z, base, pos)
         out.append(z)
@@ -169,14 +164,13 @@ def _solve_states_chunk(key: int, sf_chunk: np.ndarray) -> list[np.ndarray]:
 
 
 def _remove_shunt_injections(z: np.ndarray, base: PandapowerNet, pos: dict[int, int]) -> None:
-    """Subtract each shunt's draw from its bus's P and Q in place: state estimation models the shunt in
-    the admittance matrix, not as an injection, so the stored injection must exclude it to be
-    bad-data-clean."""
+    """Subtract each shunt's draw from its bus's P and Q, in place. State estimation models a shunt in
+    the admittance matrix, not as an injection, so the stored injection must exclude it."""
     if not len(base.res_shunt):
         return
     keep = np.array([int(b) in pos for b in base.shunt.bus.to_numpy()], bool)
     rows = np.array([pos[int(b)] for b in base.shunt.bus.to_numpy()[keep]], int)
-    # unbuffered, in shunt order: two shunts on one bus both subtract, as the loop did
+    # unbuffered: two shunts on one bus both subtract
     np.subtract.at(z[:, 1], rows, base.res_shunt.p_mw.to_numpy()[keep])
     np.subtract.at(z[:, 2], rows, base.res_shunt.q_mvar.to_numpy()[keep])
 
@@ -184,16 +178,16 @@ def _remove_shunt_injections(z: np.ndarray, base: PandapowerNet, pos: dict[int, 
 def _ar1_scale(
     S: np.ndarray, nbus: int, k: float, sigma: float, clip: tuple[float, float], rho: float, seed: int
 ) -> np.ndarray:
-    """Build the [T, nbus] per-bus scale-factor matrix clip(1 + k*S_t + jitter_t), where jitter is a per-bus
-    AR(1) process jitter_t = rho*jitter_{t-1} + sqrt(1-rho^2)*sigma*eps. AR(1) evolves the load smoothly
-    (~0.5%/min at rho=0.98 vs ~4% for independent jitter) at unchanged stationary spread (std = sigma)."""
+    """The per-bus scale factors [T, nbus]: clip(1 + k*S_t + jitter_t), with a per-bus AR(1) jitter
+    jitter_t = rho*jitter_{t-1} + sqrt(1-rho^2)*sigma*eps. The AR(1) makes each load drift smoothly
+    (~0.5%/min at rho=0.98, against ~4% for independent jitter) while its stationary std stays sigma."""
     T = len(S)
     rng = np.random.default_rng(seed)
     eps = rng.standard_normal((T, nbus))
     jit = np.empty((T, nbus))
     jit[0] = sigma * eps[0]
     step = sigma * np.sqrt(1.0 - rho * rho)
-    for t in range(1, T):  # AR(1) recursion
+    for t in range(1, T):
         jit[t] = rho * jit[t - 1] + step * eps[t]
     return np.clip(1.0 + k * S[:, None] + jit, clip[0], clip[1])
 
@@ -208,52 +202,38 @@ def generate_states(
     seed: int = 123,
     workers: Optional[int] = None,
 ) -> np.ndarray:
-    """Turn a load-scaling profile into a pool of AC operating states [T, N, 4].
-
-    For each timestep t: draw a per-bus scale factor clip(1 + k*S_t + j_t, *clip), with j_t an AR(1) jitter
-    of stationary std sigma and coefficient LOAD_JITTER_RHO, apply it to the
-    case's base loads and generator setpoints, solve the AC power flow, and record the clean operating state.
-    The recorded injection subtracts res_shunt (SE/BDD excludes the shunt), which is why benign states pass
-    BDD. Non-converging timesteps are skipped.
-
-    workers>1 splits timesteps across processes (independent power flows, near-linear scaling); contiguous
-    chunks keep time order, each seeded seed+chunk_index. NOTE: spawning processes means a caller passing
-    workers>1 must guard its top-level script with `if __name__ == "__main__":` (multiprocessing on Windows).
-
-    Returns states [T, N, 4] = [|V| (p.u.), P_inj (MW), Q_inj (MVAr), theta (deg)], the pool `generate()` and
-    `emit_from_state` consume, in the same column order as node_x and clean. (Before 0.12 the pool was
-    [P, Q, V, theta]; generate() still accepts such pools and converts them, see generation.as_v_first.)
-    """
+    """A pool of AC states [T', N, 4] = [|V| (pu), P_inj (MW), Q_inj (MVAr), theta (deg)] from a profile of
+    T steps: each timestep scales the loads and generator setpoints per bus (`_ar1_scale`) and solves the AC
+    power flow. One that does not converge is dropped, so T' <= T and the rows no longer align with the
+    profile. `workers` > 1 needs an `if __name__ == "__main__":` guard."""
     key = SupportedSystem(system, frozenset(IEEE_CASES)).number
     S = np.asarray(profile, dtype=float).ravel()
     if n is not None:
         S = S[:n]
-    # Build the full scale-factor matrix centrally so AR(1) jitter has no discontinuity at chunk boundaries.
+    # the whole scale-factor matrix is built here, so the AR(1) jitter is continuous across chunks
     nbus = len(_case_buses(key))
     SF = _ar1_scale(S, nbus, k, sigma, clip, LOAD_JITTER_RHO, seed)  # [T, nbus]
     if workers and workers > 1 and len(S) >= workers:
         import multiprocessing as mp
 
-        sf_chunks = np.array_split(SF, workers)  # contiguous rows -> concatenation preserves time order
+        sf_chunks = np.array_split(SF, workers)  # contiguous rows: concatenating keeps time order
         args = [(key, sf_chunks[i]) for i in range(len(sf_chunks))]
         with mp.Pool(workers) as pool:
             parts = pool.starmap(_solve_states_chunk, args)
-        out = [z for part in parts for z in part]  # flatten in chunk (time) order
+        out = [z for part in parts for z in part]
     else:
         out = _solve_states_chunk(key, SF)
     if not out:
         raise RuntimeError("no operating points converged; check the profile / scaling knobs")
-    return np.asarray(out, dtype=np.float64)  # [T, N, 4]
+    return np.asarray(out, dtype=np.float64)
 
 
-# ---------------------------------------------------------------------------------------------------------
-# Automatic ISO load-profile download. NYISO is a zero-dependency built-in (public monthly archives, no
-# account); CAISO/ERCOT (and optionally NYISO) go through the `gridstatus` package: pip install 'fdia-graph[iso]'.
-# ---------------------------------------------------------------------------------------------------------
+# ---- ISO load-profile download: NYISO from its public monthly archives (built in, no account);
+# ---- CAISO and ERCOT through the `gridstatus` package: pip install 'fdia-graph[iso]'
 
 
 def _month_firsts(start: _dt.date, end: _dt.date) -> Iterator[_dt.date]:
-    """Yield the first-of-month date for every month spanned by [start, end]."""
+    """The first day of every month spanned by [start, end]."""
     y, m = start.year, start.month
     while (y, m) <= (end.year, end.month):
         yield _dt.date(y, m, 1)
@@ -261,8 +241,8 @@ def _month_firsts(start: _dt.date, end: _dt.date) -> Iterator[_dt.date]:
 
 
 def nyiso_pal_month(first: _dt.date, cache_dir: Optional[Union[str, Path]] = None) -> bytes:
-    """One month's archive of NYISO's 'pal' feed (real-time actual load by zone, about 5-minute samples, one CSV
-    per day in a zip), kept in `cache_dir` when given and read from there once it is."""
+    """One month's zip of NYISO's 'pal' feed: real-time actual load by zone, about 5-minute samples, one
+    CSV per day. With `cache_dir` the zip is kept there and read from there next time."""
     name = f"{first:%Y%m01}pal_csv.zip"
     path = None if cache_dir is None else Path(cache_dir) / name
     if path is not None and path.exists():
@@ -281,9 +261,9 @@ def nyiso_zone_load(
     grid: Optional[pd.DatetimeIndex] = None,
     cache_dir: Optional[Union[str, Path]] = None,
 ) -> pd.DataFrame:
-    """NYISO's real-time actual load (MW) per zone, one column per zone name of the feed, on the 5-minute `grid`
-    (None: the data's own span) from the monthly archives starting at `firsts`. Zones report a few seconds apart,
-    so each is put on the grid before any two are used together, gaps of up to three samples interpolated."""
+    """NYISO's real-time actual load (MW), one column per zone, on the 5-minute `grid` (None: the data's
+    own span), from the monthly archives starting at `firsts`. Zones report a few seconds apart, so each
+    is put on the grid first; gaps of up to three samples are interpolated."""
     pd = _pandas()
     frames = []
     for first in firsts:
@@ -299,12 +279,9 @@ def nyiso_zone_load(
 
 
 class NyisoArchive:
-    """NYISO system load (MW) at 5-MINUTE resolution from the public monthly archives: built in, no
-    account and no extra dependency.
-
-    Uses the 'pal' feed (real-time actual, ~288 samples/day; 'palIntegrated' is only hourly), one CSV
-    per day in a monthly zip. Each row is a control-zone reading; system load sums the 11 zones per
-    timestamp (`nyiso_zone_load`)."""
+    """NYISO system load (MW) at 5-minute resolution from the public monthly archives: no account and
+    no extra dependency. It reads the 'pal' feed (real-time actual; 'palIntegrated' is only hourly)
+    and sums the 11 zones per timestamp (`nyiso_zone_load`)."""
 
     def fetch(self, start: _dt.date, end: _dt.date) -> pd.Series:
         piv = nyiso_zone_load(_month_firsts(start, end))
@@ -314,10 +291,8 @@ class NyisoArchive:
 
 
 class GridstatusFeed:
-    """System load (MW) through the `gridstatus` package, which wraps each operator's data service
-    behind one `.get_load(start, end)`. `operator` is the gridstatus class name. The package is an
-    optional dependency (pip install 'fdia-graph[iso]'); the feed imports it when it fetches, so only
-    a caller of this feed needs it."""
+    """System load (MW) through the `gridstatus` package; `operator` is its class name. The package
+    is optional (pip install 'fdia-graph[iso]') and imported only when the feed fetches."""
 
     def __init__(self, operator: str) -> None:
         self.operator = operator
@@ -342,7 +317,6 @@ class LoadFeed(Protocol):
     def fetch(self, start: _dt.date, end: _dt.date) -> pd.Series: ...
 
 
-# Where each operator's load comes from.
 _FEEDS: dict[str, LoadFeed] = {
     Iso.NYISO: NyisoArchive(),
     Iso.CAISO: GridstatusFeed("CAISO"),
@@ -357,22 +331,12 @@ def fetch_profile(
     out: Optional[str] = None,
     resample_min: Optional[int] = None,
 ) -> np.ndarray:
-    """Download an ISO system-load series over [start, end] and return a normalized scaling vector S [T].
-
-    iso          : "caiso" | "nyiso" | "ercot" (case-insensitive).
-    start, end   : 'YYYY-MM-DD' strings (or date/datetime), inclusive.
-    out          : optional path to also save the raw load series as a CSV (timestamp, load_mw) for provenance.
-    resample_min : if set (e.g. 1), time-interpolate onto a uniform grid at that minute cadence before
-                   standardizing (upsamples the 5-min feed; intermediate points are interpolated).
-
-    Each operator's feed is in `_FEEDS`: NYISO is the built-in `NyisoArchive` (no dependency or account),
-    CAISO and ERCOT a `GridstatusFeed` (pip install 'fdia-graph[iso]'). The returned S feeds
-    generate_states() exactly like load_profile()'s output.
-    """
+    """Download the system load of `iso` ("nyiso", "caiso" or "ercot") over the days [start, end],
+    inclusive, and return its scaling vector S [T]. `out` also saves the raw series as a CSV
+    (timestamp, load_mw); `resample_min` time-interpolates to that minute cadence before standardizing."""
     req, span = ProfileFetch(iso, resample_min), DateSpan(start, end)
     series = _FEEDS[req.iso].fetch(span.first_day, span.last_day)
     if req.resample_min is not None:
-        # Time-interpolate onto a uniform resample_min-minute grid (as reference resample("1T").interpolate("time")).
         pd = _pandas()
         series = series.sort_index()
         series.index = pd.to_datetime(series.index)

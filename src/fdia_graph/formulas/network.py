@@ -1,13 +1,11 @@
 """The AC network model: branch admittances, bus injections and branch flows [AE04, ch. 2], [MP19].
 
-This is the one implementation of the network physics that the generator, the loader and the state
-estimator share: the estimator's measurement function h(x) and its Jacobian are assembled from
-`bus_injections` and `branch_flows` in the analysis toolkit (`fdia_analysis.formulas.measurement`).
+The generator, the loader and the state estimator share this one implementation: the estimator's
+measurement function h(x) and its Jacobian are assembled from `bus_injections` and `branch_flows`
+in the analysis toolkit (`fdia_analysis.formulas.measurement`).
 
-Every function keeps the exact floating-point expression the callers used before it existed, so
-released shards and streams reproduce bit for bit: `branch_flows` evaluates V_f * conj(Yf @ V)
-for one voltage vector and V[:, f] * conj(V @ Yf.T) for a stack, which are the two orders the
-generator and the loader always used.
+Byte stability: the order of every floating-point expression here is fixed, so released shards and
+streams reproduce bit for bit. Do not reorder a product.
 """
 
 from __future__ import annotations
@@ -29,22 +27,14 @@ from ..models.grid import Admittances, BranchModel
 
 
 def complex_voltages(vm: np.ndarray, theta_deg: np.ndarray) -> np.ndarray:
-    """Bus voltage phasors V = |V| e^{j theta} [AE04, eq. 2.1].
-
-    vm        : [..., N] voltage magnitude (pu)
-    theta_deg : [..., N] voltage angle (degrees)
-    returns   : [..., N] complex128
-    """
+    """Bus voltage phasors V = |V| e^{j theta} [AE04, eq. 2.1]: [..., N] complex128 from the
+    magnitude (pu) and the angle (degrees)."""
     return vm * np.exp(1j * np.deg2rad(theta_deg))
 
 
 def series_admittance(r: np.ndarray, x: np.ndarray) -> np.ndarray:
-    """Series admittance of a branch, y_s = g_s + j b_s = 1 / (r + j x) [MP19, branch model].
-
-    A branch with no impedance (|r + jx| below 1e-12) has no series path and contributes 0.
-    r, x    : [E] per-unit resistance and reactance
-    returns : [E] complex128
-    """
+    """Series admittance of a branch, y_s = g_s + j b_s = 1 / (r + j x) [MP19, branch model]: [E]
+    complex128 from the per-unit r and x. A branch with no impedance (|r + jx| below 1e-12) gives 0."""
     z = np.asarray(r, np.float64) + 1j * np.asarray(x, np.float64)
     ys = np.zeros_like(z, dtype=np.complex128)
     nz = np.abs(z) > 1e-12
@@ -62,18 +52,11 @@ def branch_admittances(
 ) -> Admittances:
     """Ybus [N, N], Yf [E, N] and Yt [E, N] from the per-branch pi model [MP19, makeYbus].
 
-    Series admittance y_s, charging admittance (g + j b) split half per end, tap ratio and phase
-    shift on the from side, in-service status; bus shunts (MW and MVAr at 1 pu) on the Ybus
-    diagonal as (g_sh + j b_sh) / base_mva. With a complex bus voltage vector V, `V[f] * conj(Yf @ V)`
-    is the from-end branch flow and `V * conj(Ybus @ V)` the bus injection, both per unit.
-
         y_tt = y_s + (g + j b) / 2
         y_ff = y_tt / (tap * conj(tap)),  y_ft = -y_s / conj(tap),  y_tf = -y_s / tap
 
-    branch     : the per-branch physics, a BranchModel
-    edge_index : [2, E] from-bus and to-bus of every branch, in the bus order of the outputs
-    returns    : Admittances(ybus, yf, yt), complex128; unpacks as (Ybus, Yf, Yt)
-    """
+    The tap and phase shift sit on the from side; bus shunts (MW and MVAr at 1 pu) join the Ybus
+    diagonal as (g_sh + j b_sh) / base_mva. `edge_index` [2, E] is in the bus order of the outputs."""
     E = len(branch.r)
     stat = np.ones(E) if branch.status is None else np.asarray(branch.status, np.float64)
     ys = stat * series_admittance(branch.r, branch.x)
@@ -112,43 +95,26 @@ def _dense(Y: Admittance) -> np.ndarray:
 
 
 def bus_injections(V: np.ndarray, Ybus: Admittance, base_mva: float = 1.0) -> np.ndarray:
-    """Complex bus injections S = V ∘ conj(Ybus V) [AE04, eq. 2.6], generation positive.
-
-    V       : [N] or [T, N] complex bus voltages
-    Ybus    : [N, N] nodal admittance (dense or scipy sparse)
-    returns : same leading shape as V, complex; times base_mva for MW and MVAr
-    """
+    """Complex bus injections S = V ∘ conj(Ybus V) [AE04, eq. 2.6], generation positive, for V [N] or
+    a stack [T, N]. Per unit; pass base_mva for MW and MVAr."""
     if V.ndim == 1:
         return V * np.conj(Ybus @ V) * base_mva
     return V * np.conj((Ybus @ V.T).T) * base_mva
 
 
 def branch_flows(V: np.ndarray, Yf: Admittance, from_bus: np.ndarray, base_mva: float = 1.0) -> np.ndarray:
-    """Complex from-end branch flows S_f = V_f ∘ conj(Yf V) [AE04, eq. 2.8].
-
-    V        : [N] one voltage vector, or [T, N] a stack of them
-    Yf       : [E, N] from-end branch admittance (dense or scipy sparse)
-    from_bus : [E] the from bus of every branch, indexing V's bus axis
-    returns  : [E] or [T, E] complex; times base_mva for MW and MVAr
-
-    The two evaluation orders below are the ones the generator and the loader used before this
-    function existed and are kept so their outputs stay bit-identical (for a scipy sparse Yf,
-    `V @ Yf.T` is evaluated by scipy as `(Yf @ V.T).T`, the generator's batched expression).
-    """
+    """Complex from-end branch flows S_f = V_f ∘ conj(Yf V) [AE04, eq. 2.8]: [E] for V [N], [T, E]
+    for a stack [T, N]. Per unit; pass base_mva for MW and MVAr. The two evaluation orders below are
+    fixed: released data reproduces them bit for bit."""
     if V.ndim == 1:
         return V[from_bus] * np.conj(Yf @ V) * base_mva
     return V[:, from_bus] * np.conj(V @ Yf.T) * base_mva
 
 
 def branch_currents(V: np.ndarray, Yf: Admittance, Yt: Admittance) -> np.ndarray:
-    """The branch-current phasors at both ends of every branch [WU26 eqs. 19-20], the channels a PMU
-    reads: I_f = Yf V (leaving the from bus into the branch) and I_t = Yt V (leaving the to bus),
-    in the `CurrentChannel` column order.
-
-    V       : [n] one complex voltage vector (per unit, ppc order), or [T, n] a stack of them
-    Yf, Yt  : [E, n] from- and to-end branch admittances (dense or scipy sparse)
-    returns : [E, 4] or [T, E, 4] real, per unit on the base current: Re I_f, Im I_f, Re I_t, Im I_t
-    """
+    """The branch-current phasors a PMU reads [WU26 eqs. 19-20]: I_f = Yf V (leaving the from bus) and
+    I_t = Yt V (leaving the to bus). Returns [E, 4] (or [T, E, 4] for a stack V) real, per unit, in
+    the `CurrentChannel` order: Re I_f, Im I_f, Re I_t, Im I_t."""
     If, It = (Yf @ V, Yt @ V) if V.ndim == 1 else ((V @ Yf.T), (V @ Yt.T))
     return np.stack([np.real(If), np.imag(If), np.real(It), np.imag(It)], axis=-1)
 
@@ -156,17 +122,10 @@ def branch_currents(V: np.ndarray, Yf: Admittance, Yt: Admittance) -> np.ndarray
 def flow_sensitivities(
     V: np.ndarray, Ybus: Admittance, Yf: Admittance, from_bus: np.ndarray, slack: int
 ) -> np.ndarray:
-    """Each branch's from-end active flow change per unit of active power injected at each bus and taken at the
-    slack, at the AC state `V`: the power flow Jacobian, transposed, solved against each flow's gradient, with
-    MATPOWER's complex derivatives [MP19, dSbus_dV and dSbr_dV] as in `ac_jacobian`. Every bus but the slack
-    holds its active and reactive injection (ours: no bus is modelled as holding its voltage).
-
-    V        : [N] complex bus voltages, in the bus order of `Ybus`
-    Ybus     : [N, N] nodal admittance; Yf : [E, N] from-end branch admittance (dense or scipy sparse)
-    from_bus : [E] the from bus of every branch, indexing V
-    slack    : the reference bus, whose column is zero
-    returns  : [E, N] dimensionless (MW of flow per MW injected)
-    """
+    """[E, N] change of each branch's from-end active flow per MW injected at each bus and taken at the
+    slack (whose column is zero), at the AC state `V`: the power flow Jacobian, transposed, solved against
+    each flow's gradient [MP19, dSbus_dV and dSbr_dV]. Every bus but the slack holds its P and Q injection
+    (ours: no bus is modelled as holding its voltage)."""
     Y, F = _dense(Ybus), _dense(Yf)
     n, e = len(V), len(from_bus)
     unit = V / np.abs(V)
@@ -187,13 +146,8 @@ def flow_sensitivities(
 
 
 def hop_distances(adjacency: Admittance, sources: np.ndarray) -> np.ndarray:
-    """Branches from the nearest source bus to every bus, by an unweighted shortest-path search
-    (`scipy.sparse.csgraph.shortest_path`); -1 where no path exists [VLX07].
-
-    adjacency : [N, N] nonzero where a branch joins two buses, dense or sparse
-    sources   : the bus indices at distance 0
-    returns   : [N] int64
-    """
+    """[N] int64 count of branches from the nearest source bus to every bus, by an unweighted
+    shortest-path search [VLX07]; -1 where no path exists."""
     from scipy.sparse import csr_matrix
     from scipy.sparse.csgraph import shortest_path
 
@@ -220,14 +174,9 @@ def edge_adjacency(edge_index: np.ndarray, n_bus: int) -> Admittance:
 def subnetwork(
     edge_index: np.ndarray, seeds: np.ndarray, hops: int, n_bus: int
 ) -> tuple[np.ndarray, np.ndarray]:
-    """The attacker's local subnetwork around `seeds` [WU26]: the interior, every bus within
-    `hops` branches of a seed, and its boundary, the buses one branch outside the interior.
-
-    edge_index : [2, E] from and to bus of every branch
-    seeds      : the buses the attack is built around (the target line's ends, the attacked loads)
-    hops       : how many branches the interior reaches from a seed
-    returns    : (interior [k] sorted, boundary [b] sorted), disjoint
-    """
+    """The attacker's local subnetwork around `seeds` [WU26]: (interior, boundary), both sorted and
+    disjoint. The interior is every bus within `hops` branches of a seed; the boundary is the buses
+    one branch outside it."""
     dist = hop_distances(edge_adjacency(edge_index, n_bus), seeds)
     reached = dist >= 0
     return np.flatnonzero(reached & (dist <= hops)), np.flatnonzero(dist == hops + 1)
@@ -246,10 +195,9 @@ def _local_mismatch(
 def _backtrack(
     Yb: np.ndarray, V: np.ndarray, I_: np.ndarray, S_target: np.ndarray, step: np.ndarray, norm: float
 ) -> Optional[tuple[np.ndarray, np.ndarray]]:
-    """The Newton step, halved until it lowers the mismatch and keeps every magnitude positive;
-    the full step is tried first, so an iteration the plain method accepts is unchanged. Returns the
-    accepted voltages and their bus currents Ybus V (the next iteration's mismatch and Jacobian reuse
-    them), or None when no fraction of the step helps (the target has no solution near this state)."""
+    """The Newton step, halved until it lowers the mismatch (the full step is tried first). Returns
+    the accepted voltages and their bus currents Ybus V, which the next iteration reuses, or None
+    when no fraction of the step helps."""
     for Vtry in _halved_steps(V, I_, step):
         YV = Yb @ Vtry
         if _local_mismatch(YV, Vtry, I_, S_target)[1] < norm:
@@ -281,10 +229,9 @@ def _as_real_blocks(A: np.ndarray, B: np.ndarray) -> np.ndarray:
 
 
 def _interior_jacobian(Y_II: np.ndarray, V_I: np.ndarray, I_I: np.ndarray) -> np.ndarray:
-    """The [2k, 2k] Jacobian of the interior injections in [θ_I, |V|_I]: the entries of the full
-    ac_jacobian derivatives at (i, j) in the interior depend only on Y_ij, V_i, V_j and the current
-    I_i into i, so the block is built from the interior block Y_II of Ybus, the interior voltages
-    V_I and currents I_I directly instead of the n x n matrices sliced."""
+    """The [2k, 2k] Jacobian of the interior injections in [θ_I, |V|_I]. An entry (i, j) depends only
+    on Y_ij, V_i, V_j and the current I_i, so the block is built from the interior pieces directly
+    and not sliced from the n x n matrices."""
     Vn_I = V_I / np.abs(V_I)
     A = 1j * (V_I[:, None] * np.conj(np.diag(I_I) - Y_II * V_I[None, :]))
     B = V_I[:, None] * np.conj(Y_II * Vn_I[None, :]) + np.conj(I_I)[:, None] * np.diag(Vn_I)
@@ -294,16 +241,12 @@ def _interior_jacobian(Y_II: np.ndarray, V_I: np.ndarray, I_I: np.ndarray) -> np
 def _injection_jacobian(
     Y_RI: np.ndarray, V_R: np.ndarray, V_I: np.ndarray, I_R: np.ndarray, D: np.ndarray
 ) -> np.ndarray:
-    """The [2r, 2k] Jacobian of the injections at the buses R (any buses: inside the interior or on
-    its edge) in the interior's [θ_I, |V|_I], from S_r = V_r conj(sum_j Y_rj V_j):
+    """The [2r, 2k] Jacobian of the injections at the buses R (inside the interior or on its edge) in
+    the interior's [θ_I, |V|_I], from S_r = V_r conj(sum_j Y_rj V_j). `Y_RI` [r, k] is R's rows of
+    Ybus on the interior's columns, `I_R` = (Ybus V)_R, and `D` [r, k] is 1 where r is interior bus j.
 
         dS_r/dθ_j   = 1j V_r conj(I_r) [r = j] - 1j V_r conj(Y_rj V_j)
         dS_r/d|V|_j = V_r conj(Y_rj V_j / |V_j|) + conj(I_r) V_r / |V_r| [r = j]
-
-    Y_RI : [r, k] the rows of R of Ybus on the interior's columns
-    V_R, V_I : the voltages of R and of the interior
-    I_R  : [r] the bus currents into R, (Ybus V)_R
-    D    : [r, k] 1 where the bus of R is the interior bus, else 0
     """
     A = 1j * V_R[:, None] * (np.conj(I_R)[:, None] * D - np.conj(Y_RI * V_I[None, :]))
     B = (
@@ -326,24 +269,11 @@ def local_ac_solve(
 
         S_i(V) = V_i conj(Σ_j Y_ij V_j) = S_target_i   for i in the interior, V_j fixed elsewhere
 
-    solved by Newton on [θ_I, |V|_I] with the closed-form injection derivatives of `ac_jacobian`,
-    each step backtracked (halved) until the mismatch drops [AE04, ch. 2], since a load step of
-    gigawatts inside a fixed-boundary region (IEEE-145) throws the plain step past a solution the
-    damped one still reaches. Meters that depend only on the fixed voltages keep their true value,
-    so the attack touches exactly the interior's and the boundary's meters and is consistent with
-    a full AC state.
-
-    Ybus     : [n, n] nodal admittance (dense or scipy sparse), per unit; pass it dense when solving
-               often (a sparse one is expanded on every call)
-    V        : [n] true complex bus voltages
-    interior : the buses whose voltages may change
-    S_target : [len(interior)] target complex injections at those buses, per unit, generation positive
-    returns  : [n] the false voltages, or None when no step lowers the mismatch or `iters` run out
-
-    The products stay the full dense Ybus V of the released generator, evaluated once per accepted
-    voltage vector and reused by the next mismatch and Jacobian, so the frozen reference timeline's
-    stealthy frames reproduce bit for bit (a product over the interior rows alone rounds differently
-    in the last bit for a few row sets).
+    Newton on [θ_I, |V|_I], each step halved until the mismatch drops [AE04, ch. 2] (a large load
+    step overshoots otherwise). `S_target` is per unit, generation positive. Returns the [n] false
+    voltages, or None when no step helps or `iters` run out. The product Ybus V stays the full dense
+    one: a product over the interior rows alone rounds differently and breaks byte stability. Pass
+    `Ybus` dense when solving often: a sparse one is expanded on every call.
     """
     Yb = _dense(Ybus)
     V = np.array(V, np.complex128, copy=True)
@@ -368,18 +298,10 @@ def local_ac_solve(
 
 
 def _row_block(Y: Admittance, rows: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-    """The rows of an admittance matrix cut down to the columns where they hold an admittance: (the
-    dense block [len(rows), m], those m columns), so that Y[rows] @ V = block @ V[columns]. A branch
-    or bus touches a few buses, so a product over a few rows costs their size, not the grid's, and
-    stays small enough that BLAS runs it on one thread (a product of a full matrix starts threads
-    whose start-up, hundreds of microseconds on a many-core machine, outweighs the arithmetic). The
-    sum runs over fewer terms than the full product, so it can differ from it in the last bit: use it
-    where a reading is only compared with its noise (the search's attack vector), not inside a solve.
-
-    Y       : [n, n] or [E, n] admittance, dense or scipy sparse
-    rows    : the row indices kept
-    returns : (block [len(rows), m] complex, columns [m] sorted)
-    """
+    """Rows of an admittance matrix cut to their nonzero columns: (dense block [len(rows), m], the m
+    sorted columns), so Y[rows] @ V = block @ V[columns] stays small enough that BLAS runs it on one
+    thread (starting threads costs more than the arithmetic). The shorter sum can differ
+    from the full product in the last bit: use it to compare a reading with its noise, never in a solve."""
     sub = np.asarray(_dense(Y[rows]))
     cols = np.flatnonzero(np.any(sub != 0, axis=0))
     return sub[:, cols], cols
@@ -387,10 +309,9 @@ def _row_block(Y: Admittance, rows: np.ndarray) -> tuple[np.ndarray, np.ndarray]
 
 class _FlowBlocks(NamedTuple):
     """The constant pieces of a local flow solve on one interior, cut once (`_flow_blocks`): the dense
-    Ybus, the rows of the buses whose injection a solve may hold (`rows`: the interior and any edge
-    bus) on the interior's columns (the Jacobian's), and the goal branches' dense from-end rows of Yf
-    and their interior columns. Slices only: every product is still the full one of the released
-    solve, so its answers are unchanged to the last bit."""
+    Ybus, the buses whose injection a solve may hold (`rows`) and their Ybus rows on the interior's
+    columns, and the goal branches' rows of Yf, full and on the interior's columns. Slices only:
+    every product stays the full one."""
 
     Yb: np.ndarray
     rows: np.ndarray
@@ -400,10 +321,9 @@ class _FlowBlocks(NamedTuple):
 
 
 class _Held(NamedTuple):
-    """What one `local_flow_solve` call holds, placed in its `_FlowBlocks`: the fixed buses' rows of
-    Ybus on the interior's columns, where each fixed bus is the interior bus (the Jacobian's diagonal
-    term), which [P; Q] rows are held, the held magnitudes' positions in the interior, and each goal
-    branch's from bus's position there (-1 outside it)."""
+    """What one `local_flow_solve` call holds: the fixed buses' rows of Ybus on the interior's columns,
+    where each fixed bus is the interior bus, which [P; Q] rows are held, the held magnitudes'
+    positions in the interior, and each goal branch's from-bus position there (-1 outside it)."""
 
     Y_FI: np.ndarray
     D: np.ndarray
@@ -415,10 +335,8 @@ class _Held(NamedTuple):
 def _flow_blocks(
     Ybus: Admittance, yf_rows: Admittance, interior: np.ndarray, rows: np.ndarray
 ) -> _FlowBlocks:
-    """The `_FlowBlocks` of `local_flow_solve` on this interior for the held buses among `rows` (the
-    interior and the edge buses whose injection a solve may hold) and these goal branches' Yf rows
-    (`yf_row` there), for a caller that solves the same region many times (the active set of
-    `FalseStateMixin.solve_flow_local` re-solves it with bounds pinned)."""
+    """The `_FlowBlocks` of `local_flow_solve` on this interior, for held buses among `rows` and these
+    goal branches' Yf rows. A caller that solves the same region many times cuts them once."""
     I_ = np.asarray(interior, int)
     R = np.asarray(rows, int)
     Yb = np.asarray(_dense(Ybus))
@@ -459,10 +377,9 @@ def _flow_residual(
     S_fixed: np.ndarray,
     vm_fixed: tuple[np.ndarray, np.ndarray] = (np.zeros(0, int), np.zeros(0)),
 ) -> tuple[np.ndarray, np.ndarray]:
-    """([Re; Im] of S_fixed - S(V) at the fixed buses (only the rows `held.keep` marks, [2 len(fixed)]
-    over [Re; Im]), then |S_f(V)| - target on each goal branch (`goal` = (f [L], target [L]), the
-    branches' rows in `blocks`), then |V_b| - value at each held magnitude (`vm_fixed`); the bus
-    currents Ybus V, which the Jacobian at the same V reuses)."""
+    """(residual, Ybus V). The residual stacks [Re; Im] of S_fixed - S(V) at the fixed buses (the rows
+    `held.keep` marks), |S_f(V)| - target on each goal branch (`goal` = (from buses, targets)), and
+    |V_b| - value at each held magnitude. The Jacobian at the same V reuses Ybus V."""
     f, target = goal
     YV = blocks.Yb @ V
     mis = S_fixed - (V * np.conj(YV))[fixed]
@@ -480,11 +397,9 @@ def _flow_jacobian(
     I_: np.ndarray,
     at: tuple[np.ndarray, np.ndarray],
 ) -> np.ndarray:
-    """The Jacobian of `_flow_residual` in [θ_I, |V|_I] at V: the held injection rows (`at` = (the
-    buses `fixed`, inside the interior or on its edge; the bus currents Ybus V at V); the [P; Q] rows
-    `held.keep`), negated since the residual is target minus injection), one apparent-power row per
-    goal branch, from its from-end flow S_f = V_f conj(y_f . V), and a unit row per held magnitude
-    (`held.vm_cols`, positions in the interior):
+    """The Jacobian of `_flow_residual` in [θ_I, |V|_I] at V, with `at` = (the fixed buses, Ybus V):
+    the held injection rows (negated: the residual is target minus injection), one apparent-power row
+    per goal branch from S_f = V_f conj(y_f . V), and a unit row per held magnitude.
 
         dS_f/dθ_j   = 1j S_f [j = f] - 1j V_f conj(y_fj V_j)
         dS_f/d|V|_j = (V_f/|V_f|) conj(y_f . V) [j = f] + V_f conj(y_fj V_j / |V_j|)
@@ -525,40 +440,22 @@ def local_flow_solve(
     hold: Optional[np.ndarray] = None,
     blocks: Optional[_FlowBlocks] = None,
 ) -> Optional[np.ndarray]:
-    """The false state of a local attacker who drives one or more branches' apparent flows to their
-    targets [WU26 eqs. 24-25]: the interior voltages move, the buses of `fixed` keep their
-    injections, the others of the interior (the free injections: the loads the attacker pretends and
-    the generators whose output it pretends) are free, and every bus outside the interior keeps its
-    true voltage.
+    """The false state of a local attacker who drives branches' apparent flows to their targets
+    [WU26 eqs. 24-25]. Interior voltages move; outside the interior every voltage stays true.
 
         S_i(V) = S_fixed_i   for i in `fixed`,      |V_f conj(y_f . V)| = target_l for each goal l
 
-    With fewer equations than the 2k unknowns [θ_I, |V|_I], the solve takes the least-norm
-    Gauss-Newton step (the smallest voltage change that removes the residual to first order, numpy's
-    minimum-norm least squares), each step halved until the residual drops, as `local_ac_solve`
-    backtracks. From the true state this reaches the solution nearest to it.
+    Least-norm Gauss-Newton on [θ_I, |V|_I], each step halved until the residual drops: from the true
+    state it reaches the nearest solution. Returns the [n] false voltages, or None when no step helps.
+    Every product Ybus V is the full one, for byte stability. All quantities are per unit.
 
-    Each voltage vector tried costs one product Ybus V, whose rows the residual and, for an accepted
-    vector, the next iteration's Jacobian share. The products are the full ones, not a region's rows:
-    a search's answer can turn on the last bit of a solve near its convergence limit, and a product
-    over fewer terms rounds differently.
-
-    Ybus     : [n, n] nodal admittance (dense or scipy sparse), per unit
-    yf_row   : [n] the goal branch's row of Yf (from-end current), or [L, n] for L goal branches
-    from_bus : the goal branch's from-end bus (the end its flow is metered at), or [L]
-    V        : [n] true complex bus voltages
-    interior : the buses whose voltages may change
-    fixed    : the buses whose injection is held: interior buses, or buses on the interior's edge
-               (whose voltage is held true, and whose injection the interior's voltages move)
-    S_fixed  : [len(fixed)] their injections, per unit, generation positive
-    target   : the goal branch's apparent flow, per unit, or [L]
-    vm_fixed : (interior buses, magnitudes) held at those voltage magnitudes, or None (a bound the
-               caller enforces, e.g. a voltage limit)
-    hold     : [len(fixed), 2] booleans, which of P and Q each fixed bus holds (a generator at one
-               limit keeps the other component free); None holds both everywhere
-    blocks   : `_flow_blocks(Ybus, yf_row, interior, rows)` when the caller already cut them for a
-               `rows` holding every bus of `fixed`, else None (cut here)
-    returns  : [n] the false voltages, or None when no step lowers the residual or `iters` run out
+    yf_row, from_bus, target : one goal branch ([n], int, float) or L of them ([L, n], [L], [L])
+    fixed, S_fixed : buses (interior or on its edge) whose injection is held, and those injections
+               (generation positive); every other interior bus is a free injection
+    vm_fixed : (interior buses, magnitudes) held at those voltage magnitudes, or None
+    hold     : [len(fixed), 2] bool, which of P and Q each fixed bus holds (a generator at one limit
+               keeps the other component free); None holds both
+    blocks   : `_flow_blocks(...)` cut by the caller for rows holding every bus of `fixed`, or None
     """
     f = np.atleast_1d(np.asarray(from_bus, int))
     goal = np.atleast_1d(np.asarray(target, float))

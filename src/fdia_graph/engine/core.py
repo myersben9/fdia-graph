@@ -1,16 +1,12 @@
-"""Dataset generation engine (attack simulation + realistic measurement emission).
+"""The dataset generation engine: attack simulation and realistic meter readings on an IEEE case.
 
-Requires pandapower ('fdia-graph[generate]'). Benign records emit EXACTLY from a stored state (0-error AC
-flows, no re-solve); only attacks re-solve, locally. Attack families [WU26]:
-  At   the slow ramp: a load set scaled along a rise, a hold and a return, on the fewest-tamper support
-  Am   the overload attack: a target branch's reported flow driven to its rating over the window
+Requires pandapower ('fdia-graph[generate]'). A benign scan is emitted exactly from a stored state (no
+re-solve); only attacks re-solve, locally. The attack families are At (the slow ramp) and Am (the
+overload attack) [WU26].
 
-FdiaGenerator is split by concern across three mixins; a mixin's bases are the mixins whose methods
-it calls, and the attack mixins call the other two. State setup lives here (__init__), while
-  physics.py     (PhysicsMixin)      a scan's load and generation
-  measurement.py (MeasurementMixin)   emit meter readings from a state
-  attacks/       (AttackMixin)       every attack: the stealthy false states, the fewest-tamper
-                                     search, the ramp and overload episode designs
+FdiaGenerator sets up the state here (`__init__`) and gets its methods from three mixins:
+physics.py (a scan's load and generation), measurement.py (meter readings from a state) and
+attacks/ (every attack).
 """
 
 from __future__ import annotations
@@ -44,33 +40,23 @@ class FdiaGenerator(AttackMixin):
         max_load_mw: Optional[float] = 2000.0,
         meter_model: str = "hybrid",
     ) -> None:
-        """Load the IEEE case, solve the base power flow, and draw the meter plan and the per-meter
-        biases from `seed`.
-
-        `max_load_mw` keeps a load above it out of the attack targets: such a load is an area
-        equivalent (IEEE-145 lumps whole regions into single loads of 4 to 58 GW), not a substation
-        an attacker could shift by 5% to 20% with any power-flow solution nearby; None disables the
-        cap. No load of the other seven ladder systems exceeds 1.1 GW.
-
-        The random draws happen in a fixed order, the meter plan (voltage buses, PMU buses, flow
-        meters), then the six per-meter bias vectors, then the branch-current channels' biases.
-
-        `meter_model` is what the meters measure: "hybrid", a SCADA voltmeter reads
-        |V| only, the angle is a PMU channel, and every PMU reads the current phasor of each
-        in-service branch at its bus [WU26 eqs. 17-20].
-        """
-        # pandapower is heavy/optional: import lazily so it's only needed when actually generating.
+        """Load the IEEE case, solve the base power flow, and draw from `seed`, in this fixed order: the
+        meter plan (voltage buses, PMU buses, flow meters), six per-meter bias vectors, the current biases.
+        With `meter_model` "hybrid" only PMUs read angles, and they read branch currents [WU26 eqs. 17-20]."""
+        # pandapower is heavy and optional: imported only when generating
         import pandapower as pp
         import pandapower.networks as pn
 
         self.pp = pp
         self.C = system_id(system)  # "ieee118" and 118 both accepted, like every public entry point
+        # `max_load_mw` keeps a larger load out of the attack targets (None: no cap): it is an area
+        # equivalent (IEEE-145 has loads of 4 to 58 GW), with no power-flow solution near a 5% to 20% shift.
+        # No load of the other seven ladder systems exceeds 1.1 GW.
         opts = GeneratorOptions(max_load_mw, meter_model)
         self.max_load_mw, hybrid = opts.max_load_mw, opts.meter_model == "hybrid"
         self.rng = np.random.default_rng(seed)
         self.seed, self.scan_key, self._jitter = seed, None, self.rng
-        # Measurement noise stds, the accuracy classes (ACCURACY_CLASS), split into a per-scan jitter
-        # and a per-meter bias (see formulas.noise).
+        # the accuracy classes, split into a per-scan jitter and a per-meter bias (formulas.noise)
         self.SD = dict(ACCURACY_CLASS)
         self.SDj, self._bias_sd = bias_jitter_split(self.SD, jitter_frac=JITTER_FRAC)
         self.NET = getattr(pn, IEEE_CASES[self.C])
@@ -86,8 +72,7 @@ class FdiaGenerator(AttackMixin):
 
     @classmethod
     def from_spec(cls, spec: GeneratorSpec) -> FdiaGenerator:
-        """The generator of `spec`: its case, meter plan and ratings (what a design process rebuilds
-        the walk's generator from)."""
+        """The generator of `spec`: its case, meter plan and ratings."""
         m = spec.meters
         g = cls(spec.system, spec.seed, max_load_mw=spec.max_load_mw, meter_model=m.meter_model, **m.coverage)
         g._line_ratings, g._rating_delta = spec.ratings, spec.rating_delta
@@ -102,18 +87,9 @@ class FdiaGenerator(AttackMixin):
         return base
 
     def _load_tables(self, base: PandapowerNet) -> None:
-        """Which buses carry load, which of those can be attacked, which inject nothing, and the
-        generator MW co-located with each load.
-
-        load_bus is the bus of EVERY load element, aligned 1:1 with net.load so the re-solve's
-        arrays stay the same length. ATTACKABLE = load_bus positions with real ACTIVE
-        load (|p_mw| > 0) and at most `max_load_mw`: reactive-only loads (e.g. IEEE-300 buses 141,
-        183) and area-equivalent loads stay in the physics table but are excluded from target
-        selection and the Al candidate set, since attacking a reactive-only load leaves no P
-        footprint yet would still get a y = 1 label, and a gigawatt step has no local solution.
-        Zero-injection buses are pure junctions with net injection exactly 0 (a strong
-        constraint); a near-zero injection measurement is still emitted there.
-        """
+        """Which buses carry load, which loads can be attacked, and which buses inject nothing.
+        `load_bus` has one entry per load element, aligned with `net.load`. A zero-injection bus is a
+        pure junction (net injection exactly 0); a near-zero injection reading is still emitted there."""
         C = self.C
         _lb = base.load
         self.load_bus = _lb["bus"].values
@@ -122,15 +98,15 @@ class FdiaGenerator(AttackMixin):
         # the angle reference; a local attack never moves it
         self.slack_bus = int(base.ext_grid.bus.values[0])
         p_load = _lb["p_mw"].abs().values
-        # ... so a load on the slack bus is never a target either: it can never enter a region, and
-        # a frame that scaled it would be labelled attacked with no attack in the false state
+        # Attackable: active load above zero, off the slack bus, at most `max_load_mw`. A reactive-only
+        # load (IEEE-300 buses 141, 183) would leave no P footprint yet be labelled attacked; a load on the
+        # slack bus can never enter a region; a gigawatt area-equivalent load has no local solution.
         self._attackable_mask = (p_load > 0.0) & (self.load_bus != self.slack_bus)
         if self.max_load_mw is not None:
             self._attackable_mask &= p_load <= self.max_load_mw
         self.attackable_pos = np.where(self._attackable_mask)[0]
-        # The stealthy families (Aq, At, Al, Am) also skip every load on a generator bus, zero-MW
-        # condensers included: a generator bus is too risky to falsify, the attacker's rule in the
-        # protocol this dataset follows [BOY22]. The in-place families keep the full set.
+        # The stealthy families also skip every load on a generator bus, zero-MW condensers included: a
+        # generator bus is too risky to falsify, the attacker's rule in the protocol followed here [BOY22].
         live_sgen = (base.sgen.p_mw.abs() > 0) | (base.sgen.q_mvar.abs() > 0)  # as for injection buses
         gen_buses = np.r_[base.gen.bus.values, base.sgen.bus.values[live_sgen.values]]
         self._stealthy_mask = self._attackable_mask & ~np.isin(self.load_bus, gen_buses)
@@ -152,10 +128,9 @@ class FdiaGenerator(AttackMixin):
         self._case_limits(base)
 
     def _case_limits(self, base: PandapowerNet) -> None:
-        """Per-bus base load and generation [N, 2] (P, Q) and the case's limits [WU26 eqs. 21-23]:
-        bus voltage limits [N, 2] and generator P and Q limits [N, 2] summed over co-located
-        generators, unbounded (±inf) where a bus has none; the slack (ext_grid) is unbounded, its
-        output is the balance of every state and its limits are the pool's own."""
+        """Per-bus base load and generation [N, 2] (P, Q) and the case's limits [WU26 eqs. 21-23]: bus
+        voltage limits and generator P and Q limits [N, 2], summed over co-located generators, ±inf where
+        a bus has none. The slack is unbounded: its output is the balance of every state."""
         C = self.C
         self.load_base = np.zeros((C, 2))
         self.gen_base = np.zeros((C, 2))
@@ -177,11 +152,9 @@ class FdiaGenerator(AttackMixin):
     def _meter_plan(
         self, base: PandapowerNet, vbus_frac: float, pmu_frac: float, flow_frac: float, hybrid: bool = False
     ) -> None:
-        """The sparse metering plan, sampled once (self.meters, a MeterPlan): vbus = voltage-magnitude
-        meters, pmu = |V| + angle meters, inj = metered P/Q injection buses (all injection buses), and
-        a per-branch flow-meter mask with fraction flow_frac. Three draws from the seeded RNG, in this
-        order; `hybrid` sets the D10 meter model (angles at PMUs only, PMU branch currents) without a
-        draw of its own."""
+        """The sparse meter plan, sampled once (`self.meters`): voltmeter buses, PMU buses, and a flow-meter
+        mask over the branches; every injection bus is metered. Three draws from the seeded RNG, in this
+        order. `hybrid` (angles at PMUs only, PMU branch currents) adds no draw."""
         C = self.C
         vbus = set(self.rng.choice(C, int(vbus_frac * C), replace=False).tolist())
         pmu = set(self.rng.choice(C, max(1, int(pmu_frac * C)), replace=False).tolist())
@@ -202,16 +175,11 @@ class FdiaGenerator(AttackMixin):
         self.n_lines = len(base_line)  # lines come first in ei, transformers after
 
     def _branch_physics(self, ppc: PpcTables) -> None:
-        """Full per-unit branch and bus physics, exactly the quantities makeYbus consumes, so a model
-        has the same information the state estimator does.
-
-        ppc branch rows are ordered lines-then-transformers, matching self.ei. BR_G (column 23) is a
-        pandapower extension (absent from stock PYPOWER) carrying transformer iron losses: omitting it
-        reconstructs Ybus exactly on IEEE-14 (no transformers) but WRONGLY on IEEE-118/300, an error
-        that looks correct on the first system people test. float64, not float32: float32 rounding
-        degrades the Ybus reconstruction from ~1e-14 to ~1e-4 on IEEE-300, and exact reconstruction is
-        the whole claim. Shunts sit on the Ybus DIAGONAL (a BUS property), stored in MW/MVAr at 1.0 pu.
-        """
+        """The per-unit branch and bus quantities makeYbus consumes, so a model has what the state
+        estimator has. Rows are lines then transformers, like `self.ei`. Bus shunts are MW/MVAr at 1.0 pu."""
+        # BR_G (column 23) is a pandapower extension carrying transformer iron losses: without it Ybus is
+        # exact on IEEE-14 (no transformers) but wrong on IEEE-118 and 300. float64, not float32: float32
+        # degrades the Ybus reconstruction from ~1e-14 to ~1e-4 on IEEE-300.
         _br = ppc["branch"]
         _tap = _br[:, 8].real.astype(np.float64).copy()
         _tap[_tap == 0] = 1.0  # PYPOWER reads a zero tap entry as unity
@@ -224,8 +192,7 @@ class FdiaGenerator(AttackMixin):
             shift_deg=_br[:, 9].real.astype(np.float64),  # phase shift, degrees
             status=_br[:, 10].real.astype(np.float64),  # 1 in service, 0 out
         )
-        # Series admittance g_s + j b_s = 1 / (r + jx): the admittance form of the branch, so the edge set
-        # carries admittance directly, not just impedance (formulas.network.series_admittance).
+        # series admittance g_s + j b_s = 1 / (r + jx), so the edge set carries admittance, not just impedance
         _ys = series_admittance(self.branch.r, self.branch.x)
         self.edge_gs = np.real(_ys).astype(np.float64)  # series conductance, p.u.
         self.edge_bs = np.imag(_ys).astype(np.float64)  # series susceptance, p.u. (negative for inductive)
@@ -234,12 +201,9 @@ class FdiaGenerator(AttackMixin):
         self.bus_shunt_b = ppc["bus"][:, 5].real.astype(np.float64)
 
     def _admittances(self, ppc: PpcTables) -> None:
-        """Ybus and the from/to branch-admittance matrices (from-end flow Sf = V_from * conj(Yf @ V))
-        and the ppc bus lookup.
-
-        _ppc_row maps pandapower bus index -> ppc row index (the orderings differ, a classic footgun);
-        _from_bus_ppc is the from-bus (ppc index) per branch; Vc is built in ppc ordering.
-        """
+        """Ybus, the from and to branch-admittance matrices (from-end flow Sf = V_from * conj(Yf @ V)) and
+        the bus lookup: `_ppc_row` maps a pandapower bus index to its ppc row (the orderings differ), and
+        `_from_bus_ppc` is each branch's from bus as a ppc row."""
         from pandapower.pypower.makeYbus import makeYbus
 
         self._Ybus, self._Yf, self._Yt = makeYbus(ppc["baseMVA"], ppc["bus"], ppc["branch"])
@@ -250,10 +214,9 @@ class FdiaGenerator(AttackMixin):
         self._n_ppc_buses = ppc["bus"].shape[0]
 
     def _meter_bias(self) -> None:
-        """The per-meter SYSTEMATIC bias, drawn ONCE (self.bias, a MeterBias): constant across scans,
-        relative for P/Q and flows, absolute for V and angle, the slow part of the accuracy-class error.
-        The per-scan jitter (self.SDj) is added fresh at emit. Six draws from the seeded RNG, after the
-        meter plan, in this order."""
+        """The per-meter systematic bias (`self.bias`), constant across scans: relative for P, Q and
+        flows, absolute for |V| and angle. Six draws from the seeded RNG, after the meter plan, in this
+        order."""
         sb, C, E = self._bias_sd, self.C, self.E
         self.bias = MeterBias(
             pi=self.rng.normal(0, sb["pi"], C),
@@ -266,9 +229,8 @@ class FdiaGenerator(AttackMixin):
 
     def _current_bias(self) -> None:
         """The PMU branch-current channels' systematic bias (hybrid meters only): relative, one per
-        channel, drawn once after the six v0.8.3 bias vectors from the accuracy class
-        `PMU_CURRENT_CLASS` split like the others (`bias_jitter_split`); the per-scan jitter part is
-        kept in `self._i_jitter`."""
+        channel, drawn once after the six bias vectors, from the accuracy class `PMU_CURRENT_CLASS`.
+        The per-scan jitter part is kept in `self._i_jitter`."""
         jit, bias = bias_jitter_split({"i": PMU_CURRENT_CLASS}, jitter_frac=JITTER_FRAC)
         self._i_jitter = jit["i"]
         self.bias = self.bias._replace(i=self.rng.normal(0, bias["i"], (self.E, 4)))

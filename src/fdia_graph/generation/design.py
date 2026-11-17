@@ -1,14 +1,10 @@
 """The design stage of a timeline: the overload Am episodes of a split, designed before it is walked.
 
-An Am design reads only the operating points of its own window (a flow goal has no stealth bound, the
-plan's D11, so nothing ties it to the frame before its onset), and its one random draw, the order the
-target lines are tried in, comes from a stream keyed by (seed, split, slot, move) rather than from the
-walk's. So the episodes of a split are independent: they are designed in parallel across processes
-(`workers`), and the result is the same whatever the number of workers. An episode with no feasible
-design at its onset moves to another onset of its split, uniform among every position where it fits
-without touching another placed episode (earlier or later: no frame is written yet), up to REDRAWS
-times; past that it is given up, recorded and warned about.
-
+An Am design reads only the operating points of its own window: a flow goal has no stealth bound,
+so nothing ties it to the frame before its onset. Its one random draw, the order the target lines
+are tried in, comes from a stream keyed by (seed, split, slot, move). So the episodes of a split
+are independent and are designed in parallel, with the same result for any number of workers. An
+episode with no feasible design moves to another free onset of its split, up to REDRAWS times.
 The ramp At is designed by the walk as it reaches it (`generation.emit`): its stealth bound starts
 from the attack vector of the frame before its onset, which only the walk knows.
 """
@@ -38,18 +34,15 @@ Task = TypeVar("Task")  # what one design reads (a grid's own record)
 Found = TypeVar("Found")  # what one design returns
 
 
-_worker_state: list[object] = []  # what this worker process designs with, made once when the process starts
+_worker_state: list[object] = []  # what this worker process designs with, made once at its start
 
 
 class DesignPool(Generic[Setup, State]):
-    """The processes a timeline's designs run on, for either grid. Each of the `workers` processes is
-    started once for the timeline and makes what it designs with by `start(setup)` (a generator, the
-    attack families). With one worker no process is started: the pool calls `start(setup)` itself and
-    the designs run in the caller's process. Every design draws from a stream keyed by its own
-    episode, so the designs are the same whatever the number of workers.
-
-    The processes are spawned (not forked) on every platform, so a script that asks for more than one
-    worker must start under `if __name__ == "__main__":`."""
+    """The processes a timeline's designs run on, for either grid. Each of the `workers` processes
+    starts once and makes what it designs with by `start(setup)`; with one worker the designs run in
+    the caller's process. Every design draws from a stream keyed by its own episode, so the result
+    does not depend on the number of workers. The processes are spawned, so a script that asks for
+    more than one worker must start under `if __name__ == "__main__":`."""
 
     def __init__(self, workers: int, start: Callable[[Setup], State], setup: Setup) -> None:
         self._pool: Optional[Pool] = None
@@ -70,15 +63,15 @@ class DesignPool(Generic[Setup, State]):
         return design(cast(State, _worker_state[0]), task)
 
     def map(self, design: Callable[[State, Task], Found], tasks: Iterable[Task]) -> Iterator[Found]:
-        """`design(state, task)` of every task, in the order of `tasks`, each as soon as it and those
-        before it are done; `state` is what `start` made in the process that runs the design."""
+        """`design(state, task)` of every task, lazily and in the order of `tasks`. `state` is what
+        `start` made in the process that runs the design."""
         if self._pool is None:
             return (design(self._local[0], task) for task in tasks)
         return self._pool.imap(partial(self._design_in_worker, design), tasks)
 
     def close(self, finished: bool = True) -> None:
-        """Stop the worker processes: after the work at hand when the run `finished`, at once (the
-        designs in flight dropped) when it failed."""
+        """Stop the worker processes: after the work at hand when the run `finished`, at once when it
+        failed."""
         if self._pool is None:
             return
         if finished:
@@ -115,9 +108,8 @@ AmEpisode = Planned[int, AmOverloadDesign]  # an IEEE episode in and after the d
 
 
 class AmDesigner(DesignPool[_WorkerSetup, FdiaGenerator]):
-    """Designs the Am episodes of each split: in this process with `workers` 1 (on the walk's own
-    generator), else in a pool of `workers` processes started once for the timeline, each rebuilding
-    the generator from `spec` (`close` stops them)."""
+    """Designs the Am episodes of each split: in this process on the walk's own generator with one
+    worker, else in `workers` processes that each rebuild the generator from `spec`."""
 
     def __init__(self, g: FdiaGenerator, spec: GeneratorSpec, workers: int) -> None:
         super().__init__(workers, _WorkerSetup.generator, _WorkerSetup(spec, None if workers > 1 else g))
@@ -135,11 +127,9 @@ class AmDesigner(DesignPool[_WorkerSetup, FdiaGenerator]):
     def design_split(
         self, X: np.ndarray, knobs: FrameKnobs, span: SplitSpan, slots: list[Slot[int]], rec: Placement[int]
     ) -> list[AmEpisode]:
-        """The placed episodes `slots` of the split `span`, sorted by onset, with every Am either
-        designed (its design beside its slot) or moved until it is, or given up: rounds of designs in
-        parallel, the failures of a round moved in slot order (so the moves do not depend on the
-        workers) and designed again in the next. A ramp At comes back with no design: the walk designs
-        it as it reaches it."""
+        """The episodes of the split `span`, sorted by onset: every Am designed, moved until it is, or
+        given up; a ramp At with no design. The failures of a round are moved in slot order, so the
+        moves do not depend on the workers, and designed again in the next round."""
         others = [s for s in slots if s.family != AM_CODE]
         todo: list[AmEpisode] = [Planned(s, index=i) for i, s in enumerate(slots) if s.family == AM_CODE]
         done: dict[int, AmEpisode] = {}
@@ -152,8 +142,8 @@ class AmDesigner(DesignPool[_WorkerSetup, FdiaGenerator]):
     def _round(
         self, X: np.ndarray, knobs: FrameKnobs, split: int, todo: list[AmEpisode], done: dict[int, AmEpisode]
     ) -> list[AmEpisode]:
-        """One round: every pending episode designed at its onset (in parallel), the designed ones
-        added to `done`; returns those with no design."""
+        """One round: design every pending episode at its onset, add the designed ones to `done` and
+        return those with no design."""
         windows = [X[p.slot.onset : p.slot.onset + p.slot.length] for p in todo]
         tasks = [_DesignTask(w, knobs, (self.seed, split, p.index, p.moves)) for w, p in zip(windows, todo)]
         failed = []
@@ -172,9 +162,8 @@ class AmDesigner(DesignPool[_WorkerSetup, FdiaGenerator]):
         span: SplitSpan,
         rec: Placement[int],
     ) -> list[AmEpisode]:
-        """The failed episodes at their new onsets, in slot order, each placed clear of every episode
-        still held (the ramps `others`, the designed Am, the failed ones not yet moved and those moved
-        before it); an episode past REDRAWS moves, or with no free onset left, is given up."""
+        """The failed episodes at their new onsets, in slot order, each clear of every other episode
+        of the split. An episode past REDRAWS moves, or with no free onset left, is given up."""
         waiting = {p.index: p.slot for p in failed}
         moved: list[AmEpisode] = []
         for p in failed:

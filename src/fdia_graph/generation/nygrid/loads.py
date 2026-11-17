@@ -1,41 +1,13 @@
 """Per-bus load profiles by the bottom-up method of [LI21], scaled to the real zone load.
 
-Each NY load bus aggregates prototype buildings and plants until each of its residential, commercial and
-industrial components reaches its peak (Sec. II-D). The bus mix comes from its utility's sector sales
-(II-B). The prototypes come from NREL ResStock and ComStock county profiles (II-C1), kept at their native
-15 minutes, and from IAC plants on ORNL-style daily curves (II-C2), which are hourly rules held flat within
-the hour. The zone's real 5-minute load is split over its buses in proportion to their 15-minute profiles.
-
-Within the hour (N31) each bus then gets two terms of its own, so its five-minute steps are not its zone's:
-
-- Fluctuation. An AR(1) factor on the bus's load, `p (1 + e)`, with `e` of standard deviation
-  `FLUCT_C size^-FLUCT_BETA` (size the bus's mean load, MW) and lag-1 coefficient `FLUCT_PHI`. The constants
-  were fitted on the real zones of a held-out year (2018, so 2019 is not fitted to itself) by a function
-  removed from the package after release 0.21.0, where it can still be read and run (`_fluctuation_fit` in
-  `fdia_graph/nyfed/scenario/loads.py`). A zone's fluctuation is its regulation component in the sense of Kirby and Hirst
-  (ORNL/TM-2001/13): the 5-minute load less its 30-minute rolling mean of L(t-3) .. L(t+2), relative to
-  that mean. Its spread is the robust (1.4826 MAD) standard deviation, so large industrial steps, modelled
-  next, do not inflate it. The spread is fitted against zone mean load as `c size^-beta` across the zones;
-  zone H (Millwood, 320 MW) is left out, its residual being four times what the other ten zones' fit
-  predicts at its size (a metering artifact rather than load, as its near-white steps suggest). One `phi`
-  is taken from the median lag-1 autocorrelation of the zones' residuals, read through the filter: white
-  noise already gives -0.23 after the rolling mean, so the residual's autocorrelation is mapped back to the
-  AR(1) coefficient that produces it, and `c` is scaled to the AR(1)'s own spread the same way. With beta
-  0.5 independent bus terms add up to the zone's own fluctuation, so the rescaling below leaves each bus
-  with its own spread and the zone with its real load.
-- Industrial switching. Zone D's real five-minute steps above 5% of its mean load (2,799 in 2019, up to
-  314 MW) are taken as large plants switching. The fit (`_switching_fit`, in release 0.21.0 beside the other)
-  merged same-sign steps in consecutive frames into one event and modelled switch-off and switch-on pulses: a pulse starts at an event and ends at the
-  next event of opposite sign. Pulses arrive as a Poisson process at `SWITCH_RATE` per MW of the bus's
-  mean industrial load and hour (zone D's pulses, half its events, over the model's industrial load of zone
-  D). A pulse's size relative to the bus's mean industrial load is the 5% threshold plus a generalized
-  Pareto excess (peaks over threshold, shape `SWITCH_XI`, scale `SWITCH_SCALE`), truncated at the largest
-  step seen; its duration is lognormal (`SWITCH_DUR_MU`, `SWITCH_DUR_SIGMA`, minutes) from the times
-  between opposite-sign events; a share `SWITCH_OFF` of pulses start with a drop. A drop never takes more
-  than the bus's industrial load at that frame.
-
-Last, each zone's buses are rescaled to sum exactly to the zone's real 5-minute load.
-"""
+Each NY load bus aggregates prototype buildings (NREL ResStock and ComStock county profiles, 15-minute) and
+IAC plants on ORNL-style hourly curves until its residential, commercial and industrial parts reach their
+peaks (Sec. II-D); the mix is its utility's sector sales (II-B). The zone's real 5-minute load is split
+over its buses in proportion to these profiles. Each bus then gets two terms of its own: an AR(1)
+fluctuation `p (1 + e)`, with `e` of standard deviation `FLUCT_C size^-FLUCT_BETA` (size = mean load, MW;
+the regulation component of ORNL/TM-2001/13, fitted on the 2018 zones), and industrial switching pulses
+(`_switching`, fitted on zone D's steps above 5% of its mean). Last, each zone's buses are rescaled to sum
+exactly to the zone's real load."""
 
 from __future__ import annotations
 
@@ -73,7 +45,7 @@ class LoadSeries:
 
 
 class LoadModel:
-    """The bus mix and prototype pools of every NY load bus, and the aggregation of [2] over them."""
+    """The bus mix and prototype pools of every NY load bus, and the aggregation of [LI21] over them."""
 
     def __init__(
         self,
@@ -143,8 +115,8 @@ class LoadModel:
         return self._aggregate(target_kw, protos, prob, pairs, rng)
 
     def _aggregate(self, target_kw, protos, prob, pairs, rng):
-        """The loop of Fig. 5 on 15-minute prototypes. The peak is the hourly peak, as [2]'s prototypes
-        are hourly, and a swap exchanges two whole hours (four rows each), so the method stays [2]'s."""
+        """The loop of [LI21, Fig. 5] on 15-minute prototypes. The peak is the hourly peak and a swap exchanges
+        two whole hours (four rows each), since the paper's prototypes are hourly."""
         total = np.zeros(QUARTERS_PER_YEAR)
         blocks = protos.reshape(len(protos), HOURS_PER_YEAR, 4)
         mean_peak = float(prob @ blocks.mean(axis=2).max(axis=1))
@@ -222,11 +194,9 @@ class LoadModel:
         return out, ind
 
     def profiles(self, zone_load: ZoneLoad, rng: np.random.Generator) -> LoadSeries:
-        """Bus P and Q at every frame of `zone_load`. Each zone's real load is split over its load buses in
-        proportion to their 15-minute aggregated profiles, interpolated to the frame time; each bus then
-        gets its AR(1) fluctuation and industrial switching pulses (module docstring), and the zone's buses
-        are rescaled so they sum to the zone exactly. Q follows at POWER_FACTOR. External buses keep their
-        base load."""
+        """Bus P (MW) and Q (MVAr) at every frame of `zone_load`, by the steps of the module docstring. Q
+        follows P at POWER_FACTOR. External buses keep their base load. Draw order: the aggregation, the
+        AR(1) fluctuation, then the switching pulses."""
         quarterly, ind = self._quarterly(np.nanmax(zone_load.load, axis=0), rng)
         zone_sum = np.zeros((QUARTERS_PER_YEAR, len(newyork.ZONES)))
         np.add.at(zone_sum.T, self.zone_of, quarterly.T)
@@ -273,10 +243,9 @@ def _ar1(n: int, sigma: np.ndarray, phi: float, rng: np.random.Generator) -> np.
 
 
 def _switching(ind: np.ndarray, rng: np.random.Generator) -> np.ndarray:
-    """[T, B] industrial switching pulses on the industrial load `ind [T, B]` (MW) of every bus (module
-    docstring): Poisson onsets at SWITCH_RATE per MW of mean industrial load and hour, sizes relative to that
-    mean from the threshold plus a generalized Pareto excess truncated at SWITCH_MAX, lognormal durations, a
-    share SWITCH_OFF starting with a drop. Drops are clipped so the industrial load never goes below zero."""
+    """[T, B] MW switching pulses on the industrial load `ind [T, B]`: Poisson onsets at SWITCH_RATE per MW of
+    mean industrial load and hour; size = that mean times (SWITCH_U + a generalized Pareto excess, truncated at
+    SWITCH_MAX); lognormal duration; a share SWITCH_OFF are drops, clipped so the load stays at or above zero."""
     T, B = ind.shape
     out = np.zeros((T, B))
     hours = T * FRAME_MINUTES / 60

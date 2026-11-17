@@ -46,12 +46,11 @@ class ZoneLoad:
 class NygridHour:
     """One hour of NYgrid's inputs, as readOpCond.m and allocateLoad.m produce them.
 
-    `ny_pd`, `ny_qd` and `renew_mw` are over the 140 NPCC buses in bus-number order: NYgrid's split of
-    the zone loads onto NY buses (0.98 power factor) and the wind plus other renewables it nets off them.
-    `thermal_mw` follows the thermal units of the case file (`nygrid_case`), `nuclear_mw` its six nuclear units.
-    `thermal_cost` is each thermal unit's linear generation cost, $/MWh: the week's fuel price times its
-    heat rate (allocateGen.m 'lm', the cost updateOpCond.m L474-479 puts in gencost); `ext_lbmp` the hour's
-    real-time LBMP of NYISO's proxy buses NPX, O H, PJM and H Q, which price the external units (L493-501)."""
+    `ny_pd`, `ny_qd`, `renew_mw` are over the 140 NPCC buses in bus-number order: the zone loads split onto NY
+    buses (0.98 power factor) and the wind plus other renewables netted off them. `thermal_mw` is in the case
+    file's thermal-unit order, `nuclear_mw` its six nuclear units. `thermal_cost` ($/MWh) is the week's
+    fuel price times the unit's heat rate (allocateGen.m 'lm'); `ext_lbmp` is the hour's real-time LBMP of
+    the proxy buses NPX, O H, PJM and H Q, which price the external units (updateOpCond.m L493-501)."""
 
     time: np.datetime64
     fuel_mw: np.ndarray  # [7], FUELS order
@@ -207,10 +206,9 @@ def _nygrid(data: Path) -> None:
 
 
 def fetch_inputs(root: str | Path) -> Path:
-    """Download the build's inputs under `root/data` and return that folder: NYgrid's `Data/` at commit
-    47698b6, NYISO's five-minute zonal load ('pal') for the year, the NYS DPS utility territories, and the
-    bus locations shipped with the package. A file already present is kept. The building-stock load
-    profiles, EIA-861 and the industrial database are fetched by `LoadModel` the first time the pool is built."""
+    """Download the build's inputs under `root/data` and return that folder: NYgrid's `Data/` at its pinned
+    commit, NYISO's five-minute zonal load ('pal'), the NYS DPS utility territories and the bus locations.
+    A file already present is kept. `LoadModel` fetches the load-profile sources on its first build."""
     data = Path(root) / "data"
     _nygrid(data)
     terr = data / "territories"

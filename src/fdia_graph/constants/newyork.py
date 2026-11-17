@@ -3,8 +3,7 @@ their addresses, NYgrid's dispatch numbers, the fitted load model and the operat
 
 "NYgrid" is the open New York model of the Anderson lab at Cornell (pinned at `NYGRID_COMMIT`);
 `updateOpCond.m` and `allocateLoad.m` are its MATLAB files, cited by line. "II-B" to "II-D" are
-sections of [LI21], the bottom-up load method. An "N" number (N31) is a decision named in
-docs/concepts/new_york_grid.md.
+sections of [LI21], the bottom-up load method.
 """
 
 from __future__ import annotations
@@ -89,7 +88,7 @@ NYGRID_COMMIT = "47698b6c7823ae7b1bc6935e5601d5b64b8f918e"  # the commit of NYgr
 NYGRID_ZIP_URL = f"https://codeload.github.com/AndersonEnergyLab-Cornell/NYgrid/zip/{NYGRID_COMMIT}"
 TERRITORIES_URL = "https://data.ny.gov/api/geospatial/awza-4vgu?method=export&format=GeoJSON"  # NYS DPS
 TERRITORIES_FILE = "nys_electric_territories.geojson"  # the file the utility territories are saved as
-# Each NY bus located on the territories (N12), shipped with the package.
+# Each NY bus located on the territories, shipped with the package.
 BUS_LOCATIONS_FILE = "ny_bus_locations.csv"
 # The bottom-up load model's sources [LI21]: NREL's building stock profiles (the bucket, and the key prefix
 # of the ResStock and ComStock county files in it, the `{}`), EIA-861 sector sales of 2019, the IAC
@@ -111,8 +110,8 @@ EIA_UTILITY = {
     "ORU": 14154,
     "RGE": 16183,
 }
-# Floor area of each DOE commercial reference building, ft2 (Deru et al., 2011, the prototypes of [23] in
-# [2]). ComStock reports energy per represented floor area, so one prototype building is that area.
+# Floor area of each DOE commercial reference building, ft2 (Deru et al., 2011, the prototypes [LI21]
+# uses). ComStock reports energy per represented floor area, so one prototype building is that area.
 REFERENCE_FT2 = {
     "fullservicerestaurant": 5500,
     "hospital": 241351,
@@ -163,7 +162,7 @@ INTERFACE_BRANCHES: dict[str, list[tuple[int, int, int]]] = {
     "UPNY CONED": [(73, 74, 1), (74, 77, -1)],
     "SPR/DUN-SOUTH": [(78, 81, 1), (78, 82, 1)],
 }
-RELEASE_INTERFACE = "SPR/DUN-SOUTH"  # the NYISO interface the release's Am attacks (N48)
+RELEASE_INTERFACE = "SPR/DUN-SOUTH"  # the NYISO interface the release's Am attacks
 EXT_PRICES = ("NPX", "O H", "PJM", "H Q")  # proxy buses pricing the NE, IESO, PJM and HQ units
 # External areas (the areas of `REGIONS`) and the proxy bus pricing them (updateOpCond.m L497-500).
 AREA_PRICE = {1: "NPX", 4: "O H", 5: "PJM", 6: "PJM"}
@@ -192,11 +191,9 @@ HYDRO_COST_USD_PER_MWH = (2.7850, 5.4688, 9.5751, 9.6489, 1.5761, 9.7059, 9.5717
 POWER_FACTOR = 0.98  # NYgrid's load power factor (allocateLoad.m), so P4 still compares with MATLAB
 POOL_COUNTIES = 5  # II-D: the five prototype locations nearest the bus
 SWAP_PAIRS = (100, 100, 50)  # II-D: hour pairs permuted per residential, commercial, industrial pick
-# N31 within-hour terms (the docstring of `generation/nygrid/loads.py`). FLUCT_* were fitted on NYISO 2018, zone
-# H left out, and SWITCH_* on NYISO 2019 zone D with the model's mean industrial load there (125.43 MW,
-# its one NYSEG load bus). The two fitting functions were removed after release 0.21.0 (there
-# `_fluctuation_fit` and `_switching_fit` in `fdia_graph/nyfed/scenario/loads.py`); the constants are
-# their results.
+# The within-hour terms (the fit is in docs/guides/new_york.md). FLUCT_* were fitted on NYISO 2018,
+# zone H left out, and SWITCH_* on NYISO 2019 zone D with the model's mean industrial load there (125.43 MW,
+# its one NYSEG load bus).
 # The residual's own spread is 0.2554 size^-0.516 (R^2 0.61 over the ten zones); FLUCT_C is the AR(1)'s.
 FLUCT_C, FLUCT_BETA, FLUCT_PHI = 0.32547, 0.51590, 0.37889
 SWITCH_RATE = 0.0012584  # pulses per MW of mean industrial load per hour

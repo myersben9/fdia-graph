@@ -1,4 +1,4 @@
-"""The pool: one AC operating state per 5-minute frame, from a ramp-constrained real-time dispatch (N32)."""
+"""The pool: one AC operating state per 5-minute frame, from a ramp-constrained real-time dispatch."""
 
 from __future__ import annotations
 
@@ -22,12 +22,11 @@ if TYPE_CHECKING:  # the pool record is read without pandapower, so the solver i
 
 @dataclass(frozen=True)
 class Pool:
-    """Per frame `time [T]` (NYISO's local clock, as the load), the state `vm [T, N]` p.u. and `va [T, N]`
-    degrees, the net bus injections `p [T, N]` MW and `q [T, N]` MVAr the admittances give for that state
-    (`Network.injections`, so shunts belong to the network), `solve_kind [T]`, and each unit's real-time
-    dispatch basepoint `unit_p [T, G]` MW (N32; None in a pool written before N32). Frames that are not
-    SOLVED stay on the time axis with NaN state, so the grid stays a clean 5-minute grid. Branch flows are
-    `Network(case).flows(vm, va)`."""
+    """Per frame `time [T]` (NYISO's local clock): the state `vm [T, N]` p.u. and `va [T, N]` degrees, the
+    net bus injections `p`, `q [T, N]` (MW, MVAr) the admittances give for it (`Network.injections`, so
+    shunts belong to the network), `solve_kind [T]` and each unit's dispatch basepoint `unit_p [T, G]` MW
+    (None when the file has none). A frame that is not SOLVED keeps its place on the 5-minute time axis with
+    NaN state. Branch flows are `Network(case).flows(vm, va)`."""
 
     time: np.ndarray
     vm: np.ndarray
@@ -39,36 +38,13 @@ class Pool:
 
 
 class PoolBuilder:
-    """Solves every frame of `loads` as NYISO's real-time dispatch would (N32): in time order, each frame is
-    a least-cost AC OPF (`AcSolver.dispatch`, at `dispatch.unit_cost`) on that frame's bus loads less
-    NYgrid's netted renewables `renew [H, N]` (wind and other renewables enter NYgrid as negative load),
-    each thermal unit within its limits and within `ramp [G]` (MW per frame, inf where unbounded) of its
-    previous frame's basepoint. Nuclear, hydro and every external unit, the HQ import included, follow
-    NYgrid's hourly output interpolated to the frame (N39: hydro is energy limited and interchange is
-    scheduled, so RTD re-dispatches only thermal units within the hourly commitment). That output is taken
-    at NYgrid's hourly AC points (`AcSolver.project`, every hour the frames touch), which move these units
-    by at most about 9 MW from NYgrid's raw setpoints. Nuclear holds it exactly. Hydro and external units
-    hold it under a quadratic penalty (`AcSolver.dispatch(anchor=...)`, the min-deviation rule of acproj.m),
-    so they leave it only as far as the AC solution needs: held exactly, the external areas cannot cover
-    their own losses and the loop flows of NY's re-dispatch, and the morning pickup is infeasible (bus 125
-    behind the 81-125 tie short by about 25 MW). `anchor_dev` records how far they move. The first frame
-    starts from the AC point of its hour, so a chunk of the year can be built on its own, or from a given
-    state (`build(start=...)`), so a chunk can continue the one before it. A frame's OPF basepoints and
-    unit voltages then run an AC power flow started at the OPF's own state, whose reference bus takes only
-    the residual mismatch.
-
-    Each unit's limits follow NYgrid's hourly setpoints of the two hours around the frame (each hourly
-    point sits at its half hour, as NYgrid's hourly values are means over the hour that starts at the
-    stamp): a unit at zero in both is off, a unit at zero in one may run from zero to Pmax, others run
-    within Pmin to Pmax, widened to admit the interpolated setpoint as the projection does; external units
-    within 0 to 1.5 times it (updateOpCond.m L358-364), the HQ import within its -1100 to 1500 MW (L367-377, N45). Every unit stays in service, as in NYgrid's case
-    (GEN_STATUS 1 for all units), so a unit held at zero output still supplies reactive power; without that
-    the evening peaks of March and August were infeasible at the 0.9 p.u. voltage floor (535 frames).
-    Unit reactive output stays within `q_cap [G]`
-    (MVAr, plus or minus), or within the limits of the solver's `Compensation` when it has one; a frame whose OPF
-    is infeasible under them is solved again with the case's unit limits, and counted in `q_fallback`. Under a
-    `Compensation` the banks' output (`shunt_q`, per frame) enters the power flow as a reactive injection at its
-    bus, so the pool's injections `q` include it."""
+    """Solves every frame of `loads` as NYISO's real-time dispatch would, in time order: a least-cost AC OPF
+    (`AcSolver.dispatch`, at `dispatch.unit_cost`) on the frame's bus loads less NYgrid's netted renewables
+    `renew [H, N]`, then an AC power flow at the OPF's basepoints. Thermal units move within their limits and
+    within `ramp [G]` (MW per frame, inf where unbounded) of the previous basepoint; nuclear, hydro and
+    external units follow NYgrid's hourly AC points (`AcSolver.project`), since hydro is energy limited and
+    interchange is scheduled. Unit Q stays within `q_cap [G]` (MVAr) or the solver's `Compensation`, under
+    which the pool's `q` includes the banks' output `shunt_q`."""
 
     def __init__(
         self,
@@ -91,8 +67,10 @@ class PoolBuilder:
         self.q_fallback = np.zeros(T, bool)  # solved only with the case's reactive limits
         self.shunt_q = np.full((T, len(solver.case.bus_id)), np.nan)  # MVAr each bank injects (Compensation)
         fuel = solver.case.fuel
-        self._held = np.isin(fuel, ("Nuclear", "Hydro", "Import"))  # follow NYgrid's hourly output (N39)
+        self._held = np.isin(fuel, ("Nuclear", "Hydro", "Import"))  # follow NYgrid's hourly output
         self._fixed = fuel == "Nuclear"  # exactly
+        # Hydro and external units hold the schedule under a quadratic penalty (`dispatch(anchor=...)`): held
+        # exactly, the external areas cannot cover their own losses and the morning pickup is infeasible.
         self._anchored = self._held & ~self._fixed  # under the penalty
         self.anchor_dev = np.full(T, np.nan)  # MW, the anchored units' total |output - schedule|
         self.final: tuple[np.ndarray, ...] | None = None  # last solved (unit_p, unit_q, vm, va)
@@ -115,8 +93,9 @@ class PoolBuilder:
         return self.hour_points[h]
 
     def _limits(self, lo: int, hi: int, w: float) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-        """A frame's lower and upper output per unit before the ramp, and the interpolated setpoints (the
-        held units' from the hourly AC points, where both hours have one)."""
+        """A frame's lower and upper output per unit (MW) before the ramp, and the setpoints interpolated between
+        the two hours around it (each hourly point sits at its half hour). A unit at zero in both hours is off,
+        at zero in one may run from zero to Pmax, else Pmin to Pmax widened to admit the setpoint."""
         case, d = self.solver.case, self.dispatch
         a, b = d.unit_p[lo], d.unit_p[hi]
         sp = (1 - w) * a + w * b
@@ -127,16 +106,16 @@ class PoolBuilder:
         p_lo = np.where(both, np.minimum(case.pmin, sp), np.where(either, np.minimum(0.0, sp), 0.0))
         p_hi = np.where(either, np.maximum(case.pmax, sp), 0.0)
         # external units 0 to 1.5 times the setpoint (updateOpCond.m L360); the HQ import keeps its
-        # -1100 to 1500 MW widened to the schedule, as NYgrid appends it after that line (L367-377, N45)
+        # -1100 to 1500 MW widened to the schedule, as NYgrid appends it after that line (L367-377)
         imp = (case.fuel == "Import") & (case.bus_id[case.unit_bus] != HQ_BUS) & (sp > 0)
         p_lo[imp], p_hi[imp] = 0.0, 1.5 * sp[imp]
         p_lo[self._fixed] = p_hi[self._fixed] = sp[self._fixed]
         return p_lo, p_hi, sp
 
     def build(self, start: tuple[np.ndarray, ...] | None = None) -> Pool:
-        """Dispatch and solve every frame in time order, from `start` = (unit_p, unit_q, vm, va), the last
-        state of the frames before (`final` of their build), or else from the projection of the first
-        frame's hour."""
+        """Dispatch and solve every frame in time order, from `start` = (unit_p, unit_q, vm, va), the `final` of
+        the build before it, or else from the AC point of the first frame's hour. A frame infeasible under the
+        capped unit Q is solved again with the case's limits and counted in `q_fallback`."""
         clock = time.perf_counter()
         case, d, s = self.solver.case, self.dispatch, self.solver
         lo, hi, w = self._brackets()
@@ -179,7 +158,9 @@ class PoolBuilder:
             p_lo[held], p_hi[held] = base_lo[held], base_hi[held]  # no ramp: the schedule moves them
             p_lo[fixed], p_hi[fixed] = sp[fixed], sp[fixed]
             anchor = np.where(anchored, sp, np.nan)
-            # every unit stays in service for Q, as in NYgrid's case (GEN_STATUS 1)
+            # every unit stays in service for Q, as in NYgrid's case (GEN_STATUS 1): without the reactive
+            # support of units at zero output, evening peaks are infeasible at the 0.9 p.u. voltage floor
+            # (535 frames in March and August)
             on = np.ones(len(prev), bool)
             hvdc_p = (1 - w[f]) * d.hvdc_p[lo[f]] + w[f] * d.hvdc_p[hi[f]]
             cost = (1 - w[f]) * d.unit_cost[lo[f]] + w[f] * d.unit_cost[hi[f]]
@@ -223,9 +204,8 @@ class PoolBuilder:
         return self.pool
 
     def report(self) -> dict:
-        """Counts per solve kind, the voltage range over solved frames, the reference bus output, the
-        dispatch cost, the share of free ramp-limited units held at a ramp limit, the frames that needed
-        the case's reactive limits and the time per frame, for the last build."""
+        """The last build in numbers: counts per solve kind, the voltage range, the reference bus output, the
+        dispatch cost, the share of units at a ramp limit, the `q_fallback` frames and the time per frame."""
         pool, case = self.pool, self.solver.case
         if pool is None:
             raise NotFitted("report() describes the last build: call build() first")
@@ -267,10 +247,9 @@ class PoolBuilder:
 
 
 def peak_ratings(case: Case, pool: Pool, factor: float = 1.0, chunk: int = 8760) -> Case:
-    """`case` with every unrated branch (rating 0) rated at `factor` times its peak apparent flow over the
-    pool's solved frames, the larger of the two ends (decision N8; the factor 1.0 by N47, Ben 2026-11-01, so
-    a line's busiest scan of the year sits at its rating). Branches with a public rating keep it.
-    Frames are taken in chunks so a full year never holds every flow in memory at once."""
+    """`case` with every unrated branch (rating 0) rated at `factor` times its peak apparent flow (MVA, the
+    larger end) over the pool's solved frames; at 1.0 a line's busiest scan of the year sits at its rating.
+    A public rating is kept. Frames go in chunks so a year of flows is never in memory at once."""
     net = Network(case)
     solved = np.flatnonzero(pool.solve_kind == SolveKind.SOLVED)
     peak = np.zeros(len(case.f))

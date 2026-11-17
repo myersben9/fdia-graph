@@ -1,11 +1,11 @@
 """Branch thermal ratings for the overload attack of [WU26] (eqs. 24-25), stored with the package.
 
-The IEEE cases pandapower ships rate every line and transformer at 9,900 MVA, MATPOWER's
-placeholder for "no limit", so no flow in the data comes near it. The ratings here are the `rate_a`
-of the PGLib-OPF v23.07 versions of IEEE-14, 118 and 300 (IEEE PES Power Grid Library, CC BY 4.0,
-https://github.com/power-grid-lib/pglib-opf), one JSON file per case with the source file's name,
-URL and sha256, the rows as (from bus, to bus, rate_a MVA) in MATPOWER bus numbers. The generator
-matches them to its branches by their end buses (`formulas.attacks.branch_ratings`).
+The IEEE cases pandapower ships rate every branch at 9,900 MVA, MATPOWER's placeholder for "no
+limit". The ratings here are the `rate_a` of the PGLib-OPF v23.07 versions of IEEE-14, 118 and 300
+(IEEE PES Power Grid Library, CC BY 4.0, https://github.com/power-grid-lib/pglib-opf). Each case is
+one JSON file with the source file's name, URL and sha256 and the rows (from bus, to bus, rate_a
+MVA) in MATPOWER bus numbers. The generator matches them to its branches by their end buses
+(`formulas.attacks.branch_ratings`).
 """
 
 from __future__ import annotations

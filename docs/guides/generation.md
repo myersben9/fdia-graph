@@ -298,7 +298,10 @@ any program using `multiprocessing` must. An Am-only IEEE-14 timeline (experimen
 | `attack/` | `node_tamper`, `edge_tamper` | 1 where the attacker wrote the meter | `_store_attack` |
 | `data/`, `benign/`, `attack/` | `pmu_i`, `pmu_i_m`, `pmu_i_benign`, `pmu_i_tamper [T, E, 4]` | hybrid meters only: the PMU branch currents (Re and Im of `I_from`, then of `I_to`, per unit), their mask, the attack-removed twin, and 1 where the attacker wrote the channel | `_store_currents`, `_write_masks` |
 | `attack/` | `mag_ptr`, `mag_bus`, `mag` | designed change per attacked bus, ragged by frame | `TimelineWriter.finish` |
-| `episodes/` | `onset`, `length`, `family`, `bus_ptr`, `bus_idx` | one row per episode | `TimelineWriter.finish` |
+| `episodes/` | `onset`, `length`, `family`, `bus_ptr`, `bus_idx` | one row per episode; the attacked buses are ragged (`bus_ptr [K+1]` points into `bus_idx`) | `TimelineWriter.finish` |
+| `episodes/` | `min_episode`, `min_devices`, `min_channels`, `min_evaluated`, `min_support_ptr`, `min_support_idx` | with `min_tamper` on: what the fewest-tamper search chose for each episode it ran on | `TimelineWriter.finish` |
+| `graph/` | `edge_index [2, E]`, the per-unit branch physics and the bus shunts | the static topology, the same for every frame; enough to rebuild Ybus | `TimelineWriter.write_graph` |
+| file attributes | `system`, `N`, `E`, `baseMVA`, `seed`, `T`, `families`, `kind` (`"timeline"`), `attacked_frac`, the knobs, `v_lo` and `v_hi` (the widest bus voltage limits of the case), `settings`, `settings_hash` | what identifies the file and how it was generated | `TimelineWriter.header`, `TimelineWriter.finish` |
 
 `node_x - node_benign` is the attack exactly, for every family. The loader derives
 `edge_clean_full`, the clean flow on every branch, at read time (`dataset/__init__.py`).
@@ -388,7 +391,8 @@ under `name`. Without `states`, it reads `$FDIA_GRAPH_INIT` or downloads the sys
 |---|---|---|
 | `attacked_frac` | 0.5 | fraction of frames under an episode |
 | `families` | ("At", "Am") | the families in rotation; the single-snapshot families of older releases are refused |
-| `min_tamper` | True | hold each episode on the support that tampers the fewest devices [WU26, eq. 12] |
+| `min_tamper` | True | hold each episode on the support that tampers the fewest devices [WU26, eq. 12]; a change under a meter's noise is not counted. Off: the whole region within `hops` |
+| `min_budget` | 256 | candidate supports the search solves per episode before it settles on the best found (recorded as not proven) |
 | `am_attack` | "overload" | `Am` as the overload attack of [WU26], or an `OverloadSettings` |
 | `stealth_scale` | 1.0 | a multiplier on At's stealth bound, in units of the rated accuracy (Am has none, D11) |
 | `redundancy` | `MeterSettings()` | the meter plan, a `MeterSettings`: coverage `vbus_frac` 0.6, `pmu_frac` 0.2, `flow_frac` 0.9, and `meter_model` `"hybrid"` (D10, D12) |
@@ -397,7 +401,7 @@ under `name`. Without `states`, it reads `$FDIA_GRAPH_INIT` or downloads the sys
 | `am_len` | `ramp_len` | `Am` episode length |
 | `hops` | 2 | the attacker's subnetwork reach in branches |
 | `split` | (0.6, 0.2, 0.2) | chronological train/val/test fractions |
-| `max_load_mw` | 2000.0 | a larger load is never a target; None disables |
+| `max_load_mw` | 2000.0 | a larger load (MW) is never a target: it is an area equivalent, not a substation (IEEE-145 lumps regions into loads of 4 to 58 GW); None disables |
 | `seed` | 123 | the meter plan, the biases and every attack draw |
 | `workers` | 1 | processes the overload Am designs run on; the file does not depend on it |
 

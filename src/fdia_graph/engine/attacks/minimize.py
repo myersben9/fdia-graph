@@ -1,24 +1,13 @@
 """The cheapest support of an attack window [WU26 eq. 12].
 
-[WU26] builds its attack as a minimization: the fewest tampered measurements, a change under a meter's
-noise not counted, subject to the AC measurement model and the operating limits. Every tampered
-reading here is a reading of a local false state, so the model holds by construction and which meters
-move is set by the support S, the buses whose voltages the false state frees. The search is a plain
-candidate loop over supports:
-
-1. the area: [WU26]'s own when the caller gives it (`FrameKnobs.area`), the region its Section III-A
-   principles pick (`FrameKnobs.area_rule` "rules"), or the buses within `hops` of the goal;
-2. the candidates: the area itself, then the goal's buses grown one adjacent area bus at a time,
-   smallest first (`_supports`), at most `FrameKnobs.min_budget` of them;
-3. each candidate: the false state of every snapshot solved on the measurements
-   (`FalseStateMixin.solve_flow_local` for a flow goal, `solve_local` for a load goal), its tampered
-   devices and channels counted over the window [WU26 eq. 28];
-4. the answer: the cheapest candidate found. Nothing is claimed about optimality; [WU26] proves none.
-
-A trusted PMU (`TrustSchedule`, [WU26 eqs. 27, 29]) holds its own bus's |V| and angle true from its slot
-on, so the bus drops out of the support from then. A support that moves no device beyond noise at any
-snapshot is not an attack (an accurate estimator resolves it to the noise floor) and is skipped.
-"""
+[WU26] minimizes the tampered measurements, a change under a meter's noise not counted, subject to the
+AC model and the operating limits. Here every tampered reading comes from a local false state, so the
+support S (the buses whose voltages the false state frees) sets which meters move. The candidates are
+the area (`window_area`), then the goal's buses grown one adjacent area bus at a time, smallest first,
+at most `FrameKnobs.min_budget`. Each is solved at every snapshot and its tampered devices and channels
+counted over the window [WU26 eq. 28]. The cheapest found wins; nothing is claimed about optimality.
+A trusted PMU (`TrustSchedule`, [WU26 eqs. 27, 29]) holds its bus true from its slot on. A support
+that moves no device beyond noise is not an attack and is skipped."""
 
 from __future__ import annotations
 
@@ -63,10 +52,9 @@ _blas_users = [0]  # searches currently inside the limit
 
 @contextlib.contextmanager
 def _one_blas_thread() -> Iterator[None]:
-    """Hold the BLAS pools to one thread for a search, restoring them after the last concurrent search
-    leaves: the search's products are small, so on a many-core machine starting BLAS threads costs
-    more than the arithmetic. Without threadpoolctl (the `generate` extra installs it) the search runs
-    on whatever BLAS is set to."""
+    """Hold the BLAS pools to one thread for a search, restored after the last concurrent search leaves:
+    the search's products are small, so starting BLAS threads costs more than the arithmetic. Without
+    threadpoolctl (the `generate` extra installs it) nothing is changed."""
     with _blas_lock:
         if not _blas_pools:
             try:
@@ -101,13 +89,10 @@ class MinimizeMixin(FalseStateMixin):
         prev: Optional[AttackVector] = None,
         trust: Optional[TrustSchedule] = None,
     ) -> Optional[MinimizerResult]:
-        """The cheapest support found for the window of `states` (one [N, 4] true state per snapshot)
-        and `goal` (one attack design per snapshot), or None when the goal's buses have no area. `prev`
-        is the attack vector of the frame before the window (None when that frame is benign): At's
-        stealth bound measures its first step from it. `trust` is the defender's trusted-PMU
-        schedule [WU26 eqs. 26-32]. The support comes from the candidate search (`_min_tamper`), or,
-        for a flow goal when `k.support_method` asks for it, from [WU26]'s row reduction
-        (`rref.RrefSupport`). Either runs with BLAS on one thread (`_one_blas_thread`)."""
+        """The cheapest support found for the window of `states` (one [N, 4] true state per snapshot) and
+        `goal`, or None when the goal's buses have no area. `prev` is the attack vector of the frame before
+        the window (At's stealth bound starts from it); `trust` the trusted-PMU schedule [WU26 eqs. 26-32].
+        With `k.support_method` "rref" a flow goal takes its support from `rref.RrefSupport` instead."""
         if trust is not None:  # refused before the search runs: every trusted bus carries a PMU
             TrustablePmus(trust.buses, frozenset(self.meters.pmu), self.C)
         with _one_blas_thread():
@@ -149,11 +134,9 @@ class MinimizeMixin(FalseStateMixin):
         return MinimizerResult(best[1], devices, channels, evaluated)
 
     def _goal_seeds(self, goal: Goal) -> tuple[np.ndarray, list[frozenset[int]], Optional[frozenset[int]]]:
-        """(the buses the area grows from, the candidate supports' starting sets, the buses a candidate
-        must hold one of, or None). A load goal acts through its targeted load buses, all of them in
-        every support. A flow goal acts on each of its branches through either end, so every choice of
-        one end per branch starts its own candidates, and a support must hold a free injection (an
-        attackable load or a generator, the injections the flow goal frees)."""
+        """(the buses the area grows from, the candidates' starting sets, the buses a candidate must hold
+        one of, or None). A load goal starts from its load buses. A flow goal acts through either end of
+        each branch, so each choice of ends is a start, and a support must hold a free injection."""
         if goal.kind == "load":
             buses = np.unique(self.load_bus[cast(LoadGoal, goal).designs[0].targets])
             return buses, [frozenset(int(b) for b in buses)], None
@@ -167,11 +150,9 @@ class MinimizeMixin(FalseStateMixin):
     def goal_state(
         self, goal: Goal, t: int, Xt: np.ndarray, S: np.ndarray, k: FrameKnobs
     ) -> Optional[np.ndarray]:
-        """The false state of snapshot t on support S that meets the goal there inside the operating
-        limits, or None. Unknowns: |V| and theta of S, every other voltage held true. A load goal is the
-        square local power flow (the targeted loads take their new values, every other bus of S keeps
-        its true injection); a flow goal frees the attackable loads and generators of S and holds the
-        rest (`solve_flow_local`, [WU26 eqs. 13-25])."""
+        """The false state of snapshot t on support S that meets the goal inside the operating limits, or
+        None. Unknowns: |V| and theta of S, every other voltage held true. A load goal is the square local
+        power flow; a flow goal frees S's loads and generators (`solve_flow_local`, [WU26 eqs. 13-25])."""
         if goal.kind == "flow":
             return self._flow_goal_state(cast(FlowGoal, goal), t, Xt, S, k)
         return self._load_goal_state(cast(LoadGoal, goal), t, Xt, S, k)
@@ -205,10 +186,9 @@ class MinimizeMixin(FalseStateMixin):
     def _supports(
         self, starts: list[frozenset[int]], area: np.ndarray, must_hold: Optional[frozenset[int]] = None
     ) -> Iterator[np.ndarray]:
-        """Every candidate support in the area, smallest first: the goal's buses grown one adjacent area
-        bus at a time (so every added bus joins a goal bus through the support), each closed over the
-        zero-injection buses of its boundary as the area is (a bus known to inject nothing cannot absorb
-        the change, so it moves with the support), each set once."""
+        """Every candidate support in the area, smallest first, each once: the goal's buses grown one
+        adjacent area bus at a time, each closed over the zero-injection buses of its boundary (such a
+        bus cannot absorb the change, so it moves with the support)."""
         allowed = {int(b) for b in area}
         adj = self._area_adjacency(allowed)
         heap: list[tuple[int, tuple[int, ...]]] = []
@@ -373,8 +353,7 @@ class _Window:
     def cost(self, S: np.ndarray, beat: Optional[_Cost]) -> Optional[_Cost]:
         """The cost of support S held for the window: the union of the tampered devices and channels over
         every snapshot [WU26 eq. 28]. None when S is infeasible at a snapshot, moves no device beyond its
-        noise over the window (not an attack), or cannot beat `beat` (stopped as soon as its first count
-        so far exceeds it)."""
+        noise over the window (not an attack), or cannot beat `beat`."""
         if self._zero_on_boundary(S):
             return None  # never for a candidate of `_supports`, which takes such a bus in
         tampered = self._tampered(S, beat)
@@ -459,8 +438,7 @@ class _Window:
         return node, edge, self._over(t, a_cur, 1.0), AttackVector(a_node, a_edge, a_cur)
 
     def near(self, S: np.ndarray) -> _Near:
-        """`_Near` of support S, kept for the last support (a candidate is solved at every snapshot of
-        the window in turn)."""
+        """`_Near` of support S, cached for the last support."""
         key = np.asarray(S, np.int64).tobytes()
         if self._near is None or self._near[0] != key:
             self._near = (key, _near_branches(self.g, S))
@@ -468,9 +446,8 @@ class _Window:
 
     def _branch_attack(self, t: int, Xa: np.ndarray, near: _Near) -> tuple[np.ndarray, Optional[np.ndarray]]:
         """The attack vector of false state Xa at snapshot t on the flow channels [E, 2] and the PMU
-        branch currents [E, 4] (None without currents): only a branch with an end in the support sees a
-        false voltage, so only the support's branches (`near`) are evaluated and every other branch's
-        entry is zero."""
+        branch currents [E, 4] (None without currents). Only a branch with an end in the support sees a
+        false voltage, so only those (`near`) are evaluated; every other entry is zero."""
         g = self.g
         lut = g._ppc_row[np.arange(g.C)]
         V = np.zeros(g._n_ppc_buses, complex)

@@ -1,11 +1,8 @@
 """The loader's shared state and the constants its concerns read.
 
-`FdiaGraph` is assembled from five mixins over `DatasetBase` (the same pattern as the generator's
-`GridBase`): `GraphMixin` (the static graph), `AdmittanceMixin` (the admittance matrices and clean
-flows), `RecordsMixin` (indexing, collate, DataLoader), `ExportMixin` (whole-split arrays and
-tables) and `SequenceMixin` (windows and episodes of a timeline file). `DatasetBase` declares
-every attribute the constructor sets so each mixin type-checks on its own, and stubs the methods
-one mixin calls on another.
+`FdiaGraph` is five mixins over `DatasetBase` (`GraphMixin`, `AdmittanceMixin`, `RecordsMixin`,
+`ExportMixin`, `SequenceMixin`). `DatasetBase` declares every attribute the constructor
+sets, so each mixin type-checks on its own, and stubs the methods one mixin calls on another.
 """
 
 from __future__ import annotations
@@ -35,8 +32,7 @@ from ..models.inputs import FamilySelection, Requirement
 
 
 def family_ids(families: Sequence[Union[str, int]]) -> list[int]:
-    """Family names or raw integer codes as integer codes. An unknown
-    name or code is an error rather than a silently empty selection."""
+    """Family names or integer codes as integer codes. An unknown name or code is an error."""
     return list(FamilySelection(families).codes)
 
 
@@ -139,8 +135,7 @@ class DatasetBase:
     def edge_attr(self) -> torch.Tensor: ...
 
     def _physics_arrays(self, need: Sequence[str]) -> tuple[dict[str, np.ndarray], list[str]]:
-        """The graph/* arrays among `need` that the file carries, and the names it lacks (a file that
-        predates the physics schema)."""
+        """The graph/* arrays among `need` that the file carries, and the names it lacks."""
         got = {k: v for k in need if (v := self._phys.get(k)) is not None}
         return got, [k for k in need if k not in got]
 

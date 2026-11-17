@@ -25,14 +25,10 @@ logging.getLogger("pyomo.core").setLevel(logging.ERROR)
 @dataclass(frozen=True)
 class Compensation:
     """Reactive support for a sensitivity of the benign dispatch; the release solves without it. Switched shunt
-    banks: at each bus a range `shunt_lo`, `shunt_hi [N]` (MVAr at 1 p.u., capacitors positive, reactors negative,
-    both 0 where a bus has none) within which every frame's dispatch sets the bank, its output `b vm^2`. A generator
-    voltage schedule `v_schedule [N]` (p.u., NaN at a bus that does not regulate), which the dispatch holds by a
-    quadratic penalty of `v_weight` k$/h per p.u.^2, as a unit's voltage regulator holds its schedule until its
-    reactive limit binds. `shunt_cost` (k$/h per MVAr switched in) keeps a bank out unless the schedule or the
-    reactive limits need it, so banks are not switched in only to cut losses. Unit reactive limits `q_lo`, `q_hi
-    [G]` (MVAr) and the operating band `v_lo`, `v_hi [N]` (p.u., NaN keeps the case's limit) replace
-    the case's in the dispatch."""
+    banks range over `shunt_lo`, `shunt_hi [N]` (MVAr at 1 p.u., capacitors positive, 0 where a bus has none),
+    with output `b vm^2`. The dispatch holds the voltage schedule `v_schedule [N]` (p.u., NaN where a bus does
+    not regulate) by a quadratic penalty. `q_lo`, `q_hi [G]` (MVAr) and the band `v_lo`, `v_hi [N]` (p.u., NaN
+    keeps the case's limit) replace the case's limits in the dispatch."""
 
     shunt_lo: np.ndarray
     shunt_hi: np.ndarray
@@ -41,8 +37,8 @@ class Compensation:
     q_hi: np.ndarray
     v_lo: np.ndarray
     v_hi: np.ndarray
-    v_weight: float = 1.0e4
-    shunt_cost: float = 0.005
+    v_weight: float = 1.0e4  # k$/h per p.u.^2 off the schedule
+    shunt_cost: float = 0.005  # k$/h per MVAr switched in, so a bank is not switched in only to cut losses
 
     def band(self, case: Case) -> tuple[np.ndarray, np.ndarray]:
         """`(lo, hi) [N]` p.u.: the voltage limits the dispatch holds, the case's where the band gives none."""
@@ -78,14 +74,9 @@ def _ppc(case: Case) -> dict:
 
 
 def _opf_model(network: Network, ref: int, comp: Compensation | None = None) -> pe.ConcreteModel:
-    """Polar AC-OPF of acproj.m in p.u. and radians: unit outputs `pg`, `qg` meet the loads at every bus
-    through the AC power flow equations, at minimum sum of squared deviations from the setpoints `p0`
-    (in MW). Loads, setpoints and limits are mutable, so one model serves every hour. A second objective,
-    inactive until `AcSolver.dispatch` switches to it, is the linear generation cost `cost` ($/MWh) of the
-    units' output, scaled to thousands of dollars per hour. With a `Compensation`, each bank is a capacitor part
-    `cap` and a reactor part `rea` (p.u. at 1 p.u. voltage) in its bus's reactive balance, and the cost objective
-    adds the voltage schedule's penalty and the banks' switching cost; the deviation objective is unchanged and
-    `AcSolver.project` holds the banks out."""
+    """Polar AC-OPF of acproj.m in p.u. and radians, with mutable loads, setpoints and limits so one model
+    serves every solve. Two objectives: `deviation`, the squared distance from the setpoints `p0` (MW), and
+    `generation_cost`, the linear cost `cost` ($/MWh) in k$/h plus the anchor and `Compensation` penalties."""
     case = network.case
     y = network.ybus.tocoo()
     n, g = len(case.bus_id), len(case.unit_bus)
@@ -158,8 +149,7 @@ def _opf_model(network: Network, ref: int, comp: Compensation | None = None) -> 
 
 class AcSolver:
     """Solves one Case hour after hour. Holds its admittances, the AC-OPF model, a pandapower net for
-    power flows and the last solved state, which starts the next solve. `compensation` (None in the release) gives
-    the dispatch switched shunt banks and a generator voltage schedule (`Compensation`)."""
+    power flows and the last solved state, which starts the next solve. `compensation` is None in the release."""
 
     def __init__(self, case: Case, compensation: Compensation | None = None):
         self.case = case
@@ -168,7 +158,7 @@ class AcSolver:
         self.vm, self.va = case.vm.copy(), case.va.copy()
         self._ref = int(np.flatnonzero(case.bus_type == BusType.REF)[0])
         # the external units, which updateOpCond.m L360 bounds at 1.5 times their setpoint; the HQ import is
-        # appended after that line with its own -1100 to 1500 MW (L367-377), so it keeps its case limits (N45)
+        # appended after that line with its own -1100 to 1500 MW (L367-377), so it keeps its case limits
         self._import = (case.fuel == "Import") & (case.bus_id[case.unit_bus] != HQ_BUS)
         self._opf = _opf_model(self.network, self._ref, compensation)
         self._ipopt = ipopt(tol=1e-8, max_iter=300)
@@ -191,11 +181,9 @@ class AcSolver:
     def project(
         self, pd: np.ndarray, qd: np.ndarray, unit_p: np.ndarray, unit_on: np.ndarray, hvdc_p: np.ndarray
     ) -> dict | None:
-        """The AC operating point nearest the setpoints (acproj.m): minimize the sum of squared unit
-        deviations subject to the AC power flow equations, unit P and Q limits and bus voltage limits.
-        P limits widen to admit the setpoint, and external units range 0 to 1.5 times it
-        (updateOpCond.m L358-364); the HQ import keeps its -1100 to 1500 MW (L367-377, N45). Units that are off are held at zero. Returns vm, va (degrees),
-        unit_p, unit_q, or None when Ipopt does not reach an optimum."""
+        """The AC operating point nearest the setpoints (acproj.m): least squared unit deviation under the AC
+        equations and the unit and voltage limits. P limits widen to admit the setpoint; external units range 0
+        to 1.5 times it (updateOpCond.m L358-364). Returns vm, va (degrees), unit_p, unit_q, or None (no optimum)."""
         c, m, base = self.case, self._opf, self.case.base_mva
         m.generation_cost.deactivate(), m.deviation.activate()
         for b in m.S:  # the hourly AC point stays NYgrid's, without the sensitivity's banks or band
@@ -249,18 +237,13 @@ class AcSolver:
         anchor: np.ndarray | None = None,
         anchor_weight: float = 1000.0,
     ) -> dict | None:
-        """One real-time dispatch (N32): the AC operating point of least generation cost `cost [G]` ($/MWh)
-        subject to the AC power flow equations, bus voltage limits, unit outputs within `p_lo`, `p_hi [G]`
-        (MW, the caller's Pmin/Pmax intersected with the ramp from the previous dispatch) and reactive
-        outputs within `q_lo`, `q_hi [G]` (MVAr). Units that are off, or whose bounds meet, are held. Starts
-        from the last solved voltages and from `init` = (unit_p, unit_q), the previous dispatch, else from
-        the model's last values; Ipopt reaches local infeasibility in most frames when it starts from an
-        hour's projection far from the frame. `anchor [G]` (MW, NaN for none) holds a unit near a schedule
-        by a quadratic penalty of `anchor_weight` $/MW^2h, so it leaves the schedule only as far as the AC
-        solution needs (the min-deviation rule of acproj.m; at 1000 even a 400 $/MWh price gap moves a unit
-        0.2 MW). Returns vm, va (degrees), unit_p, unit_q, cost ($/h, generation cost only) and `shunt_q [N]`
-        (MVAr each bank injects, `b vm^2`, zero without a `Compensation`), or None when Ipopt does not reach an
-        optimum."""
+        """One real-time dispatch: the AC point of least cost `cost [G]` ($/MWh) with unit P in `p_lo`, `p_hi`
+        (MW) and Q in `q_lo`, `q_hi` (MVAr). `anchor [G]` (MW, NaN for none) holds a unit near a schedule by a
+        penalty of `anchor_weight` $/MW^2h. Returns vm, va (degrees), unit_p, unit_q, cost ($/h, generation
+        cost only) and shunt_q (MVAr per bus, zero without a `Compensation`), or None."""
+        # `init` = (unit_p, unit_q) of the previous dispatch starts Ipopt there: started from an hour's
+        # projection far from the frame, it reaches local infeasibility in most frames. At the default
+        # anchor weight even a 400 $/MWh price gap moves an anchored unit only 0.2 MW.
         c, m, base = self.case, self._opf, self.case.base_mva
         m.deviation.deactivate(), m.generation_cost.activate()
         for b in m.S:
@@ -324,9 +307,8 @@ class AcSolver:
         start: tuple[np.ndarray, np.ndarray] | None = None,
     ) -> dict | None:
         """AC power flow at fixed unit P and voltage setpoints, the reference bus taking the mismatch. `start`
-        = (vm, va degrees) starts Newton there, e.g. at the dispatch's own AC solution, so the power flow
-        cannot settle on another (low-voltage) solution of the same equations; otherwise it starts from the
-        last power flow."""
+        = (vm, va degrees) starts Newton there (the dispatch's own solution), so it cannot settle on another,
+        low-voltage solution of the same equations; otherwise it starts from the last power flow."""
         g = self.net.gen
         g["p_mw"], g["vm_pu"], g["in_service"] = unit_p, unit_vm, unit_on
         self.net.load["p_mw"], self.net.load["q_mvar"] = self._net_load(pd, hvdc_p), qd

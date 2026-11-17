@@ -2,14 +2,11 @@
 five-minute load swing, so no single snapshot looks anomalous while the total drifts the state away.
 
 The attacker scales a local subnetwork's loads and re-solves it with the boundary voltages held true
-(`Attacker.false_state`): the other attackable loads and generators of the area and its edge absorb the
-change, every other bus, a zero-injection one among them, keeps its true injection, so every snapshot's
-readings are those of one AC state and the operator's global residual test sees noise only [1]. The ramp follows the triangle profile of [1]: rise for a
-stretch of frames, hold at the peak, then return. Each per-step increment is capped below the bus's own
-natural frame-to-frame load variation over the window, which is what keeps the ramp hidden from a
-per-snapshot check; the cumulative peak still clears the meter noise floor, or the window stays benign
-(a sub-noise attack has no effect on an accurate estimator). The attack vector is global: every meter
-it moves beyond noise is written, and `Episode.clients` records their owners.
+(`Attacker.false_state`), so every snapshot's readings are those of one AC state and the operator's
+residual test sees noise only [1]. The ramp follows the triangle profile of [1]: rise, hold, return.
+Each step is capped below the bus's natural frame-to-frame load variation over the window, which hides
+it from a per-snapshot check. The peak must clear the meter noise floor, or the window stays benign.
+Every meter the attack moves beyond noise is written, and `Episode.clients` records their owners.
 """
 
 from __future__ import annotations
@@ -117,5 +114,5 @@ class Ramp(AttackFamily):
         changed = np.flatnonzero(att.tampered(vm, va, a).any(axis=0))
         if not len(changed):  # the peak stays sub-noise: no effect on an accurate estimator
             return None
-        clients = np.unique(att.meas.plan.owner[changed])  # owners of the tampered meters (G5)
+        clients = np.unique(att.meas.plan.owner[changed])  # owners of the tampered meters
         return Episode("At", clients, onset, length, ramped, -1, a)

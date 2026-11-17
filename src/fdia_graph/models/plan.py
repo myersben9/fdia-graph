@@ -86,22 +86,19 @@ class Planned(Generic[Family, Design]):
 @dataclass(frozen=True)
 class Episode:
     """One attack over a window of `length` frames from `onset`: what a New York family designs and
-    what every file's episode table holds a row of. `family` is its name ("Am", "At"). `buses` are the
-    attacked buses (the pretended loads and generators, the localization label).
+    what every file's episode table holds a row of. An IEEE episode has no clients and an empty `a`:
+    its frames carry the attack."""
 
-    A New York design also carries `clients`, the owners of the tampered meters (one or several: the
-    attacker's local subnetwork may span utilities, G5), `target_branch`, the interface branch Am's
-    area is anchored on (-1 for At), and `a [length, M]`, the attack vector added to each frame's
-    benign scan: h(x_false) - h(x_true) in full, so the operator's one residual test over all meters
-    sees noise (global stealth). The tampered meters, those it moves beyond their noise, come from
-    `Attacker.tampered`. An IEEE episode has no clients and an empty `a`: its frames carry the attack."""
-
-    family: str
+    family: str  # its name ("Am", "At")
+    # the owners of the tampered meters (New York; the attacker's subnetwork may span utilities)
     clients: np.ndarray
     onset: int
     length: int
-    buses: np.ndarray
-    target_branch: int
+    buses: np.ndarray  # the attacked buses (the pretended loads and generators, the localization label)
+    target_branch: int  # the interface branch Am's area is anchored on (-1 for At)
+    # [length, M] the attack vector added to each frame's benign scan: h(x_false) - h(x_true) in full,
+    # so the operator's residual test over all meters sees noise. `Attacker.tampered` names the
+    # meters it moves beyond their noise.
     a: np.ndarray
 
 

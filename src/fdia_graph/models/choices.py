@@ -1,9 +1,8 @@
 """Every argument that takes one value from a fixed set, in one place.
 
-A member is its string value (``Units.PU == "pu"``, ``f"{Units.PU}" == "pu"``), so the public
-signatures keep accepting plain strings. A config model (`models.config`) declares a field's set as
-``Annotated[str, OneOf(Units)]``, and the engine in `models.validation` converts the value to the
-canonical string or refuses it; nothing else checks these values.
+A member is its string value (``Units.PU == "pu"``), so the public signatures accept plain strings.
+A config model (`models.config`) declares a field's set as ``Annotated[str, OneOf(Units)]``, and
+`models.validation` converts the value to the canonical string or refuses it.
 """
 
 from __future__ import annotations
@@ -124,8 +123,8 @@ class Capability(Choice):
 # ---- generation ----------------------------------------------------------------------------------
 class AmAttack(Choice):
     """What an Am episode is: the overload attack of [WU26], a target branch's reported flow driven
-    to its rating with the fewest devices tampered (data releases v0.8.3 and earlier held a load
-    redistribution instead, which the generator no longer makes)."""
+    to its rating with the fewest devices tampered. In data release v0.8.3 and earlier an Am record is
+    a load redistribution, not this overload."""
 
     OVERLOAD = "overload"
 
@@ -170,11 +169,10 @@ class RatingSource(Choice):
 
 
 class MeterModel(Choice):
-    """What the meters of a generated file measure. "hybrid": a SCADA voltmeter reads
-    the voltage magnitude only, the voltage angle is a PMU channel, and every PMU also reads the
-    current phasor of each in-service branch at its bus [WU26 eqs. 17-20]. Data releases v0.8.3
-    and earlier read an angle at every voltmeter bus and no branch currents; the loader still reads
-    them, the generator no longer makes them."""
+    """What the meters of a generated file measure. "hybrid": a SCADA voltmeter reads the voltage
+    magnitude only, the voltage angle is a PMU channel, and every PMU also reads the current phasor
+    of each in-service branch at its bus [WU26 eqs. 17-20]. The loader also reads data release
+    v0.8.3 files, which have an angle at every voltmeter bus and no branch currents."""
 
     HYBRID = "hybrid"
 

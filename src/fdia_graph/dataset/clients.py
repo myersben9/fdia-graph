@@ -1,10 +1,9 @@
 """The timeline as federated clients: each utility sees only its own meters, buses and labels.
 
 A client's data is `z[:, meters.owner == c]` and the labels of the buses it owns. A bus's label is set
-only by the meters at that bus, which its owner holds, so a client's labels follow from its own meters
-and nothing of another client enters its view (no halo of neighbouring meters). The view reads its
-arrays when it is made and holds no handle to the file, so it cannot reach another client's columns.
-The operator, who runs state estimation over every meter, gets the same view over the full scan.
+only by the meters at that bus, so nothing of another client enters a view (no halo of neighbouring
+meters). A view reads its arrays when it is made and holds no handle to the file. The operator, who
+runs state estimation over every meter, gets the same view over the full scan.
 """
 
 from __future__ import annotations
@@ -27,11 +26,10 @@ from fdia_graph.schema import Attr, Static
 
 
 class ClientView:
-    """One client's meter, bus and frame selection, read from the file when made: `z [T, M_c]` its
-    observed scans, `labels [T, N_c]` the `bus_attacked` labels of its buses, `meters` its rows of the
-    meter plan (bus positions global, so the view can be placed on the grid), `buses [N_c]` the bus
-    positions it owns and `frames` the indices of the selected frames in the timeline (increasing; a
-    week-split selection has gaps where the other splits' weeks are)."""
+    """One client's selection, read from the file when made: `z [T, M_c]` its observed scans, `labels
+    [T, N_c]` the attack labels of its buses, `meters` its rows of the meter plan (bus positions
+    global), `buses [N_c]` the bus positions it owns, and `frames` the selected frame indices
+    (increasing; a week split has gaps where the other splits' weeks are)."""
 
     def __init__(self, z: np.ndarray, labels: np.ndarray, meters, buses: np.ndarray, frames: np.ndarray):
         self.z, self.labels, self.meters, self.buses, self.frames = z, labels, meters, buses, frames
@@ -48,9 +46,9 @@ class ClientView:
         return out
 
     def temporal(self) -> np.ndarray:
-        """`[T, M_c]` each meter's change from the previous selected frame, zero at the first and after a
-        gap in the selection (the change would span other splits' weeks), from the client's own scans only. An angle reading (kinds va and ia, degrees) wraps at +-180, so its
-        change is wrapped to (-180, 180]; `z` itself stays raw."""
+        """`[T, M_c]` each meter's change from the previous selected frame, zero at the first frame and
+        after a gap in the selection (the change would span other splits' weeks). The change of an
+        angle reading (degrees) is wrapped to (-180, 180]; `z` itself stays raw."""
         d = np.zeros_like(self.z)
         d[1:] = np.diff(self.z, axis=0)
         d[1:][np.diff(self.frames) != 1] = 0.0
@@ -60,13 +58,10 @@ class ClientView:
 
 
 class Dataset:
-    """An open New York timeline file (`h`, read only). `clients` are the utility names; `client(name)` the
-    view of one of them, `operator()` the view of every meter for the operator's state estimation. `split`
-    selects the train, val or test frames of the year (all frames when None).
-
-    The file holds its readings as layers (`fdia_graph.schema`); `plan` is the meter table its masks describe
-    (`MeterPlan.from_masks`) and `z` the flat vector of that table, one column per meter, gathered from the
-    layers. `own` is the `Ownership` of the buses."""
+    """An open New York timeline file (`h`, read only). `clients` are the utility names; `client(name)`
+    is the view of one, `operator()` the view of every meter. `split` selects the train, val or test
+    frames (all frames when None). `plan` is the meter table the file's masks describe, `z` the flat
+    reading vector of that table (one column per meter), `own` the `Ownership` of the buses."""
 
     def __init__(self, path: str | Path):
         self.h = h5py.File(path, "r")

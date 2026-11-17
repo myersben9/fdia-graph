@@ -1,30 +1,12 @@
-"""The attacker's false states from a local AC optimal power flow (N35): the support search and the per-scan
-OPF every OPF attack shares. `OpfFdia` is their base class; a subclass adds the goal and `design`
+"""The attacker's false states from a local AC optimal power flow: the support search and the per-scan
+OPF every OPF attack shares. `OpfFdia` is the base class; a subclass adds the goal and `design`
 (`interface.InterfaceFdia`, the one the release builds).
 
-Search. Candidate supports (the buses whose voltage moves) grow from the goal's end buses inside the attacker's
-area, smallest first (`_candidates`). Each is solved once at the last rise scan with every static bound
-(`_static`), and a support that passes is solved over the window scan by scan with the per-scan bounds
-(`_sequential`). The subclass keeps the window that tampers the fewest meters ([1] eq. 12).
-
-Each scan's OPF frees the support's voltages (every voltage outside is held true) under the AC power flow at
-every bus of the support and its edge. Its objective is the pretended injection change beyond each injection
-meter's noise, with a small quadratic term that keeps sub-noise changes from wandering.
-
-Bounds, per scan and free bus (pretended change dP MW, dQ MVAr against the true injection):
-- a load: |dP| <= cap P and |dQ| <= cap max(|Q|, 0.2 P) (D16, N24, N28); over the exit its active change moves
-  per scan by at most the bus's step bound (N30);
-- a generator: its reported output (the units' own, `gen_output`, N42) inside its limits, moving per scan by at
-  most its five-minute ramp or the true step where the dispatch moves faster (N33), in total within its
-  basepoint band `gen_band` (N33); its reactive output within `q_lo`, `q_hi` (N34) and, where `q_ramp` is
-  given, that much per scan; load at the bus moves within the load cap;
-- with `loads_only` (N43) only loads are pretended;
-- every other New York bus of the support and its edge keeps its true injection; a bus outside New York on
-  the edge absorbs, unless it has no unit and no injection (N44).
-
-With `exit_scans` (N30) the last scan carries no pretended change. A scan's OPF cannot see the scans after it,
-so each per-scan bounded change is also kept within what the remaining scans can still reach: the static
-solution at the last rise scan, and zero at the last scan. Solved by Ipopt through Pyomo.
+Candidate supports (the buses whose voltage moves) grow from the goal's end buses inside the attacker's
+area, smallest first. Each is solved once at the last rise scan with the static bounds (`_static`); one
+that passes is solved scan by scan with the per-scan bounds (`_sequential`, `_own_box`). Each scan's OPF
+frees the support's voltages under the AC power flow and minimizes the pretended injection change beyond
+each injection meter's noise. Solved by Ipopt through Pyomo.
 """
 
 from __future__ import annotations
@@ -64,12 +46,11 @@ class _Window:
 
 @dataclass
 class _OpfModel:
-    """One support's OPF, built by `_model` and filled per scan by `_set_scan`: the Pyomo `model`, the buses whose
-    voltage it frees (`interior`), the buses whose injection it may pretend (`free`), every bus whose injection it
-    holds or moves (`rows`), the buses beyond the interior held at their true voltage (`outside`), and each free bus's
-    P and Q injection meter (`meter[(bus, 0 or 1)]`, -1 for none). An interface goal adds the inner branches the
-    support leaves at their true flow (`still`, branch and sign) and the meter of each objective term
-    (`objective_meters`)."""
+    """One support's OPF, built by `_model` and filled per scan by `_set_scan`. `interior`: the buses whose
+    voltage it frees; `free`: those whose injection it may pretend; `rows`: every bus whose injection it holds
+    or moves; `outside`: buses held at their true voltage; `meter[(bus, 0 or 1)]`: a free bus's P or Q meter
+    (-1 for none). An interface goal adds `still` (inner branches left at their true flow, with sign) and
+    `objective_meters`."""
 
     model: Any
     interior: np.ndarray
@@ -83,8 +64,8 @@ class _OpfModel:
 
 @dataclass(frozen=True)
 class _Prepared:
-    """A window ready for the support search: the shared `window`, the attacker's `area`, the buses the search grows
-    its supports from (`start`), and the buses whose injection it may pretend (`free`)."""
+    """A window ready for the support search: the attacker's `area`, the buses the supports grow from
+    (`start`), and the buses whose injection may be pretended (`free`)."""
 
     window: _Window
     area: np.ndarray
@@ -93,19 +74,12 @@ class _Prepared:
 
 
 class OpfFdia(AttackFamily):
-    """The base class of the attacks whose false states come from a local AC OPF: it holds the `Attacker` and
-    the bounds, searches the supports (`_candidates`) and solves one support's window (`_static`, then
-    `_sequential`). A subclass gives `design` and the goal, by extending `_model` and `_set_scan`.
-
-    Settings: `hops` for the attacker's area, `load_cap` the plausibility cap of a pretended load (0.1, N28),
-    `budget` candidate supports per search, `windows_solved` how many statically feasible supports get the
-    full window solve, `family` the name written on the episode, and `exit_scans` the scans at the end of a
-    window spent unwinding (N30, 0 for none), which needs `step_bound [24, N]` (each bus's natural five-minute
-    step by hour, MW, `natural_steps`) and `frame_hour [T]` (the clock hour of every frame an onset indexes).
-    The generator bounds (N33, N34): `gen_ramp [N]` each bus's five-minute ramp (MW, inf unbounded), `gen_band
-    [N]` the largest deviation from the basepoint (MW), `q_lo`, `q_hi [N]` the reactive capability (MVAr,
-    default the case's limits), `q_ramp [N]` the reactive move per scan (MVAr, default unbounded), `gen_output
-    [T, N]` the units' output at each bus (MW, N42), `loads_only` (N43) and `gen_v_tol` (N75)."""
+    """The base class of the attacks whose false states come from a local AC OPF. It holds the `Attacker`
+    and the bounds, searches the supports and solves one support's window. A subclass gives `design` and
+    the goal, by extending `_model` and `_set_scan`. Per-bus settings are [N] (MW or MVAr); `gen_output` is
+    [T, N] MW. `exit_scans` (the scans at the end of a window spent unwinding) needs `step_bound [24, N]`
+    (`natural_steps`) and `frame_hour [T]`. Comments in `__init__` explain the others: hops, load_cap,
+    budget, windows_solved, gen_ramp, gen_band, q_lo, q_hi, q_ramp, loads_only, gen_v_tol."""
 
     def __init__(
         self,
@@ -133,28 +107,32 @@ class OpfFdia(AttackFamily):
         if step_bound is not None and frame_hour is None:
             raise ConfigError("a step bound needs the clock hour of every frame (frame_hour)")
         self.att = attacker
+        # `hops`: the attacker's area; `load_cap`: the plausibility cap of a pretended load, as a share of
+        # the load; `budget`: candidate supports per search
         self.hops, self.load_cap, self.budget = hops, load_cap, budget
         self.step_bound = None if step_bound is None else np.asarray(step_bound, float)
         self.frame_hour = None if frame_hour is None else np.asarray(frame_hour, int)
-        self.family, self.exit_scans = family, exit_scans
+        self.family, self.exit_scans = family, exit_scans  # `family`: the name written on the episode
         n = len(attacker.owner)
-        self.gen_output = None if gen_output is None else np.asarray(gen_output, float)  # [T, N] MW, N42
-        self.gen_ramp = np.asarray(gen_ramp, float)
+        self.gen_output = None if gen_output is None else np.asarray(gen_output, float)  # [T, N] MW
+        self.gen_ramp = np.asarray(gen_ramp, float)  # five-minute ramp (MW, inf: unbounded)
+        # the largest deviation from the basepoint (MW)
         self.gen_band = np.full(n, np.inf) if gen_band is None else np.asarray(gen_band, float)
-        # N75: a generator bus regulates its voltage to a schedule the operator knows, so its false voltage may
+        # a generator bus regulates its voltage to a schedule the operator knows, so its false voltage may
         # leave the true one by at most this much (pu); None leaves only the bus voltage limits
         self.gen_v_tol = gen_v_tol
+        # the reactive capability (MVAr, default the case's limits) and move per scan (default unbounded)
         self.q_lo = attacker.q_lo if q_lo is None else np.asarray(q_lo, float)
         self.q_hi = attacker.q_hi if q_hi is None else np.asarray(q_hi, float)
         self.q_ramp = np.full(n, np.inf) if q_ramp is None else np.asarray(q_ramp, float)
-        self.windows_solved = windows_solved
-        self.loads_only = loads_only  # N43: no pretended generator output, loads alone move
+        self.windows_solved = windows_solved  # statically feasible supports that get the full window solve
+        self.loads_only = loads_only  # no pretended generator output, loads alone move
         self._solver = None
         self.solver_errors = 0  # solves Ipopt stopped abnormally on, each read as an infeasible support
 
     def _free(self, vm: np.ndarray, va: np.ndarray, buses: np.ndarray) -> np.ndarray:
         """The buses of `buses` whose injection may be pretended: the attackable loads alone with
-        `loads_only` (N43), the loads and the generators otherwise. A zero-injection bus never is."""
+        `loads_only`, the loads and the generators otherwise. A zero-injection bus never is."""
         if self.loads_only:
             return self.att.load_buses(vm, va, buses)
         return self.att.free_injection_buses(vm, va, buses)
@@ -204,7 +182,7 @@ class OpfFdia(AttackFamily):
         touched = np.union1d(interior, att.boundary(interior))
         free = self._free(w.vm[0], np.rad2deg(w.th[0]), touched)
         free = free[free != att.slack]
-        held = np.setdiff1d(touched[att._held_bus(w.vm[0], np.rad2deg(w.th[0]))[touched]], free)  # N44
+        held = np.setdiff1d(touched[att._held_bus(w.vm[0], np.rad2deg(w.th[0]))[touched]], free)
         rows = np.r_[free, held].astype(int)
         inside = set(interior.tolist())
         outside = sorted({int(j) for b in rows for j in np.flatnonzero(att.ybus[b])} - inside)
@@ -249,6 +227,7 @@ class OpfFdia(AttackFamily):
             m.c.add(m.up[b] >= -m.dp[b] - m.sp[b])
             m.c.add(m.uq[b] >= m.dq[b] - m.sq[b])
             m.c.add(m.uq[b] >= -m.dq[b] - m.sq[b])
+        # the small quadratic term keeps sub-noise changes from wandering
         cost = sum(m.up[b] + m.uq[b] + 1e-4 * (m.dp[b] ** 2 + m.dq[b] ** 2) for b in free.tolist())
         m.obj = pe.Objective(expr=cost)
         return _OpfModel(m, interior, free, rows, outside, meter)
@@ -270,7 +249,7 @@ class OpfFdia(AttackFamily):
             m.pt[b], m.qt[b] = float(w.p[k, b]), float(w.q[k, b])
         for b in interior.tolist():
             lo_v, hi_v = min(case.vmin[b], w.vm[k, b]), max(case.vmax[b], w.vm[k, b])
-            if self.gen_v_tol is not None and self.att.gen_bus[b]:  # N75: held near its voltage schedule
+            if self.gen_v_tol is not None and self.att.gen_bus[b]:  # held near its voltage schedule
                 lo_v, hi_v = max(lo_v, w.vm[k, b] - self.gen_v_tol), min(hi_v, w.vm[k, b] + self.gen_v_tol)
             m.vm[b].setlb(lo_v)
             m.vm[b].setub(hi_v)
@@ -320,10 +299,9 @@ class OpfFdia(AttackFamily):
         return {b: (float(pe.value(m.dp[b])), float(pe.value(m.dq[b]))) for b in free}
 
     def _sequential(self, w: _Window, support: np.ndarray, end: dict):
-        """The window scan by scan on one support, each scan bounded against the one before and started
-        from its false deviation. Returns the false (vm [L, N], va [L, N] degrees) and the free buses
-        whose injection moves, or None when a scan has no feasible point. `end` is `_static`'s solution,
-        the change each ramp-bounded output must still reach at the last rise scan."""
+        """The window scan by scan on one support, each scan bounded against the one before. Returns the
+        false (vm [L, N], va [L, N] degrees) and the free buses whose injection moves, or None when a scan
+        has no feasible point. `end` is `_static`'s solution, which the last rise scan must still reach."""
         import pyomo.environ as pe
 
         ctx = self._model(w, support)
@@ -350,12 +328,17 @@ class OpfFdia(AttackFamily):
         """The bounds of bus b's pretended change (dP MW, dQ MVAr) at scan k, given the previous scan's;
         `static` leaves out the per-scan ramp and step bounds and what the remaining scans can reach."""
         lo_p, hi_p, lo_q, hi_q = self._own_box(w, k, b, prev, static, end)
-        # N30: nothing pretended at the last scan
+        # with an exit, nothing is pretended at the last scan
         if not static and self.exit_scans and k == w.vm.shape[0] - 1:
             lo_p, hi_p, lo_q, hi_q = max(lo_p, 0.0), min(hi_p, 0.0), max(lo_q, 0.0), min(hi_q, 0.0)
         return lo_p, hi_p, lo_q, hi_q
 
     def _own_box(self, w, k, b, prev, static, end):
+        """(lo_p, hi_p, lo_q, hi_q): bus b's own bounds on the pretended change at scan k (MW, MVAr). A load:
+        |dP| <= cap P, |dQ| <= cap max(|Q|, 0.2 P), and over the exit a step within the bus's step bound. A
+        generator: output inside its limits and basepoint band, each scan within its ramp (or the true step
+        where larger). A scan cannot see later ones, so each bound also stays within what the remaining
+        scans can reach: `_static`'s solution at the last rise scan, zero at the last scan."""
         att, last = self.att, w.vm.shape[0] - 1
         if att.gen_bus[b]:
             units = w.p if w.gen is None else w.gen  # the units' output, or the injection standing for it
@@ -394,7 +377,7 @@ class OpfFdia(AttackFamily):
                         lo_p, hi_p = max(lo_p, lo), min(hi_p, hi)
                     else:
                         lo_q, hi_q = max(lo_q, lo), min(hi_q, hi)
-            cap = self.load_cap * max(units[k, b] - w.p[k, b], 0.0)  # the load at the bus (N42)
+            cap = self.load_cap * max(units[k, b] - w.p[k, b], 0.0)  # the load at the bus
             return lo_p - cap, hi_p + cap, lo_q, hi_q
         load = max(w.load[k, b], 0.0)
         cap, cap_q = self.load_cap * load, self.load_cap * max(abs(w.q[k, b]), 0.2 * load)

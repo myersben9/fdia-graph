@@ -23,15 +23,9 @@ toolkit.
 
 ```python
 def swing_zscore(nx: np.ndarray, prev: np.ndarray, scale_t: np.ndarray, metered: np.ndarray) -> np.ndarray:
-    """The one-step injection change as a z-score of the bus's typical recent change [FED26]:
-    spikes (Aq, Al) read large, the slow ramp and benign scans stay near 1.
-
-        swing[b] = ([P_inj, Q_inj](t) - [P_inj, Q_inj](t-1)) / scale_t[b]
-
-    nx, prev : [N, 4] current and previous scan; scale_t : [N, 2] from recent_change_scale
-    metered  : [N] bool, buses with an injection meter
-    returns  : [N, 2] float32, dimensionless
-    """
+    """The one-step injection change as a z-score of the bus's typical recent change [FED26], [N, 2]
+    float32, dimensionless: swing[b] = ([P_inj, Q_inj](t) - [P_inj, Q_inj](t-1)) / scale_t[b].
+    The difference is divided before it is rounded to float32, as the writer does (`generation.write`)."""
     sw = np.zeros((nx.shape[0], 2), np.float32)
     sw[metered, 0] = (nx[metered, 1] - prev[metered, 1]) / scale_t[metered, 0]
     sw[metered, 1] = (nx[metered, 2] - prev[metered, 2]) / scale_t[metered, 1]
@@ -39,8 +33,9 @@ def swing_zscore(nx: np.ndarray, prev: np.ndarray, scale_t: np.ndarray, metered:
 ```
 
 The rules: the name is the operation, not the caller; the first line of the docstring names the
-quantity and cites the key with its equation number; the equation follows in plain text; every
-argument has its shape and unit; the function is pure (numpy in, numpy out, no I/O, no dataset
+quantity and cites the key with its equation number; the equation follows in plain text, with the
+shape and unit of the result; the docstring is one to three lines (a few more when the equation
+needs them) and says of an argument only what its name and type do not; the function is pure (numpy in, numpy out, no I/O, no dataset
 objects); one test checks it on a case small enough to verify by hand.
 
 ## Catalogue

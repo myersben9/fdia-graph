@@ -19,15 +19,9 @@ def operating_limits(
     X: np.ndarray,
     base: tuple[np.ndarray, np.ndarray],
 ) -> OperatingLimits:
-    """The constraints of [WU26 eqs. 21-23] for one system: the case's per-bus voltage limits
-    `v_case` [N, 2] verbatim, and the generator limits `p_lim`, `q_lim` [N, 2] widened per bus to
-    the range the benign pool X [T, N, 4] spans. The pools were built with generation scaled by the
-    load factor and nameplate never enforced, so a generator's benign output is the range the grid
-    actually ran it over, and the nameplate alone would refuse the state the pool already holds.
-    `base` = (load_base, gen_base) for `generator_output`.
-
-        p_lo_i = min(P_i^min, min_t P_gen,i,t),   p_hi_i = max(P_i^max, max_t P_gen,i,t),   likewise Q
-    """
+    """The limits of [WU26 eqs. 21-23]: the case's voltage limits `v_case` [N, 2] as given, and the
+    generator limits widened to the range the benign pool X [T, N, 4] spans (the pool never enforces
+    nameplate): p_lo_i = min(P_i^min, min_t P_gen,i,t), p_hi_i = max(P_i^max, max_t P_gen,i,t), likewise Q."""
     gen = generator_output(X, *base)  # [T, N, 2]
     return OperatingLimits(
         v_case[:, 0],
@@ -40,13 +34,10 @@ def operating_limits(
 
 
 def generator_output(X: np.ndarray, load_base: np.ndarray, gen_base: np.ndarray) -> np.ndarray:
-    """The generator output [..., N, 2] (P MW, Q MVAr) behind pool states X [..., N, 4], exact for
-    the pool construction (profiles.generate_states): load and generation at a bus scale by one
-    factor s, so
-
-        s = P_inj / (P_load_base - P_gen_base),   P_gen = s P_gen_base,   Q_gen = s Q_load_base - Q_inj
-
-    with P_inj, Q_inj load-positive; a bus whose base net injection is zero keeps s = 1."""
+    """The generator output [..., N, 2] (P MW, Q MVAr) behind pool states X [..., N, 4] [DAT26]. The pool
+    scales a bus's load and generation by one factor s (P_inj, Q_inj are load-positive; s = 1 where the
+    base net is 0):
+    s = P_inj / (P_load_base - P_gen_base),  P_gen = s P_gen_base,  Q_gen = s Q_load_base - Q_inj."""
     net = load_base[:, 0] - gen_base[:, 0]
     safe = np.where(np.abs(net) > ZERO_TOL, net, 1.0)
     s = np.where(np.abs(net) > ZERO_TOL, X[..., NodeChannel.P_INJ] / safe, 1.0)
@@ -54,31 +45,18 @@ def generator_output(X: np.ndarray, load_base: np.ndarray, gen_base: np.ndarray)
 
 
 def bus_load(X: np.ndarray, load_base: np.ndarray, gen_base: np.ndarray) -> np.ndarray:
-    """The active load [..., N] (MW) behind pool states X [..., N, 4], exact for the pool construction
-    [DAT26]: the stored load-positive injection plus the bus's generation at the same scale factor,
-
-        P_load = P_inj + s P_gen_base = s P_load_base
-
-    Adding the BASE generation instead (P_inj + P_gen_base) is exact only where a bus has no
-    generator; where it has one it gives s P_load_base + (1 - s) P_gen_base, wrong in size and at
-    times in sign. Static generators are not scaled by the pool builder and no case places one on a
-    load bus, so they are not part of the construction. At the slack bus the stored injection also
-    nets out the external grid's balancing output, which the pool does not keep, so the value there
-    is not the load; the slack load is never attacked, and a full re-solve lets the external grid
-    absorb it, which leaves the bus's net injection (all that is metered) exact."""
+    """The active load [..., N] (MW) behind pool states X [..., N, 4] [DAT26]: the load-positive
+    injection plus the bus's generation at the same scale factor, P_load = P_inj + s P_gen_base =
+    s P_load_base. Not the load at the slack bus, whose injection also nets the external grid's output.
+    Do not add the base generation instead: at a generator bus that gives s P_load_base + (1 - s)
+    P_gen_base. Assumes no static generator on a load bus (the pool does not scale them)."""
     return X[..., NodeChannel.P_INJ] + generator_output(X, load_base, gen_base)[..., 0]
 
 
 def element_loads(bus_p: np.ndarray, load_bus: np.ndarray, p0: np.ndarray) -> np.ndarray:
-    """A bus's scan load split over its load elements by their base shares [DAT26]: the pools scale
-    every load at a bus by the bus's one factor, so each element keeps its base share.
-
-        P_e = P_bus(e) · P0_e / Σ_{e' at bus(e)} P0_e'
-
-    bus_p    : [N] the scan's active load per bus (MW), from `bus_load`
-    load_bus : [n_loads] the bus of every load element
-    p0       : [n_loads] base active load per element (MW)
-    returns  : [n_loads]; an element on a bus whose base loads sum to zero gets zero"""
+    """A bus's scan load (MW, from `bus_load`) split over its load elements by their base shares
+    [DAT26]: P_e = P_bus(e) · P0_e / Σ_{e' at bus(e)} P0_e'. Returns [n_loads] MW; an element on a
+    bus whose base loads sum to zero gets zero."""
     tot = np.zeros(len(bus_p))
     np.add.at(tot, load_bus, p0)
     t = tot[load_bus]
@@ -93,17 +71,9 @@ def within_limits(
     limits: OperatingLimits,
     interior: np.ndarray,
 ) -> bool:
-    """Whether the false state Xa [N, 4] satisfies [WU26 eqs. 21-23] given the true state Xt, the
-    true generator output [N, 2], the load change the attacker pretends per bus `load_delta` [N]
-    (MW) and the attacker's `interior`: every |V| inside its bus limits, where a bus the true state
-    already holds outside a limit may not be made worse (the bound there is the true value), and,
-    for the generators of the attacked subnetwork (the paper's constraint ranges over the
-    generators of the attack area; a boundary bus is outside it, its voltage held true and its
-    injection whatever balances the region), the implied output P_gen - (ΔP_inj - ΔP_load) and
-    Q_gen - ΔQ_inj inside its limits.
-
-        v_lo_i = min(V_i^min, |V_i^true|),  v_hi_i = max(V_i^max, |V_i^true|)
-    """
+    """Whether the false state Xa [N, 4] satisfies [WU26 eqs. 21-23]: every |V| inside v_lo_i =
+    min(V_i^min, |V_i^true|), v_hi_i = max(V_i^max, |V_i^true|), and, at the interior's generators, the
+    implied output P_gen - (ΔP_inj - ΔP_load) and Q_gen - ΔQ_inj inside its limits. `load_delta` is MW."""
     V, Vt = Xa[:, NodeChannel.V], Xt[:, NodeChannel.V]
     if np.any(V < np.minimum(limits.v_lo, Vt) - LIMIT_TOL_V):
         return False
@@ -121,9 +91,8 @@ def within_limits(
 
 
 def ramp_profile(i: int, rise: int, hold: int, rate_up: float, rate_down: float) -> float:
-    """Deviation of the slow ramp At at step i of a sequence [DAT26]: rise at rate_up for `rise`
-    steps to the peak, hold there for `hold` steps, then return at rate_down and never below zero.
-    The direction (surge or dip) is applied by the caller as 1 +/- dev.
+    """Deviation of the slow ramp At at step i [DAT26]: rise, hold, then return, never below zero.
+    The caller applies the direction (surge or dip) as 1 +/- dev.
 
         dev(i) = rate_up * i                                  for i < rise
                = rate_up * rise                               for rise <= i < rise + hold
@@ -145,17 +114,9 @@ def tampered_channels(
     node_m: np.ndarray,
     edge_m: np.ndarray,
 ) -> tuple[np.ndarray, np.ndarray]:
-    """The metered channels an attack vector moves by more than their noise, the l0 count of
-    [WU26 eq. 12] with sub-noise changes excluded, as the paper's experiments do:
-
-        tampered_m = metered_m  and  |a_m| > sigma_m
-
-    a_node, a_edge     : the attack vector h(x_false) - h(x_true) per node [N, 4] and flow [E, 2] channel
-    sig_node, sig_edge : each channel's rated-accuracy std in the stored units
-                         (`formulas.noise.accuracy_sigma`, D7 of the plan), not the per-scan jitter
-    node_m, edge_m     : the meter masks (1 where the channel is metered)
-    returns            : boolean masks [N, 4] and [E, 2]
-    """
+    """Boolean masks [N, 4] and [E, 2] of the metered channels an attack vector a = h(x_false) -
+    h(x_true) moves by more than their noise, the l0 count of [WU26 eq. 12]: tampered_m = metered_m
+    and |a_m| > sigma_m. Sigma is the rated accuracy (`formulas.noise.accuracy_sigma`), not the jitter."""
     node = (np.abs(a_node) > sig_node) & (np.asarray(node_m) > 0)
     edge = (np.abs(a_edge) > sig_edge) & (np.asarray(edge_m) > 0)
     return node, edge
@@ -169,23 +130,13 @@ def tampered_devices(
     current_mask: Optional[np.ndarray] = None,
     to_bus: Optional[np.ndarray] = None,
 ) -> np.ndarray:
-    """The devices holding the tampered channels, the unit [WU26] counts in its results: one SCADA
-    terminal per bus and one PMU per bus.
+    """Sorted unique ids of the devices holding the tampered channels, the unit [WU26] counts: the
+    SCADA terminal of bus b is b, the PMU of bus b is N + b.
 
-        SCADA terminal of bus b : P and Q injection at b, the flow meters of branches metered at b
-                                  (a flow is metered at its from end), |V| and angle at b when b has
-                                  no PMU (a voltage-magnitude meter)
-        PMU of bus b            : |V| and angle at b when b has a PMU, and the branch-current
-                                  channels it reads at b's end of each branch [WU26 eqs. 19-20]
-
-    Ids: the SCADA terminal of bus b is b, the PMU of bus b is N + b.
-
-    node_mask, edge_mask : tampered channels, [N, 4] and [E, 2] booleans (`tampered_channels`)
-    pmu_bus              : [N] booleans, the buses with a PMU
-    from_bus             : [E] from-end bus of each branch (the end its flow is metered at)
-    current_mask         : [E, 4] tampered branch-current channels (`CurrentChannel` columns), or None
-    to_bus               : [E] to-end bus of each branch, needed with `current_mask`
-    returns              : sorted unique device ids
+        SCADA terminal of bus b : P and Q injection at b, the flows metered at b (the from end), and
+                                  |V| and angle at b when b has no PMU
+        PMU of bus b            : |V| and angle at b, and the branch currents at b's end of each
+                                  branch [WU26 eqs. 19-20] (`current_mask` [E, 4], with `to_bus`)
     """
     node_mask = np.asarray(node_mask, bool)
     N = node_mask.shape[0]
@@ -204,15 +155,9 @@ def tampered_devices(
 
 
 def branch_ratings(ends: list[tuple[int, int]], rows: list[tuple[int, int, float]]) -> np.ndarray:
-    """Each branch's thermal rating (MVA) from a table of (from bus, to bus, rate_a) rows, matched by
-    the branch's two end buses in either order (the S_max of [WU26 eq. 25]; PGLib-OPF for the values).
-    Parallel rows between the same buses give the smallest rating (the binding one); a branch with no
-    matching row, or one the table leaves at MATPOWER's 9,900 MVA placeholder, is unrated (NaN).
-
-    ends    : [E] (from bus, to bus) of each branch, in the table's bus numbering
-    rows    : the rating table, (from bus, to bus, rate_a MVA)
-    returns : [E] rating in MVA, NaN where unrated
-    """
+    """Each branch's thermal rating [E] (MVA), the S_max of [WU26 eq. 25], from (from bus, to bus,
+    rate_a) rows matched by end buses in either order; `ends` are in the table's bus numbering.
+    Parallel rows give the smallest rating; no row, or MATPOWER's 9,900 MVA placeholder, gives NaN."""
     table: dict[frozenset[int], float] = {}
     for f, t, r in rows:
         key = frozenset((int(f), int(t)))
