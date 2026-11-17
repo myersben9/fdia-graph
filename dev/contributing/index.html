@@ -1780,7 +1780,7 @@ registry maps the short name (<code>fg.load(..., release="v0.8.0")</code>) to th
 </tr>
 <tr>
 <td>what a timeline file contains</td>
-<td><code>generation/</code> by stage: <code>plan.py</code> (splits and placement), <code>design.py</code> (the overload Am, in parallel), <code>emit.py</code> (the frames), <code>write.py</code> (the file); <code>generation/__init__.py</code> (the pool and <code>generate</code>); <code>timeline.py</code> orchestrates them; then <code>docs/reference/DATA_DICTIONARY.md</code></td>
+<td><code>generation/</code> by stage: <code>plan.py</code> (splits and placement), <code>design.py</code> (the overload Am, in parallel), <code>emit.py</code> (the frames), <code>write.py</code> (the file); <code>generation/__init__.py</code> (the pool and <code>generate</code>); <code>source.py</code> holds the one path of every timeline (<code>TimelineSource.generate</code>) and the grids are its subclasses (<code>ieee.py</code> an IEEE case, <code>nygrid/source.py</code> the New York grid); <code>timeline.py</code> is the IEEE entry point; then <code>docs/reference/DATA_DICTIONARY.md</code></td>
 </tr>
 <tr>
 <td>a generation setting</td>

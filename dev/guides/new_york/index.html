@@ -1691,7 +1691,13 @@ the dispatch is continuous. The pool holds the true state and injections of ever
 <h2 id="3-the-timeline">3. The timeline<a class="headerlink" href="#3-the-timeline" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>python<span class="w"> </span><span class="nv">$FG</span>/pipelines/newyork/build_timeline.py<span class="w"> </span>out/timeline_2019.h5<span class="w"> </span>--pool<span class="w"> </span>out/pool_2019.h5<span class="w"> </span>--workers<span class="w"> </span><span class="m">8</span>
 </code></pre></div>
-<p><code>production_builder</code> puts every decided bound in one place: line ratings from the pool's peak flows, the
+<p>The script builds the release's source and generates it: <code>NewYorkSource.production(pool_path,
+NewYorkRelease(...)).generate(path)</code>. <code>generate</code> is the one path every timeline takes, the IEEE ones too
+(<a href="../generation/#one-path-two-grids">generation.md</a>). The file is written as <code>timeline_2019.h5.part</code> and takes
+its name when it is whole, so a build that stops leaves no file to mistake for a timeline. The design
+processes are spawned: a script of your own that asks for more than one worker must start under
+<code>if __name__ == "__main__":</code>. <code>NewYorkSource.production</code> puts every decided
+bound in one place: line ratings from the pool's peak flows, the
 overload attack (Am) against the Sprain Brook/Dunwoodie South interface, the slow ramp (At), 20% of
 each split's frames attacked, and onsets surveyed among the hours an attack can reach. The weeks are split
 into train, validation and test, stratified on those hours.</p>

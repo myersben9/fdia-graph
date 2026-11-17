@@ -1,19 +1,20 @@
 flowchart LR
-    subgraph pool["1. operating-point pool"]
-        p1["ISO load, 5-min"] --> p2["resample to 1-min,<br/>per-bus AR(1) jitter, clip"]
-        p2 --> p3["AC power flow per state<br/>72,000 converged states"]
+    subgraph pool["1. pool of AC operating points"]
+        p1["load profile:<br/>ISO system load (IEEE),<br/>2019 bus loads (New York)"] --> p3["one AC state per frame:<br/>power flow (IEEE),<br/>AC dispatch (New York)"]
     end
-    subgraph plan["2. split, then placement"]
-        s0["chronological split<br/>0.6 / 0.2 / 0.2"] --> s1["per split: whole episodes<br/>closest to the fraction,<br/>families by largest remainder"]
-        s1 --> s2["uniform random onsets<br/>inside the split,<br/>no overlap, never cut"]
+    subgraph plan["2. the splits, cut first"]
+        s0["prepare: New York finds the<br/>onsets its families may take<br/>(masks, the onset survey)"] --> s1["cut_splits:<br/>blocks in time order (IEEE),<br/>whole weeks (New York)"]
     end
-    subgraph walk["3. walk, one frame per state"]
-        w1["emit the scan:<br/>meter plan, bias +<br/>jitter keyed by (seed, t)"] --> w2{"frame in<br/>an episode?"}
-        w2 -- "At Am" --> w3["local false state<br/>fewest-tamper support"]
+    subgraph loop["3. split by split: place, design, walk"]
+        l1["place: whole episodes closest<br/>to the fraction, at uniform<br/>random onsets, never cut"] --> l2["design: a local false state<br/>per episode; none: moved (IEEE),<br/>left benign (New York)"]
+        l2 --> l3["walk: every frame whose<br/>split is planned by now,<br/>in time order"]
+        l3 --> w2{"frame in<br/>an episode?"}
+        w2 -- "At Am" --> w3["the noisy scan under the attack<br/>(an IEEE ramp is designed<br/>as the walk reaches it)"]
         w2 -- no --> w5[benign scan]
+        l3 -. "next split" .-> l1
     end
     subgraph after["4. after the walk"]
-        a1["temporal_delta, swing<br/>from observed frames only"] --> a2["placement attributes:<br/>requested, built, moved"]
+        a1["the episode table"] --> a2["IEEE: temporal_delta, swing<br/>from observed frames only;<br/>placement attributes:<br/>requested, built, moved"]
     end
-    pool --> plan --> walk --> after
-    after --> f[("timeline_ieeeN.h5<br/>observed · benign · clean")]
+    pool --> plan --> loop --> after
+    after --> f[("one timeline file<br/>observed · benign · true state")]

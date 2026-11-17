@@ -1764,7 +1764,7 @@
 </tr>
 <tr>
 <td><code>_lazy</code></td>
-<td>Public names that load on first use, for the nygrid packages.</td>
+<td>Public names that load on first use, for the nygrid packages and <code>fdia_graph.generation</code>.</td>
 </tr>
 <tr>
 <td><code>dataset</code></td>
@@ -1987,12 +1987,12 @@
 <td>The emit stage of a timeline: every frame in time order, benign or under its episode's design.</td>
 </tr>
 <tr>
-<td><code>generation.nygrid</code></td>
-<td>The New York system: NYgrid's NPCC-140 case made solvable in AC, its reduced network, the 2019 loads by bus, the hourly dispatch and the five-minute pool of AC operating states, and the timeline written from them.</td>
+<td><code>generation.ieee</code></td>
+<td>An IEEE case as the source of a timeline: its pool of operating points and its steps of the driver.</td>
 </tr>
 <tr>
-<td><code>generation.nygrid.build</code></td>
-<td>The production build: the inputs fetched at their pinned versions, and the <code>TimelineBuilder</code> with every decided bound (N8, N27 to N49) in one place.</td>
+<td><code>generation.nygrid</code></td>
+<td>The New York system: NYgrid's NPCC-140 case made solvable in AC, its reduced network, the 2019 loads by bus, the hourly dispatch and the five-minute pool of AC operating states, and the timeline written from them.</td>
 </tr>
 <tr>
 <td><code>generation.nygrid.case</code></td>
@@ -2012,7 +2012,7 @@
 </tr>
 <tr>
 <td><code>generation.nygrid.inputs</code></td>
-<td>Historical inputs: NYgrid's hourly 2019 tables and NYISO's 5-minute zonal load.</td>
+<td>Historical inputs: NYgrid's hourly 2019 tables and NYISO's 5-minute zonal load, and <code>fetch_inputs</code>, which downloads everything the build reads at its pinned version.</td>
 </tr>
 <tr>
 <td><code>generation.nygrid.interfaces</code></td>
@@ -2043,16 +2043,20 @@
 <td>AC solutions of a Case: the hourly projection (an AC-OPF in Pyomo, solved by Ipopt) and the power flows between hours (pandapower).</td>
 </tr>
 <tr>
+<td><code>generation.nygrid.source</code></td>
+<td>The New York grid as the source of a timeline: the year of pool states and its steps of the one path.</td>
+</tr>
+<tr>
 <td><code>generation.nygrid.tables</code></td>
 <td>The CSV tables of the inputs, read whole and closed: the NYgrid checkout's bus, unit and renewable tables and the bus locations. One reader, so no input file is left open (each was a ResourceWarning before).</td>
 </tr>
 <tr>
-<td><code>generation.nygrid.timeline</code></td>
-<td>The timeline: the year of pool states as noisy scans, with attack episodes placed at random and labelled.</td>
-</tr>
-<tr>
 <td><code>generation.plan</code></td>
 <td>The plan stage of a timeline: where its splits are cut and where each split's episodes go.</td>
+</tr>
+<tr>
+<td><code>generation.source</code></td>
+<td>The system a timeline is generated on, and the one path that generates it.</td>
 </tr>
 <tr>
 <td><code>generation.write</code></td>
@@ -2124,7 +2128,7 @@
 </tr>
 <tr>
 <td><code>models.plan</code></td>
-<td>The records of a timeline's plan and design stages: a placed episode (<code>Slot</code>), a split and its frames (<code>SplitSpan</code>), an episode not yet written (<code>Pending</code>) or designed (<code>Designed</code>), what is placed (<code>Schedule</code>) and what the placement asked for and got (<code>Placement</code>), and what a design worker rebuilds its generator from (<code>GeneratorSpec</code>).</td>
+<td>The records of a timeline's plan and design stages: a placed episode (<code>Slot</code>), a split and its frames (<code>SplitSpan</code>), an episode not yet written (<code>Pending</code>) or with its design (<code>Designed</code>), what is placed (<code>Schedule</code>) and what the placement asked for and got (<code>Placement</code>), and what a design worker rebuilds its generator from (<code>GeneratorSpec</code>).</td>
 </tr>
 <tr>
 <td><code>models.results</code></td>
@@ -2220,7 +2224,7 @@
 </tr>
 <tr>
 <td><code>trust.secured</code></td>
-<td>A copy of a timeline with a set of meters secured: the attacker locked out of them, so on every frame their observed reading is the benign one, and the stored temporal features recomputed from the pinned observed frames (<code>timeline.write_temporal_layers</code>). The estimators and the localizers then read the copy like any timeline, which is how a trusted-meter selection is measured on state estimation and localization rather than on the residual test alone (<code>TrustSelector.score</code>). The copy is rewritten in blocks of frames, so a 72,000-frame timeline of any ladder system fits in bounded memory.</td>
+<td>A copy of a timeline with a set of meters secured: the attacker locked out of them, so on every frame their observed reading is the benign one, and the stored temporal features recomputed from the pinned observed frames (<code>generation.write.write_temporal_layers</code>). The estimators and the localizers then read the copy like any timeline, which is how a trusted-meter selection is measured on state estimation and localization rather than on the residual test alone (<code>TrustSelector.score</code>). The copy is rewritten in blocks of frames, so a 72,000-frame timeline of any ladder system fits in bounded memory.</td>
 </tr>
 </tbody>
 </table>
@@ -2313,10 +2317,6 @@
 <td>The New York attacker on the real grid: its area and edge rules, the false state of a pretended load, the ramp built on it (within the natural load swing, quiet to the residual test), and the bounds it reads from the pool.</td>
 </tr>
 <tr>
-<td><code>tests/nygrid/test_build.py</code></td>
-<td>The release builder's attacker sensitivities stay with the attacker: a timeline built with <code>v_margin</code> records the case's true voltage limits, while the attacker designs against the widened ones (N71). Needs the public inputs and the whole 2019 pool (inputs.py).</td>
-</tr>
-<tr>
 <td><code>tests/nygrid/test_case_file.py</code></td>
 <td><code>Case.from_matpower</code> on a three-bus case file written here: what it reads and what it refuses. Needs no input data.</td>
 </tr>
@@ -2353,6 +2353,10 @@
 <td>The public surface of the New York code: every package's names resolve, reading a dataset stays light, and the names that became public keep their old spelling for one release (no data needed).</td>
 </tr>
 <tr>
+<td><code>tests/nygrid/test_release_source.py</code></td>
+<td>The release source's attacker sensitivities stay with the attacker: a timeline built with <code>v_margin</code> records the case's true voltage limits, while the attacker designs against the widened ones (N71). Needs the public inputs and the whole 2019 pool (inputs.py).</td>
+</tr>
+<tr>
 <td><code>tests/nygrid/test_scenario.py</code></td>
 <td>The hourly operating points against NYgrid's own MATLAB output: the inputs, the dispatch, the AC projection and the pool, and the bottom-up load profiles with their within-hour calibration.</td>
 </tr>
@@ -2365,6 +2369,10 @@
 <td>The checked Ipopt every nygrid OPF runs on: a solver that is missing, or found but unable to start, raises <code>SolverUnavailable</code> with the fix, instead of reading as an infeasible model downstream.</td>
 </tr>
 <tr>
+<td><code>tests/nygrid/test_stretches.py</code></td>
+<td>The New York source on a synthetic pool, with no NYgrid data and no solver: the frames written in stretches as the weekly splits are planned are the frames written in one pass, one source generates the same file twice, a single episode is the design of its (lagged) window on the true scans, and a failed run leaves no file.</td>
+</tr>
+<tr>
 <td><code>tests/nygrid/test_tables.py</code></td>
 <td>The input tables are read whole and closed: no ResourceWarning, a byte-order mark dropped (no data needed).</td>
 </tr>
@@ -2374,7 +2382,7 @@
 </tr>
 <tr>
 <td><code>tests/nygrid/test_timeline_digests.py</code></td>
-<td>The New York timeline, whole: every dataset and attribute of the files the release builder writes on the checked-in days' pool, against stored digests (<code>tests/digests.py</code> says what is compared where).</td>
+<td>The New York timeline, whole: every dataset and attribute of the files the release's source writes on the checked-in days' pool, against stored digests (<code>tests/digests.py</code> says what is compared where).</td>
 </tr>
 <tr>
 <td><code>tests/test_attack_area.py</code></td>
@@ -2427,6 +2435,10 @@
 <tr>
 <td><code>tests/test_old_releases.py</code></td>
 <td>The pinned data releases stay readable. The generator makes only At and Am, but a timeline of each of v0.8.0, v0.8.1 and v0.8.3 loads, splits, filters by family name and scores per family as before; the record shards and stream files of the releases before v0.8.0 are refused. Each fixture under tests/data was written by the SDK that built its release, or is a slice of the published file (tests/data/README.md).</td>
+</tr>
+<tr>
+<td><code>tests/test_one_path.py</code></td>
+<td>The one path that generates a timeline (<code>TimelineSource.generate</code>), checked on the parts both grids share: how far the walk may run once a split is planned, where an episode fits in a split that lists its frames, the worker pool the designs run on, and what a run leaves on disk when it fails.</td>
 </tr>
 <tr>
 <td><code>tests/test_overload.py</code></td>
@@ -2556,11 +2568,11 @@
 <tbody>
 <tr>
 <td><code>pipelines/newyork/build_single_episodes.py</code></td>
-<td>The single-episode files for studying one attack by hand: one Am on an interface per file, over the whole day it falls in (288 five-minute scans), nothing else attacked. Each file is a normal timeline (<code>fdia_graph.generation.nygrid.io.open_timeline</code>): <code>z</code> with the attack, <code>z_benign</code> the same noisy scans without it, the true states and the labels.</td>
+<td>The single-episode files for studying one attack by hand: one Am on an interface per file, over the whole day it falls in (288 five-minute scans), nothing else attacked. Each file is a normal timeline (<code>fdia_graph.generation.nygrid.io.open_timeline</code>): <code>z</code> with the attack, <code>z_benign</code> the same noisy scans without it, the true states and the labels. Each is generated by the path every timeline takes (<code>TimelineSource.generate</code>), over the release's grid with that one episode (<code>SingleEpisodeSource</code>).</td>
 </tr>
 <tr>
 <td><code>pipelines/newyork/build_timeline.py</code></td>
-<td>Build the release timeline (<code>fdia_graph.generation.nygrid.build.production_builder</code>) from a pool.</td>
+<td>Build the release timeline from a pool: the release's source (<code>NewYorkSource.production</code> in <code>fdia_graph.generation.nygrid.source</code>), generated by the path every timeline takes (<code>TimelineSource.generate</code>).</td>
 </tr>
 <tr>
 <td><code>pipelines/newyork/make_case.py</code></td>

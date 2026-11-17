@@ -707,6 +707,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#one-path-two-grids" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        One path, two grids
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#1-operating-point-pools" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1611,6 +1622,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#one-path-two-grids" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        One path, two grids
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#1-operating-point-pools" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1765,7 +1787,7 @@ each is named beside it. Terms are defined in <a href="../../reference/GLOSSARY/
 </tr>
 <tr>
 <td>4. plan: split and episode placement</td>
-<td><code>generation/plan.py</code> (<code>split_bounds</code>, <code>place_split</code>)</td>
+<td><code>generation/plan.py</code> (<code>split_bounds</code>, <code>place_split</code>, <code>planned_until</code>)</td>
 <td>the split, onsets, lengths</td>
 </tr>
 <tr>
@@ -1780,9 +1802,92 @@ each is named beside it. Terms are defined in <a href="../../reference/GLOSSARY/
 </tr>
 </tbody>
 </table>
-<p><code>timeline.generate_timeline</code> orchestrates the stages; each hands the next a typed value (the slots, the
-designs, the buffers).</p>
-<p><img alt="The generation pipeline: an ISO load profile is resampled to one minute with per-bus AR(1) jitter and solved into 72,000 AC states; the frames are split chronologically first, then each split gets the whole episodes closest to its attacked fraction, shared between the families and placed at uniform random onsets inside it; the walk emits one noisy scan per state, its jitter keyed by the seed and the timestep, and, inside an episode, solves a local false state (At, Am); after the walk the temporal features are written from the observed frames into one HDF5 file with observed, benign and clean layers" src="../../figures/diagrams/generation_flow.png" /></p>
+<p><code>TimelineSource.generate</code> (<code>generation/source.py</code>) runs stages 4 to 6, for the IEEE cases and for the New York
+grid alike; each stage hands the next a typed value (the splits, the slots, the designed episodes). The steps
+that depend on the grid are the methods of the source's subclasses, described next.</p>
+<h2 id="one-path-two-grids">One path, two grids<a class="headerlink" href="#one-path-two-grids" title="Permanent link">&para;</a></h2>
+<p>A timeline is generated in the same order on either grid, by one method: <code>TimelineSource.generate(out)</code>. Its
+body is short; read it there. In words:</p>
+<ol>
+<li><strong>open</strong>: the file is started beside <code>out</code> under a <code>.part</code> name. It takes the name <code>out</code> only when it is
+   whole, so a run that fails leaves no file, and a file already at <code>out</code> is left as it was.</li>
+<li><strong>prepare</strong>: the source works out what it must know before the splits are cut. Nothing on an IEEE case;
+   on the New York grid, the onsets its families may take (their masks, and the onset survey).</li>
+<li><strong>cut_splits</strong>: train, val and test.</li>
+<li>Then, split by split:</li>
+<li><strong>place</strong>: the split's episodes at uniform random onsets (<code>generation/plan.py</code>, the same code for both
+     grids);</li>
+<li><strong>design</strong>: what each episode attacks, kept on the source for the walk;</li>
+<li><strong>walk</strong>: every frame not yet written whose split is planned by now, in time order.</li>
+<li><strong>finish</strong>: what the file carries besides its frames. Then <strong>close</strong>, after a failed run too.</li>
+</ol>
+<p>A <code>TimelineSource</code> is the grid a timeline is generated on. Each subclass owns only what differs between the
+grids:</p>
+<table>
+<thead>
+<tr>
+<th>step</th>
+<th><code>IeeeSource</code> (<code>generation/ieee.py</code>)</th>
+<th><code>NewYorkSource</code> (<code>generation/nygrid/source.py</code>)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>the pool</td>
+<td><code>[T, N, 4]</code> AC states of a pandapower case</td>
+<td>the year of five-minute AC states (<code>Pool</code>)</td>
+</tr>
+<tr>
+<td><code>prepare</code></td>
+<td>nothing</td>
+<td>each waiting family's onset mask; with <code>survey</code>, the onset survey (kept in a <code>Survey</code> record)</td>
+</tr>
+<tr>
+<td><code>cut_splits</code></td>
+<td>three blocks in time order (<code>split_bounds</code>)</td>
+<td>whole weeks, stratified (<code>split_weeks</code>)</td>
+</tr>
+<tr>
+<td><code>onset_masks</code></td>
+<td>none: any onset of the split</td>
+<td>the masks, or the onsets the survey found an attack at</td>
+</tr>
+<tr>
+<td><code>placement_rng</code></td>
+<td>the generator's one stream</td>
+<td>the build's <code>place</code> stream</td>
+</tr>
+<tr>
+<td><code>design</code></td>
+<td>the overload Am, before the split is walked; one with no design is moved</td>
+<td>every family; one with no design is left benign</td>
+</tr>
+<tr>
+<td><code>walk(until)</code></td>
+<td>the frames of the split just designed (its end is <code>until</code>), a scan per frame; a ramp At is designed as the walk reaches it</td>
+<td>the frames up to <code>until</code>: the noisy benign scan plus the episode's attack vector</td>
+</tr>
+<tr>
+<td><code>open</code>, <code>finish</code></td>
+<td>the file layout of this page</td>
+<td>the New York layout (<a href="../../concepts/new_york_grid/"><code>new_york_grid.md</code></a>)</td>
+</tr>
+</tbody>
+</table>
+<p>The walk writes <em>every frame whose split is planned by now</em> (<code>generation.plan.planned_until</code>), and that one
+rule serves both grids. An IEEE timeline's splits are blocks in time order, so it is the split just designed;
+and each split is placed only after the one before it is walked, because placements, ramp designs and the
+moves of an infeasible ramp draw from the generator's one random stream. The New York splits are whole
+weeks, which interleave in time, so the walk waits until every week before a frame is planned and the file
+is written in a few stretches. Its noise stream runs over the frames in time order, so the scans do not
+depend on where a stretch ends (<code>tests/nygrid/test_stretches.py</code> pins that).</p>
+<p><code>SingleEpisodeSource</code>, under <code>NewYorkSource</code>, is the New York grid with one episode placed by hand. The
+design processes of both grids are one class, <code>generation.design.DesignPool</code>; they are spawned, so a script
+that asks for more than one worker starts under <code>if __name__ == "__main__":</code>.</p>
+<p><code>generate_timeline("ieee14", ...)</code> is <code>IeeeSource(...).generate(out)</code>; the New York build is
+<code>NewYorkSource.production(pool_path).generate(path)</code>. To switch a grid's load profiles, attacks or solver,
+change what its source holds (the pool, the families); the path stays.</p>
+<p><img alt="The generation pipeline, the same for both grids: a pool of AC operating points (an IEEE case's states from an ISO load profile, or the New York grid's five-minute dispatch of 2019); the New York grid first finds the onsets its families may take, then the splits are cut (blocks in time order, or whole weeks); then, split by split, the whole episodes closest to the attacked fraction are placed at uniform random onsets, each is designed as a local false state (one with no design is moved on an IEEE case, left benign on the New York grid), and every frame whose split is planned by now is walked in time order, a noisy scan that is benign or under its episode's attack (an IEEE ramp is designed as the walk reaches it), before the next split; after the walk the episode table is written, and on an IEEE file the temporal features from the observed frames and the placement attributes; the result is one HDF5 file with observed, benign and true-state layers" src="../../figures/diagrams/generation_flow.png" /></p>
 <p>The published default release is v0.8.3 (<code>registry._RELEASE</code>), built by fdia-graph 0.20 with the
 seven families of that release (the single-snapshot <code>Aq</code>, <code>Al</code>, <code>Ad</code>, <code>As</code>, <code>Ar</code> among them) and the
 v0.8.3 meters. This version reads every release and generates the multi-snapshot families <code>At</code> and
@@ -2452,7 +2557,7 @@ any program using <code>multiprocessing</code> must. An Am-only IEEE-14 timeline
 <p><code>node_x - node_benign</code> is the attack exactly, for every family. The loader derives
 <code>edge_clean_full</code>, the clean flow on every branch, at read time (<code>dataset/__init__.py</code>).</p>
 <p>The temporal features are written after the walk from <code>data/node_x</code> alone
-(<code>timeline.write_temporal_layers</code>, <code>formulas.temporal</code>):</p>
+(<code>generation.write.write_temporal_layers</code>, <code>formulas.temporal</code>):</p>
 <table>
 <thead>
 <tr>

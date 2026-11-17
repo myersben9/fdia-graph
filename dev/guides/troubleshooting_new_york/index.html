@@ -1737,7 +1737,8 @@ the data.</p>
 <p><code>report()</code> before <code>build()</code> raises <code>NotFitted</code>. A span whose first hour has no AC point raises a
 <code>DataConditionError</code> naming the frame.</p>
 <h2 id="the-timeline">The timeline<a class="headerlink" href="#the-timeline" title="Permanent link">&para;</a></h2>
-<p><code>TimelineBuilder.build()</code> returns a summary. When it built fewer attacks than it placed, <code>missed</code> (and, with the
+<p>After <code>source.generate(path)</code>, <code>NewYorkSource.summary()</code> returns a summary. When the build made fewer
+attacks than it placed, <code>missed</code> (and, with the
 onset survey on, <code>survey_missed</code>) says why, counted per family:</p>
 <table>
 <thead>
@@ -1765,8 +1766,11 @@ onset survey on, <code>survey_missed</code>) says why, counted per family:</p>
 </tr>
 </tbody>
 </table>
-<p><code>build_episode</code> raises <code>NoAdmissibleTarget</code> naming the reason when its one window has no attack, and a
-<code>DataConditionError</code> when the window touches an unsolved frame.</p>
+<p>For one episode alone, building the <code>SingleEpisodeSource</code> raises a <code>DataConditionError</code> when the window touches an
+unsolved frame, and its <code>generate</code> raises <code>NoAdmissibleTarget</code> naming the reason when that one window has no attack.</p>
+<p>A run that fails leaves no file: the timeline is written under a <code>.part</code> name and takes its own only when it is
+whole. A build whose design processes never start, or that starts itself again and again, is a script without
+<code>if __name__ == "__main__":</code> around its entry: the processes are spawned and import the script.</p>
 <h2 id="the-golden-snapshots">The golden snapshots<a class="headerlink" href="#the-golden-snapshots" title="Permanent link">&para;</a></h2>
 <p><code>tests/nygrid/test_golden.py</code> compares what the persistence rule and the interface attack return
 on fixed inputs with the snapshots in <code>tests/nygrid/golden/</code>. A failure names the first value that changed. If the
