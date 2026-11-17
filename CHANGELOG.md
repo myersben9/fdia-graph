@@ -5,6 +5,44 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- **Less code to read in `fdia_graph` (breaking for the internal names below; no behaviour and no stored
+  byte changed: the five whole-file digests are unchanged, an IEEE timeline is byte for byte the file the
+  previous code writes, and every refused input raises the same error with the same message).**
+  `fg.load`, `fg.generate` and every flat keyword of `generate_timeline` are used as before. The rules for
+  inputs are as they were: every check is declared on a model and run by the one engine, and
+  `models.inputs`, `models.validation` and the settings models of `models.config` are unchanged. By `python tools/count_lines.py`,
+  `fdia_graph` goes from 15,107 to 14,897 lines (column "lines") and from 9,404 to 9,194 lines of code
+  (column "code"); `fdia_analysis` is unchanged.
+  - **The record bundles share one base.** `models.fields.RecordFields` declares every field of a record,
+    a batch and an exported split once; it replaces the nine field-group mixins. The keys, their order
+    and what each bundle requires are unchanged, and the data dictionary no longer names a group per row.
+  - **A mixin's bases are the mixins whose methods it calls.** `PhysicsMixin` and `MeasurementMixin` each
+    have `GridBase` as their one base (neither calls the other), `AreaMixin` has `MeasurementMixin`, and
+    `FalseStateMixin` has `AreaMixin` and `PhysicsMixin`; the other attack mixins are as before. So
+    `GridBase` declares the shared attributes only: the ten method signatures it repeated for the type
+    checker and the attributes only `engine/core.py` reads are gone. Every attribute of
+    `FdiaGenerator` is defined by the class that defined it before.
+  - **Long statements are plain steps.** A statement the formatter split over three lines around one
+    long expression names its part first (about forty of them), and a comment that forced such a split
+    sits above its statement. A repeated body is written once: the three hourly tables of
+    `generation.nygrid.inputs` (`_hourly`) and the three `as_record` bodies of `models.config` (`_record`).
+    No arithmetic is reordered, no operand is evaluated in another order and no random draw moves.
+  - **Two tables.** `constants.newyork.CASE_COLUMNS` names the MATPOWER column of each `Case` field read
+    as it is (before: 23 keyword arguments of one constructor call), and `schema.BRANCH_MODEL_PHYSICS`
+    the `graph/` array of each `BranchModel` field (before: the same six names typed in two modules). A
+    test holds each table to the fields of its record, and a case file that lacks a column is refused by
+    the column's name ("the case file has no column 'BR_R'").
+
+    | Before | Now |
+    |---|---|
+    | `models.fields.ScanFields`, `LabelFields`, `RecordIds`, `TemporalFields`, `CleanFields`, `GraphFields`, `StreamLayers`, `PmuCurrentFields` | `models.fields.RecordFields` |
+    | `models.fields.PreviousFrameFields` | the `prev_*` fields of `models.data.ArraysBundle` |
+    | `FdiaGenerator(MeasurementMixin, PhysicsMixin, AttackMixin)` | `FdiaGenerator(AttackMixin)` |
+    | `AreaMixin(GridBase)` | `AreaMixin(MeasurementMixin)` |
+    | `FalseStateMixin(AreaMixin)` | `FalseStateMixin(AreaMixin, PhysicsMixin)` |
+    | the method signatures on `engine.base.GridBase` (`emit_from_state`, `true_load`, ...) | removed: the mixin that defines the method is a base of the mixin that calls it |
+    | "Field groups: ..." and "(group)" on each row of `DATA_DICTIONARY.md` | removed |
+
 - **Constants have one home: the `fdia_graph.constants` package (breaking for the names below; no
   behaviour and no stored byte changed: the five whole-file digests are unchanged, and an IEEE timeline
   is byte for byte the file the previous code writes).** `fg.load`, `fg.generate`, `fg.FAMILIES` and

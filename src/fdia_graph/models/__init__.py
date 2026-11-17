@@ -1,6 +1,6 @@
 """Every data model of the generation toolkit, one module per subject; import a model from its module.
 
-Grouped by what the data is: `fields` (the field groups the data bundles share), `grid` (the static system), `frames` (what the generators pass
+Grouped by what the data is: `fields` (the fields the record bundles share), `grid` (the static system), `frames` (what the generators pass
 around per scan), `plan` (the records of a timeline's plan and design stages), `config` (the settings the loader and the generators
 accept, and `inputs`, what the formulas and parsers accept, checked by the one engine in `validation`, with the fixed sets in `choices`), `data` (what a user gets back:
 the bundles the data dictionary lists), `assets` (how files

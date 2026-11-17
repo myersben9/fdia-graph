@@ -104,9 +104,8 @@ class RecordsMixin(DatasetBase):
         pool timestep (node, metered flows, flows on every branch)."""
         torch = _torch()
         if self.has_temporal:  # [N,2] current-minus-previous-scan injection (v0.3+)
-            item["temporal_delta"] = torch.as_tensor(
-                self._to_units(d["temporal_delta"][j], "td"), dtype=torch.float32
-            )
+            delta = self._to_units(d["temporal_delta"][j], "td")
+            item["temporal_delta"] = torch.as_tensor(delta, dtype=torch.float32)
         if self.has_swing:  # [N,2] windowed relative swing (recent-window z-score)
             item["swing"] = torch.as_tensor(d["swing"][j], dtype=torch.float32)
         if self._clean_np is None:

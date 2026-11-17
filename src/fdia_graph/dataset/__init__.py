@@ -131,9 +131,8 @@ class FdiaGraph(GraphMixin, AdmittanceMixin, RecordsMixin, ExportMixin, Sequence
         self.N = int(a[Attr.N])
         self.E = int(a[Attr.E])  # fixed graph size: bus count N, branch count E
         self.baseMVA = float(a.get(Attr.BASEMVA, 100.0))  # p.u. base; v0.4.1+, default 100 MVA
-        self.edge_feat = str(a.get(Attr.EDGE_FEAT, schema.EDGE_FEAT_DEFAULT)).split(
-            ","
-        )  # the flow layers' columns
+        # the flow layers' columns
+        self.edge_feat = str(a.get(Attr.EDGE_FEAT, schema.EDGE_FEAT_DEFAULT)).split(",")
         # how pmu_i holds a current phasor: real and imaginary part unless the file says otherwise
         self.current_form = str(a.get(Attr.CURRENT_FORM, schema.CURRENT_RECTANGULAR))
 
@@ -165,10 +164,8 @@ class FdiaGraph(GraphMixin, AdmittanceMixin, RecordsMixin, ExportMixin, Sequence
         # edge_clean_full ([Tpool,E,2], the same flows on EVERY branch) is derived from the clean
         # state through Yf on first use, so it needs the clean layer and the branch physics.
         self._eclean_full_np: Optional[np.ndarray] = None
-        self.has_clean_full = self.has_clean and all(
-            self._phys.get(k) is not None
-            for k in ("edge_r", "edge_x", "edge_b", "edge_g", "edge_tap", "edge_shift")
-        )
+        physics = (self._phys.get(k) for k in schema.BRANCH_MODEL_PHYSICS.values())
+        self.has_clean_full = self.has_clean and all(p is not None for p in physics)
 
     def _reference_bus(self) -> Optional[int]:
         """The slack bus. Explicit bus-type metadata wins when the shard carries it (ppc code 3 =

@@ -63,7 +63,7 @@ What every folder of the repository holds, then what every Python file does, in 
 | `engine.attacks.ramp` | At, the slow ramp: a false load that rises a little each frame, every step below the natural five-minute load swing, so no single snapshot looks anomalous while the total drifts the state away. |
 | `engine.attacks.rref` | [WU26]'s own construction of the attack's support: row reduction of the transposed attack-area Jacobian with column exchanges. |
 | `engine.attacks.stealthy` | The stealthy ramp At: one scan at a time, a local false state added to the true scan. |
-| `engine.base` | Shared state contract for FdiaGenerator's mixins — attribute + cross-method annotations only. |
+| `engine.base` | The state FdiaGenerator's mixins share: attribute annotations only. |
 | `engine.core` | Dataset generation engine (attack simulation + realistic measurement emission). |
 | `engine.measurement` | Measurement emission: turn a grid state into meter readings (the measurement function h(x)). |
 | `engine.pandapower_types` | The pandapower objects the engine reads, as types. |
@@ -110,7 +110,7 @@ What every folder of the repository holds, then what every Python file does, in 
 | `models.choices` | Every argument that takes one value from a fixed set, in one place. |
 | `models.config` | The settings every consumer accepts, one model each, checked when built (`models.validation`). |
 | `models.data` | What a user gets back: one record, a batch, a whole split, a summary, the episode table, and the per-record truth an estimator is scored against. Each is a Bundle, so it is still the dict it always was. |
-| `models.fields` | The field groups the data bundles share. |
+| `models.fields` | The fields the record bundles share, each one's meaning written once. |
 | `models.frames` | What the generator passes around per scan: a measurement scan, the emitted frame with its labels, the run's attack knobs, the design of an At ramp and of an Am overload episode, and what the fewest-tamper search returns. |
 | `models.grid` | The static description of a system: the per-branch pi model and the admittance matrices built from it, which meters exist, the constant meter bias, and the N-1 contingency a generator was built with. Nothing here changes from one scan to the next. |
 | `models.inputs` | What the formulas and the parsers accept, one model each, checked when built (`models.validation`). |

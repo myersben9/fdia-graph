@@ -15,14 +15,7 @@ import numpy as np
 
 from ...constants.families import AT_CODE
 from ...formulas.attacks import ramp_profile
-from ...models.frames import (
-    AmOverloadDesign,
-    AttackDesign,
-    AttackVector,
-    FrameKnobs,
-    LoadGoal,
-    RampDesign,
-)
+from ...models.frames import AmOverloadDesign, AttackDesign, AttackVector, FrameKnobs, LoadGoal, RampDesign
 from .overload import OverloadMixin
 
 ONSET_DRAWS = 40  # designs an At episode tries for one with a stealthy state on every frame
@@ -102,12 +95,7 @@ class EpisodeDesignMixin(OverloadMixin):
         return design._replace(support=held, tamper=result)
 
     def am_overload_design(
-        self,
-        X: np.ndarray,
-        t: int,
-        length: int,
-        k: FrameKnobs,
-        rng: Optional[np.random.Generator] = None,
+        self, X: np.ndarray, t: int, length: int, k: FrameKnobs, rng: Optional[np.random.Generator] = None
     ) -> Optional[AmOverloadDesign]:
         """One `Am` episode starting at t: at most `AM_LINE_TRIES` target sets of the eligible branches,
         in a random order (one draw from `rng`, the generator's own when None, only when there is a

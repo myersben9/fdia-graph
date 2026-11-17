@@ -25,9 +25,8 @@ class PhysicsMixin(GridBase):
         """This scan's reactive load per load element [n_loads] (MVAr): the bus's stored reactive
         injection plus its generators' reactive output (`scan_reactive_generation`), split over the
         bus's load elements by base reactive share (`formulas.attacks.element_loads`)."""
-        return element_loads(
-            Xt[:, NodeChannel.Q_INJ] + self.scan_reactive_generation(Xt), self.load_bus, self.load_q0
-        )
+        bus_q = Xt[:, NodeChannel.Q_INJ] + self.scan_reactive_generation(Xt)
+        return element_loads(bus_q, self.load_bus, self.load_q0)
 
     def scan_reactive_generation(self, Xt: np.ndarray) -> np.ndarray:
         """This scan's generator reactive output per bus [N] (MVAr), `formulas.attacks.generator_output`,

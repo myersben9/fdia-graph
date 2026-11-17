@@ -115,9 +115,8 @@ def accuracy_sigma(
     sig_node[:, NodeChannel.V] = _class_rule(node_true[:, NodeChannel.V], cls["v"], False, floor_mw)
     sig_node[:, NodeChannel.P_INJ] = _class_rule(node_true[:, NodeChannel.P_INJ], cls["pi"], True, floor_mw)
     sig_node[:, NodeChannel.Q_INJ] = _class_rule(node_true[:, NodeChannel.Q_INJ], cls["qi"], True, floor_mw)
-    sig_node[:, NodeChannel.THETA] = np.degrees(
-        _class_rule(node_true[:, NodeChannel.THETA], cls["va"], False, floor_mw)
-    )
+    theta_rad = _class_rule(node_true[:, NodeChannel.THETA], cls["va"], False, floor_mw)
+    sig_node[:, NodeChannel.THETA] = np.degrees(theta_rad)
     sig_flow = np.empty((E, 2), np.float64)
     sig_flow[:, EdgeChannel.P_FROM] = _class_rule(flow_true[:, EdgeChannel.P_FROM], cls["pf"], True, floor_mw)
     sig_flow[:, EdgeChannel.Q_FROM] = _class_rule(flow_true[:, EdgeChannel.Q_FROM], cls["qf"], True, floor_mw)
@@ -146,9 +145,8 @@ def biased_current(current_true: np.ndarray, bias: np.ndarray) -> np.ndarray:
 
         I_reading = I_true + b |I_end|            (per channel, before the per-scan jitter)
     """
-    return np.asarray(current_true, np.float64) + np.asarray(bias, np.float64) * current_magnitude(
-        current_true
-    )
+    scale = current_magnitude(current_true)
+    return np.asarray(current_true, np.float64) + np.asarray(bias, np.float64) * scale
 
 
 def current_sigma(current_true: np.ndarray, rel: float, floor: float = CURRENT_FLOOR_PU) -> np.ndarray:

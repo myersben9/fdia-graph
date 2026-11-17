@@ -1,14 +1,4 @@
 classDiagram
-    class FieldGroups {
-        <<7 mixins>>
-        StreamLayers
-        GraphFields
-        CleanFields
-        TemporalFields
-        RecordIds
-        LabelFields
-        ScanFields
-    }
     class Bundle {
         +key_of()
         +to_dict()
@@ -19,9 +9,7 @@ classDiagram
         +popitem()
         +clear()
     }
-    class PreviousFrameFields {
-    }
-    class PmuCurrentFields {
+    class RecordFields {
     }
     class RecordBundle {
     }
@@ -33,15 +21,9 @@ classDiagram
     }
     class Summary {
     }
-    Bundle <|-- ArraysBundle
-    Bundle <|-- BatchBundle
     Bundle <|-- EpisodeTable
-    Bundle <|-- RecordBundle
+    Bundle <|-- RecordFields
     Bundle <|-- Summary
-    FieldGroups <|-- ArraysBundle
-    FieldGroups <|-- BatchBundle
-    FieldGroups <|-- RecordBundle
-    PmuCurrentFields <|-- ArraysBundle
-    PmuCurrentFields <|-- BatchBundle
-    PmuCurrentFields <|-- RecordBundle
-    PreviousFrameFields <|-- ArraysBundle
+    RecordFields <|-- ArraysBundle
+    RecordFields <|-- BatchBundle
+    RecordFields <|-- RecordBundle

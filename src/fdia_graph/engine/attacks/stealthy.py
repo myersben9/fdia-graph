@@ -15,9 +15,8 @@ import numpy as np
 from ...models.frames import AttackDesign, Frame, FrameKnobs
 from .false_state import FalseStateMixin
 
-STEP_HALVINGS = (
-    6  # times a ramp frame's step with no local power-flow solution is halved (its step is sub-floor)
-)
+# times a ramp frame's step with no local power-flow solution is halved (its step is sub-floor)
+STEP_HALVINGS = 6
 
 
 class StealthyMixin(FalseStateMixin):

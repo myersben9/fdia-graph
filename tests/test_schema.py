@@ -130,6 +130,13 @@ def test_no_module_but_schema_spells_a_dataset_path(tmp_path):
     assert readability.protocol_literals(str(schema_copy))  # only the package's schema.py is exempt
 
 
+def test_the_branch_physics_table_names_fields_of_the_branch_model():
+    from fdia_graph.models.grid import BranchModel
+
+    assert [*schema.BRANCH_MODEL_PHYSICS, "status"] == list(BranchModel._fields)
+    assert set(schema.BRANCH_MODEL_PHYSICS.values()) <= set(schema.STATIC_PHYSICS)
+
+
 def test_no_input_is_checked_by_hand_outside_the_models():
     """Every input check is declared on a model and run by the one engine (CONTRIBUTING.md);
     a condition only the data reveals raises a named error from fdia_graph.errors."""

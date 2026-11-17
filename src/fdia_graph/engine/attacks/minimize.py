@@ -159,9 +159,8 @@ class MinimizeMixin(FalseStateMixin):
             return buses, [frozenset(int(b) for b in buses)], None
         lines = list(cast(FlowGoal, goal).lines)
         ends = np.unique(self.ei[:, lines])
-        choices = [
-            frozenset(int(b) for b in combo) for combo in itertools.product(*(self.ei[:, ln] for ln in lines))
-        ]
+        ends_of = [self.ei[:, ln] for ln in lines]  # one end of each target line per choice
+        choices = [frozenset(int(b) for b in combo) for combo in itertools.product(*ends_of)]
         starts = list(dict.fromkeys(choices))  # each set once, in a fixed order
         return ends, starts, frozenset(int(b) for b in self.free_injection_buses())
 
@@ -480,9 +479,8 @@ class _Window:
         If = Yf @ V[f_cols]
         Sf = V[near.from_ppc] * np.conj(If) * g._base_mva
         flows = np.stack([np.real(Sf), np.imag(Sf)], axis=1)
-        flows[~near.metered] = (
-            0.0  # an unmetered flow is zero on both sides, as `clean_flows_from_states` has it
-        )
+        # an unmetered flow is zero on both sides, as `clean_flows_from_states` has it
+        flows[~near.metered] = 0.0
         a_edge = np.zeros(self.edge_m.shape)
         a_edge[near.lines] = flows - self.flows[t][near.lines]
         if self.currents is None or self.i_m is None:

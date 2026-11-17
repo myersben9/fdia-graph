@@ -114,9 +114,8 @@ class TimelineWriter:
         self.am_rows: list[tuple[int, int, float, float, float, float]] = []  # (episode, *a row of AmRows)
         # the attack vector of the last stored frame, observed minus its benign twin (zero when benign):
         # an adjacent episode's stealth bound starts from it
-        self.last_attack = AttackVector(
-            np.zeros((C, 4)), np.zeros((E, spec.edge_width)), np.zeros((E, 4)) if spec.currents else None
-        )
+        currents = np.zeros((E, 4)) if spec.currents else None
+        self.last_attack = AttackVector(np.zeros((C, 4)), np.zeros((E, spec.edge_width)), currents)
         self.attacked = 0  # frames stored so far with at least one attacked bus
         self._clean = clean
         self.f = h5py.File(path, "w")

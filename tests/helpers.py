@@ -128,7 +128,7 @@ STANDARD = frozenset(
 
 
 def _is_model(obj) -> bool:
-    """A Bundle, a NamedTuple, or a plain dataclass (the field groups)."""
+    """A Bundle, a NamedTuple, or a plain dataclass."""
     if not inspect.isclass(obj) or obj is Bundle:
         return False
     return (

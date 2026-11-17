@@ -2,43 +2,24 @@
 table, and the per-record truth an estimator is scored against. Each is a Bundle, so it is still
 the dict it always was.
 
-The record-shaped bundles are built from the field groups in `fields.py`, so each field's meaning
+The record-shaped bundles share the fields of `fields.RecordFields`, so each field's meaning
 is written once; what a bundle adds is its leading axis, which fields it requires, and the order
 its dict view keeps (the order the old dict had)."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Optional
 
 import numpy as np
 
 from ..constants.records import COMMON_PREV_FIELDS, CURRENT_FIELDS, ID_FIELDS, LAYER_FIELDS, SCAN_FIELDS
 from .base import Bundle
-from .fields import (
-    CleanFields,
-    GraphFields,
-    LabelFields,
-    PmuCurrentFields,
-    PreviousFrameFields,
-    RecordIds,
-    ScanFields,
-    StreamLayers,
-    TemporalFields,
-)
+from .fields import Array, RecordFields
 
 
 @dataclass(frozen=True, eq=False)
-class RecordBundle(
-    PmuCurrentFields,
-    StreamLayers,
-    GraphFields,
-    CleanFields,
-    TemporalFields,
-    RecordIds,
-    LabelFields,
-    ScanFields,
-    Bundle,
-):
+class RecordBundle(RecordFields):
     """One record as `FdiaGraph[i]` returns it (format="torch"): tensors in self.units with no
     leading axis, the static graph shared by every record, the label and provenance, and the
     optional layers the file carries (the benign layer on a timeline file). A dict as well, so
@@ -49,17 +30,7 @@ class RecordBundle(
 
 
 @dataclass(frozen=True, eq=False)
-class BatchBundle(
-    PmuCurrentFields,
-    StreamLayers,
-    GraphFields,
-    CleanFields,
-    TemporalFields,
-    RecordIds,
-    LabelFields,
-    ScanFields,
-    Bundle,
-):
+class BatchBundle(RecordFields):
     """A batch of records as `FdiaGraph.collate` builds it: per-record tensors stacked along a
     leading batch axis B, the static graph once (the first record's), scalar metadata as long
     tensors [B]."""
@@ -69,23 +40,19 @@ class BatchBundle(
 
 
 @dataclass(frozen=True, eq=False)
-class ArraysBundle(
-    PmuCurrentFields,
-    PreviousFrameFields,
-    StreamLayers,
-    GraphFields,
-    CleanFields,
-    TemporalFields,
-    RecordIds,
-    LabelFields,
-    ScanFields,
-    Bundle,
-):
+class ArraysBundle(RecordFields):
     """A whole split of n records as `export` returns it (arrays, or tensors with format="torch"
     or "tf"), leading axis n: every per-record field that was requested and the file carries, plus
     the static graph. Fields not requested are absent from the dict view."""
 
-    # edge_attr comes with GraphFields; the exports never fill it, so it is None and absent from the dict
+    # the readings of the frame emitted just before each record on a timeline (export only)
+    prev_node_x: Optional[Array] = None  # [..., N, 4] the previous frame's node readings
+    prev_edge_x: Optional[Array] = None  # [..., E, 2] the previous frame's branch-flow readings
+    prev_timestep: Optional[Array] = None  # [...] the previous frame's pool timestep
+    prev_swing: Optional[Array] = None  # [..., N, 2] the previous frame's swing (dimensionless)
+    prev_pmu_i: Optional[Array] = None  # [..., E, 4] the previous frame's PMU branch currents (hybrid meters)
+
+    # edge_attr comes with the shared fields; the exports never fill it, so it is None and absent from the dict
     _order = (
         "edge_index",
         *SCAN_FIELDS,

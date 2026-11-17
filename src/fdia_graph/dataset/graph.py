@@ -12,10 +12,7 @@ import numpy as np
 
 from ..formulas.network import series_admittance
 from ..schema import Static
-from .base import (
-    DatasetBase,
-    _torch,
-)
+from .base import DatasetBase, _torch
 
 
 class GraphMixin(DatasetBase):

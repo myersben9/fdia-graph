@@ -122,9 +122,8 @@ class LoadModel:
 
         self.plants = _plants(cache)
         lf = self.plants["sic_lf"]
-        self.plant_level = np.clip(
-            (168 * lf - 35) / 133, 0.0, 1.0
-        )  # flat off-hours level giving the weekly LF
+        # flat off-hours level giving the weekly LF
+        self.plant_level = np.clip((168 * lf - 35) / 133, 0.0, 1.0)
         self.plant_days = np.minimum(np.round(self.plants["hours"] / 24), 365).astype(int)
         self.rank = _operating_rank(year)
         self.work = _work_hours()
@@ -162,9 +161,8 @@ class LoadModel:
                 delta = (blocks[who, b] - blocks[who, a]).ravel()
                 rows_a = (4 * a[:, None] + quarter).ravel()
                 rows_b = (4 * b[:, None] + quarter).ravel()
-                total += np.bincount(rows_a, delta, QUARTERS_PER_YEAR) - np.bincount(
-                    rows_b, delta, QUARTERS_PER_YEAR
-                )
+                added = np.bincount(rows_a, delta, QUARTERS_PER_YEAR)
+                total += added - np.bincount(rows_b, delta, QUARTERS_PER_YEAR)
         return total
 
     def _industry(self, target_kw: float, rng: np.random.Generator) -> np.ndarray:
@@ -202,9 +200,8 @@ class LoadModel:
                 )
 
             delta = (value(b) - value(a)).ravel()
-            total += np.bincount(a.ravel(), delta, HOURS_PER_YEAR) - np.bincount(
-                b.ravel(), delta, HOURS_PER_YEAR
-            )
+            added = np.bincount(a.ravel(), delta, HOURS_PER_YEAR)
+            total += added - np.bincount(b.ravel(), delta, HOURS_PER_YEAR)
         return total
 
     def _quarterly(self, peak_mw: np.ndarray, rng: np.random.Generator) -> tuple[np.ndarray, np.ndarray]:

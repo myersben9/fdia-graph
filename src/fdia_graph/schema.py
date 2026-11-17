@@ -103,6 +103,15 @@ class Static:
 
 
 STATIC_PHYSICS = tuple(v for k, v in vars(Static).items() if not k.startswith("_"))
+# the graph/ array each field of a `models.grid.BranchModel` is read from (its status is optional)
+BRANCH_MODEL_PHYSICS = {
+    "r": Static.EDGE_R,
+    "x": Static.EDGE_X,
+    "b": Static.EDGE_B,
+    "g": Static.EDGE_G,
+    "tap": Static.EDGE_TAP,
+    "shift_deg": Static.EDGE_SHIFT,
+}
 # episodes/: one row per episode
 EPISODE_ONSET, EPISODE_LENGTH, EPISODE_FAMILY = "onset", "length", "family"
 EPISODE_BUS_PTR, EPISODE_BUS_IDX = "bus_ptr", "bus_idx"

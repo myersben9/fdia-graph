@@ -15,10 +15,8 @@ import numpy as np
 from ..constants.channels import NodeChannel
 from ..formulas.network import branch_admittances, branch_flows, complex_voltages
 from ..models.grid import Admittances, BranchModel
-from .base import (
-    DatasetBase,
-    _torch,
-)
+from ..schema import BRANCH_MODEL_PHYSICS, Static
+from .base import DatasetBase, _torch
 
 
 class AdmittanceMixin(DatasetBase):
@@ -34,25 +32,19 @@ class AdmittanceMixin(DatasetBase):
         cached = getattr(self, "_adm", None)
         if cached is not None:
             return cached
-        p, missing = self._physics_arrays(("edge_r", "edge_x", "edge_b", "edge_g", "edge_tap", "edge_shift"))
+        p, missing = self._physics_arrays(tuple(BRANCH_MODEL_PHYSICS.values()))
         if missing:
             raise AttributeError(
                 f"ybus/yf/yt need a v0.5.0+ shard with branch physics; missing graph/{', '.join(missing)}"
             )
+        by_field = {field: p[name] for field, name in BRANCH_MODEL_PHYSICS.items()}
+        branch = BranchModel(**by_field, status=self._phys.get(Static.EDGE_STATUS))
         self._adm = branch_admittances(
-            BranchModel(
-                p["edge_r"],
-                p["edge_x"],
-                p["edge_b"],
-                p["edge_g"],
-                p["edge_tap"],
-                p["edge_shift"],
-                self._phys.get("edge_status"),
-            ),
+            branch,
             self.edge_index_np,
             self.N,
-            bus_shunt_g=self._phys.get("bus_shunt_g"),
-            bus_shunt_b=self._phys.get("bus_shunt_b"),
+            bus_shunt_g=self._phys.get(Static.BUS_SHUNT_G),
+            bus_shunt_b=self._phys.get(Static.BUS_SHUNT_B),
             base_mva=self.baseMVA,
         )
         return self._adm
@@ -76,9 +68,8 @@ class AdmittanceMixin(DatasetBase):
             self._clean_np[:, :, NodeChannel.V].astype(np.float64),
             self._clean_np[:, :, NodeChannel.THETA].astype(np.float64),
         )
-        Sf = branch_flows(
-            V, self.yf_np, self.edge_index_np[0], self.baseMVA
-        )  # [Tpool,E] from-end complex flow
+        # [Tpool,E] from-end complex flow
+        Sf = branch_flows(V, self.yf_np, self.edge_index_np[0], self.baseMVA)
         self._eclean_full_np = np.stack([Sf.real, Sf.imag], axis=2).astype(np.float32)
         return self._eclean_full_np
 

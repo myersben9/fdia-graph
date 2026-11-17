@@ -14,9 +14,8 @@ from ..constants.families import FAMILY_CODE
 from .choices import Split
 from .config import MeterSettings
 
-Family = TypeVar(
-    "Family", int, str
-)  # an episode's family: the timeline's code, or the New York family's name
+# an episode's family: the timeline's code, or the New York family's name
+Family = TypeVar("Family", int, str)
 Design = TypeVar("Design")  # what a design stage finds for one episode (each grid has its own record)
 
 
@@ -142,10 +141,8 @@ class Placement(Generic[Family]):
     @classmethod
     def empty(cls, families: list[Family]) -> Placement[Family]:
         """The record of `families` with every count at zero."""
-        shape = (len(Split), len(families))
-        return cls(
-            families, np.zeros(shape, int), np.zeros(shape, int), np.zeros(shape, int), np.zeros(shape, int)
-        )
+        zero = np.zeros((len(Split), len(families)), int)
+        return cls(families, requested=zero, dropped=zero.copy(), redraws=zero.copy(), built=zero.copy())
 
     def col(self, fid: Family) -> int:
         """The column of family `fid`."""

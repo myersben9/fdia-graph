@@ -163,6 +163,34 @@ def test_a_capability_name_and_a_fetch_are_checked_by_their_models(timeline):
         fetch_profile("nyiso", "2024-01-01", "2024-01-02", resample_min=1.5)  # was truncated to 1
 
 
+def test_a_requirement_names_who_asks(timeline):
+    import fdia_graph as fg
+
+    with pytest.raises(ConfigError, match=r"^Requirement\.by is required$"):
+        fg.load(timeline, split="test").require("time_order", by=None)  # type: ignore[arg-type]
+
+
+def test_the_generator_refuses_a_bad_option_before_building_the_case(monkeypatch):
+    import pandapower.networks
+
+    from fdia_graph.engine.core import FdiaGenerator
+
+    monkeypatch.setattr(pandapower.networks, "case14", lambda: pytest.fail("the case was built"))
+    with pytest.raises(ConfigError, match=r"^GeneratorOptions\.meter_model must be one of \['hybrid'\]"):
+        FdiaGenerator(14, meter_model="scada")
+    with pytest.raises(ConfigError, match=r"^GeneratorOptions\.max_load_mw must be > 0, got -1\.0$"):
+        FdiaGenerator(14, max_load_mw=-1.0)
+
+
+def test_generate_states_refuses_a_system_it_has_no_case_for():
+    from fdia_graph.profiles import generate_states
+
+    with pytest.raises(ConfigError, match=r"^SupportedSystem: unknown system 15; supported: \["):
+        generate_states(15, np.ones(4))
+    with pytest.raises(ConfigError, match=r"^SupportedSystem\.system must be like 'ieee118' or 118"):
+        generate_states("grid", np.ones(4))
+
+
 def test_a_boolean_field_refuses_a_truthy_string():
     @dataclass(frozen=True)
     class Switch(Validated):

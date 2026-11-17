@@ -5,9 +5,10 @@ flows, no re-solve); only attacks re-solve, locally. Attack families [WU26]:
   At   the slow ramp: a load set scaled along a rise, a hold and a return, on the fewest-tamper support
   Am   the overload attack: a target branch's reported flow driven to its rating over the window
 
-FdiaGenerator is split by concern across three mixins: state setup lives here (__init__), while
-  measurement.py (MeasurementMixin)   emit meter readings from a state
+FdiaGenerator is split by concern across three mixins; a mixin's bases are the mixins whose methods
+it calls, and the attack mixins call the other two. State setup lives here (__init__), while
   physics.py     (PhysicsMixin)      a scan's load and generation
+  measurement.py (MeasurementMixin)   emit meter readings from a state
   attacks/       (AttackMixin)       every attack: the stealthy false states, the fewest-tamper
                                      search, the ramp and overload episode designs
 """
@@ -26,15 +27,13 @@ from ..models.config import GeneratorOptions
 from ..models.grid import INTACT, BranchModel, MeterBias, MeterPlan
 from ..registry import system_id
 from .attacks import AttackMixin
-from .measurement import MeasurementMixin
-from .physics import PhysicsMixin
 
 if TYPE_CHECKING:
     from ..models.plan import GeneratorSpec
     from .pandapower_types import PandapowerNet, PpcTables
 
 
-class FdiaGenerator(MeasurementMixin, PhysicsMixin, AttackMixin):
+class FdiaGenerator(AttackMixin):
     def __init__(
         self,
         system: Union[int, str],
@@ -120,9 +119,8 @@ class FdiaGenerator(MeasurementMixin, PhysicsMixin, AttackMixin):
         self.load_bus = _lb["bus"].values
         self.load_p0 = _lb["p_mw"].to_numpy(dtype=float)  # base active load per element, signed
         self.load_q0 = _lb["q_mvar"].to_numpy(dtype=float)  # base reactive load per element, signed
-        self.slack_bus = int(
-            base.ext_grid.bus.values[0]
-        )  # the angle reference; a local attack never moves it
+        # the angle reference; a local attack never moves it
+        self.slack_bus = int(base.ext_grid.bus.values[0])
         p_load = _lb["p_mw"].abs().values
         # ... so a load on the slack bus is never a target either: it can never enter a region, and
         # a frame that scaled it would be labelled attacked with no attack in the false state

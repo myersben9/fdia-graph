@@ -330,9 +330,8 @@ class GridstatusFeed:
                 f"fetching {self.operator} load needs the gridstatus package: pip install 'fdia-graph[iso]' "
                 "(NYISO works without it)"
             ) from e
-        df = getattr(gridstatus, self.operator)().get_load(
-            start=str(start), end=str(end + _dt.timedelta(days=1))
-        )
+        day_after = end + _dt.timedelta(days=1)
+        df = getattr(gridstatus, self.operator)().get_load(start=str(start), end=str(day_after))
         ts = df["Time"] if "Time" in df.columns else df.index
         return _pandas().Series(df["Load"].to_numpy(), index=list(ts)).sort_index()
 

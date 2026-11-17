@@ -58,10 +58,8 @@ def dataset_file(C: int) -> str:
 def pool_spec(system: Union[str, int], release: Optional[str] = None) -> AssetSpec:
     """The operating-point pool of a system at a data release: HDF5, dataset `X`."""
     C = system_id(system)
-    rel = release_name(release or _RELEASE)
-    return AssetSpec(
-        "builtin", f"pool{C}", file=f"pool_ieee{C}.h5", release=release_tag(rel), repo=REPO, system=C
-    )
+    tag = release_tag(release_name(release or _RELEASE))
+    return AssetSpec("builtin", f"pool{C}", file=f"pool_ieee{C}.h5", release=tag, repo=REPO, system=C)
 
 
 # On-disk index of locally generated datasets (name -> path + meta), alongside the cached shards.
