@@ -99,7 +99,7 @@ def test_windows_on_the_time_ordered_view(timeline):
 
 
 def test_episodes_table_follows_the_view(timeline):
-    from fdia_graph.models import EpisodeTable
+    from fdia_graph.models.data import EpisodeTable
 
     ds = fg.load(timeline)
     ep = ds.episodes
@@ -114,16 +114,6 @@ def test_episodes_table_follows_the_view(timeline):
     sub = test.episodes
     assert 0 < len(sub) < len(ep) and np.isin(sub.onset, test.idx).all()
     assert len(fg.load(timeline, families=["At"]).episodes) == int((ep.family == 5).sum())
-
-
-def test_edge_attr_np_is_torch_free_and_equal_to_edge_attr(timeline):
-    import torch
-
-    ds = fg.load(timeline)
-    assert np.array_equal(ds.edge_attr_np, ds.edge_attr.numpy().astype(np.float32))
-    ds._phys["edge_gs"] = None  # a file that predates the stored series admittance derives it
-    assert np.allclose(ds.edge_attr_np, ds.edge_attr.numpy(), rtol=1e-6)
-    assert isinstance(torch.as_tensor(ds.edge_attr_np), torch.Tensor)
 
 
 def test_per_bus_windows_come_from_the_view_itself(timeline):

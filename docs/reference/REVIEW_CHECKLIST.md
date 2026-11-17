@@ -87,7 +87,7 @@ The kinds, most frequent first.
    - A removed or renamed public name is a changelog entry; no alias, shim or warning period is kept
      (old behaviour lives in the released versions).
    - Dataclass field order does not change.
-   - New public names are exported.
+   - A new public name is imported from its defining module; no package `__init__.py` re-exports it.
 9. **Tooling and CI.**
    - Workflow inputs reach a shell through `env:`, never through `${{ }}` inside `run:`.
    - List endpoints are paginated.

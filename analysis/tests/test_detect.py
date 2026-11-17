@@ -1,4 +1,4 @@
-"""The detection building block: the persistence rule and its calibration, the package's public names,
+"""The detection building block: the persistence rule and its calibration, the package that exports no name,
 the rule's golden snapshot (`golden/persistence_rule.json`: a change of behavior fails here and has to
 say why), and the alarm-rule example of docs/guides/extending_new_york.md run as published (no data
 needed)."""
@@ -16,7 +16,7 @@ import numpy as np
 
 import fdia_analysis.se.detect as detect
 from fdia_analysis.se.detect.rules import AlarmRule, PersistenceRule
-from tests.helpers import ANALYSIS_SRC, GENERATION_SRC, REPO, interpreter_env
+from tests.helpers import ANALYSIS_SRC, GENERATION_SRC, REPO, exported_names, interpreter_env
 
 GOLDEN = Path(__file__).parent / "golden" / "persistence_rule.json"
 
@@ -26,10 +26,10 @@ def test_the_alarm_rule_example_runs(capsys):
     assert capsys.readouterr().out.strip()  # it printed its result
 
 
-def test_every_public_name_resolves():
-    assert detect.__doc__ and len(detect.__doc__) > 200  # the package says what its stage does
-    assert not [n for n in detect.__all__ if getattr(detect, n, None) is None]
-    assert set(detect.__all__) <= set(dir(detect))
+def test_the_package_says_what_its_stage_does_and_exports_no_name():
+    assert detect.__doc__ and len(detect.__doc__) > 200
+    assert exported_names(detect) == set()  # the rules are imported from `se.detect.rules`
+    assert isinstance(PersistenceRule(1.0, 1, 1), AlarmRule)
 
 
 def test_the_rules_need_neither_pandapower_nor_pyomo():

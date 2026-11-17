@@ -6,19 +6,15 @@ torch measurement function pinned to the numpy kernel so there is one AC model i
 import numpy as np
 import pytest
 
-from fdia_analysis.models import HuberConfig, SolveConfig
-from fdia_graph.formulas import (
-    branch_flows,
-    bus_injections,
-    complex_voltages,
-)
+from fdia_analysis.models.config import HuberConfig, SolveConfig
+from fdia_graph.formulas.network import branch_flows, bus_injections, complex_voltages
 
 
 def test_estimator_measurement_function_is_the_kernel(splits):
     """SEBase._h is `ac_measurement`, and the torch twin `_h_t` (kept for callers that differentiate
     through it) equals it on real states."""
     torch = pytest.importorskip("torch")
-    from fdia_analysis.se import WLS
+    from fdia_analysis.se.methods import WLS
 
     est = WLS().fit(splits["train"])
     d = splits["test"].export(["clean"])
@@ -50,7 +46,7 @@ def test_closed_form_jacobian_matches_autograd(splits):
     torch = pytest.importorskip("torch")
     from torch.func import jacrev, vmap
 
-    from fdia_analysis.se import WLS
+    from fdia_analysis.se.methods import WLS
 
     est = WLS().fit(splits["train"])
     x0 = torch.tensor(est.xmean, dtype=torch.float64)[None]
@@ -80,7 +76,7 @@ def test_estimator_fits_and_scores_without_torch(splits, monkeypatch):
     monkeypatch.setattr(builtins, "__import__", no_torch)
     for m in [m for m in sys.modules if m == "torch" or m.startswith("torch.")]:
         monkeypatch.delitem(sys.modules, m)
-    from fdia_analysis.se import AdaptiveWeighting
+    from fdia_analysis.se.methods import AdaptiveWeighting
 
     est = AdaptiveWeighting(huber=HuberConfig(c=1.5), solve=SolveConfig(npass=2)).fit(splits["train"])
     scores = est.score(splits["test"])
@@ -98,7 +94,8 @@ def _toy_system():
 
 
 def test_normal_matrix_and_wls_step_by_hand():
-    from fdia_analysis.formulas import guarded_inverse, normal_matrix, wls_step, wls_step_batched
+    from fdia_analysis.formulas.estimation import normal_matrix, wls_step, wls_step_batched
+    from fdia_analysis.formulas.linalg import guarded_inverse
 
     H, w = _toy_system()
     G = normal_matrix(H, w)
@@ -115,15 +112,15 @@ def test_normal_matrix_and_wls_step_by_hand():
 
 
 def test_residual_covariance_and_normalized_residual():
-    from fdia_analysis.formulas import (
+    from fdia_analysis.formulas.estimation import (
         critical_measurements,
         floored_covariance,
-        guarded_inverse,
         normal_matrix,
         normalized_residual,
         residual_covariance_diag,
         weighted_objective,
     )
+    from fdia_analysis.formulas.linalg import guarded_inverse
 
     H, w = _toy_system()
     Ai = guarded_inverse(normal_matrix(H, w))
@@ -141,7 +138,7 @@ def test_residual_covariance_and_normalized_residual():
 
 
 def test_huber_weights_by_hand():
-    from fdia_analysis.formulas import huber_weights
+    from fdia_analysis.formulas.estimation import huber_weights
 
     a = huber_weights(np.array([[0.5, 1.5, 3.0, 0.0]]), c=1.5)
     assert a.tolist() == [
@@ -150,7 +147,7 @@ def test_huber_weights_by_hand():
 
 
 def test_whitened_svd_basis_is_orthonormal():
-    from fdia_analysis.formulas import whitened_svd_basis
+    from fdia_analysis.formulas.estimation import whitened_svd_basis
 
     rng = np.random.default_rng(0)
     X = rng.normal(size=(200, 6)) * np.array([3.0, 0.3, 0.03, 0.003, 0.0003, 0.00003])
@@ -160,7 +157,8 @@ def test_whitened_svd_basis_is_orthonormal():
 
 
 def test_gate_weights_and_bus_incidence():
-    from fdia_analysis.formulas import bus_incidence, gate_weights
+    from fdia_analysis.formulas.estimation import gate_weights
+    from fdia_analysis.formulas.projection import bus_incidence
 
     N, E = 3, 2
     ei = np.array([[0, 1], [1, 2]])  # branches 0-1 and 1-2
@@ -176,13 +174,13 @@ def test_gate_weights_and_bus_incidence():
 
 
 def test_projection_split_is_exact_and_orthogonal():
-    from fdia_analysis.formulas import (
+    from fdia_analysis.formulas.estimation import normal_matrix
+    from fdia_analysis.formulas.linalg import guarded_inverse
+    from fdia_analysis.formulas.projection import (
         direction_coefficients,
         explained_unexplained,
-        guarded_inverse,
         leverage,
         meters_to_buses,
-        normal_matrix,
         weak_directions,
         weak_move,
         weighted_pseudoinverse,
@@ -212,7 +210,7 @@ def test_projection_split_is_exact_and_orthogonal():
 
 
 def test_guarded_inverse_and_condition_number():
-    from fdia_analysis.formulas import condition_number, guarded_inverse
+    from fdia_analysis.formulas.linalg import condition_number, guarded_inverse
 
     A = np.array([[4.0, 1.0], [1.0, 3.0]])
     assert np.allclose(guarded_inverse(A), np.linalg.inv(A))

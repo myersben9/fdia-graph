@@ -17,7 +17,7 @@ Each rule is a kind of drift that once made the tree hard to read (CONTRIBUTING.
   where it fits. Where both toolkits have a module of one name (`models/config.py`), the analysis one is
   named with its package (`fdia_analysis.models.config`).
 - **cited names**: a code span in a Markdown file or a Python file that names a module, or a name in one
-  (`fdia_analysis.trust.base`, `trust.TrustSelector`, `ramp.py`), names something that exists, in the
+  (`fdia_analysis.trust.base`, `trust.base.TrustSelector`, `ramp.py`), names something that exists, in the
   package it says or, with no package said, in either; a span that is an experiment of the results store
   (`se.estimators`, from results/<experiment>.csv) is one too. The CHANGELOG (whose entries name what a
   change removed) is not read.

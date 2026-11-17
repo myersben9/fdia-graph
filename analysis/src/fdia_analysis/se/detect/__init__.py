@@ -5,12 +5,3 @@ turns that series into a first alarm: k of the last n statistics past a threshol
 (`PersistenceRule.fit`). Any object with `first_alarm(stat)` is an `AlarmRule` and plugs in instead. A scan that
 cannot be evaluated is NaN, which the persistence rule counts as below its threshold.
 """
-
-from __future__ import annotations
-
-from .rules import AlarmRule, PersistenceRule
-
-__all__ = [
-    "AlarmRule",
-    "PersistenceRule",
-]

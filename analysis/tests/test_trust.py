@@ -8,12 +8,12 @@ import pytest
 pytest.importorskip("pandapower")
 
 import fdia_graph as fg  # noqa: E402
-from fdia_analysis.models import DqnConfig, GateConfig, PriorConfig, TrustConfig
+from fdia_analysis.models.config import DqnConfig, GateConfig, PriorConfig, TrustConfig
 
 
 @pytest.fixture(scope="module")
 def selector(timeline):
-    from fdia_analysis.trust import TrustedMeters
+    from fdia_analysis.trust.base import TrustedMeters
 
     return TrustedMeters(TrustConfig(k=12)).fit(fg.load(timeline, split="train"))
 
@@ -28,7 +28,7 @@ def test_greedy_selection_raises_the_attack_cost(selector):
 
 
 def test_secured_meters_expose_the_stealthy_families(selector, timeline):
-    from fdia_analysis.models import TrustScores
+    from fdia_analysis.models.scores import TrustScores
 
     rep = selector.score(fg.load(timeline, split="test", order="time"))
     # the level is set on the fixture's 600 train frames and its 200 test frames sit 400 minutes
@@ -47,7 +47,7 @@ def test_secured_meters_expose_the_stealthy_families(selector, timeline):
 
 def test_dqn_learns_a_selection(timeline):
     pytest.importorskip("torch")
-    from fdia_analysis.trust import TrustedMetersDQN
+    from fdia_analysis.trust.meter_dqn import TrustedMetersDQN
 
     rl = TrustedMetersDQN(TrustConfig(k=8), dqn=DqnConfig(episodes=12, seed=0)).fit(
         fg.load(timeline, split="train")
@@ -96,7 +96,7 @@ def test_secured_copy_pins_the_selection_and_keeps_the_temporal_kernels(selector
 def test_gated_prior_keeps_secured_meters_at_full_weight(selector, timeline):
     """With `secured`, the gate leaves those meters at their fitted weight on every record and
     still down-weights the rest of a flagged bus."""
-    from fdia_analysis.se import GatedPrior
+    from fdia_analysis.se.methods import GatedPrior
 
     train = fg.load(timeline, split="train")
     test = fg.load(timeline, split="test")

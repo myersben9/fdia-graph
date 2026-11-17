@@ -18,8 +18,8 @@ import h5py
 import numpy as np
 
 from .. import schema
-from ..engine import FdiaGenerator
 from ..engine.attacks.stealthy import AM_FAMILY, RAMP_FAMILY
+from ..engine.core import FdiaGenerator
 from ..engine.records import attack_frame
 from ..errors import NoRoomForEpisode
 from ..models.choices import BENIGN_CODE

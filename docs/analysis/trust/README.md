@@ -4,8 +4,9 @@ Which meters to secure so that a stealthy attack stops being stealthy.
 
 ```python
 import fdia_graph as fg
-from fdia_analysis.models import DqnConfig, TrustConfig
-from fdia_analysis.trust import TrustedMeters, TrustedMetersDQN
+from fdia_analysis.models.config import DqnConfig, TrustConfig
+from fdia_analysis.trust.base import TrustedMeters
+from fdia_analysis.trust.meter_dqn import TrustedMetersDQN
 
 train = fg.load("ieee14", split="train")
 test = fg.load("ieee14", split="test", order="time")

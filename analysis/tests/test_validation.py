@@ -6,12 +6,15 @@ public entry points that build their config models before any work."""
 import numpy as np
 import pytest
 
-from fdia_analysis.models import GateConfig, HuberConfig, LocalizerConfig
-from fdia_analysis.models.config import FederatedSettings, PriorConfig
-from fdia_graph.models.config import LoadOptions, WindowSpec
-from fdia_graph.models.validation import (
-    ConfigError,
+from fdia_analysis.models.config import (
+    FederatedSettings,
+    GateConfig,
+    HuberConfig,
+    LocalizerConfig,
+    PriorConfig,
 )
+from fdia_graph.errors import ConfigError
+from fdia_graph.models.config import LoadOptions, WindowSpec
 
 
 def test_the_config_models_state_the_old_rules():
@@ -64,8 +67,8 @@ def test_a_malformed_assignment_is_refused_before_the_grid_is_sized(assignment, 
 
 
 def test_estimators_and_localizers_build_their_models():
-    from fdia_analysis.localization import SwingThreshold
-    from fdia_analysis.se import AdaptiveWeighting, GatedPrior, SubspacePrior
+    from fdia_analysis.localization.methods import SwingThreshold
+    from fdia_analysis.se.methods import AdaptiveWeighting, GatedPrior, SubspacePrior
 
     with pytest.raises(ConfigError, match="HuberConfig.c must be > 0"):
         AdaptiveWeighting(huber=HuberConfig(c=0))
@@ -92,7 +95,7 @@ def test_the_formula_options_share_the_message():
 
 def test_data_conditions_raise_named_errors(timeline):
     import fdia_graph as fg
-    from fdia_analysis.localization import SwingThreshold
+    from fdia_analysis.localization.methods import SwingThreshold
     from fdia_graph.errors import DataConditionError, NoBenignRecords
 
     attacked_only = fg.load(timeline, split="train", families=["Ad"])

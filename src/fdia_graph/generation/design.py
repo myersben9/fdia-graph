@@ -24,8 +24,8 @@ from typing import Generic, Optional, TypeVar, cast
 
 import numpy as np
 
-from ..engine import FdiaGenerator
 from ..engine.attacks.stealthy import AM_FAMILY
+from ..engine.core import FdiaGenerator
 from ..errors import NoRoomForEpisode
 from ..models.frames import AmOverloadDesign, FrameKnobs
 from ..models.plan import Designed, GeneratorSpec, Pending, Placement, Slot, SplitSpan

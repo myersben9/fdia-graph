@@ -3,14 +3,15 @@
     python tools/models_doc.py          # rewrite the section between the markers
     python tools/models_doc.py --check  # exit 1 when the file is out of date (the tests run this)
 
-The section lists every public bundle of the two toolkits (`fdia_graph.models.PUBLIC`, then
-`fdia_analysis.models.PUBLIC`): its module, what produces it, and one row per field with the dict
+The section lists every public bundle of the two toolkits (the bundles `fdia_graph.models.data` defines,
+then the ones `fdia_analysis.models.scores` defines): its module, what produces it, and one row per field with the dict
 key, the type and the comment written next to the field in the source. It is generated from the
 dataclasses, so it cannot drift from the code.
 """
 
 from __future__ import annotations
 
+import importlib
 import inspect
 import os
 import re
@@ -18,14 +19,17 @@ import sys
 from dataclasses import fields
 from typing import Any
 
-from sources import PACKAGES, ROOT, import_this_checkout
+from sources import ANALYSIS, GENERATION, PACKAGES, ROOT, import_this_checkout
 
 import_this_checkout()
 
 DOC = os.path.join(ROOT, "docs", "reference", "DATA_DICTIONARY.md")
 BEGIN, END = "<!-- models:begin -->", "<!-- models:end -->"
 
-# The public bundles are named by each toolkit's models.PUBLIC, in the order a reader meets them.
+# The public bundles are the ones a toolkit's user receives: the generation toolkit's are the bundles its
+# `models.data` defines (what the loader returns), the analysis toolkit's the ones its `models.scores`
+# defines (the score tables). Each in source order; neither package exports a name.
+RECEIVED = {GENERATION: "data", ANALYSIS: "scores"}
 
 _FIELD_LINE = re.compile(r"^\s*(\w+)\s*:\s*(.+?)(?:\s*=\s*[^#]+?)?\s*(?:#\s*(.*))?$")
 
@@ -90,14 +94,23 @@ def _render_model(cls: type[Any]) -> list[str]:
     return lines + [""]
 
 
-def render() -> str:
-    import importlib
+def _public(package: str) -> list[type[Any]]:
+    """The bundles a user receives from `package`."""
+    module = importlib.import_module(f"{package}.models.{RECEIVED[package]}")
+    bundle = importlib.import_module(f"{GENERATION}.models.base").Bundle
+    return [
+        cls
+        for cls in vars(module).values()
+        if inspect.isclass(cls) and issubclass(cls, bundle) and cls.__module__ == module.__name__
+    ]
 
+
+def render() -> str:
     lines = [
         BEGIN,
         "## Models",
         "",
-        "Every dict the two toolkits return is a typed bundle (`fdia_graph.models.Bundle`): a frozen",
+        "Every dict the two toolkits return is a typed bundle (`fdia_graph.models.base.Bundle`): a frozen",
         'dataclass that is also the `dict` it always was, so `out["node_x"]`, `**out` and iteration',
         "keep working and `out.node_x` is new. Fields set to None are absent from the dict. The loader's",
         "bundles are the generation toolkit's (`fdia_graph.models`), the score tables the analysis",
@@ -105,9 +118,8 @@ def render() -> str:
         "",
     ]
     for package in PACKAGES:
-        models = importlib.import_module(f"{package}.models")
-        for name in models.PUBLIC:
-            lines += _render_model(getattr(models, name))
+        for cls in _public(package):
+            lines += _render_model(cls)
     return "\n".join(lines) + END + "\n"
 
 

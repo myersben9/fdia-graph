@@ -9,6 +9,7 @@ import numpy as np
 
 import fdia_graph as fg
 from fdia_graph import schema
+from tests.helpers import ATTR_KEYS, CURRENT_LAYERS
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "tools"))
 import readability  # noqa: E402
@@ -23,7 +24,7 @@ def test_the_fixture_carries_exactly_the_schema(timeline):
     # the fixture is a hybrid-meter file: it carries the PMU current layers
     per_frame = (
         set(schema.FIELD_PATH.values())
-        | set(schema.CURRENT_LAYERS)
+        | set(CURRENT_LAYERS)
         | {
             schema.SPLIT,
             schema.NODE_TAMPER,
@@ -87,10 +88,10 @@ def test_the_fixture_carries_exactly_the_schema(timeline):
         schema.Attr.FALLBACK_BENIGN,
     ):
         assert key in attrs, key
-    assert set(attrs) <= schema.ATTR_KEYS, sorted(set(attrs) - schema.ATTR_KEYS)  # every key is named
+    assert set(attrs) <= ATTR_KEYS, sorted(set(attrs) - ATTR_KEYS)  # every key is named
     with h5py.File(fg.load(timeline).path, "r") as f:
-        assert set(f[schema.Group.GRAPH].attrs) <= schema.ATTR_KEYS
-        assert set(f[schema.Group.ATTACK].attrs) <= schema.ATTR_KEYS
+        assert set(f[schema.Group.GRAPH].attrs) <= ATTR_KEYS
+        assert set(f[schema.Group.ATTACK].attrs) <= ATTR_KEYS
     assert np.array_equal(sorted(schema.SPLIT_CODE.values()), [0, 1, 2])
 
 

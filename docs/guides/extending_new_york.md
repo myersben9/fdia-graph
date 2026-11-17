@@ -48,5 +48,5 @@ false alarms on benign days of other months beside its detection rate.
 - A setting is an argument; never change a library object's settings or a shared record's arrays after it is built.
 - Raise the named errors of `fdia_graph.errors`: `ConfigError` for a wrong argument, a `DataConditionError` for data
   that does not meet a condition, `SolverUnavailable` for an environment that cannot run the solver.
-- A new module is listed in [the architecture](../concepts/new_york_grid.md) in the same change, and a new public name in its
-  package's `__init__.py`.
+- A new module is listed in [the architecture](../concepts/new_york_grid.md) in the same change. A new public name is
+  imported from its defining module: a package's `__init__.py` holds no table of names.

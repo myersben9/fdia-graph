@@ -8,7 +8,7 @@ import numpy as np
 import pytest
 
 from fdia_analysis.formulas.estimation import pmu_pseudo_links, pmu_pseudo_voltages
-from fdia_analysis.models import SolveConfig
+from fdia_analysis.models.config import SolveConfig
 from fdia_graph.formulas.network import branch_currents
 from fdia_graph.models.grid import NODE
 
@@ -72,7 +72,7 @@ def test_eq3_noise_matches_its_propagated_variance():
 
 
 def test_pmu_pseudo_fills_only_unmetered_slots_and_needs_currents(pmu_files):
-    from fdia_analysis.se import WLS
+    from fdia_analysis.se.methods import WLS
     from fdia_graph.dataset import FdiaGraph
     from fdia_graph.errors import MissingCapability
 
@@ -87,7 +87,7 @@ def test_pmu_pseudo_fills_only_unmetered_slots_and_needs_currents(pmu_files):
 
 
 def test_jacobian_weighting_takes_the_pseudo_measurements(pmu_files):
-    from fdia_analysis.se import JacobianWeighting
+    from fdia_analysis.se.methods import JacobianWeighting
     from fdia_graph.dataset import FdiaGraph
 
     _, new = pmu_files
@@ -101,11 +101,11 @@ def test_pmu_pseudo_with_the_measured_calibration(pmu_files, method):
     """The measured calibration weights each pseudo slot by eq. (3)'s propagated noise: `_pseudo_sig`
     is set from the calibration scans before the accuracy classes, and `_class_sigma` places it at
     the pseudo slots; fit and estimate run, WLS and JacobianWeighting (which reads prev_pmu_i)."""
-    import fdia_analysis.se as se
+    from fdia_analysis.se import methods
     from fdia_graph.dataset import FdiaGraph
 
     _, new = pmu_files
-    est = getattr(se, method)(solve=SolveConfig(pmu_pseudo=True)).fit(
+    est = getattr(methods, method)(solve=SolveConfig(pmu_pseudo=True)).fit(
         FdiaGraph(new, split="train"), calibrate="measured"
     )
     n_pseudo = len(est._pseudo_v) + len(est._pseudo_th)
@@ -120,7 +120,7 @@ def test_estimate_builds_the_pseudo_measurements_chunk_by_chunk(pmu_files):
     """Review fix: estimate builds the measurement vectors, pseudo slots included, one chunk at a
     time and reads the pseudo values alone. The result is the whole-split path's, bit for bit at the
     same chunk, and the same to solver tolerance at any chunk size."""
-    from fdia_analysis.se import WLS
+    from fdia_analysis.se.methods import WLS
     from fdia_graph.dataset import FdiaGraph
 
     _, new = pmu_files
@@ -148,7 +148,7 @@ def test_pmu_pseudo_refuses_currents_stored_as_magnitude_and_angle(pmu_files, tm
 
     import h5py
 
-    from fdia_analysis.se import WLS
+    from fdia_analysis.se.methods import WLS
     from fdia_graph import schema
     from fdia_graph.dataset import FdiaGraph
     from fdia_graph.errors import MissingCapability
@@ -174,7 +174,7 @@ def test_an_estimator_refuses_a_file_of_no_ieee_case(pmu_files, tmp_path):
 
     import h5py
 
-    from fdia_analysis.se import WLS
+    from fdia_analysis.se.methods import WLS
     from fdia_graph import schema
     from fdia_graph.dataset import FdiaGraph
     from fdia_graph.errors import MissingCapability

@@ -19,12 +19,14 @@ pytest.importorskip("pandapower")
 
 from fdia_graph.engine.attacks.minimize import _Window  # noqa: E402
 from fdia_graph.engine.core import FdiaGenerator  # noqa: E402
+from fdia_graph.errors import ConfigError  # noqa: E402
 from fdia_graph.generation import _load_states  # noqa: E402
-from fdia_graph.models import TrustSchedule  # noqa: E402
-from fdia_graph.models.config import OverloadSettings  # noqa: E402
+from fdia_graph.models.config import (
+    OverloadSettings,  # noqa: E402
+    TrustSchedule,  # noqa: E402
+)
 from fdia_graph.models.frames import FrameKnobs  # noqa: E402
 from fdia_graph.models.grid import CURRENT, NODE  # noqa: E402
-from fdia_graph.models.validation import ConfigError  # noqa: E402
 
 from . import case_studies  # noqa: E402
 

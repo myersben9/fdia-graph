@@ -9,7 +9,10 @@ import os
 
 import pytest
 
-from fdia_analysis.results import METRICS, Record, Run, Store, fill, stale
+from fdia_analysis.models.results import METRICS, Record
+from fdia_analysis.results.docs import fill, stale
+from fdia_analysis.results.run import Run
+from fdia_analysis.results.store import Store
 from fdia_graph.errors import ConfigError, NoSuchResult
 from fdia_graph.schema import config_hash
 
@@ -145,7 +148,7 @@ def test_a_block_inside_fenced_code_is_an_example_and_stays_as_written(tmp_path:
 
 
 def test_back_to_back_writes_keep_every_run(tmp_path: object) -> None:
-    from fdia_analysis.results import Provenance
+    from fdia_analysis.models.results import Provenance
 
     store = Store(str(tmp_path))
     for i in range(30):  # many writes inside one file-time tick
@@ -177,7 +180,7 @@ def test_a_tag_filter_takes_any_of_several_values(tmp_path: object) -> None:
 
 
 def test_a_pivot_refuses_two_records_on_one_cell() -> None:
-    from fdia_analysis.results import pivot
+    from fdia_analysis.results.render import pivot
 
     a, b = _rec(method="wls", system="ieee14", tags=("k=1.1",)), _rec(method="wls", system="ieee14")
     assert pivot([a], "method", "system") == {("wls", "ieee14"): a}
@@ -206,7 +209,7 @@ def test_tilde_and_indented_fences_are_examples(tmp_path: object) -> None:
 
 
 def test_a_run_measures_each_key_once(tmp_path: object) -> None:
-    from fdia_analysis.results import Provenance
+    from fdia_analysis.models.results import Provenance
 
     prov = Provenance(
         run_id="demo.x-1", experiment="demo.x", timestamp="2026-01-01T00:00:00Z", sdk_version="0"

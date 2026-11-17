@@ -73,7 +73,7 @@ def test_ybus_matches_engine_and_clean_injections(timeline):
     """ds.ybus equals the engine's makeYbus matrix and reproduces the clean injections at the
     shunt-free buses, so bus order and the branch model are both right."""
     pytest.importorskip("pandapower")
-    from fdia_graph.engine import FdiaGenerator
+    from fdia_graph.engine.core import FdiaGenerator
 
     ds = fg.load(timeline)
     Y = ds.ybus_np

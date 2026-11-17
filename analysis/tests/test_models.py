@@ -10,8 +10,8 @@ import pytest
 def test_group_built_bundles_are_keyword_only():
     """Positional construction would bind to the inherited field order, not the documented one, so
     it is refused outright rather than allowed to mis-bind silently."""
-    from fdia_analysis.models import TrueState
-    from fdia_graph.models import RecordBundle
+    from fdia_analysis.models.data import TrueState
+    from fdia_graph.models.data import RecordBundle
 
     with pytest.raises(TypeError, match="by keyword"):
         RecordBundle(np.zeros((2, 1)), np.ones((3, 4)))

@@ -32,15 +32,8 @@ from typing import ClassVar, Protocol, SupportsFloat, Union, runtime_checkable
 import numpy as np
 import numpy.typing as npt
 
+from ..errors import ConfigError
 from .choices import Choice
-
-
-class ConfigError(ValueError):
-    """An input that its model does not allow. A ValueError, so callers catching that keep working."""
-
-
-class MissingCapability(ConfigError):
-    """A dataset view that lacks what a consumer needs (`dataset.base.DatasetBase.require`)."""
 
 
 # ---- rules ------------------------------------------------------------------------------------------
@@ -218,7 +211,7 @@ class Validated:
     """Base of every model whose fields are checked on construction (a frozen dataclass)."""
 
     # what a failed invariant raises: ConfigError for an input, or a named data condition
-    # (`models.errors`) for a model that states what the data lacks
+    # (`fdia_graph.errors`) for a model that states what the data lacks
     error: ClassVar[type[ValueError]] = ConfigError
     # every model is a dataclass (the subclass is decorated); declared so `fields(model)` type-checks
     __dataclass_fields__: ClassVar[dict[str, Field[object]]]

@@ -16,7 +16,7 @@ Quickstart
 from __future__ import annotations
 
 from collections.abc import Sequence
-from typing import TYPE_CHECKING, Any, Optional, Union
+from typing import TYPE_CHECKING, Optional, Union
 
 if TYPE_CHECKING:  # the lazy names below, with their real signatures for type checkers
     from .generation import generate
@@ -25,7 +25,8 @@ if TYPE_CHECKING:  # the lazy names below, with their real signatures for type c
 # Re-exports so users write `fg.FdiaGraph` / `fg.load(...)` instead of reaching into submodules.
 # FdiaGraph: torch Dataset over one timeline file; FAMILIES: attack-family names/ids; STEALTHY_FAMILIES: the
 # BDD-evading subset (hard cases, e.g. Aq).
-from .dataset import FdiaGraph, family_ids
+from .dataset import FdiaGraph
+from .dataset.base import family_ids
 
 # download: ensure_local (resolved spec -> local .h5 path, fetching+caching if absent).
 from .download import ensure_local
@@ -104,29 +105,22 @@ def load(
     )
 
 
-# The generators and the profile helpers pull in pandapower, torch or torch_geometric,
-# so they are imported on first use rather than at `import fdia_graph`. Each name resolves to the
-# real function (its own docstring and signature), not a wrapper that could drift from it.
-# `from fdia_graph import *` resolves all of them (it binds every name in __all__), which loads
-# those modules but still no optional dependency: each imports pandapower, torch or torch_geometric
-# inside the functions that need them (tests/test_namespace.py checks this in a fresh interpreter).
-_LAZY = {
-    "generate": ".generation",
-    "load_profile": ".profiles",
-    "fetch_profile": ".profiles",
-    "generate_states": ".profiles",
-}
+# The generator and the profile helpers pull in pandapower, torch or torch_geometric, so they are
+# imported on first use rather than at `import fdia_graph`. Each name is the real function (its own
+# docstring and signature), not a wrapper that could drift from it. `from fdia_graph import *` resolves
+# all of them, which loads their modules but still no optional dependency: each imports pandapower,
+# torch or torch_geometric inside the functions that need them (tests/test_namespace.py checks this).
+def __getattr__(name: str) -> object:
+    if name == "generate":
+        from .generation import generate
 
+        return generate
+    if name in ("load_profile", "fetch_profile", "generate_states"):
+        from . import profiles
 
-def __getattr__(name: str) -> Any:
-    if name in _LAZY:
-        import importlib
-
-        value = getattr(importlib.import_module(_LAZY[name], __name__), name)
-        globals()[name] = value  # resolved once; later lookups skip __getattr__
-        return value
+        return getattr(profiles, name)
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
 def __dir__() -> list[str]:
-    return sorted(set(globals()) | set(_LAZY))
+    return sorted(set(globals()) | set(__all__))

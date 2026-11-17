@@ -1,9 +1,11 @@
-"""The public surface of the New York code: every package's names resolve, reading a dataset stays light, and the
-names that became public keep their old spelling for one release (no data needed)."""
+"""The public surface of the New York code: every module of its packages imports, a package exports no name of
+its own, and reading a dataset stays light (no data needed)."""
 
 from __future__ import annotations
 
 import importlib
+import inspect
+import pkgutil
 import subprocess
 import sys
 
@@ -16,13 +18,14 @@ PACKAGES = (
 
 
 @pytest.mark.parametrize("pkg", PACKAGES)
-def test_every_public_name_resolves(pkg):
-    pytest.importorskip("pandapower")  # resolving every name imports the [ny] extra
+def test_every_module_imports_and_the_package_exports_no_name(pkg):
+    pytest.importorskip("pandapower")  # importing every module imports the [ny] extra
     m = importlib.import_module(pkg)
     assert m.__doc__ and len(m.__doc__) > 200  # the package says what its stage does
-    missing = [n for n in m.__all__ if getattr(m, n, None) is None]
-    assert not missing
-    assert set(m.__all__) <= set(dir(m))
+    for info in pkgutil.iter_modules(m.__path__):
+        importlib.import_module(f"{pkg}.{info.name}")
+    # a name is imported from the module that defines it: the package holds its modules and nothing else
+    assert not [n for n, o in vars(m).items() if not n.startswith("_") and not inspect.ismodule(o)]
 
 
 @pytest.mark.parametrize(

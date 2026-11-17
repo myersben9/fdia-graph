@@ -5,15 +5,15 @@ same keys in the same order, and its attribute view agrees with the dict view.""
 
 import json
 
-from fdia_analysis.models import LocalizerConfig
+from fdia_analysis.models.config import LocalizerConfig
 from tests.helpers import agree
 
 
 def test_estimator_and_localizer_scores(timeline):
     import fdia_graph as fg
-    from fdia_analysis.localization import SwingThreshold
+    from fdia_analysis.localization.methods import SwingThreshold
     from fdia_analysis.models.scores import ErrorPair, EstimatorScores, LocalizerScores, OverallMetrics
-    from fdia_analysis.se import WLS
+    from fdia_analysis.se.methods import WLS
 
     train, test = fg.load(timeline, split="train"), fg.load(timeline, split="test")
     se = WLS().fit(train).score(test)

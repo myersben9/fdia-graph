@@ -34,7 +34,7 @@ import_this_checkout()
 sys.path.insert(0, ROOT)
 
 import fdia_graph as fg  # noqa: E402
-from fdia_analysis.models import HuberConfig, PriorConfig  # noqa: E402
+from fdia_analysis.models.config import HuberConfig, PriorConfig  # noqa: E402
 from tests.helpers import TIMELINE_KW  # noqa: E402  the test suite's tiny timeline, one definition
 
 SLOW_FACTOR = 3.0
@@ -45,7 +45,7 @@ RECIPE_TAG = hashlib.sha256(RECIPE.encode()).hexdigest()[:8]  # a tag value carr
 
 
 def _timings() -> dict[str, float]:
-    from fdia_analysis.se import WLS, AdaptiveWeighting, SubspacePrior
+    from fdia_analysis.se.methods import WLS, AdaptiveWeighting, SubspacePrior
 
     out: dict[str, float] = {}
     path = os.path.join(_CACHE, "tiny.h5")
@@ -81,7 +81,7 @@ def _machine() -> str:
 def _last_run(machine: str) -> dict[str, float]:
     """The timings of the most recent stored run on `machine` with this fixture recipe; empty when
     there is none, since runs from different machines or recipes are not comparable."""
-    from fdia_analysis.results import Store
+    from fdia_analysis.results.store import Store
 
     store = Store(os.path.join(ROOT, "results"))
     runs = sorted(
@@ -95,7 +95,8 @@ def _last_run(machine: str) -> dict[str, float]:
 
 
 def main(check: bool) -> int:
-    from fdia_analysis.results import Run, Store
+    from fdia_analysis.results.run import Run
+    from fdia_analysis.results.store import Store
 
     t = _timings()
     machine = _machine()

@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 
 import fdia_graph as fg
-from fdia_analysis.models import (
+from fdia_analysis.models.config import (
     GateConfig,
     JacobianWeightingConfig,
     LearnedConfig,
@@ -38,7 +38,7 @@ def test_kcl_residual_matches_the_papers_builder(splits):
 
 
 def test_threshold_localizer_protocol(timeline, splits):
-    from fdia_analysis.localization import SwingThreshold
+    from fdia_analysis.localization.methods import SwingThreshold
 
     loc = SwingThreshold(localizer=LocalizerConfig(fa_target=0.05)).fit(splits["train"])
     flags = loc.localize(splits["test"])
@@ -60,7 +60,7 @@ def test_threshold_localizer_protocol(timeline, splits):
 
 def test_learned_localizer_smoke(splits):
     pytest.importorskip("torch")
-    from fdia_analysis.localization import BusCNN, BusMLP
+    from fdia_analysis.localization.learned import BusCNN, BusMLP
 
     for cls in (BusMLP, BusCNN):
         loc = cls(learned=LearnedConfig(epochs=2, device="cpu")).fit(splits["train"], val=splits["val"])
@@ -76,7 +76,7 @@ def test_learned_localizer_smoke(splits):
 
 def test_wls_estimates_the_classical_state(splits):
     pytest.importorskip("torch")
-    from fdia_analysis.se import WLS
+    from fdia_analysis.se.methods import WLS
 
     est = WLS().fit(splits["train"])
     x = est.estimate(splits["test"])
@@ -128,8 +128,7 @@ def test_jacobian_features_split_stealthy_from_corruption():
 
 def test_learned_localizer_feature_sets(splits):
     pytest.importorskip("torch")
-    from fdia_analysis.localization import BusMLP
-    from fdia_analysis.localization.learned import FEATURE_SETS
+    from fdia_analysis.localization.learned import FEATURE_SETS, BusMLP
 
     for feats, width in FEATURE_SETS.items():
         loc = BusMLP(learned=LearnedConfig(epochs=1, device="cpu", features=feats)).fit(splits["train"])
@@ -143,7 +142,7 @@ def test_jacobian_weighting_estimator():
     """On the v0.8.3 release, which carries the in-place bias Ad: the weights never raise a meter,
     and the estimate is never worse than WLS on the bias."""
     pytest.importorskip("torch")
-    from fdia_analysis.se import WLS, JacobianWeighting
+    from fdia_analysis.se.methods import WLS, JacobianWeighting
     from fdia_graph.dataset import FdiaGraph
     from tests.helpers import TIMELINE_V083
 
@@ -161,7 +160,7 @@ def test_jacobian_weighting_estimator():
 
 def test_gated_prior_uses_the_gate(splits):
     pytest.importorskip("torch")
-    from fdia_analysis.se import GatedPrior
+    from fdia_analysis.se.methods import GatedPrior
 
     est = GatedPrior(
         GateConfig(gate="oracle"), prior=PriorConfig(rank_frac=0.5, reweight="huber", c=1.5)
@@ -231,7 +230,7 @@ def test_predict_runs_in_eval_mode_after_training():
 
 
 def test_score_perbus_agrees_with_score_and_reports_the_paper_columns(splits):
-    from fdia_analysis.localization import SwingThreshold
+    from fdia_analysis.localization.methods import SwingThreshold
 
     loc = SwingThreshold().fit(splits["train"])
     te = splits["test"]
@@ -258,7 +257,7 @@ def test_score_perbus_agrees_with_score_and_reports_the_paper_columns(splits):
 
 def test_learned_localizer_grid_detection_and_attackable_table(splits, timeline):
     pytest.importorskip("torch")
-    from fdia_analysis.localization import BusMLP
+    from fdia_analysis.localization.learned import BusMLP
 
     loc = BusMLP(learned=LearnedConfig(epochs=2, device="cpu")).fit(splits["train"], val=splits["val"])
     with pytest.raises(ValueError, match="tune_grid_threshold"):
@@ -298,8 +297,7 @@ def test_previous_swing_feature_set(timeline, splits):
     """prev_swing is the swing of file row - 1, and "full14+prev" appends it after the papers' 14
     channels; the frame after a one-frame attack reads the attack's swing there, sign reversed."""
     pytest.importorskip("torch")
-    from fdia_analysis.localization import BusCNN
-    from fdia_analysis.localization.learned import full14
+    from fdia_analysis.localization.learned import BusCNN, full14
 
     full = fg.load(timeline).export(["swing", "family"])
     ds = splits["test"]

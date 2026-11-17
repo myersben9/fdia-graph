@@ -6,8 +6,6 @@ from __future__ import annotations
 import csv
 from pathlib import Path
 
-__all__ = ["read_rows"]
-
 
 def read_rows(path: str | Path, encoding: str = "utf-8") -> list[dict[str, str]]:
     """Every row of the CSV at `path` as a dict keyed by its header (`utf-8-sig` drops a byte-order mark)."""

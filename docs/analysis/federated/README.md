@@ -7,8 +7,8 @@ the 14-dim per-bus vector plus the Jacobian block.
 
 ```python
 import fdia_graph as fg
-from fdia_analysis.federated import FedBusCNN
-from fdia_analysis.models import FederatedSettings, LearnedConfig
+from fdia_analysis.federated.localizer import FedBusCNN
+from fdia_analysis.models.config import FederatedSettings, LearnedConfig
 
 rel = dict(release="v0.8.1")  # the release these results are on
 zs = dict(families=[0, 1, 2], **rel)  # benign + Aq + Ad

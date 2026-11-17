@@ -23,8 +23,8 @@ from sources import ROOT, import_this_checkout
 
 import_this_checkout()
 
-from fdia_analysis.results import Store, fill, stale  # noqa: E402
-from fdia_analysis.results.docs import BLOCK  # noqa: E402
+from fdia_analysis.results.docs import BLOCK, fill, stale  # noqa: E402
+from fdia_analysis.results.store import Store  # noqa: E402
 
 # the files whose numbers the policy covers: released CHANGELOG sections are history and stay as written
 SKIP = ("CHANGELOG.md",)

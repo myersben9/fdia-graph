@@ -17,8 +17,8 @@ from typing import Annotated, ClassVar, Optional, Union, cast
 
 import numpy as np
 
+from ..errors import NoAdmissibleTarget
 from .choices import FAMILIES, FAMILY_CODE, GENERATED_FAMILIES, Capability
-from .errors import NoAdmissibleTarget
 from .validation import AsArray, AsTuple, AtLeast, Dims, Integer, NonEmpty, Parses, Required, Validated
 
 

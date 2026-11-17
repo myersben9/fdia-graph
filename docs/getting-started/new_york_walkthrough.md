@@ -17,7 +17,8 @@ solvable in AC). `nygrid_case()` reads it into a `Case`, a frozen record of arra
 admittances. Each New York bus belongs to one utility, a client of the federated dataset.
 
 ```python
-from fdia_graph.generation.nygrid import Network, nygrid_case
+from fdia_graph.generation.nygrid.case import nygrid_case
+from fdia_graph.generation.nygrid.network import Network
 
 case = nygrid_case()
 net = Network(case)
@@ -32,8 +33,8 @@ hourly dispatch, and a ramp-limited least-cost AC dispatch solved frame by frame
 hours, so it is built once and read back:
 
 ```python
-from fdia_graph.generation.nygrid import read_pool
-from fdia_graph.generation.nygrid import SOLVED
+from fdia_graph.generation.nygrid.io import read_pool
+from fdia_graph.generation.nygrid.pool import SOLVED
 
 pool = read_pool("out/pool_2019_v3.h5")
 print((pool.solve_kind == SOLVED).mean())  # 0.998: the frames that solved; only these are used downstream
@@ -46,8 +47,8 @@ families, over the pool. A source's `generate(path)` writes its timeline, by the
 take. One attack window can be written on its own, which is how the studies of the paper are made:
 
 ```python
-from fdia_graph.generation.nygrid import NewYorkSource, SingleEpisodeSource
-from fdia_graph.models import NewYorkRelease
+from fdia_graph.generation.nygrid.source import NewYorkSource, SingleEpisodeSource
+from fdia_graph.models.config import NewYorkRelease
 
 release = NewYorkRelease(families=("Am",), workers=1, survey=0)
 source = NewYorkSource.production("out/pool_2019_v3.h5", release)
@@ -65,7 +66,7 @@ limit while keeping every reading consistent with a false state, so the operator
 A client reads only its own meters, and the labels of its own buses:
 
 ```python
-from fdia_graph.generation.nygrid import Dataset
+from fdia_graph.dataset.clients import Dataset
 
 ds = Dataset("one.h5")
 view = ds.client(ds.clients[0])

@@ -68,12 +68,11 @@ POOL_COUNTIES = 5  # II-D: the five prototype locations nearest the bus
 SWAP_PAIRS = (100, 100, 50)  # II-D: hour pairs permuted per residential, commercial, industrial pick
 
 # N31 within-hour terms (module docstring). FLUCT_* were fitted on NYISO 2018, zone H left out, and SWITCH_* on
-# NYISO 2019 zone D with the model's industrial load there. The two fitting functions were removed after release
-# 0.21.0 (there `_fluctuation_fit` and `_switching_fit` in `fdia_graph/nyfed/scenario/loads.py`); the constants
-# are their results.
+# NYISO 2019 zone D with the model's mean industrial load there (125.43 MW, its one NYSEG load bus). The two
+# fitting functions were removed after release 0.21.0 (there `_fluctuation_fit` and `_switching_fit` in
+# `fdia_graph/nyfed/scenario/loads.py`); the constants are their results.
 # The residual's own spread is 0.2554 size^-0.516 (R^2 0.61 over the ten zones); FLUCT_C is the AR(1)'s.
 FLUCT_C, FLUCT_BETA, FLUCT_PHI = 0.32547, 0.51590, 0.37889
-SWITCH_INDUSTRIAL_MW = 125.43  # the model's mean industrial load in zone D (its one NYSEG load bus)
 SWITCH_RATE = 0.0012584  # pulses per MW of mean industrial load per hour
 SWITCH_U, SWITCH_XI, SWITCH_SCALE, SWITCH_MAX = (
     0.21958,

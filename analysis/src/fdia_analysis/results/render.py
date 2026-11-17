@@ -9,7 +9,7 @@ from collections.abc import Iterable, Sequence
 from typing import Optional
 
 from fdia_analysis.models.results import METRICS, Record
-from fdia_graph.models.errors import NoSuchResult
+from fdia_graph.errors import NoSuchResult
 
 
 def number(value: float, spec: str) -> str:

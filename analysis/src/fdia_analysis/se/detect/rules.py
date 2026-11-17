@@ -14,8 +14,6 @@ import numpy as np
 
 from fdia_graph.errors import NoBenignRecords
 
-__all__ = ["AlarmRule", "PersistenceRule"]
-
 
 @runtime_checkable
 class AlarmRule(Protocol):

@@ -113,7 +113,7 @@ The meter model decides what a meter reads (`meter_model` in the meter plan, D10
 default, `"hybrid"`, is a SCADA and PMU plan as in [WU26]: a SCADA voltmeter reads `|V|` only, a PMU
 reads `|V|`, the angle and the current phasor of every in-service branch at its bus [WU26, eqs.
 17-20]. The released files up to v0.8.3 wrote an angle at every voltmeter bus and read no
-currents; the loader reads them, the generator no longer writes them (`models.MeterSettings`, the
+currents; the loader reads them, the generator no longer writes them (`models.config.MeterSettings`, the
 plan's D12).
 
 Injection buses are those with a generator, a load, the external grid, a shunt or a producing static
@@ -334,7 +334,7 @@ At test time a feature may use only measurements and quantities derived from the
 | `BusCNN`, `BusMLP`, `FedBusCNN`, `FedBusMLP` | `node_x`, `node_m`, `edge_x`, `temporal_delta`, `swing`, `prev_swing`, `prev_*`; `y` as the training label | measurements |
 | `TrustSelector.fit` | `node_x`, `edge_x`, `family` | measurements |
 | `TrustSelector.score` | `benign`, `edge_benign` | evaluation: what a secured meter reads |
-| `trust.secured_copy` | `benign`, the tamper masks | builds a counterfactual file, then rewrites the temporal features from its observed frames |
+| `trust.secured.secured_copy` | `benign`, the tamper masks | builds a counterfactual file, then rewrites the temporal features from its observed frames |
 
 Sources: `se/base.py`, `se/jacobian.py`, `se/methods.py`, `localization/methods.py`,
 `localization/learned.py` (`_fields`), `trust/base.py`, `trust/secured.py`. Every path whose

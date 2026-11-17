@@ -5,20 +5,17 @@ here, are checked in analysis/tests/test_formulas.py."""
 import numpy as np
 import pytest
 
-from fdia_graph.formulas import (
-    bias_jitter_split,
+from fdia_graph.formulas.attacks import ramp_profile
+from fdia_graph.formulas.network import (
     branch_admittances,
     branch_flows,
     bus_injections,
     complex_voltages,
-    ramp_profile,
-    recent_change_scale,
     series_admittance,
-    swing_zscore,
-    temporal_delta,
-    wrap_degrees,
 )
-from fdia_graph.models import BranchModel
+from fdia_graph.formulas.noise import bias_jitter_split
+from fdia_graph.formulas.temporal import recent_change_scale, swing_zscore, temporal_delta, wrap_degrees
+from fdia_graph.models.grid import BranchModel
 
 
 def test_series_admittance_by_hand():
@@ -86,7 +83,7 @@ def test_flow_sensitivities_match_a_resolved_power_flow():
     pytest.importorskip("pandapower")
     from scipy.optimize import fsolve
 
-    from fdia_graph.engine import FdiaGenerator
+    from fdia_graph.engine.core import FdiaGenerator
     from fdia_graph.formulas.network import _dense, flow_sensitivities
     from fdia_graph.generation import _load_states
     from fdia_graph.models.grid import NODE

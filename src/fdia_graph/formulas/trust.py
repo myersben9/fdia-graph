@@ -100,6 +100,3 @@ def _chased_row(R: np.ndarray, tol: float, ok: Callable[[np.ndarray], bool]) -> 
         if ok(R[i]):
             return int(nnz[i]), int(i)
     return None
-
-
-__all__ = ["TOL", "rref", "sparsest_rows"]

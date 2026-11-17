@@ -9,7 +9,7 @@ from typing import Optional
 import numpy as np
 import pytest
 
-from fdia_graph.models import Bundle
+from fdia_graph.models.base import Bundle
 
 
 @dataclass(frozen=True, eq=False)
@@ -132,10 +132,10 @@ EXPECTED = {
 def test_field_groups_keep_every_key_order_and_required_set():
     import dataclasses
 
-    import fdia_graph.models as m
+    from fdia_graph.models import data
 
     for name, (order, required) in EXPECTED.items():
-        cls = getattr(m, name)
+        cls = getattr(data, name)
         assert list(cls._names()) == order, name
         assert sorted(dataclasses.fields(cls), key=lambda f: f.name) == sorted(
             dataclasses.fields(cls), key=lambda f: f.name
@@ -145,7 +145,7 @@ def test_field_groups_keep_every_key_order_and_required_set():
 
 
 def test_required_fields_raise_at_construction():
-    from fdia_graph.models import RecordBundle
+    from fdia_graph.models.data import RecordBundle
 
     kw = dict(
         edge_index=np.zeros((2, 1)),
@@ -191,7 +191,8 @@ def test_default_collate_treats_a_bundle_as_a_dict():
 def test_column_views_name_the_documented_order():
     """`NodeColumns` is the one definition of the node_x order (|V|, P_inj, Q_inj, theta) and
     `EdgeColumns` of the edge_x order (P_from, Q_from); the views share memory with the array."""
-    from fdia_graph.models import EDGE, NODE, EdgeColumns, NodeColumns, RecordBundle
+    from fdia_graph.models.data import RecordBundle
+    from fdia_graph.models.grid import EDGE, NODE, EdgeColumns, NodeColumns
 
     assert NODE == (0, 1, 2, 3) and NODE._fields == ("v", "p_inj", "q_inj", "theta")
     assert EDGE == (0, 1) and EDGE._fields == ("p_from", "q_from")
@@ -218,7 +219,7 @@ def test_column_views_name_the_documented_order():
 
 def test_loader_columns_agree_with_the_definition(splits):
     """The clean layer read through the views: voltages near 1 pu, the slack angle exactly zero."""
-    from fdia_graph.models import NodeColumns
+    from fdia_graph.models.grid import NodeColumns
 
     ds = splits["test"]
     cols = NodeColumns.of(ds.export(["clean"]).clean)
