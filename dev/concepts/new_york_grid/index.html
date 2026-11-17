@@ -1775,7 +1775,7 @@ noisy, labelled year. Beside the stages, <code>se/detect</code> holds the alarm 
    <code>AlarmRule</code> is a protocol. The overload family is two classes: <code>OpfFdia</code> holds the
    support search and the per-scan OPF, and <code>InterfaceFdia</code> adds the goal and <code>design</code>, as their docstrings say.</li>
 <li>One job per file. A file stays short enough to read in one sitting.</li>
-<li>Dependencies point one way (below). pandapower lives in <code>generation/nygrid/solver.py</code>, h5py in the timeline writer (<code>generation/write.py</code>, <code>generation/emit.py</code>), <code>io.py</code> (the pool file) and <code>dataset/</code>, random number
+<li>Dependencies point one way (below). pandapower lives in <code>generation/nygrid/solver.py</code>, h5py in the timeline writer (<code>TimelineWriter</code>, <code>generation/write.py</code>), <code>io.py</code> (the pool file) and <code>dataset/</code>, random number
    creation in <code>config.py</code>. Pyomo models are built in <code>generation/nygrid/solver.py</code> and in the attack OPFs, and every one gets
    its Ipopt from <code>solvers.py</code>, which checks that it runs.</li>
 <li>Measurements are one flat vector <code>z</code> per frame with a meter table beside it. A client's data is
@@ -1814,7 +1814,7 @@ noisy, labelled year. Beside the stages, <code>se/detect</code> holds the alarm 
 <a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a>    measure.py          Measurement
 <a id="__codelineno-0-26" name="__codelineno-0-26" href="#__codelineno-0-26"></a>    noise.py            NoiseModel
 <a id="__codelineno-0-27" name="__codelineno-0-27" href="#__codelineno-0-27"></a>  engine/attacks/
-<a id="__codelineno-0-28" name="__codelineno-0-28" href="#__codelineno-0-28"></a>    family.py           Episode, AttackFamily (design, design_explained), the miss reasons
+<a id="__codelineno-0-28" name="__codelineno-0-28" href="#__codelineno-0-28"></a>    family.py           AttackFamily (design, design_explained), the miss reasons
 <a id="__codelineno-0-29" name="__codelineno-0-29" href="#__codelineno-0-29"></a>    attacker.py         Attacker, natural_steps, generator_ramps, generator_band, generator_q_capability, wrap_angles
 <a id="__codelineno-0-30" name="__codelineno-0-30" href="#__codelineno-0-30"></a>    opf.py              OpfFdia (the base of the OPF attacks: the support search and the per-scan local AC OPF, N35)
 <a id="__codelineno-0-31" name="__codelineno-0-31" href="#__codelineno-0-31"></a>    interface.py        InterfaceFdia (Am against a NYISO interface, N48, N49; overshoot and max_overshoot, N58)
@@ -1916,7 +1916,7 @@ copies them as they are.</p>
 </tr>
 <tr>
 <td><code>Episode</code></td>
-<td><code>engine/attacks/family.py</code></td>
+<td><code>models/plan.py</code></td>
 <td><code>family</code>, <code>clients</code> (owners of the tampered meters), <code>onset</code>, <code>length</code>, <code>buses</code>, <code>target_branch</code>, <code>a [length, M]</code></td>
 </tr>
 <tr>

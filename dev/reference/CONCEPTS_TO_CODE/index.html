@@ -1685,9 +1685,9 @@ Paths are under <code>src/fdia_graph/</code>.</p>
 <h2 id="one-record-start-to-finish">One record, start to finish<a class="headerlink" href="#one-record-start-to-finish" title="Permanent link">&para;</a></h2>
 <p><img alt="one record: the operating state gives the clean layer and the benign scan; Aq, At, Al and Am re-solve a local false state whose attack vector is added to the benign scan; Ad, As and Ar corrupt readings in place; every path ends in the record" src="../../figures/diagrams/concepts_one_record.png" /></p>
 <p>Every attack is built in <code>engine.attacks</code>, the generator's <code>AttackMixin</code>: a local false state
-(<code>engine.attacks.false_state</code>) designed per episode by the family's designer (<code>RampDesigner</code> for At,
-<code>OverloadDesigner</code> for Am, <code>engine.attacks.episodes</code>) on a support the search or [WU26]'s row reduction
-chooses (<code>SearchSupport</code>, <code>RrefSupport</code>); <code>engine.records.attack_frame</code> adds the attack vector to the
+(<code>engine.attacks.false_state</code>) designed per episode (<code>ramp_design</code> for At, <code>am_overload_design</code> for
+Am, <code>engine.attacks.episodes</code>) on a support the search or [WU26]'s row reduction chooses
+(<code>MinimizeMixin.min_tamper</code>, <code>RrefSupport</code>); <code>engine.records.attack_frame</code> adds the attack vector to the
 benign scan.</p>
 <h2 id="modules">Modules<a class="headerlink" href="#modules" title="Permanent link">&para;</a></h2>
 <p>The paper's math lives in <code>engine/</code>. <code>generation/</code> drives it in stages (<code>TimelineSource.generate</code>
@@ -1775,13 +1775,13 @@ and converts them on load.</p>
 <td>At</td>
 <td><code>A_t</code></td>
 <td>slow ramp, 0.2 percent per frame, a local false state per frame</td>
-<td><code>engine/attacks/episodes.RampDesigner</code> + <code>ramp_step</code></td>
+<td><code>engine/attacks/episodes.EpisodeDesignMixin.ramp_design</code> + <code>EpisodeDesignMixin.ramp_step</code></td>
 </tr>
 <tr>
 <td>Am</td>
 <td><code>A_m</code></td>
 <td>the overload attack of [WU26]: a line's reported flow driven to its rating over the window, the fewest devices tampered</td>
-<td><code>engine/attacks/episodes.OverloadDesigner</code> + <code>overload.overload_step</code></td>
+<td><code>engine/attacks/episodes.EpisodeDesignMixin.am_overload_design</code> + <code>overload.overload_step</code></td>
 </tr>
 </tbody>
 </table>
@@ -1798,7 +1798,7 @@ and converts them on load.</p>
   <code>Al</code>, and the in-place <code>Ad</code>, <code>As</code>, <code>Ar</code>) are read-only: fdia-graph 0.20 generates them.</li>
 <li>With <code>min_tamper=True</code> an At episode is held on the support that tampers the fewest devices over
   the episode, the objective of [WU26, eq. 12] (<code>engine/attacks/minimize.MinimizeMixin.min_tamper</code>,
-  called by <code>engine/attacks/episodes.RampDesigner</code>).</li>
+  called by <code>engine/attacks/episodes.EpisodeDesignMixin.ramp_design</code>).</li>
 <li>The At ramp moves in per-frame steps under the noise floor, by design.</li>
 </ul>
 <h2 id="temporal-feature">Temporal feature<a class="headerlink" href="#temporal-feature" title="Permanent link">&para;</a></h2>
@@ -1814,12 +1814,12 @@ and converts them on load.</p>
 <tr>
 <td><code>temporal_delta</code></td>
 <td>scan-to-scan <code>[ΔP, ΔQ]</code> of the observed frames</td>
-<td><code>generation.write.write_temporal_layers</code> (<code>formulas.temporal.temporal_delta</code>)</td>
+<td><code>generation.write.TimelineWriter.write_temporal_layers</code> (<code>formulas.temporal.temporal_delta</code>)</td>
 </tr>
 <tr>
 <td><code>swing</code></td>
 <td><code>temporal_delta</code> as a z-score of the recent observed change</td>
-<td><code>generation.write.write_temporal_layers</code> (<code>formulas.temporal.swing_zscore</code>, scale from <code>recent_change_scale</code>)</td>
+<td><code>generation.write.TimelineWriter.write_temporal_layers</code> (<code>formulas.temporal.swing_zscore</code>, scale from <code>recent_change_scale</code>)</td>
 </tr>
 </tbody>
 </table>

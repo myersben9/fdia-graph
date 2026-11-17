@@ -28,6 +28,7 @@ classDiagram
         +attack_frame()
     }
     class FdiaGenerator {
+        +from_spec()
     }
     class AttackDesign {
         <<models>>
@@ -45,6 +46,9 @@ classDiagram
         <<models>>
     }
     class GeneratorOptions {
+        <<models>>
+    }
+    class GeneratorSpec {
         <<models>>
     }
     class MeterBias {
@@ -84,6 +88,7 @@ classDiagram
     AttackMixin ..> FrameKnobs : uses
     FdiaGenerator ..> BranchModel : uses
     FdiaGenerator ..> GeneratorOptions : uses
+    FdiaGenerator ..> GeneratorSpec : uses
     FdiaGenerator ..> MeterBias : uses
     FdiaGenerator ..> MeterPlan : uses
     FdiaGenerator ..> PandapowerNet : uses

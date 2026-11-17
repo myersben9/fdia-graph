@@ -1662,14 +1662,14 @@ objects); one test checks it on a case small enough to verify by hand.</p>
 </tr>
 <tr>
 <td>swing z-score and temporal delta</td>
-<td><code>formulas.temporal.temporal_delta</code>, <code>formulas.temporal.swing_zscore</code>, through <code>generation.write.write_temporal_layers</code> (each observed frame against the previous emitted frame, after the walk)</td>
+<td><code>formulas.temporal.temporal_delta</code>, <code>formulas.temporal.swing_zscore</code>, through <code>generation.write.TimelineWriter.write_temporal_layers</code> (each observed frame against the previous emitted frame, after the walk)</td>
 <td>delta_t = z_t − z_{t−1} at injection-metered buses; swing = delta_t / scale_t</td>
 <td>[FED26]</td>
 <td>the swing and temporal_delta features, <code>SwingThreshold</code>, <code>DeltaThreshold</code></td>
 </tr>
 <tr>
 <td>recent-change scale</td>
-<td><code>formulas.temporal.recent_change_scale</code> (over the observed frames, through <code>generation.write.write_temporal_layers</code>)</td>
+<td><code>formulas.temporal.recent_change_scale</code> (over the observed frames, through <code>generation.write.TimelineWriter.write_temporal_layers</code>)</td>
 <td>scale_t = std over [t − W, t) of the one-step change, plus 1e-3</td>
 <td>[FED26]</td>
 <td>the swing feature</td>
@@ -1739,7 +1739,7 @@ objects); one test checks it on a case small enough to verify by hand.</p>
 </tr>
 <tr>
 <td>ramp profile</td>
-<td><code>formulas.attacks.ramp_profile</code>, through <code>engine.attacks.episodes.ramp_dev</code></td>
+<td><code>formulas.attacks.ramp_profile</code>, through <code>engine.attacks.episodes.EpisodeDesignMixin.ramp_step</code></td>
 <td>dev(i) = rate_up·i for i &lt; rise; peak on the hold; max(0, peak − rate_down·(i − rise − hold)) after</td>
 <td>[DAT26]</td>
 <td>the At family (the overload Am follows its own goal, <code>overload.overload_goal</code>)</td>

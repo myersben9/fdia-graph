@@ -1721,11 +1721,58 @@
 the public API, the generated files and the numbers are the same as the previous release.</p>
 <h2 id="unreleased">Unreleased<a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
 <ul>
-<li><strong>The analysis toolkit's names are imported from the module that defines them: the eight tables of
+<li><strong>One writer owns a timeline file, one record is an episode, and the layers of indirection around
+  them are removed (breaking for the internal names below; no behaviour and no stored byte changed: the
+  five whole-file digests are unchanged, and an IEEE timeline is byte for byte the file the previous
+  code writes).</strong> <code>fg.generate</code>, <code>fg.load</code>, <code>generate_timeline</code>,
+  <code>TimelineSource.generate</code>, <code>IeeeSource</code>, <code>NewYorkSource</code> and <code>SingleEpisodeSource</code> are called as before.</li>
+<li><strong><code>generation.write.TimelineWriter</code></strong> is the open file of a timeline for both grids and the only
+    place a timeline file is written: <code>TimelineWriter(path, dims, clean, spec)</code>, <code>write_graph</code>, <code>header</code>,
+    <code>store</code>, <code>flush</code>, <code>add_episode</code>, <code>finish</code> (the masks, the columns, the episodes, the attributes and,
+    on a file that carries them, the temporal features) and <code>close</code>. A source holds it as
+    <code>source.writer</code>. It replaces <code>start_timeline</code>, <code>create_layers</code>,
+    <code>finish_timeline</code>, <code>timeline_attrs</code>, <code>placement_attrs</code>, <code>_write_masks</code>, <code>_write_episodes</code>,
+    <code>_write_min_rows</code> and <code>_write_am_rows</code> of <code>generation.write</code>; <code>TimelineBuffers</code>, <code>layers</code> and
+    <code>CleanSlice</code> of <code>generation.emit</code> (<code>CleanSlice</code> is now in <code>generation.write</code>); <code>header_attrs</code>,
+    <code>_write_graph</code>, <code>_base_attrs</code>, <code>_static_physics</code>, <code>GRAPH_LEGEND</code> (now in <code>generation.write</code>) and
+    <code>_CHUNK_ROWS</code> of <code>generation</code>; and <code>TimelineSource._finish_file</code>. <code>generation.write.search_attrs</code> is
+    part of <code>IeeeSource._recorded</code>. <code>write_temporal_layers</code> is <code>TimelineWriter.write_temporal_layers</code>
+    (a static method, which <code>trust.secured_copy</code> calls on its own file) and <code>ragged</code> is private to the
+    writer.</li>
+<li><strong>The steps of the walk are methods of <code>generation.emit.Walk</code></strong>: <code>walk_split</code>, <code>benign_run</code>,
+    <code>ramp_episode</code>, <code>overload_episode</code>, <code>emit_benign</code> and <code>relocate_later</code> (static) were functions of
+    <code>generation.emit</code>. <code>emit.clean_slice</code> is <code>IeeeSource._clean</code>. <code>generation.design.build_generator</code> is
+    <code>FdiaGenerator.from_spec</code>; the worker functions of <code>generation.design</code> are static methods of
+    <code>DesignPool</code> and <code>AmDesigner</code>. <code>engine.attacks.episodes.ramp_step</code> is the method
+    <code>EpisodeDesignMixin.ramp_step</code> only.</li>
+<li><strong>A New York survey cache (<code>survey_cache</code>) written before this change is not read</strong>: its chunks
+    pickled <code>engine.attacks.family.Episode</code>, and the chunks are now named <code>_v2</code>. The survey runs again
+    and saves new chunks beside the old ones.</li>
+<li><strong><code>models.plan.Episode</code></strong> is the one record of an attack episode: what a New York family designs
+    (it moved from <code>engine.attacks.family</code>) and a row of every file's episode table. <code>models.data.EpisodeRow</code>
+    and the walk's <code>generation.emit._Episode</code> are gone; <code>Walk.buf</code> is <code>Walk.writer</code>, and <code>Walk.T</code> is gone.</li>
+<li><strong><code>models.plan.Planned</code></strong> (a placed episode with its design, its index and its moves) replaces
+    <code>Pending</code> and <code>Designed</code>. <code>Schedule.build</code> is gone: <code>Schedule(...)</code> takes the same arguments.
+    <code>generation.ieee._Planned</code> and <code>IeeeSource._generator</code> are gone (the generator comes from
+    <code>FdiaGenerator.from_spec</code>); <code>AmDesigner</code> is a <code>DesignPool</code>.</li>
+<li><strong>The designs of an episode are methods of the generator</strong>: <code>EpisodeDesignMixin.ramp_design</code> and
+    <code>am_overload_design</code> hold the code of <code>RampDesigner</code> and <code>OverloadDesigner</code>, which are gone with
+    <code>DESIGNERS</code>, <code>Designer</code> and <code>EpisodeDesignMixin.designer</code>. <code>MinimizeMixin.min_tamper</code> chooses between
+    the candidate search and the row reduction itself: <code>SupportStrategy</code>, <code>SearchSupport</code>,
+    <code>MinimizeMixin.support_strategy</code> and <code>RrefSupport.find</code> are gone (<code>RrefSupport.rref_support</code> stays).</li>
+<li><strong>The loader</strong>: the capability tests are written in the <code>dataset.base.CAPABILITIES</code> table (the ten
+    one-line functions are gone); <code>RecordsMixin._add_benign</code> and <code>_add_currents</code> are one method, <code>_add_frame_layers</code>.</li>
+<li><code>models.inputs.GeneratedFamilies</code> is a <code>FamilySelection</code> and <code>SupportedSystem</code> a <code>SystemRef</code>.</li>
+<li>
+<p><code>formulas.network</code>: the two Newton solves share the halving of a step (<code>_halved_steps</code>).</p>
+</li>
+<li>
+<p><strong>The analysis toolkit's names are imported from the module that defines them: the eight tables of
   re-exported names in <code>fdia_analysis</code> are removed (breaking for these import paths; no behaviour, no
   stored byte and no result number changed).</strong> The same change as the generation toolkit's, below. Each
   package's <code>__init__.py</code> is now its docstring; <code>import fdia_analysis</code> and <code>fdia_analysis.__version__</code>
-  are unchanged.</li>
+  are unchanged.</p>
+</li>
 <li><code>fdia_analysis.se</code> exports no name: <code>WLS</code>, <code>AdaptiveWeighting</code>, <code>ResidualRemoval</code>, <code>SubspacePrior</code>,
     <code>JacobianWeighting</code> and <code>GatedPrior</code> come from <code>fdia_analysis.se.methods</code>, <code>SEBase</code> from <code>se.base</code>,
     <code>JacobianFeatures</code> from <code>se.jacobian</code>. <code>fdia_analysis.se.detect</code> exports none either: <code>AlarmRule</code> and

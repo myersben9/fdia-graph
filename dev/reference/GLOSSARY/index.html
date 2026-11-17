@@ -1657,7 +1657,7 @@ the data terms is in <a href="../../guides/generation/"><code>../guides/generati
 <tr>
 <td>frame</td>
 <td>One row of a timeline: the scan at one pool timestep with the attack of its episode applied, or none.</td>
-<td><code>models.frames.Frame</code>, <code>generation.emit.TimelineBuffers.store</code></td>
+<td><code>models.frames.Frame</code>, <code>generation.write.TimelineWriter.store</code></td>
 </tr>
 <tr>
 <td>record</td>
@@ -1672,7 +1672,7 @@ the data terms is in <a href="../../guides/generation/"><code>../guides/generati
 <tr>
 <td>episode</td>
 <td>A run of consecutive frames under one attack of one family on one design; episodes never overlap.</td>
-<td><code>generation.emit._Episode</code>, <code>episodes/</code> group, <code>data/seq_id</code></td>
+<td><code>models.plan.Episode</code>, <code>episodes/</code> group, <code>data/seq_id</code></td>
 </tr>
 <tr>
 <td>onset</td>

@@ -1886,7 +1886,7 @@
 </tr>
 <tr>
 <td><code>engine.attacks.episodes</code></td>
-<td>What one episode attacks: its design, drawn at onset by the family's designer.</td>
+<td>What one episode attacks: its design, drawn at onset (<code>EpisodeDesignMixin</code>).</td>
 </tr>
 <tr>
 <td><code>engine.attacks.false_state</code></td>
@@ -1894,7 +1894,7 @@
 </tr>
 <tr>
 <td><code>engine.attacks.family</code></td>
-<td>What one attack occupies on the timeline, and the interface its two families share.</td>
+<td>The interface the attack families share: a design is one <code>Episode</code> (<code>models.plan</code>) or a miss.</td>
 </tr>
 <tr>
 <td><code>engine.attacks.interface</code></td>
@@ -2086,7 +2086,7 @@
 </tr>
 <tr>
 <td><code>generation.write</code></td>
-<td>The write stage of a timeline: its datasets, columns, episodes and attributes in the HDF5 file.</td>
+<td>The one writer of a timeline file, for every grid: <code>TimelineWriter</code> owns the open HDF5 file.</td>
 </tr>
 <tr>
 <td><code>models</code></td>
@@ -2130,7 +2130,7 @@
 </tr>
 <tr>
 <td><code>models.plan</code></td>
-<td>The records of a timeline's plan and design stages: a placed episode (<code>Slot</code>), a split and its frames (<code>SplitSpan</code>), an episode not yet written (<code>Pending</code>) or with its design (<code>Designed</code>), what is placed (<code>Schedule</code>) and what the placement asked for and got (<code>Placement</code>), and what a design worker rebuilds its generator from (<code>GeneratorSpec</code>).</td>
+<td>The records of a timeline's plan and design stages: a placed episode (<code>Slot</code>), a split and its frames (<code>SplitSpan</code>), a placed episode on its way through the design stage (<code>Planned</code>), the attack as it is written (<code>Episode</code>), what is placed (<code>Schedule</code>) and what the placement asked for and got (<code>Placement</code>), and what a design worker rebuilds its generator from (<code>GeneratorSpec</code>).</td>
 </tr>
 <tr>
 <td><code>models.validation</code></td>
@@ -2337,7 +2337,7 @@
 </tr>
 <tr>
 <td><code>trust.secured</code></td>
-<td>A copy of a timeline with a set of meters secured: the attacker locked out of them, so on every frame their observed reading is the benign one, and the stored temporal features recomputed from the pinned observed frames (<code>generation.write.write_temporal_layers</code>). The estimators and the localizers then read the copy like any timeline, which is how a trusted-meter selection is measured on state estimation and localization rather than on the residual test alone (<code>TrustSelector.score</code>). The copy is rewritten in blocks of frames, so a 72,000-frame timeline of any ladder system fits in bounded memory.</td>
+<td>A copy of a timeline with a set of meters secured: the attacker locked out of them, so on every frame their observed reading is the benign one, and the stored temporal features recomputed from the pinned observed frames (<code>generation.write.TimelineWriter.write_temporal_layers</code>). The estimators and the localizers then read the copy like any timeline, which is how a trusted-meter selection is measured on state estimation and localization rather than on the residual test alone (<code>TrustSelector.score</code>). The copy is rewritten in blocks of frames, so a 72,000-frame timeline of any ladder system fits in bounded memory.</td>
 </tr>
 </tbody>
 </table>

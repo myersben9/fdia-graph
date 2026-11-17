@@ -1782,7 +1782,7 @@ each is named beside it. Terms are defined in <a href="../../reference/GLOSSARY/
 </tr>
 <tr>
 <td>3. attack families</td>
-<td><code>engine/attacks/</code> (the <code>AttackMixin</code>, the family designers and support strategies), <code>engine/records.py</code></td>
+<td><code>engine/attacks/</code> (the <code>AttackMixin</code>: the false states, the fewest-tamper search and each family's episode design are methods of the generator), <code>engine/records.py</code></td>
 <td>the attacked scan of each family</td>
 </tr>
 <tr>
@@ -1797,7 +1797,7 @@ each is named beside it. Terms are defined in <a href="../../reference/GLOSSARY/
 </tr>
 <tr>
 <td>6. emit and write: the per-frame layers</td>
-<td><code>generation/emit.py</code> (<code>walk_split</code>, <code>TimelineBuffers</code>), <code>generation/write.py</code> (<code>write_temporal_layers</code>)</td>
+<td><code>generation/emit.py</code> (<code>Walk.walk_split</code>), <code>generation/write.py</code> (<code>TimelineWriter</code>)</td>
 <td>the HDF5 file</td>
 </tr>
 </tbody>
@@ -2233,7 +2233,7 @@ and 2,000 frames; IEEE-30 a smoke run), before the search speed-up of #163 (expe
   is not on the slack bus and is at most <code>max_load_mw = 2000</code> MW (<code>attackable_pos</code>).</li>
 <li>The <code>At</code> rise lasts 20% to 45% of the episode and the hold 0% to 25% (<code>draw_ramp</code>). Every frame
   carries at least one <code>ramp_rate</code> of change, so every frame labelled <code>At</code> is attacked
-  (<code>ramp_dev</code>).</li>
+  (<code>EpisodeDesignMixin.ramp_step</code>).</li>
 <li>A ramp step with no local solution is halved, up to 6 times (<code>STEP_HALVINGS</code>). <code>At</code> designs are
   tested on every frame they will occupy before they are accepted, up to 40 draws (<code>ONSET_DRAWS</code>).</li>
 <li>An overload <code>Am</code> window's snapshots are kappa+1 ... kappa+T after the untouched reference kappa
@@ -2269,22 +2269,22 @@ and 2,000 frames; IEEE-30 a smoke run), before the search speed-up of #163 (expe
 <tr>
 <td>walk</td>
 <td>every frame emitted in time order, its meter jitter from its own stream keyed by the seed and the timestep: benign runs between episodes, each episode where it was placed</td>
-<td><code>emit.walk_split</code>, <code>MeasurementMixin._jitter_stream</code></td>
+<td><code>emit.Walk.walk_split</code>, <code>MeasurementMixin._jitter_stream</code></td>
 </tr>
 <tr>
 <td>move</td>
 <td>an episode with no feasible design at its onset moves, up to 20 times, then is given up and recorded (<code>RuntimeWarning</code>): an overload Am to an onset drawn uniformly among every free one of its split, earlier or later, since the design stage designs a split's Am before any of its frames is written and an Am design reads no earlier frame (no stealth bound, D11); a ramp At to a later free onset, since its design reads the frame before its onset and the walk has written the frames before the failed one. The moves draw from streams keyed by the seed, the split, the episode and the move, so they do not depend on the workers</td>
-<td><code>design.AmDesigner</code>, <code>emit.relocate_later</code></td>
+<td><code>design.AmDesigner</code>, <code>emit.Walk.relocate_later</code></td>
 </tr>
 <tr>
 <td>fallback</td>
 <td>a frame inside a built episode whose own scan cannot be built is emitted benign; the count is the <code>fallback_benign</code> attribute</td>
-<td><code>write.timeline_attrs</code></td>
+<td><code>TimelineWriter.finish</code></td>
 </tr>
 <tr>
 <td>record</td>
 <td>the split fractions and sizes, the attacked fraction each split reached, and per split and family the episodes requested, built, moved, dropped and short</td>
-<td><code>write.placement_attrs</code></td>
+<td><code>TimelineWriter.finish</code></td>
 </tr>
 </tbody>
 </table>
@@ -2490,13 +2490,13 @@ any program using <code>multiprocessing</code> must. An Am-only IEEE-14 timeline
 <td><code>data/</code></td>
 <td><code>node_x [T, N, 4]</code>, <code>edge_x [T, E, 2]</code></td>
 <td>observed readings: benign plus noise, plus the attack where attacked</td>
-<td><code>TimelineBuffers.store</code></td>
+<td><code>TimelineWriter.store</code></td>
 </tr>
 <tr>
 <td><code>data/</code></td>
 <td><code>node_m</code>, <code>edge_m</code></td>
 <td>the meter plan per frame</td>
-<td><code>write._write_masks</code></td>
+<td><code>TimelineWriter._write_masks</code></td>
 </tr>
 <tr>
 <td><code>data/</code></td>
@@ -2508,13 +2508,13 @@ any program using <code>multiprocessing</code> must. An Am-only IEEE-14 timeline
 <td><code>data/</code></td>
 <td><code>family</code>, <code>stealthy</code>, <code>seq_id</code>, <code>timestep</code>, <code>split [T]</code></td>
 <td>family code, 1 for a stealthy family (<code>At</code>, <code>Am</code>; <code>Aq</code> and <code>Al</code> in older releases), episode index (-1 benign), pool timestep, 0/1/2</td>
-<td><code>write.finish_timeline</code></td>
+<td><code>TimelineWriter.finish</code></td>
 </tr>
 <tr>
 <td><code>data/</code></td>
 <td><code>temporal_delta</code>, <code>swing [T, N, 2]</code></td>
 <td>temporal features from the observed frames</td>
-<td><code>write_temporal_layers</code></td>
+<td><code>TimelineWriter.write_temporal_layers</code></td>
 </tr>
 <tr>
 <td><code>benign/</code></td>
@@ -2526,7 +2526,7 @@ any program using <code>multiprocessing</code> must. An Am-only IEEE-14 timeline
 <td><code>clean/</code></td>
 <td><code>node_clean</code>, <code>edge_clean</code></td>
 <td>the noiseless pool state and the exact flows on metered branches</td>
-<td><code>emit.clean_slice</code></td>
+<td><code>IeeeSource._clean</code></td>
 </tr>
 <tr>
 <td><code>attack/</code></td>
@@ -2544,20 +2544,20 @@ any program using <code>multiprocessing</code> must. An Am-only IEEE-14 timeline
 <td><code>attack/</code></td>
 <td><code>mag_ptr</code>, <code>mag_bus</code>, <code>mag</code></td>
 <td>designed change per attacked bus, ragged by frame</td>
-<td><code>_write_episodes</code></td>
+<td><code>TimelineWriter.finish</code></td>
 </tr>
 <tr>
 <td><code>episodes/</code></td>
 <td><code>onset</code>, <code>length</code>, <code>family</code>, <code>bus_ptr</code>, <code>bus_idx</code></td>
 <td>one row per episode</td>
-<td><code>_write_episodes</code></td>
+<td><code>TimelineWriter.finish</code></td>
 </tr>
 </tbody>
 </table>
 <p><code>node_x - node_benign</code> is the attack exactly, for every family. The loader derives
 <code>edge_clean_full</code>, the clean flow on every branch, at read time (<code>dataset/__init__.py</code>).</p>
 <p>The temporal features are written after the walk from <code>data/node_x</code> alone
-(<code>generation.write.write_temporal_layers</code>, <code>formulas.temporal</code>):</p>
+(<code>generation.write.TimelineWriter.write_temporal_layers</code>, <code>formulas.temporal</code>):</p>
 <table>
 <thead>
 <tr>
@@ -2727,7 +2727,7 @@ estimators themselves default to <code>calibrate="truth"</code>, the estimation 
 </tr>
 <tr>
 <td><code>engine/attacks/episodes.py</code></td>
-<td>each episode's design, drawn at onset by its family's designer</td>
+<td>each episode's design, drawn at onset: <code>ramp_design</code> and <code>am_overload_design</code>, methods of the generator</td>
 </tr>
 <tr>
 <td><code>generation/plan.py</code>, <code>generation/design.py</code>, <code>generation/emit.py</code>, <code>generation/write.py</code></td>
@@ -2736,7 +2736,7 @@ estimators themselves default to <code>calibrate="truth"</code>, the estimation 
 </tbody>
 </table>
 <p>The New York grid's attacks are separate classes on the New York network: <code>engine/attacks/attacker.py</code>
-(<code>Attacker</code>), <code>engine/attacks/family.py</code> (what an attack occupies on the timeline), <code>engine/attacks/ramp.py</code>
+(<code>Attacker</code>), <code>engine/attacks/family.py</code> (the interface of an attack family; its design is an <code>Episode</code>, <code>models/plan.py</code>), <code>engine/attacks/ramp.py</code>
 (<code>Ramp</code>), <code>engine/attacks/opf.py</code> and <code>engine/attacks/interface.py</code>
 (the overload of an interface, with false states from a local optimal power flow); they are described in
 <a href="../../concepts/new_york_grid/"><code>../concepts/new_york_grid.md</code></a>.</p>
