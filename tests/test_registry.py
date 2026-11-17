@@ -69,12 +69,6 @@ def test_builtin_names_are_case_insensitive():
     assert registry.resolve(" ieee14 ")["system"] == 14
 
 
-def test_newest_data_release_skips_a_malformed_tag():
-    rel = [{"tag_name": t} for t in ("data-v0.8.0", "data-v0.9.0-rc1", "v0.18.0", "v0.7.2", "data-v0.8.1")]
-    assert registry._newest_data_release(rel) == "v0.8.1"
-    assert registry._newest_data_release([{"tag_name": "data-vX"}]) is None
-
-
 def test_a_download_race_keeps_the_installed_file(tmp_path, monkeypatch):
     from fdia_graph import download
 

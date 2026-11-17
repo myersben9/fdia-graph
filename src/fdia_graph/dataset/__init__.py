@@ -14,7 +14,7 @@ The class is six mixins, one file each, each owning one kind of question:
   records.py   RecordsMixin    one record at a time: `ds[i]`, `len(ds)`, `collate`, `loader`
   export.py    ExportMixin     the whole view at once: `export`, `summary`
   sequence.py  SequenceMixin   the view as a time series: `windows`, `episodes`
-  graph.py     GraphMixin      the static graph: `edge_index`, `branch_*`, `bus_*`, `edge_attr`
+  graph.py     GraphMixin      the static graph: `edge_index`, `branch_*`, `bus_shunt_*`, `edge_attr`
   physics.py   AdmittanceMixin the admittances built from it: `ybus`, `yf`, `yt`, the clean flows
   base.py      DatasetBase     the attributes `__init__` sets and the mixins read, the tables
 `__init__` itself opens the file, reads the header and the static graph, and selects the rows.

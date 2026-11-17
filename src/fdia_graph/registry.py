@@ -19,7 +19,7 @@ from .models.inputs import DatasetName, ReleaseName, SystemRef
 # Cache dir for downloaded shards + the local-datasets JSON; override via FDIA_GRAPH_CACHE.
 CACHE_DIR = os.environ.get("FDIA_GRAPH_CACHE", os.path.join(os.path.expanduser("~"), ".cache", "fdia_graph"))
 _REPO = "myersben9/fdia-graph"
-# Default pinned release tag, used when GitHub isn't queried for the newest; FDIA_GRAPH_RELEASE overrides.
+# The pinned data release that `load(release=None)` reads; FDIA_GRAPH_RELEASE overrides.
 _RELEASE = os.environ.get("FDIA_GRAPH_RELEASE", "v0.8.3")  # pinned data release (env var overrides)
 
 
@@ -110,46 +110,6 @@ def pool_spec(system: Union[str, int], release: Optional[str] = None) -> AssetSp
 
 # On-disk index of locally generated datasets (name -> path + meta), alongside the cached shards.
 _LOCAL_JSON = os.path.join(CACHE_DIR, "local_datasets.json")
-
-
-def latest_release(repo: str = _REPO) -> str:
-    """The newest published data release on the GitHub repo, e.g. to check whether a newer one than
-    the pinned default exists. `load(release=None)` does not call it: it reads the pinned default
-    (`_RELEASE`), so a published release never changes what existing code loads. Falls back to the
-    pinned default when the API is unreachable (offline, rate-limited) or lists no data release.
-    """
-    import requests  # lazy so merely importing the SDK doesn't require requests
-
-    # A private repo's releases API needs auth: SDK-specific FDIA_GRAPH_TOKEN first, then generic GITHUB_TOKEN.
-    tok = os.environ.get("FDIA_GRAPH_TOKEN") or os.environ.get("GITHUB_TOKEN")
-    hdr = {"Authorization": f"Bearer {tok}"} if tok else {}  # empty header -> anonymous (public repos only)
-    try:
-        # every published release; the newest DATA release by version, since package releases share
-        # the repository (timeout guards a hung network)
-        r = requests.get(
-            f"https://api.github.com/repos/{repo}/releases?per_page=100", headers=hdr, timeout=10
-        )
-        r.raise_for_status()
-        return _newest_data_release(r.json()) or _RELEASE
-    except Exception:
-        return _RELEASE  # offline / unauth / no releases yet -> pinned default
-
-
-def _newest_data_release(releases: list[dict]) -> Optional[str]:
-    """The short name of the newest published data release among GitHub release records, or None:
-    package releases share the repository, so only data tags count."""
-    tags = [x["tag_name"] for x in releases if not x.get("draft") and not x.get("prerelease")]
-    data = [t for t in tags if t.startswith(_DATA_TAG_PREFIX) and _is_release(t)]
-    return release_name(max(data, key=release_tuple)) if data else None
-
-
-def _is_release(tag: str) -> bool:
-    """Whether a tag parses as a data release; one odd tag (a "-rc1") must not hide the valid ones."""
-    try:
-        release_tuple(tag)
-        return True
-    except ValueError:
-        return False
 
 
 def _load_local() -> dict[str, dict]:

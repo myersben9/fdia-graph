@@ -252,7 +252,7 @@ def test_partition_from_assignment_refuses_a_malformed_input(assignment, edge_in
 )
 def test_timeline_knobs_refuse_a_bad_value_before_any_work(knobs):
     with pytest.raises(ConfigError):
-        config.TimelineKnobs(**knobs)
+        config.TimelineSettings.of(**knobs)
 
 
 @pytest.mark.parametrize(

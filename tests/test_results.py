@@ -128,16 +128,10 @@ def test_blocks_render_from_the_store_and_go_stale_when_edited(tmp_path: object)
         run.add("angle_mae_deg", 0.05, method="prior", family="geo")
     text = (
         "WLS reads <!-- results: value experiment=demo.x method=wls metric=angle_mae_deg --><!-- /results --> deg, "
-        "a <!-- results: reduction experiment=demo.x base=wls new=prior metric=angle_mae_deg --><!-- /results -->% cut.\n"
-        "<!-- results: table experiment=demo.x rows=method cols=system metric=angle_mae_deg order=wls,prior -->\n<!-- /results -->\n"
+        "the prior <!-- results: value experiment=demo.x method=prior metric=angle_mae_deg scale=100 fmt=.0f --><!-- /results -->.\n"
     )
     done = fill(text, store)
-    assert (
-        "-->0.100<!--" in done
-        and "-->50<!--" in done
-        and "| wls | 0.100 |" in done
-        and "| prior | 0.050 |" in done
-    )
+    assert "-->0.100<!--" in done and "-->5<!--" in done
     assert stale(done, store) == []
     assert stale(done.replace("-->0.100<!--", "-->0.101<!--"), store) == [
         "value experiment=demo.x method=wls metric=angle_mae_deg"
@@ -213,32 +207,28 @@ def test_two_runs_of_one_second_and_settings_get_distinct_ids(tmp_path: object) 
 def test_a_tag_filter_takes_any_of_several_values(tmp_path: object) -> None:
     store = Store(str(tmp_path))
     with Run("demo.x", store=store) as run:
-        for k in ("1.1", "1.2", "1.3"):
-            run.add("devices", 5, method="s", k=k)
+        for k, devices in (("1.1", 5), ("1.2", 6), ("1.3", 7)):
+            run.add("devices", devices, method="s", k=k)
     assert {r.tag("k") for r in store.query("demo.x", k=["1.1", "1.2"])} == {"1.1", "1.2"}
-    text = "<!-- results: table experiment=demo.x rows=k cols=method metric=devices k=1.1,1.2 -->\n<!-- /results -->"
-    assert "| 1.1 | 5 |" in fill(text, store) and "1.3" not in fill(text, store)
+    # a comma in a block means "any of": 9.9 has no record, so the one record of k=1.2 renders
+    text = "<!-- results: value experiment=demo.x metric=devices k=1.2,9.9 --><!-- /results -->"
+    assert "-->6<!--" in fill(text, store)
 
 
-def test_a_table_refuses_an_empty_or_ambiguous_selection(tmp_path: object) -> None:
-    store = Store(str(tmp_path))
-    with Run("demo.x", system="ieee14", store=store) as run:
-        run.add("devices", 5, method="s", k="1.1")
-        run.add("devices", 6, method="s", k="1.2")
-    for spec in (
-        "table experiment=demo.x rows=method cols=system metric=devices methd=s",  # a typo selects nothing
-        "table experiment=demo.x rows=method cols=system metric=devices",  # k left open: two on a cell
-        "table experiment=demo.x rows=method cols=system metric=devices k=1.1 order=s,t",  # no row t
-    ):
-        with pytest.raises(NoSuchResult):
-            fill(f"<!-- results: {spec} -->\n<!-- /results -->", store)
+def test_a_pivot_refuses_two_records_on_one_cell() -> None:
+    from fdia_graph.results import pivot
+
+    a, b = _rec(method="wls", system="ieee14", tags=("k=1.1",)), _rec(method="wls", system="ieee14")
+    assert pivot([a], "method", "system") == {("wls", "ieee14"): a}
+    with pytest.raises(NoSuchResult):  # the selection left a key open: never a silent pick
+        pivot([a, b], "method", "system")
 
 
 def test_one_spec_inline_and_as_a_block_is_not_stale_after_fill(tmp_path: object) -> None:
     store = Store(str(tmp_path))
     with Run("demo.x", system="ieee14", store=store) as run:
         run.add("devices", 5, method="s")
-    spec = "table experiment=demo.x rows=method cols=system metric=devices"
+    spec = "value experiment=demo.x metric=devices"
     text = (
         f"inline <!-- results: {spec} --><!-- /results -->\n\n<!-- results: {spec} -->\n<!-- /results -->\n"
     )

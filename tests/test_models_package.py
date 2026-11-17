@@ -66,7 +66,6 @@ def test_all_names_every_model_and_public_is_a_subset():
         "INTACT",
         "NODE",
         "EDGE",
-        "BRANCH",
         "CURRENT",
     }  # the instances the package exports next to the models
     assert set(models.__all__) == defined | {"Bundle"} | constants

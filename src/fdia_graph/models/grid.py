@@ -57,24 +57,12 @@ class EdgeIndex(NamedTuple):
     q_from: int
 
 
-class CurrentColumns(NamedTuple):
-    """The four columns of `pmu_i` and `pmu_i_m`: the branch-current phasor a PMU reads at each end of
-    a branch [WU26 eqs. 19-20], the real and imaginary part, per unit on the base current. At the
-    from end the current leaving the from bus into the branch (`Yf V`), at the to end the current
-    leaving the to bus into the branch (`Yt V`); a column is metered only where a PMU sits at that end."""
-
-    re_from: Column
-    im_from: Column
-    re_to: Column
-    im_to: Column
-
-    @classmethod
-    def of(cls, a: Column) -> CurrentColumns:
-        return cls(a[..., 0], a[..., 1], a[..., 2], a[..., 3])
-
-
 class CurrentIndex(NamedTuple):
-    """Where each `CurrentColumns` field sits on the last axis."""
+    """Where the four columns of `pmu_i` and `pmu_i_m` sit on the last axis: the branch-current
+    phasor a PMU reads at each end of a branch [WU26 eqs. 19-20], the real and imaginary part, per
+    unit on the base current. At the from end the current leaving the from bus into the branch
+    (`Yf V`), at the to end the current leaving the to bus into the branch (`Yt V`); a column is
+    metered only where a PMU sits at that end."""
 
     re_from: int
     im_from: int
@@ -82,39 +70,8 @@ class CurrentIndex(NamedTuple):
     im_to: int
 
 
-class BranchColumns(NamedTuple):
-    """The eight columns of `edge_attr`, the static per-unit branch physics."""
-
-    r: Column
-    x: Column
-    b: Column
-    g: Column
-    gs: Column
-    bs: Column
-    tap: Column
-    shift: Column
-
-    @classmethod
-    def of(cls, a: Column) -> BranchColumns:
-        return cls(*(a[..., i] for i in range(8)))
-
-
-class BranchIndex(NamedTuple):
-    """Where each `BranchColumns` field sits on the last axis."""
-
-    r: int
-    x: int
-    b: int
-    g: int
-    gs: int
-    bs: int
-    tap: int
-    shift: int
-
-
 NODE = NodeIndex(0, 1, 2, 3)  # column indices: node_x[..., NODE.theta]
 EDGE = EdgeIndex(0, 1)
-BRANCH = BranchIndex(0, 1, 2, 3, 4, 5, 6, 7)
 CURRENT = CurrentIndex(0, 1, 2, 3)  # pmu_i[..., CURRENT.re_to]
 
 

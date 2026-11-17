@@ -287,26 +287,6 @@ class SplitSettings(Validated):
 
 
 @dataclass(frozen=True)
-class TimelineKnobs(Validated):
-    """The knobs of one timeline walk that the walk cannot recover from."""
-
-    attacked_frac: Annotated[float, InRange(0.0, 1.0, lo_closed=True, hi_closed=True)] = 0.5
-    hops: Count = 2
-    ramp_len: Annotated[int, Integer(), AtLeast(1)] = 60
-    am_len: Annotated[Optional[int], Integer(), AtLeast(1)] = None  # None: as long as a ramp
-    min_tamper: bool = True  # [WU26 eq. 12]: each At episode on the support tampering the fewest devices
-    min_budget: Count = 256  # candidate supports the search solves per episode before it settles
-    am_attack: Annotated[str, OneOf(AmAttack)] = "overload"  # [WU26]'s overload attack
-    # a multiplier on At's stealth bound, whose unit is the rated accuracy Am has no bound
-    stealth_scale: Scale = 1.0
-
-    @property
-    def am_frames(self) -> int:
-        """The Am episode length: `am_len`, or `ramp_len` when none is given."""
-        return self.ramp_len if self.am_len is None else self.am_len
-
-
-@dataclass(frozen=True)
 class OverloadSettings(Validated):
     """The overload attack's settings, as `generate_timeline(am_attack=OverloadSettings(...))` takes them
     (the string "overload" is these defaults): the line ratings, S_max
