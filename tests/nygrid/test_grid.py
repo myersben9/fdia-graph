@@ -11,7 +11,18 @@ import pytest
 
 from fdia_graph.errors import DataConditionError
 from fdia_graph.federated.utilities import assign_clients
-from fdia_graph.generation.nygrid.case import CASE_FILE, HQ_BUS, PQ, PV, REF, Case, nygrid_case
+from fdia_graph.generation.nygrid.case import (
+    CASE_FILE,
+    FILE_AREA,
+    HQ_BUS,
+    NY_AREA,
+    PQ,
+    PV,
+    REF,
+    REGIONS,
+    Case,
+    nygrid_case,
+)
 from fdia_graph.generation.nygrid.fixes import externals_at_base, hvdc_links
 from fdia_graph.generation.nygrid.network import Network
 
@@ -44,6 +55,36 @@ def test_case_sizes(nygrid):
     assert nygrid.is_ny.sum() == 46
     assert set(nygrid.zone[nygrid.is_ny]) == set("ABCDEFGHIJK")
     assert (nygrid.zone[~nygrid.is_ny] == "").all()
+
+
+def test_the_file_has_one_area(nygrid):
+    """The bus area column is 1 on every row; the `Case` has New York as one area and each neighbor as its own."""
+    from matpowercaseframes import CaseFrames
+
+    bus = CaseFrames(str(CASE_FILE), allow_any_keys=True, update_index=False).bus
+    assert (bus["BUS_AREA"] == FILE_AREA).all()
+    assert set(bus["ZONE"][~nygrid.is_ny].astype(int)) == {region.code for region in REGIONS}
+    assert (nygrid.area[nygrid.is_ny] == NY_AREA).all()
+    assert set(nygrid.area[~nygrid.is_ny].tolist()) == {region.area for region in REGIONS}
+
+
+@needs_data
+def test_the_neighbors_are_nygrid_areas(nygrid):
+    """Each neighbor's buses and units are the ones NYgrid's NPCC area number gives (1 New England, 4 Ontario,
+    5 MISO, 6 PJM), and New York's are those of its areas 2 and 3, of which only the 10 downstate buses changed."""
+    import scipy.io
+
+    raw = scipy.io.loadmat(DATA / "npcc.mat", squeeze_me=True, struct_as_record=False)["mpc"].bus
+    assert raw[:, 0].astype(int).tolist() == nygrid.bus_id.tolist()
+    npcc = raw[:, 6].astype(int)
+    assert (np.isin(npcc, (2, 3)) == nygrid.is_ny).all()
+    assert (nygrid.area != npcc).sum() == 10 and ((nygrid.area != npcc) == (npcc == 3)).all()
+    counts = {"New England": (1, 36, 9), "Ontario": (4, 31, 6), "MISO": (5, 10, 6), "PJM": (6, 17, 6)}
+    assert {region.name: region.area for region in REGIONS} == {name: a for name, (a, _, _) in counts.items()}
+    for number, buses, units in counts.values():
+        assert ((npcc == number) == (nygrid.area == number)).all()
+        assert ((npcc[nygrid.unit_bus] == number) == (nygrid.area[nygrid.unit_bus] == number)).all()
+        assert (npcc == number).sum() == buses and (npcc[nygrid.unit_bus] == number).sum() == units
 
 
 def test_case_has_nygrid_modifications(nygrid):
@@ -94,6 +135,24 @@ def test_round_trip_is_exact(make_case, nygrid, tmp_path):
 def test_a_file_name_that_is_not_a_matlab_function_is_refused(make_case, nygrid, tmp_path, name):
     with pytest.raises(DataConditionError, match="MATLAB function"):
         make_case.write_case(nygrid, tmp_path / name, "a title")
+
+
+def test_a_new_york_area_from_an_older_file_is_written_as_one_area(make_case, nygrid, tmp_path):
+    # a case stored before the file had one area carries 3 on the downstate buses: the file has no place for it
+    downstate = np.isin(nygrid.zone, list("GHIJK"))
+    older = dataclasses.replace(nygrid, area=np.where(downstate, 3, nygrid.area))
+    assert downstate.any() and differing(older, nygrid) == ["area"]
+    make_case.write_case(older, tmp_path / "older.m", "an older case")
+    back = Case.from_matpower(tmp_path / "older.m")
+    assert (back.area[downstate] == NY_AREA).all() and differing(back, nygrid) == []
+
+
+def test_a_bus_outside_new_york_with_no_neighbors_area_is_refused(make_case, nygrid, tmp_path):
+    outside = np.flatnonzero(~nygrid.is_ny)[0]
+    area = nygrid.area.copy()
+    area[outside] = 7  # no neighbor of REGIONS has this area, so the bus has no zone code
+    with pytest.raises(DataConditionError, match="outside New York must have the area of a neighbor"):
+        make_case.write_case(dataclasses.replace(nygrid, area=area), tmp_path / "stranger.m", "a title")
 
 
 def test_round_trip_keeps_hvdc_links_nan_inf_and_quotes(make_case, nygrid, tmp_path):

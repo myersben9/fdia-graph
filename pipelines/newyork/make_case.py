@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import re
 import sys
+import textwrap
 from dataclasses import replace
 from pathlib import Path
 
@@ -24,17 +25,38 @@ import scipy.io
 
 from fdia_graph.errors import DataConditionError
 from fdia_graph.generation.nygrid.build import NYGRID_COMMIT
-from fdia_graph.generation.nygrid.case import CASE_FILE, HQ_BUS, OUTSIDE, PQ, PV, REF, ZONES, Case
+from fdia_graph.generation.nygrid.case import (
+    CASE_FILE,
+    FILE_AREA,
+    HQ_BUS,
+    NY_AREA,
+    PQ,
+    PV,
+    REF,
+    REGIONS,
+    ZONE_LEGEND,
+    ZONES,
+    Case,
+)
 from fdia_graph.generation.nygrid.tables import read_rows
 
-NY_AREAS = (2, 3)
-ZONE_LEGEND = f"1 to {len(ZONES)} for {ZONES[0]} to {ZONES[-1]}, {OUTSIDE} for a bus outside New York"
+# NYgrid's NPCC case has two New York areas, 2 upstate and 3 downstate. The case file does not tell them apart:
+# every New York bus is `NY_AREA` in a `Case`, and a neighbor's bus keeps its NPCC area number (`Region.area`).
+NPCC_NY_AREAS = (2, 3)
+WIDTH = 97  # of a line of the file's header and of the comment above a matrix, before its `% `
+ONE_AREA = textwrap.fill(
+    f"One area, on purpose: NYgrid's NPCC case has six areas, and this file has one, so the bus area column "
+    f"is {FILE_AREA} on every row. Where a bus is, is its zone (the bus zone column): {ZONE_LEGEND}. The "
+    f"neighboring regions are the zone codes {REGIONS[0].code} to {REGIONS[-1].code}. The package reads a "
+    f"bus's region from the zone column, not from the area column.",
+    WIDTH,
+)
 TITLE = f"""CASE_NYGRID  The New York grid of fdia-graph: 140 buses, 227 branches, 271 units.
 
 The New York and neighbors network (NYgrid's 140-bus NPCC case) that every New York pool and
 timeline of the package is built on. The package reads this file with matpowercaseframes, the
-reader pandapower uses (fdia_graph.generation.nygrid.case.nygrid_case); a change to the grid is an
-edit to this file.
+reader pandapower uses (fdia_graph.generation.nygrid.case.nygrid_case); a change to the grid is
+an edit to this file.
 
 It is the network with the units' limits, NOT a solved operating point: the New York units are at
 Pg = 0, and the hourly loads and dispatch come from the pool built on this case.
@@ -42,28 +64,33 @@ Pg = 0, and the hourly loads and dispatch come from the pool built on this case.
 To change the grid, edit rows in place, or add and delete whole rows (a new bus or unit needs its
 row in every field that has one row per bus or per unit). Keep one row and one string per line.
 An indexed assignment such as mpc.bus(1, 3) = 500; and a field the package does not know are
-refused, because the reader would pass over them without a word. A branch with status 0 is left
-out. The package does not use gen mBase or branch rateB, rateC, angmin and angmax.
+refused, because the reader would pass over them without a word. A bus area other than {FILE_AREA} and a
+zone outside 1 to {REGIONS[-1].code} are refused as well. A branch with status 0 is left out. The package does
+not use gen mBase or branch rateB, rateC, angmin and angmax.
 
 Derived from NYgrid (https://github.com/AndersonEnergyLab-Cornell/NYgrid, MIT License), commit
 {NYGRID_COMMIT}, by pipelines/newyork/make_case.py:
-  1. Data/npcc.mat, the NPCC 140-bus case (branches out of service left out), with the coordinates and
-     NYISO load zones of Data/npcc.csv;
-  2. every change of NYgrid's modifyMPC.m: the bus types of 39, 45, 62, 77 (PV), 53, 54, 68, 72, 78 (PQ)
-     and 74 (reference), loads made positive, the PJM-IESO lines 84-116, 87-115 and 90-114 removed, the
-     ten tie ratings (rateA, MVA) and the lines 38-77 and 43-38 added;
+  1. Data/npcc.mat, the NPCC 140-bus case (branches out of service left out), with the
+     coordinates and NYISO load zones of Data/npcc.csv;
+  2. every change of NYgrid's modifyMPC.m: the bus types of 39, 45, 62, 77 (PV), 53, 54, 68, 72,
+     78 (PQ) and 74 (reference), loads made positive, the PJM-IESO lines 84-116, 87-115 and
+     90-114 removed, the ten tie ratings (rateA, MVA) and the lines 38-77 and 43-38 added;
   3. the fixed unit list of NYgrid's hourly case (updateOpCond.m L60-381): thermal units from
-     genParamAll_newramp.csv at the buses of gen_bus_assignment.csv, then nuclear and hydro units from
-     RenewableGen.csv, the units of the neighboring areas (Import) and the Hydro-Quebec import at bus 48.
-     Qmax and Qmin of 9999 and -9999 mean the source gives no reactive limit;
-  4. zone J's units, all at bus 82 in NYgrid, split evenly over buses 81 and 82, and bus 81 made PV;
+     genParamAll_newramp.csv at the buses of gen_bus_assignment.csv, then nuclear and hydro
+     units from RenewableGen.csv, the units of the neighboring regions (Import) and the
+     Hydro-Quebec import at bus 48. Qmax and Qmin of 9999 and -9999 mean the source gives no
+     reactive limit;
+  4. zone J's units, all at bus 82 in NYgrid, split evenly over buses 81 and 82, and bus 81
+     made PV;
   5. the 765 kV Massena-Marcy line 47-43, which modifyMPC.m carries commented out.
 
 Units: MW and MVAr, impedances in p.u. on baseMVA, angles in degrees. A rateA of 0 is no rating.
-The bus zone column is the NYISO load zone: {ZONE_LEGEND}.
-Beyond MATPOWER's own fields (mpc.bus_name and mpc.genfuel among them) the file has mpc.bus_latlon
-and mpc.gen_ramp, each described above its rows. There is no mpc.gencost: unit costs are read with
-the hourly data, not from this file."""
+
+{ONE_AREA}
+
+Beyond MATPOWER's own fields (mpc.bus_name and mpc.genfuel among them) the file has
+mpc.bus_latlon and mpc.gen_ramp, each described above its rows. There is no mpc.gencost: unit
+costs are read with the hourly data, not from this file."""
 
 
 def read_npcc(path: str | Path) -> Case:
@@ -75,7 +102,12 @@ def read_npcc(path: str | Path) -> Case:
 
     bus_id = bus[:, 0].astype(int)
     pos = {b: i for i, b in enumerate(bus_id.tolist())}
-    area = bus[:, 6].astype(int)
+    npcc_area = bus[:, 6].astype(int)
+    is_ny = np.isin(npcc_area, NPCC_NY_AREAS)
+    strangers = sorted(set(npcc_area[~is_ny].tolist()) - {region.area for region in REGIONS})
+    if strangers:
+        raise DataConditionError(f"{path}: area {strangers[0]} is not New York's or a neighbor's (REGIONS)")
+    area = np.where(is_ny, NY_AREA, npcc_area)
     zone = np.array([meta[b]["zone"] if meta[b]["zone"] != "NA" else "" for b in bus_id])
     tap = branch[:, 8].copy()
     tap[tap == 0] = 1.0  # MATPOWER writes 0 for a line
@@ -93,7 +125,7 @@ def read_npcc(path: str | Path) -> Case:
         vmax=bus[:, 11].copy(),
         lat=np.array([float(meta[b]["ycoord"]) for b in bus_id]),
         lon=np.array([float(meta[b]["xcoord"]) for b in bus_id]),
-        is_ny=np.isin(area, NY_AREAS),
+        is_ny=is_ny,
         f=np.array([pos[int(b)] for b in branch[on, 0]]),
         t=np.array([pos[int(b)] for b in branch[on, 1]]),
         r=branch[on, 2].copy(),
@@ -304,9 +336,12 @@ def _number(value: float) -> str:
 
 
 def _matrix(name: str, note: str, heading: str, columns: list) -> list[str]:
-    """`mpc.<name> = [ ... ];` with one row per line, under a comment and a line of column headings."""
+    """`mpc.<name> = [ ... ];` with one row per line, under a comment (`note`, wrapped at `WIDTH`) and a line of
+    column headings."""
+    first, *more = textwrap.wrap(note, WIDTH)
+    comment = [f"%% {first}", *(f"% {line}" for line in more)]
     rows = ["\t" + "\t".join(_number(v) for v in row) + ";" for row in zip(*columns)]
-    return ["", f"%% {note}", "%\t" + heading.replace(" ", "\t"), f"mpc.{name} = [", *rows, "];"]
+    return ["", *comment, "%\t" + heading.replace(" ", "\t"), f"mpc.{name} = [", *rows, "];"]
 
 
 def _strings(name: str, note: str, values: np.ndarray) -> list[str]:
@@ -317,18 +352,26 @@ def _strings(name: str, note: str, values: np.ndarray) -> list[str]:
 
 def write_case(case: Case, path: str | Path, title: str) -> None:
     """Write `case` as the MATPOWER version-2 case file `Case.from_matpower` reads, under the comment `title`.
-    Positions become bus numbers, the load zone becomes the number of the bus `zone` column, a tap of 1 is
-    written as MATPOWER's 0, and `mpc.dcline` is written only when the case has HVDC links."""
+    Positions become bus numbers. The bus `zone` column says where each bus is (`ZONE_LEGEND`): a New York bus's
+    load zone, and the code of the neighbor (`REGIONS`) whose area a bus outside New York has; a bus outside
+    New York with any other area is refused. The bus `area` column is `FILE_AREA` on every row, so the area of a
+    New York bus is not written: a case whose New York buses carry another number (3, in a file stored before
+    the case had one area) reads back with `NY_AREA` there. A tap of 1 is written as MATPOWER's 0, and
+    `mpc.dcline` is written only when the case has HVDC links."""
     path = Path(path)
     if not re.fullmatch(r"[A-Za-z]\w*", path.stem):
         raise DataConditionError(f"{path}: a case file is a MATLAB function, so {path.stem!r} cannot name it")
     if not (case.is_ny == (case.zone != "")).all():
         raise DataConditionError(f"{path}: a bus must be in New York exactly when it has a load zone")
-    m, g, d = len(case.f), len(case.unit_bus), len(case.dc_f)
+    code = {region.area: region.code for region in REGIONS}
+    if not np.isin(case.area[~case.is_ny], list(code)).all():
+        raise DataConditionError(f"{path}: a bus outside New York must have the area of a neighbor (REGIONS)")
+    n, m, g, d = len(case.bus_id), len(case.f), len(case.unit_bus), len(case.dc_f)
     number = case.bus_id
-    zone = [ZONES.index(z) + 1 if z else OUTSIDE for z in case.zone]
+    zone = [ZONES.index(z) + 1 if z else code[int(a)] for z, a in zip(case.zone, case.area)]
     ratio = np.where(case.tap == 1.0, 0.0, case.tap)
-    bus = [number, case.bus_type, case.pd, case.qd, case.gs, case.bs, case.area, case.vm, case.va, case.kv]
+    area = np.full(n, FILE_AREA)
+    bus = [number, case.bus_type, case.pd, case.qd, case.gs, case.bs, area, case.vm, case.va, case.kv]
     bus += [zone, case.vmax, case.vmin]
     gen = [number[case.unit_bus], case.unit_p, case.unit_q, case.qmax, case.qmin, case.unit_vg]
     gen += [np.full(g, case.base_mva), case.unit_on, case.pmax, case.pmin]
@@ -348,7 +391,7 @@ def write_case(case: Case, path: str | Path, title: str) -> None:
         f"mpc.baseMVA = {_number(case.base_mva)};",
         *_matrix(
             "bus",
-            f"bus data (zone: {ZONE_LEGEND})",
+            f"bus data (area: {FILE_AREA} on every row; zone: {ZONE_LEGEND})",
             "bus_i type Pd Qd Gs Bs area Vm Va baseKV zone Vmax Vmin",
             bus,
         ),

@@ -5,6 +5,28 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- **The New York case file has one area; the zone column says where a bus is.** `case_nygrid.m` is one system
+  for an OPF, with one area: its bus `area` column is 1 on every row. It used to carry
+  NYgrid's NPCC area numbers (1 New England, 2 and 3 New York, 4 Ontario, 5 MISO, 6 PJM). Existing files are
+  read as before, and no measurement, label, state, episode or operator result changes.
+  - The region of a bus is its zone code in the file: 1 to 11 for the NYISO load zones A to K as before, then
+    12 New England, 13 Ontario, 14 MISO, 15 PJM (12 used to mean any bus outside New York). The legend is in
+    the file's header and above `mpc.bus`.
+  - The `Case` record keeps its fields. `Case.zone` is the letter `A` to `K`, empty outside New York, and
+    `Case.is_ny` is unchanged. `Case.area` is derived from the zone code on read: a neighbor's bus keeps
+    NYgrid's number (New England 1, Ontario 4, MISO 5, PJM 6), and every New York bus is 2. The reader, the
+    recipe's writer and the legend in the file follow one table of codes, names and areas, `REGIONS`, in
+    `generation/nygrid/case.py`, with `FILE_AREA` (1) and `NY_AREA` (2); `OUTSIDE` is removed.
+    `generation/nygrid/dispatch.py` and `operator/` still tell the neighbors apart by the area numbers and
+    are not changed here. `Case.from_matpower` refuses a file whose area column is not 1 on every row
+    with a `DataConditionError` that names the column.
+  - One stored value differs in a New York timeline file generated from now on: `case/area` is 2 where it
+    was 3, on the 10 downstate buses (NYgrid's case splits New York into areas 2 and 3; the file does not,
+    and nothing in the package reads the difference). Every other dataset is the same bytes; the three New
+    York digest snapshots were rewritten for that key alone. Files written before, with 3 stored, load and
+    behave as before; the day files under `tests/nygrid/data/days` are unchanged.
+  - `pipelines/newyork/make_case.py` is where NYgrid's area numbers become the zone codes; a test checks
+    that each neighbor's buses and units are exactly the ones its area number gives.
 - **New York code that nothing built is removed (breaking for New York imports).** The release builds Am against
   a NYISO interface (`InterfaceFdia`) and At (`Ramp`). The code below was reached by no pipeline, example, tool or
   doc, only by its own tests. It is removed with no alias. Release 0.21.0 still holds it, under
@@ -36,8 +58,8 @@ the public API, the generated files and the numbers are the same as the previous
     (the hourly data still does).
   - `Case.from_matpower(path)` reads a MATPOWER version-2 case file with matpowercaseframes, the reader
     pandapower uses for `.m` files (a new dependency of the `ny` and `all` extras), taking each column by
-    MATPOWER's name. The bus `zone` column is the NYISO load zone as a number (1 for A to 11 for K, 12 outside
-    New York), `mpc.bus_name` and `mpc.genfuel` are MATPOWER's own, and `mpc.bus_latlon` and `mpc.gen_ramp`
+    MATPOWER's name. The bus `zone` column says where each bus is, as a number (the entry above),
+    `mpc.bus_name` and `mpc.genfuel` are MATPOWER's own, and `mpc.bus_latlon` and `mpc.gen_ramp`
     hold the coordinates and the ramps. `Case.check` refuses a file whose parts disagree, and an indexed
     assignment or an unknown field is refused instead of passed over, each a `DataConditionError` naming the
     file and what is wrong. The file's writer is in `pipelines/newyork/make_case.py`.
