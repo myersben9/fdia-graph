@@ -21,6 +21,7 @@ from ...formulas.network import (
     local_flow_solve,
 )
 from ...models.frames import AttackDesign, Frame, FrameKnobs, OperatingLimits, Scan
+from ..physics import PhysicsMixin
 from .area import AreaMixin
 
 
@@ -75,7 +76,7 @@ class _FlowRegion(NamedTuple):
     load: np.ndarray
 
 
-class FalseStateMixin(AreaMixin):
+class FalseStateMixin(AreaMixin, PhysicsMixin):
     """Solve and check the false state an attack design implies, and the meters it moves."""
 
     def operating_limits(self, X: np.ndarray) -> OperatingLimits:
@@ -266,9 +267,8 @@ class FalseStateMixin(AreaMixin):
         S_held = region.S_true[np.searchsorted(touched, fixed)] + change / self._base_mva
         # a held bus of S holds both components, a pinned bus only the pinned one(s)
         whole = set(both.tolist())
-        hold = np.array(
-            [(int(b) in whole or int(b) in pin_p, int(b) in whole or int(b) in pin_q) for b in fixed]
-        )
+        ints = [int(b) for b in fixed]
+        hold = np.array([(b in whole or b in pin_p, b in whole or b in pin_q) for b in ints])
         vb = np.array(sorted(held_v), np.int64)
         Yb, Yf = self._dense_admittances()
         Vf = local_flow_solve(
@@ -324,9 +324,8 @@ class FalseStateMixin(AreaMixin):
         by more than `load_cap` times their true load [YUA11], each with the injection change
         (generation positive, MW) that puts the load change at the cap."""
         load = region.load
-        buses = np.setdiff1d(
-            np.intersect1d(region.touched, np.flatnonzero(self.load_base[:, 0] != 0)), self.generator_buses()
-        )
+        loaded = np.intersect1d(region.touched, np.flatnonzero(self.load_base[:, 0] != 0))
+        buses = np.setdiff1d(loaded, self.generator_buses())
         out: dict[int, float] = {}
         for b in np.setdiff1d(buses, [self.slack_bus]):
             b = int(b)

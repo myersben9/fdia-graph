@@ -255,9 +255,7 @@ class TimelineSettings(Validated):
     def as_record(self) -> dict[str, object]:
         """The settings as nested plain values (JSON-ready), what a file and the results store record;
         `workers` is left out, since the timeline does not depend on it."""
-        record = asdict(self)
-        del record["workers"]
-        return cast("dict[str, object]", _plain(record))
+        return _record(self, "workers")
 
     @classmethod
     def of(cls, settings: Optional[TimelineSettings] = None, **knobs: object) -> TimelineSettings:
@@ -310,6 +308,12 @@ def _model(model: type, value: object, name: str) -> object:
     if not isinstance(value, model):
         raise ConfigError(f"{name} must be a {model.__name__}")
     return value
+
+
+def _record(settings: Validated, *left_out: str) -> dict[str, object]:
+    """A settings model as nested plain values (JSON-ready), without the fields `left_out`."""
+    record = {name: value for name, value in asdict(settings).items() if name not in left_out}
+    return cast("dict[str, object]", _plain(record))
 
 
 def _plain(value: object) -> object:
@@ -394,10 +398,7 @@ class NewYorkSettings(Validated):
     def as_record(self) -> dict[str, object]:
         """The settings as nested plain values (JSON-ready), what a file records. Left out is what the
         timeline does not depend on: `workers`, `block`, `verbose` and `survey_cache`."""
-        record = asdict(self)
-        for name in ("workers", "block", "verbose", "survey_cache"):
-            del record[name]
-        return cast("dict[str, object]", _plain(record))
+        return _record(self, "workers", "block", "verbose", "survey_cache")
 
     def lengths_for(self, families: Sequence[str]) -> dict[str, int]:
         """The episode length in frames of each of `families`."""
@@ -449,10 +450,7 @@ class NewYorkRelease(Validated):
         """The knobs as nested plain values (JSON-ready), what a file records. Left out is what the
         timeline does not depend on (`workers`, `survey_cache`, `root`) and `survey`, which the settings
         of the timeline record."""
-        record = asdict(self)
-        for name in ("workers", "survey", "survey_cache", "root"):
-            del record[name]
-        return cast("dict[str, object]", _plain(record))
+        return _record(self, "workers", "survey", "survey_cache", "root")
 
 
 @dataclass(frozen=True)

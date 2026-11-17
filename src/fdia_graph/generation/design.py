@@ -133,12 +133,7 @@ class AmDesigner(DesignPool[_WorkerSetup, FdiaGenerator]):
         return list(self.map(self._design, tasks))
 
     def design_split(
-        self,
-        X: np.ndarray,
-        knobs: FrameKnobs,
-        span: SplitSpan,
-        slots: list[Slot[int]],
-        rec: Placement[int],
+        self, X: np.ndarray, knobs: FrameKnobs, span: SplitSpan, slots: list[Slot[int]], rec: Placement[int]
     ) -> list[AmEpisode]:
         """The placed episodes `slots` of the split `span`, sorted by onset, with every Am either
         designed (its design beside its slot) or moved until it is, or given up: rounds of designs in
@@ -155,21 +150,12 @@ class AmDesigner(DesignPool[_WorkerSetup, FdiaGenerator]):
         return sorted(ramps + list(done.values()), key=lambda d: d.slot)
 
     def _round(
-        self,
-        X: np.ndarray,
-        knobs: FrameKnobs,
-        split: int,
-        todo: list[AmEpisode],
-        done: dict[int, AmEpisode],
+        self, X: np.ndarray, knobs: FrameKnobs, split: int, todo: list[AmEpisode], done: dict[int, AmEpisode]
     ) -> list[AmEpisode]:
         """One round: every pending episode designed at its onset (in parallel), the designed ones
         added to `done`; returns those with no design."""
-        tasks = [
-            _DesignTask(
-                X[p.slot.onset : p.slot.onset + p.slot.length], knobs, (self.seed, split, p.index, p.moves)
-            )
-            for p in todo
-        ]
+        windows = [X[p.slot.onset : p.slot.onset + p.slot.length] for p in todo]
+        tasks = [_DesignTask(w, knobs, (self.seed, split, p.index, p.moves)) for w, p in zip(windows, todo)]
         failed = []
         for p, design in zip(todo, self._run(tasks)):
             if design is None:
@@ -193,10 +179,8 @@ class AmDesigner(DesignPool[_WorkerSetup, FdiaGenerator]):
         moved: list[AmEpisode] = []
         for p in failed:
             del waiting[p.index]
-            taken = (
-                others + [d.slot for d in done.values()] + list(waiting.values()) + [m.slot for m in moved]
-            )
-            onset = self._new_onset(p, taken, span) if p.moves < REDRAWS else None
+            held = [d.slot for d in done.values()] + list(waiting.values()) + [m.slot for m in moved]
+            onset = self._new_onset(p, others + held, span) if p.moves < REDRAWS else None
             if onset is None:
                 give_up(span.code, AM_CODE, p.moves)
                 continue

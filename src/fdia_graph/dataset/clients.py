@@ -124,9 +124,8 @@ class Dataset:
     def client(self, name: str, split: str | None = None) -> ClientView:
         """Client `name`'s meters, the buses it owns and their labels, nothing of another client."""
         c = self.clients.index(name)
-        return self._view(
-            np.flatnonzero(self.plan.owner == c), np.flatnonzero(self.own.bus_client == c), split
-        )
+        meters, buses = np.flatnonzero(self.plan.owner == c), np.flatnonzero(self.own.bus_client == c)
+        return self._view(meters, buses, split)
 
     def operator(self, split: str | None = None) -> ClientView:
         """Every meter (the full scan for state estimation) and every bus's label."""

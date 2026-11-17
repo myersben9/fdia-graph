@@ -76,9 +76,9 @@ def assign_clients(case: Case, territories: dict, locations: str | Path) -> Owne
             continue
         lon, lat = float(row["lon"]), float(row["lat"])
         holding = [k for k, n in enumerate(names) if _inside(lon, lat, rings[n])]
-        bus_client[i] = (
-            holding[0] if holding else int(np.argmin([_distance(lon, lat, rings[n]) for n in names]))
-        )
-    return Ownership(
-        names=np.array(names), bus_client=bus_client, tie_lines=bus_client[case.f] != bus_client[case.t]
-    )
+        if holding:
+            bus_client[i] = holding[0]
+        else:  # no territory holds the bus: the nearest one takes it
+            bus_client[i] = int(np.argmin([_distance(lon, lat, rings[n]) for n in names]))
+    ties = bus_client[case.f] != bus_client[case.t]
+    return Ownership(names=np.array(names), bus_client=bus_client, tie_lines=ties)

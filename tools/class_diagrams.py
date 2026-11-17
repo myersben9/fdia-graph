@@ -71,22 +71,6 @@ GROUPS = {
     "models": [f"{GENERATION}/models/base", f"{GENERATION}/models/fields", f"{GENERATION}/models/data"],
     "scores": [f"{GENERATION}/models/base", f"{ANALYSIS}/models/scores", f"{ANALYSIS}/models/data"],
 }
-# classes drawn as one node: the seven field-group mixins every record bundle inherits, which as
-# 28 separate inheritance lines said nothing
-COLLAPSE = {
-    "models": (
-        "FieldGroups",
-        [
-            "StreamLayers",
-            "GraphFields",
-            "CleanFields",
-            "TemporalFields",
-            "RecordIds",
-            "LabelFields",
-            "ScanFields",
-        ],
-    ),
-}
 MAX_METHODS = 8  # methods listed per class before "... and n more"
 # FdiaGraph itself: every class takes one, the edge says nothing
 NOISE_MODULES = {f"{GENERATION}/dataset/__init__"}
@@ -143,13 +127,6 @@ def class_diagram(group: str, mods: dict[str, ast.Module], idx: dict[str, str]) 
     lines = ["classDiagram"]
     seen: set[str] = set()
     inherit, uses = [], []
-    collapsed_name, collapsed = COLLAPSE.get(group, (None, []))
-    if collapsed_name:
-        lines.append(f"    class {collapsed_name} {{")
-        lines.append(f"        <<{len(collapsed)} mixins>>")
-        lines.extend(f"        {c}" for c in collapsed)
-        lines.append("    }")
-        seen.add(collapsed_name)
     for m in members:
         t = mods[m]
         imported: dict[str, str] = {}  # local name -> module, for the "uses" edges
@@ -160,7 +137,7 @@ def class_diagram(group: str, mods: dict[str, ast.Module], idx: dict[str, str]) 
                     for a in n.names:
                         imported[a.asname or a.name] = tgt
         for n in t.body:
-            if not isinstance(n, ast.ClassDef) or n.name.startswith("_") or n.name in collapsed:
+            if not isinstance(n, ast.ClassDef) or n.name.startswith("_"):
                 continue
             seen.add(n.name)
             methods = [
@@ -184,9 +161,7 @@ def class_diagram(group: str, mods: dict[str, ast.Module], idx: dict[str, str]) 
             lines.append("    }")
             for b in n.bases:
                 bname = b.id if isinstance(b, ast.Name) else getattr(b, "attr", None)
-                if bname in collapsed:
-                    bname = collapsed_name
-                if bname and (bname in idx or bname == collapsed_name):
+                if bname and bname in idx:
                     inherit.append((bname, n.name))
             # names of other modules' classes used inside the class body
             named = {x.id for x in ast.walk(n) if isinstance(x, ast.Name)} | {
@@ -200,7 +175,6 @@ def class_diagram(group: str, mods: dict[str, ast.Module], idx: dict[str, str]) 
                     and not local.startswith("_")
                     and idx[local] not in NOISE_MODULES
                     and local not in NOISE_CLASSES
-                    and local not in collapsed
                 ):
                     uses.append((n.name, local))
             for other, label in EXTRA.get(n.name, []):  # duck-typed collaborators no import names

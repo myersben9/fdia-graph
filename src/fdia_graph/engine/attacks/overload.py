@@ -115,9 +115,8 @@ class OverloadMixin(MinimizeMixin):
         live = np.ones(len(rating), bool) if status is None else np.asarray(status) > 0
         ok = live & np.isfinite(rating) & metered & (S < np.nan_to_num(rating, nan=-np.inf))
         free = set(self.free_injection_buses().tolist())
-        return np.array(
-            [int(b) for b in np.flatnonzero(ok) if self._acts_on(int(b), free, hops)], dtype=np.int64
-        )
+        lines = [int(b) for b in np.flatnonzero(ok) if self._acts_on(int(b), free, hops)]
+        return np.array(lines, dtype=np.int64)
 
     def _acts_on(self, line: int, free: set[int], hops: int) -> bool:
         """Whether the area within `hops` of the branch's ends holds a free injection to pretend."""
@@ -132,9 +131,8 @@ class OverloadMixin(MinimizeMixin):
         flows = self.clean_flows_from_states(np.stack(window))  # [T, E, 2] MW, MVAr
         rating = self.window_ratings(flows)
         first = _schedule(flows[:, line], float(rating[line]))
-        return FlowGoal(
-            line, first, more=tuple((int(b), _schedule(flows[:, b], float(rating[b]))) for b in more)
-        )
+        others = tuple((int(b), _schedule(flows[:, b], float(rating[b]))) for b in more)
+        return FlowGoal(line, first, more=others)
 
     def window_ratings(self, flows: np.ndarray) -> np.ndarray:
         """[E] the ratings a window's goal drives to, from its true flows [T, E, 2]: the static ratings

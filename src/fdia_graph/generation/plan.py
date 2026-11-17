@@ -50,9 +50,8 @@ def largest_remainder(total: int, weights: Union[Sequence[Fraction], np.ndarray]
     whole = sum(shares)
     quota = [total * w / whole for w in shares]
     counts = [math.floor(q) for q in quota]
-    by_remainder = sorted(
-        range(len(quota)), key=lambda i: counts[i] - quota[i]
-    )  # stable: ties to the earlier
+    # stable: ties to the earlier
+    by_remainder = sorted(range(len(quota)), key=lambda i: counts[i] - quota[i])
     for i in by_remainder[: total - sum(counts)]:
         counts[i] += 1
     return np.array(counts, int)
@@ -113,10 +112,9 @@ def place_once(
     occupied = np.zeros(n, bool)
     placed: list[Slot[Family]] = []
     for length, fid in sorted(episodes, key=lambda x: -x[0]):
+        mask = None if allowed is None else allowed.get(fid)
         try:
-            onset = uniform_onset(
-                occupied, length, rng, allowed=None if allowed is None else allowed.get(fid)
-            )
+            onset = uniform_onset(occupied, length, rng, allowed=mask)
         except NoRoomForEpisode as e:
             raise NoRoomForEpisode(str(e), family=fid) from None
         occupied[onset : onset + length] = True

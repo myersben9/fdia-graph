@@ -249,9 +249,8 @@ class OpfFdia(AttackFamily):
             m.c.add(m.up[b] >= -m.dp[b] - m.sp[b])
             m.c.add(m.uq[b] >= m.dq[b] - m.sq[b])
             m.c.add(m.uq[b] >= -m.dq[b] - m.sq[b])
-        m.obj = pe.Objective(
-            expr=sum(m.up[b] + m.uq[b] + 1e-4 * (m.dp[b] ** 2 + m.dq[b] ** 2) for b in free.tolist())
-        )
+        cost = sum(m.up[b] + m.uq[b] + 1e-4 * (m.dp[b] ** 2 + m.dq[b] ** 2) for b in free.tolist())
+        m.obj = pe.Objective(expr=cost)
         return _OpfModel(m, interior, free, rows, outside, meter)
 
     def _set_scan(self, w, ctx: _OpfModel, k, prev, static, start=None, end=None) -> bool:
@@ -351,9 +350,8 @@ class OpfFdia(AttackFamily):
         """The bounds of bus b's pretended change (dP MW, dQ MVAr) at scan k, given the previous scan's;
         `static` leaves out the per-scan ramp and step bounds and what the remaining scans can reach."""
         lo_p, hi_p, lo_q, hi_q = self._own_box(w, k, b, prev, static, end)
-        if (
-            not static and self.exit_scans and k == w.vm.shape[0] - 1
-        ):  # N30: nothing pretended at the last scan
+        # N30: nothing pretended at the last scan
+        if not static and self.exit_scans and k == w.vm.shape[0] - 1:
             lo_p, hi_p, lo_q, hi_q = max(lo_p, 0.0), min(hi_p, 0.0), max(lo_q, 0.0), min(hi_q, 0.0)
         return lo_p, hi_p, lo_q, hi_q
 

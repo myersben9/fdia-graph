@@ -36,7 +36,7 @@ _FIELD_LINE = re.compile(r"^\s*(\w+)\s*:\s*(.+?)(?:\s*=\s*[^#]+?)?\s*(?:#\s*(.*)
 
 def _field_comments(cls: type[Any]) -> dict:
     """The comment written after each field in the class body, by field name, gathered over the
-    class and its field groups (the nearest definition wins)."""
+    class and its bases (the nearest definition wins)."""
     out: dict = {}
     for klass in reversed(cls.__mro__):
         if klass is object or not hasattr(klass, "__dataclass_fields__"):
@@ -52,16 +52,6 @@ def _field_comments(cls: type[Any]) -> dict:
     return out
 
 
-def _group_of(cls: type[Any], name: str) -> str:
-    """The field group that declares `name`, or "" when the bundle declares it itself."""
-    for klass in cls.__mro__[1:]:
-        if name in klass.__dict__.get("__dataclass_fields__", {}) and klass.__name__ != "Bundle":
-            own = klass.__dict__.get("__annotations__", {})
-            if name in own:
-                return klass.__name__
-    return ""
-
-
 def _type_name(f: Any) -> str:
     t = f.type if isinstance(f.type, str) else getattr(f.type, "__name__", str(f.type))
     t = re.sub(r"^Optional\[(.*)\]$", lambda m: m.group(1), t)  # the table marks optional fields itself
@@ -72,11 +62,6 @@ def _render_model(cls: type[Any]) -> list[str]:
     doc = inspect.getdoc(cls) or ""
     comments = _field_comments(cls)
     lines = [f"### `{cls.__name__}` (`{cls.__module__}`)", "", " ".join(doc.split()), ""]
-    groups = [
-        k.__name__ for k in cls.__mro__[1:] if "__dataclass_fields__" in k.__dict__ and k.__name__ != "Bundle"
-    ]
-    if groups:
-        lines += ["Field groups: " + ", ".join(f"`{g}`" for g in groups) + ".", ""]
     lines += ["| field | dict key | type | required | meaning |", "|---|---|---|---|---|"]
     by_name = {f.name: f for f in fields(cls)}
     for name in cls._names():
@@ -86,11 +71,7 @@ def _render_model(cls: type[Any]) -> list[str]:
             f.default is not None and "Optional" not in str(f.type)
         )
         meaning = comments.get(f.name, "").replace("|", "&#124;")  # a bare pipe would split the table cell
-        group = _group_of(cls, f.name)
-        src = f" ({group})" if group else ""
-        lines.append(
-            f"| `{f.name}` | `{key}` | {_type_name(f)} | {'yes' if required else ''} | {meaning}{src} |"
-        )
+        lines.append(f"| `{f.name}` | `{key}` | {_type_name(f)} | {'yes' if required else ''} | {meaning} |")
     return lines + [""]
 
 

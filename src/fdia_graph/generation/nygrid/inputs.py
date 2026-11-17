@@ -89,16 +89,25 @@ def _renewable_caps(data_dir: Path) -> tuple[np.ndarray, np.ndarray]:
     return wind, other
 
 
+def _hourly(
+    path: Path, column: str, value: str, names: tuple[str, ...], hours: pd.Index | None = None
+) -> pd.DataFrame:
+    """One of NYgrid's hourly tables: `value` by hour (`hours`, default the file's own) and by the `names`
+    of `column`."""
+    table = pd.read_csv(path)
+    table["t"] = pd.to_datetime(table.TimeStamp, format="%m/%d/%Y %H:%M:%S")
+    pivot = table.pivot_table(index="t", columns=column, values=value)
+    if hours is None:
+        return pivot.reindex(columns=list(names))
+    return pivot.reindex(index=hours, columns=list(names))
+
+
 def read_nygrid(data_dir: str | Path, year: int) -> list[NygridHour]:
     """Every hour of `year` from NYgrid's `Data/` tables."""
     d = Path(data_dir)
     stamp = "%m/%d/%Y %H:%M:%S"
 
-    fuel = pd.read_csv(d / f"fuelmixHourly_{year}.csv")
-    fuel["t"] = pd.to_datetime(fuel.TimeStamp, format=stamp)
-    fuel = fuel.pivot_table(index="t", columns="FuelCategory", values="GenMW").reindex(
-        columns=list(newyork.FUELS)
-    )
+    fuel = _hourly(d / f"fuelmixHourly_{year}.csv", "FuelCategory", "GenMW", newyork.FUELS)
     hours = fuel.index
 
     flow = pd.read_csv(d / f"interflowHourly_{year}.csv")
@@ -119,8 +128,7 @@ def read_nygrid(data_dir: str | Path, year: int) -> list[NygridHour]:
     stl = hyd.stlCF.reindex(hours.to_period("M").to_timestamp()).to_numpy()
 
     params = sorted(
-        read_rows(d / "genParamAll_newramp.csv", "utf-8-sig"),
-        key=lambda r: (r["NYISOName"], int(r["PTID"])),
+        read_rows(d / "genParamAll_newramp.csv", "utf-8-sig"), key=lambda r: (r["NYISOName"], int(r["PTID"]))
     )
     units = [(r["NYISOName"], int(r["PTID"])) for r in params]
 
@@ -136,22 +144,13 @@ def read_nygrid(data_dir: str | Path, year: int) -> list[NygridHour]:
         for r in params
     ]
     thermal_cost = fp[col].to_numpy() * np.array([float(r["HeatRateLM_1"]) for r in params])
-    price = pd.read_csv(d / f"priceHourly_{year}.csv")
-    price["t"] = pd.to_datetime(price.TimeStamp, format=stamp)
-    lbmp = price.pivot_table(index="t", columns="ZoneName", values="LBMP").reindex(
-        index=hours, columns=list(newyork.EXT_PRICES)
-    )
-    lbmp = lbmp.to_numpy()
+    lbmp = _hourly(d / f"priceHourly_{year}.csv", "ZoneName", "LBMP", newyork.EXT_PRICES, hours).to_numpy()
     th = pd.read_csv(d / f"thermalGenHourly_{year}.csv")
     th["t"] = pd.to_datetime(th.TimeStamp, format=stamp)
     th = th.groupby(["t", "NYISOName", "PTID"]).hourlyGen.first().unstack(["NYISOName", "PTID"])
     th = th.reindex(index=hours, columns=pd.MultiIndex.from_tuples(units)).fillna(0.0).to_numpy()
 
-    load = pd.read_csv(d / f"loadHourly_{year}.csv")
-    load["t"] = pd.to_datetime(load.TimeStamp, format=stamp)
-    load = load.pivot_table(index="t", columns="ZoneID", values="Load").reindex(
-        index=hours, columns=list(newyork.ZONES)
-    )
+    load = _hourly(d / f"loadHourly_{year}.csv", "ZoneID", "Load", newyork.ZONES, hours)
     ny_pd = load.to_numpy() @ _bus_weights(d).T
     ny_qd = ny_pd * np.tan(np.arccos(0.98))
 

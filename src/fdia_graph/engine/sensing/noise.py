@@ -28,8 +28,7 @@ class NoiseModel:
 
     def sample(self, z: np.ndarray, rng: np.random.Generator) -> np.ndarray:
         """One noisy scan of exact readings z [..., M] (a scan per row on a stack of frames)."""
-        jitter = JITTER_FRAC * self.sigma_rel * np.abs(z) + np.where(
-            self.relative, self.sigma_abs, JITTER_FRAC * self.sigma_abs
-        )
+        floor = np.where(self.relative, self.sigma_abs, JITTER_FRAC * self.sigma_abs)
+        jitter = JITTER_FRAC * self.sigma_rel * np.abs(z) + floor
         biased = np.where(self.relative, z * (1.0 + self.bias), z + self.bias)
         return biased + rng.normal(0.0, 1.0, np.shape(z)) * jitter

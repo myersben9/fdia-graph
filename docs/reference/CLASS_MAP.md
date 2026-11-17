@@ -36,13 +36,14 @@ summary); the graph properties are tensors or arrays, `loader()` is a DataLoader
 
 ## The engine
 
-`FdiaGenerator` is the AC model of one system with its meter plan. `GridBase` declares what the mixins
-provide: `MeasurementMixin` emits scans, `PhysicsMixin` re-solves the whole grid under new loads and
-reads a scan's load and generation, and `AttackMixin` builds every attack (next section).
+`FdiaGenerator` is the AC model of one system with its meter plan. `GridBase` declares the state the mixins
+share. `PhysicsMixin` reads a scan's load and generation and `MeasurementMixin` emits scans; neither calls the
+other, so each has `GridBase` alone as its base. `AttackMixin` builds every attack (next section) and calls both.
+A mixin lists as bases the mixins whose methods it calls.
 `engine/records.py` emits a benign scan and hands an attacked family to the mixin; `timeline.py`
 decides when and where each episode runs.
 
-![Class diagram of the engine package: GridBase with MeasurementMixin and PhysicsMixin under it, AttackMixin composed of EpisodeDesignMixin and StealthyMixin, and FdiaGenerator inheriting MeasurementMixin, PhysicsMixin and AttackMixin; the mixins use Scan, AttackDesign, Frame and FrameKnobs, and the generator holds a BranchModel, a MeterPlan, a MeterBias, an Outage, a PandapowerNet and its PpcTables](../figures/diagrams/classes_engine.png)
+![Class diagram of the engine package: GridBase, PhysicsMixin and MeasurementMixin each under it, AttackMixin composed of EpisodeDesignMixin and StealthyMixin, and FdiaGenerator inheriting AttackMixin; the mixins use Scan, AttackDesign, Frame and FrameKnobs, and the generator holds a BranchModel, a MeterPlan, a MeterBias, a PandapowerNet and its PpcTables](../figures/diagrams/classes_engine.png)
 
 ## The attacks
 
@@ -53,7 +54,7 @@ the fewest devices over an attack window [WU26, eq. 12], `OverloadMixin` builds 
 and `EpisodeDesignMixin` draws what an `At` episode attacks at its onset. `AttackMixin.attack_frame`
 is the one entry for an attacked `At` scan; an `Am` frame comes from `overload_step`.
 
-![Class diagram of the attack package: GridBase with AreaMixin under it, FalseStateMixin under AreaMixin, StealthyMixin and MinimizeMixin under FalseStateMixin, RrefMixin under MinimizeMixin, OverloadMixin under RrefMixin, EpisodeDesignMixin under OverloadMixin, and AttackMixin inheriting EpisodeDesignMixin and StealthyMixin; the mixins use AttackDesign, RampDesign, LoadGoal, FlowGoal, MinimizerResult, Frame, FrameKnobs, OperatingLimits and Scan](../figures/diagrams/classes_attacks.png)
+![Class diagram of the attack package: MeasurementMixin with AreaMixin under it, FalseStateMixin under AreaMixin and PhysicsMixin, StealthyMixin and MinimizeMixin under FalseStateMixin, OverloadMixin under MinimizeMixin, EpisodeDesignMixin under OverloadMixin, and AttackMixin inheriting EpisodeDesignMixin and StealthyMixin; the mixins use AttackDesign, RampDesign, LoadGoal, FlowGoal, MinimizerResult, Frame, FrameKnobs, OperatingLimits and Scan](../figures/diagrams/classes_attacks.png)
 
 ## State estimation
 
@@ -84,11 +85,11 @@ each client trains its own copy with the shared `LocalTrainer` on its own buses,
 ## The records
 
 Everything a call returns is a `Bundle`, a dict with attribute access and a fixed key order. The record
-forms share seven field-group mixins, one per group of keys, so a record, a batch and an exported split
-carry the same names. An exported split adds an eighth, export-only group,
-`PreviousFrameFields` (the previous frame's readings on a timeline).
+forms share one base, `RecordFields`, which declares every field once, so a record, a batch and an exported split
+carry the same names. An exported split adds the export-only `prev_*` fields
+(the previous frame's readings on a timeline).
 
-![Class diagram of the record bundles: Bundle, the seven shared field-group mixins as one node, and RecordBundle, BatchBundle and ArraysBundle inheriting both; ArraysBundle also takes an eighth, export-only group, PreviousFrameFields; EpisodeTable and Summary under Bundle](../figures/diagrams/classes_models.png)
+![Class diagram of the record bundles: Bundle, RecordFields under it, and RecordBundle, BatchBundle and ArraysBundle under RecordFields; EpisodeTable and Summary under Bundle](../figures/diagrams/classes_models.png)
 
 ## The scores
 

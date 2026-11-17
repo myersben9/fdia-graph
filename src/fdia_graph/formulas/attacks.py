@@ -105,9 +105,9 @@ def within_limits(
         v_lo_i = min(V_i^min, |V_i^true|),  v_hi_i = max(V_i^max, |V_i^true|)
     """
     V, Vt = Xa[:, NodeChannel.V], Xt[:, NodeChannel.V]
-    if np.any(V < np.minimum(limits.v_lo, Vt) - LIMIT_TOL_V) or np.any(
-        V > np.maximum(limits.v_hi, Vt) + LIMIT_TOL_V
-    ):
+    if np.any(V < np.minimum(limits.v_lo, Vt) - LIMIT_TOL_V):
+        return False
+    if np.any(V > np.maximum(limits.v_hi, Vt) + LIMIT_TOL_V):
         return False
     I_ = np.asarray(interior, int)
     p = gen_true[I_, 0] - (Xa[I_, NodeChannel.P_INJ] - Xt[I_, NodeChannel.P_INJ] - load_delta[I_])

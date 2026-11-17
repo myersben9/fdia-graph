@@ -46,9 +46,8 @@ class Compensation:
 
     def band(self, case: Case) -> tuple[np.ndarray, np.ndarray]:
         """`(lo, hi) [N]` p.u.: the voltage limits the dispatch holds, the case's where the band gives none."""
-        return np.where(np.isfinite(self.v_lo), self.v_lo, case.vmin), np.where(
-            np.isfinite(self.v_hi), self.v_hi, case.vmax
-        )
+        lo = np.where(np.isfinite(self.v_lo), self.v_lo, case.vmin)
+        return lo, np.where(np.isfinite(self.v_hi), self.v_hi, case.vmax)
 
     @property
     def shunt_buses(self) -> np.ndarray:
@@ -184,9 +183,8 @@ class AcSolver:
 
     def _net_load(self, pd: np.ndarray, hvdc_p: np.ndarray) -> np.ndarray:
         p = pd.copy()
-        np.add.at(
-            p, self.case.dc_f, hvdc_p
-        )  # a lossless link draws at its from end and injects at its to end
+        # a lossless link draws at its from end and injects at its to end
+        np.add.at(p, self.case.dc_f, hvdc_p)
         np.add.at(p, self.case.dc_t, -hvdc_p)
         return p
 

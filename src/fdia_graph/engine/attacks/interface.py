@@ -193,9 +193,8 @@ class InterfaceFdia(OpfFdia):
         if area is None or rise < 1:
             return None
         aset = set(area.tolist())
-        inner = np.array(
-            [i for i, b in enumerate(it.branches.tolist()) if {int(case.f[b]), int(case.t[b])} & aset], int
-        )
+        in_area = [bool({int(case.f[b]), int(case.t[b])} & aset) for b in it.branches.tolist()]
+        inner = np.array([i for i, inside in enumerate(in_area) if inside], int)
         if len(inner) == 0:
             return None
         pf, _, _, _ = att.net.flows(vm, va)
@@ -205,9 +204,8 @@ class InterfaceFdia(OpfFdia):
         headroom = it.limit[frame] - it.flow[frame]  # N49: what the real grid had left that hour
         if not np.isfinite(headroom) or headroom <= 0:
             return None
-        share = np.r_[
-            np.arange(1, rise + 1) / rise, 1 - np.arange(1, self.exit_scans + 1) / max(self.exit_scans, 1)
-        ]
+        unwound = np.arange(1, self.exit_scans + 1) / max(self.exit_scans, 1)
+        share = np.r_[np.arange(1, rise + 1) / rise, 1 - unwound]
         goal = total + share * (headroom + self.overshoot)
         p, q = att.net.injections(vm, va)
         hours = None if self.frame_hour is None else self.frame_hour[onset : onset + L]

@@ -144,9 +144,8 @@ class PoolBuilder:
         vm, va, p, q, unit_p = (np.full((T, k), np.nan) for k in (n, n, n, n, g))
         kind = np.full(T, SolveKind.FAILED, dtype=np.int8)
         held, fixed, anchored = self._held, self._fixed, self._anchored
-        for h in np.unique(
-            np.r_[lo, hi]
-        ):  # every hourly AC point first, as projecting moves the solver's state
+        # every hourly AC point first, as projecting moves the solver's state
+        for h in np.unique(np.r_[lo, hi]):
             self._project(int(h))
         if start is not None:
             prev, prev_q = np.array(start[0], float), np.array(start[1], float)
@@ -180,39 +179,16 @@ class PoolBuilder:
             p_lo[held], p_hi[held] = base_lo[held], base_hi[held]  # no ramp: the schedule moves them
             p_lo[fixed], p_hi[fixed] = sp[fixed], sp[fixed]
             anchor = np.where(anchored, sp, np.nan)
-            on = np.ones(
-                len(prev), bool
-            )  # every unit stays in service for Q, as in NYgrid's case (GEN_STATUS 1)
+            # every unit stays in service for Q, as in NYgrid's case (GEN_STATUS 1)
+            on = np.ones(len(prev), bool)
             hvdc_p = (1 - w[f]) * d.hvdc_p[lo[f]] + w[f] * d.hvdc_p[hi[f]]
             cost = (1 - w[f]) * d.unit_cost[lo[f]] + w[f] * d.unit_cost[hi[f]]
-            r = s.dispatch(
-                pd_f,
-                self.loads.q[f],
-                cost,
-                p_lo,
-                p_hi,
-                q_lo,
-                q_hi,
-                on,
-                hvdc_p,
-                init=(prev, prev_q),
-                anchor=anchor,
-            )
+            qd_f, x0 = self.loads.q[f], (prev, prev_q)  # x0: the solve starts at the previous frame
+            r = s.dispatch(pd_f, qd_f, cost, p_lo, p_hi, q_lo, q_hi, on, hvdc_p, init=x0, anchor=anchor)
             if r is None and capped:
                 self.q_fallback[f] = True
-                r = s.dispatch(
-                    pd_f,
-                    self.loads.q[f],
-                    cost,
-                    p_lo,
-                    p_hi,
-                    case.qmin,
-                    case.qmax,
-                    on,
-                    hvdc_p,
-                    init=(prev, prev_q),
-                    anchor=anchor,
-                )
+                q_min, q_max = case.qmin, case.qmax  # the units' whole reactive range
+                r = s.dispatch(pd_f, qd_f, cost, p_lo, p_hi, q_min, q_max, on, hvdc_p, init=x0, anchor=anchor)
             if r is None:
                 continue
             pf = s.power_flow(
@@ -265,15 +241,14 @@ class PoolBuilder:
         }
         slack = np.abs(self.slack_mw[ok])
         any_ok = bool(ok.any())
+        failed = [str(self.dispatch.hour[h]) for h, r in sorted(self.hour_points.items()) if r is None]
         return {
             "frames": len(pool.time),
             **kinds,
             "solved_pct": round(100 * float(ok.mean()), 3),
             "no_load_times": [str(t) for t in pool.time[pool.solve_kind == SolveKind.NO_LOAD]],
             "hours_projected": len(self.hour_points),
-            "hours_failed": [
-                str(self.dispatch.hour[h]) for h, r in sorted(self.hour_points.items()) if r is None
-            ],
+            "hours_failed": failed,
             "vm_min": float(np.nanmin(pool.vm[ok])) if any_ok else None,
             "vm_max": float(np.nanmax(pool.vm[ok])) if any_ok else None,
             "ny_vm_min": float(np.nanmin(pool.vm[ok][:, case.is_ny])) if any_ok else None,

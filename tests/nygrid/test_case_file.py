@@ -1,11 +1,14 @@
 """`Case.from_matpower` on a three-bus case file written here: what it reads and what it refuses. Needs no input
 data."""
 
+import ast
 import dataclasses
+import inspect
+import textwrap
 
 import pytest
 
-from fdia_graph.constants.newyork import FILE_AREA, NY_AREA, REGIONS, ZONES
+from fdia_graph.constants.newyork import CASE_COLUMNS, FILE_AREA, NY_AREA, REGIONS, ZONES
 from fdia_graph.errors import DataConditionError
 from fdia_graph.generation.nygrid.case import Case
 
@@ -220,3 +223,28 @@ def test_an_edit_that_breaks_the_case_is_refused(tmp_path, old, new, message):
     with pytest.raises(DataConditionError, match=message) as refusal:
         read(tmp_path, edited(old, new))
     assert "tiny.m" in str(refusal.value)  # every refusal names the file
+
+
+def test_the_column_table_fills_exactly_the_fields_the_reader_does_not():
+    """A name misspelled in `CASE_COLUMNS` fails here, with no case file read."""
+    from matpowercaseframes.constants import COLUMNS
+
+    reader = ast.parse(textwrap.dedent(inspect.getsource(Case._from_frames)))
+    built = next(
+        call for call in ast.walk(reader) if isinstance(call, ast.Call) and ast.unparse(call.func) == "cls"
+    )
+    by_hand = [keyword.arg for keyword in built.keywords if keyword.arg is not None]
+    fields = [field.name for field in dataclasses.fields(Case)]
+    assert sorted([*by_hand, *CASE_COLUMNS]) == sorted(fields)  # every field once, by hand or by the table
+    for field, (table, column) in CASE_COLUMNS.items():
+        assert column in COLUMNS[table], (
+            field,
+            table,
+            column,
+        )  # MATPOWER's own name of a column of that table
+
+
+def test_a_column_the_file_lacks_is_named(tmp_path, monkeypatch):
+    monkeypatch.setitem(CASE_COLUMNS, "r", ("branch", "BR_RR"))
+    with pytest.raises(DataConditionError, match=r"tiny\.m: the case file has no column 'BR_RR'$"):
+        read(tmp_path, TINY)

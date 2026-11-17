@@ -111,6 +111,8 @@ class Case:
             )
         except DataConditionError:
             raise
+        except KeyError as error:  # a column name the reader's table does not have
+            raise DataConditionError(f"{path}: the case file has no column {error.args[0]!r}") from error
         except Exception as error:  # a row with a value missing or too many, a word among the numbers
             raise DataConditionError(f"{path}: cannot be read as a MATPOWER case file: {error!r}") from error
         case.check(str(path))
@@ -127,48 +129,28 @@ class Case:
         position = cls._bus_positions(col(bus, "BUS_I"), path)
         zone, area = cls._zones_and_areas(col(bus, "ZONE"), col(bus, "BUS_AREA"), path)
         ratio = col(branch, "TAP")
+        tables = {"bus": bus, "branch": branch, "gen": gen, newyork.DCLINE: links}
+        plain = {field: col(tables[table], name) for field, (table, name) in newyork.CASE_COLUMNS.items()}
         return cls(
             base_mva=float(frames.baseMVA),
             bus_id=col(bus, "BUS_I").astype(int),
             name=cls._strings(text, newyork.BUS_NAME),
             zone=zone,
             area=area,
-            kv=col(bus, "BASE_KV"),
-            vmin=col(bus, "VMIN"),
-            vmax=col(bus, "VMAX"),
             lat=col(frames.bus_latlon, 0),
             lon=col(frames.bus_latlon, 1),
             is_ny=zone != "",
             f=cls._positions(col(branch, "F_BUS"), position, "mpc.branch", path),
             t=cls._positions(col(branch, "T_BUS"), position, "mpc.branch", path),
-            r=col(branch, "BR_R"),
-            x=col(branch, "BR_X"),
-            b=col(branch, "BR_B"),
             tap=np.where(ratio == 0, 1.0, ratio),
-            shift=col(branch, "SHIFT"),
-            rating=col(branch, "RATE_A"),
             unit_bus=cls._positions(col(gen, "GEN_BUS"), position, "mpc.gen", path),
             fuel=cls._strings(text, newyork.GEN_FUEL),
-            pmin=col(gen, "PMIN"),
-            pmax=col(gen, "PMAX"),
-            qmin=col(gen, "QMIN"),
-            qmax=col(gen, "QMAX"),
             ramp=col(frames.gen_ramp, 0),
             dc_f=cls._positions(col(links, "F_BUS"), position, "mpc.dcline", path),
             dc_t=cls._positions(col(links, "T_BUS"), position, "mpc.dcline", path),
-            dc_pmin=col(links, "PMIN"),
-            dc_pmax=col(links, "PMAX"),
             bus_type=col(bus, "BUS_TYPE").astype(int),
-            pd=col(bus, "PD"),
-            qd=col(bus, "QD"),
-            gs=col(bus, "GS"),
-            bs=col(bus, "BS"),
-            vm=col(bus, "VM"),
-            va=col(bus, "VA"),
-            unit_p=col(gen, "PG"),
-            unit_q=col(gen, "QG"),
-            unit_vg=col(gen, "VG"),
             unit_on=col(gen, "GEN_STATUS") > 0,
+            **plain,
         )
 
     def check(self, source: str) -> None:
@@ -200,6 +182,7 @@ class Case:
         """Refuse what the reader would pass over without a word: an indexed assignment, a field it does not know
         and a field assigned twice. Refuse a file that lacks a field a `Case` needs."""
         seen: list[str] = []
+        known = (*newyork.CASE_FIELDS_NEEDED, newyork.DCLINE, *newyork.CASE_FIELDS_PASSED_OVER)
         for number, line in enumerate(text.splitlines(), 1):
             statement = STATEMENT.match(line)
             if statement is None:
@@ -208,11 +191,9 @@ class Case:
             where = f"{source}: line {number}: `{line.strip()}`"
             if indexed:
                 raise DataConditionError(f"{where} is an indexed assignment, which is not read: edit the row")
-            if name not in (*newyork.CASE_FIELDS_NEEDED, newyork.DCLINE, *newyork.CASE_FIELDS_PASSED_OVER):
-                known = ", ".join(
-                    (*newyork.CASE_FIELDS_NEEDED, newyork.DCLINE, *newyork.CASE_FIELDS_PASSED_OVER)
-                )
-                raise DataConditionError(f"{where}: mpc.{name} is not a field of a case file ({known})")
+            if name not in known:
+                listed = ", ".join(known)
+                raise DataConditionError(f"{where}: mpc.{name} is not a field of a case file ({listed})")
             if name in seen:
                 raise DataConditionError(f"{where}: mpc.{name} is assigned twice")
             seen.append(name)

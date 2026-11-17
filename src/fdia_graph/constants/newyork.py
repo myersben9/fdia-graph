@@ -53,6 +53,33 @@ CASE_FIELDS_NEEDED = (
     "gen_ramp",
 )
 CASE_FIELDS_PASSED_OVER = ("gencost", "gentype", "areas", "dclinecost")
+# The fields of a `Case` (`generation.nygrid.case`) read as they are from one column of the case file, as
+# floats: field -> (mpc table, MATPOWER's name of the column).
+CASE_COLUMNS = {
+    "kv": ("bus", "BASE_KV"),
+    "vmin": ("bus", "VMIN"),
+    "vmax": ("bus", "VMAX"),
+    "r": ("branch", "BR_R"),
+    "x": ("branch", "BR_X"),
+    "b": ("branch", "BR_B"),
+    "shift": ("branch", "SHIFT"),
+    "rating": ("branch", "RATE_A"),
+    "pmin": ("gen", "PMIN"),
+    "pmax": ("gen", "PMAX"),
+    "qmin": ("gen", "QMIN"),
+    "qmax": ("gen", "QMAX"),
+    "dc_pmin": ("dcline", "PMIN"),
+    "dc_pmax": ("dcline", "PMAX"),
+    "pd": ("bus", "PD"),
+    "qd": ("bus", "QD"),
+    "gs": ("bus", "GS"),
+    "bs": ("bus", "BS"),
+    "vm": ("bus", "VM"),
+    "va": ("bus", "VA"),
+    "unit_p": ("gen", "PG"),
+    "unit_q": ("gen", "QG"),
+    "unit_vg": ("gen", "VG"),
+}
 HQ_BUS = 48  # updateOpCond.m L367-377: Hydro-Quebec's import is a unit at bus 48, -1100 to 1500 MW
 # updateOpCond.m L407-412: the four HVDC links of the reduced case, as from bus, to bus and limit (MW).
 HVDC_LINKS = ((21, 80, 530.0), (124, 79, 660.0), (125, 81, 660.0), (125, 81, 660.0))

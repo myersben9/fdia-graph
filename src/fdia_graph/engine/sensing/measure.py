@@ -87,6 +87,5 @@ class Measurement:
     def for_client(self, c: int) -> Measurement:
         """The Measurement of client `c`'s meters only."""
         keep = self.plan.owner == c
-        return Measurement(
-            self.net, MeterPlan(**{f.name: getattr(self.plan, f.name)[keep] for f in fields(MeterPlan)})
-        )
+        plan = MeterPlan(**{f.name: getattr(self.plan, f.name)[keep] for f in fields(MeterPlan)})
+        return Measurement(self.net, plan)

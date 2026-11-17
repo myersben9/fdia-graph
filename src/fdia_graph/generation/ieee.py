@@ -170,9 +170,8 @@ class IeeeSource(TimelineSource[int, AmOverloadDesign]):
     def _spec(self) -> GeneratorSpec:
         """What a design process rebuilds this generator from."""
         g, s = self.g, self.settings
-        return GeneratorSpec(
-            self.system, self.seed, s.max_load_mw, s.meters, g._line_ratings, g._rating_delta
-        )
+        ratings, delta = g._line_ratings, g._rating_delta
+        return GeneratorSpec(self.system, self.seed, s.max_load_mw, s.meters, ratings, rating_delta=delta)
 
     def _clean(self, a: int, b: int) -> tuple[np.ndarray, np.ndarray]:
         """The noiseless truth of frames a..b-1: the states as float32 and the exact flows on metered

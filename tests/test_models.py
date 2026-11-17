@@ -87,7 +87,7 @@ def test_pickle_restores_fields_and_key_order():
 
 
 # The dict-key order and the required fields of every shard-shaped bundle, as they were before the
-# field groups: the groups must not change what a user sees.
+# bundles shared their fields: the shared base must not change what a user sees.
 _SCAN = ["node_x", "node_m", "edge_x", "edge_m"]
 _IDS = ["family", "stealthy", "seq_id", "timestep"]
 _BENIGN = ["benign", "edge_benign"]
@@ -109,7 +109,7 @@ EXPECTED = {
         [*_SCAN, "y", *_TEMPORAL, *_CLEAN, *_BENIGN, "edge_index", "edge_attr", *_IDS, *_PMU_I],
         [*_SCAN, "y"],
     ),
-    # edge_attr is new on ArraysBundle (it comes with GraphFields), last and never filled by the exports
+    # edge_attr is new on ArraysBundle (it comes with RecordFields), last and never filled by the exports
     "ArraysBundle": (
         [
             "edge_index",

@@ -350,7 +350,7 @@ The generator is `FdiaGenerator` in `engine/core.py`, composed of mixins over th
 | file | holds |
 |---|---|
 | `engine/core.py` | `FdiaGenerator`: the grid, the meter plan and noise, attack targeting, and the mixins below composed |
-| `engine/base.py` | `GridBase`: the attributes and cross-method signatures the mixins share |
+| `engine/base.py` | `GridBase`: the attributes the mixins share |
 | `engine/measurement.py` | `MeasurementMixin`: the measurement function `h(x)`, a scan from a state |
 | `engine/physics.py` | a scan's load and generation, read from its stored state |
 | `engine/records.py` | one scan of the timeline writer: benign, or attacked by `engine.attacks` |

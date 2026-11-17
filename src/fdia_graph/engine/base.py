@@ -1,33 +1,27 @@
-"""Shared state contract for FdiaGenerator's mixins — attribute + cross-method annotations only.
+"""The state FdiaGenerator's mixins share: attribute annotations only.
 
-Set for real in FdiaGenerator.__init__; declared here (no runtime effect) so each mixin's `self.<attr>`
-and cross-mixin method calls type-check. See core.py for the actual assignments."""
+Set for real in FdiaGenerator.__init__ (core.py); declared here (no runtime effect) so each mixin's
+`self.<attr>` type-checks. An attribute only core.py reads needs no line here."""
 
 from __future__ import annotations
 
-from collections.abc import Callable
-from types import ModuleType
 from typing import TYPE_CHECKING, Optional
 
 import numpy as np
 
-from ..models.grid import BranchModel, MeterBias, MeterPlan, Outage
+from ..models.grid import BranchModel, MeterBias, MeterPlan
 
 if TYPE_CHECKING:
     from scipy.sparse import csr_matrix
 
-    from ..models.frames import Scan
     from .pandapower_types import PandapowerNet
 
 
 class GridBase:
     # grid + rng
-    pp: ModuleType
-    NET: Callable[[], PandapowerNet]
     base: PandapowerNet
     C: int
     E: int
-    n_lines: int
     rng: np.random.Generator
     seed: int
     # the timestep whose jitter the next emission draws (a timeline walk sets it), or None: the jitter
@@ -37,23 +31,17 @@ class GridBase:
     # noise model
     SD: dict[str, float]
     SDj: dict[str, float]
-    _bias_sd: dict[str, float]
     bias: MeterBias
     _i_jitter: float  # hybrid meters: the per-scan relative jitter of the PMU branch-current channels
     # metering plan
     meters: MeterPlan
     zero_inj: list[int]
     slack_bus: int
-    _injection_buses: list[int]
     # buses / loads / attackability
     load_bus: np.ndarray
     load_p0: np.ndarray  # [n_loads] base active load per element (MW)
     load_q0: np.ndarray  # [n_loads] base reactive load per element (MVAr)
-    attackable_pos: np.ndarray
-    _attackable_mask: np.ndarray
     stealthy_pos: np.ndarray  # attackable loads off generator buses, the stealthy families' targets
-    _stealthy_mask: np.ndarray
-    max_load_mw: Optional[float]
     load_base: np.ndarray  # [N, 2] base-case load P, Q per bus
     gen_base: np.ndarray  # [N, 2] base-case generation P per bus (Q column zero)
     p_lim: np.ndarray  # [N, 2] generator active limits per bus, ±inf without one
@@ -63,30 +51,10 @@ class GridBase:
     # topology + admittance
     ei: np.ndarray
     branch: BranchModel
-    edge_gs: np.ndarray
-    edge_bs: np.ndarray
-    edge_is_trafo: np.ndarray
-    bus_shunt_g: np.ndarray
-    bus_shunt_b: np.ndarray
     _Ybus: csr_matrix
     _Yf: csr_matrix
     _Yt: csr_matrix
     _base_mva: float
     _ppc_row: np.ndarray
     _from_bus_ppc: np.ndarray
-    _ppc_branch: np.ndarray  # the ppc branch matrix (from and to bus columns), for the flow derivatives
     _n_ppc_buses: int
-    # contingency
-    contingency: Outage
-
-    # cross-mixin methods (defined in the concern mixins)
-    def emit_from_state(self, X: np.ndarray) -> Scan: ...
-    def meter_masks(self) -> tuple[np.ndarray, np.ndarray]: ...
-    def current_mask(self) -> Optional[np.ndarray]: ...
-    def clean_flows_from_states(self, X: np.ndarray) -> np.ndarray: ...
-    def all_flows_from_states(self, X: np.ndarray) -> np.ndarray: ...
-    def currents_from_states(self, X: np.ndarray) -> np.ndarray: ...
-    def true_load(self, Xt: np.ndarray) -> np.ndarray: ...
-    def true_reactive_load(self, Xt: np.ndarray) -> np.ndarray: ...
-    def scan_generation(self, Xt: np.ndarray) -> np.ndarray: ...
-    def scan_reactive_generation(self, Xt: np.ndarray) -> np.ndarray: ...

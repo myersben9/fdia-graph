@@ -12,10 +12,10 @@ to None are absent from the dict view, which is how optional layers behave today
         x: np.ndarray      # the 2N-1 state per record
         thsl: np.ndarray   # the slack angle reference per record
 
-A bundle can inherit field groups (``models/fields.py``), whose fields all default to None so any
-combination composes; it then names the fields it cannot do without in ``_required`` (a None
-there raises ``TypeError`` at construction, as a missing argument does) and its dict-key order in
-``_order`` (the order the old dict had), since dataclass inheritance fixes the field order.
+A bundle can inherit shared fields (``models/fields.py``), which all default to None; it then
+names the fields it cannot do without in ``_required`` (a None there raises ``TypeError`` at
+construction, as a missing argument does) and its dict-key order in ``_order`` (the order the old
+dict had), since dataclass inheritance fixes the field order.
 
 A field whose dict key is not a valid attribute name (``"global"``) is declared with a trailing
 underscore and mapped through ``_keys``:
@@ -54,10 +54,10 @@ class Bundle(dict):
     _names_cache: ClassVar[tuple[str, ...]] = ()
 
     def __new__(cls, *args: object, **kwargs: object) -> Bundle:
-        # A bundle built from field groups has a field order set by inheritance, so positional
+        # A bundle that inherits shared fields has a field order set by inheritance, so positional
         # arguments would bind silently to the wrong fields: those bundles are keyword-only.
         if args and cls._order:
-            raise TypeError(f"{cls.__name__} is built from field groups; pass its fields by keyword")
+            raise TypeError(f"{cls.__name__} inherits shared fields; pass its fields by keyword")
         return dict.__new__(cls)
 
     def __post_init__(self) -> None:
@@ -74,7 +74,7 @@ class Bundle(dict):
 
     @classmethod
     def _dict_order(cls, names: list[str]) -> tuple[str, ...]:
-        """The field names in dict-key order: `_order` when the bundle declares it (field groups fix
+        """The field names in dict-key order: `_order` when the bundle declares it (inherited fields fix
         the dataclass order), else the field order with `_tail` moved to the end."""
         if cls._order:
             field_of = {cls.key_of(n): n for n in names}
@@ -140,11 +140,8 @@ class Bundle(dict):
     def clear(self) -> NoReturn:
         raise self._read_only()
 
-    def __reduce__(
-        self,
-    ) -> tuple[
-        Callable[..., Bundle], tuple[object, ...]
-    ]:  # pickle through the fields by name, and keep the dict view's key order
+    def __reduce__(self) -> tuple[Callable[..., Bundle], tuple[object, ...]]:
+        # pickle through the fields by name, and keep the dict view's key order
         return (_rebuild, (type(self), {n: getattr(self, n) for n in self._names()}, list(self)))
 
 

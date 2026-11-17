@@ -41,9 +41,8 @@ class MeterPlan:
         buses and `branches` branches, zero where no meter sits. `gather` is its inverse."""
         z = np.asarray(z)
         layer, row, column = self._slots()
-        out = MeterLayers(
-            *(np.zeros(z.shape[:-1] + (rows, 4), z.dtype) for rows in (buses, branches, branches))
-        )
+        lead = z.shape[:-1]
+        out = MeterLayers(*(np.zeros(lead + (rows, 4), z.dtype) for rows in (buses, branches, branches)))
         for k, values in enumerate(out):
             here = layer == k
             values[..., row[here], column[here]] = z[..., here]
@@ -71,9 +70,8 @@ class MeterPlan:
             layer, column = METER_SLOT[k]
             at_bus = layer == 0
             # row-major, so the meters come by bus, or by branch and then end
-            row, e = np.nonzero(
-                masks[layer][:, column : column + 1] if at_bus else masks[layer][:, column::TO_END_OFFSET]
-            )
+            columns = slice(column, column + 1) if at_bus else slice(column, None, TO_END_OFFSET)
+            row, e = np.nonzero(masks[layer][:, columns])
             none = np.full(len(row), -1)
             kind.append(np.full(len(row), k))
             bus.append(row if at_bus else edges[e, row])

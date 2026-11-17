@@ -64,11 +64,11 @@ classDiagram
     class FrameKnobs {
         <<models>>
     }
-    class GridBase {
-        <<engine>>
-    }
     class LoadGoal {
         <<models>>
+    }
+    class MeasurementMixin {
+        <<engine>>
     }
     class MinimizerResult {
         <<models>>
@@ -81,6 +81,9 @@ classDiagram
     }
     class OverloadSettings {
         <<models>>
+    }
+    class PhysicsMixin {
+        <<engine>>
     }
     class RampDesign {
         <<models>>
@@ -104,10 +107,11 @@ classDiagram
     EpisodeDesignMixin <|-- AttackMixin
     FalseStateMixin <|-- MinimizeMixin
     FalseStateMixin <|-- StealthyMixin
-    GridBase <|-- AreaMixin
+    MeasurementMixin <|-- AreaMixin
     MinimizeMixin <|-- OverloadMixin
     OverloadMixin <|-- AttackMixin
     OverloadMixin <|-- EpisodeDesignMixin
+    PhysicsMixin <|-- FalseStateMixin
     StealthyMixin <|-- AttackMixin
     AreaMixin ..> AreaScore : uses
     AttackMixin ..> AttackDesign : uses

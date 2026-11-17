@@ -130,9 +130,8 @@ def _designing(setup: _Designing) -> _Designing:
 def _design(state: _Designing, task: _Task) -> _Tried:
     """One episode design, from the stream keyed by its family and onset."""
     start = time.perf_counter()
-    ep, miss = state.families[task.family].design_explained(
-        (task.onset, task.vm, task.va), rng(state.build, f"design/{task.family}/{task.onset}")
-    )
+    design = state.families[task.family].design_explained
+    ep, miss = design((task.onset, task.vm, task.va), rng(state.build, f"design/{task.family}/{task.onset}"))
     return _Tried(ep, time.perf_counter() - start, miss)
 
 
@@ -271,10 +270,7 @@ class NewYorkSource(TimelineSource[str, Episode]):
 
     @classmethod
     def production(
-        cls,
-        pool_path: str | Path,
-        release: NewYorkRelease = NewYorkRelease(),
-        build: Settings = Settings(),
+        cls, pool_path: str | Path, release: NewYorkRelease = NewYorkRelease(), build: Settings = Settings()
     ) -> NewYorkSource:
         """The source of the release, with every decided bound (N8, N27 to N49) in one place: the case,
         clients, meters and the pool at `pool_path` (relative to `release.root`, whose `data/` holds
@@ -292,9 +288,8 @@ class NewYorkSource(TimelineSource[str, Episode]):
         meas = Measurement(net, plan_meters(net, own, rng(build, "meters")))
         # N71: a voltage margin widens the attacker's limits on its own copy of the case
         att_net = Network(case.with_voltage_margin(release.v_margin)) if release.v_margin else net
-        att = Attacker(
-            att_net, meas, hold_external=release.hold_external
-        )  # N62: True keeps the interchange true
+        # N62: True keeps the interchange true
+        att = Attacker(att_net, meas, hold_external=release.hold_external)
         families: dict[str, AttackFamily] = {}
         for name in release.families:
             if name == AM:
@@ -479,12 +474,11 @@ class NewYorkSource(TimelineSource[str, Episode]):
         for ep in self._episodes:
             writer.add_episode(replace(ep, onset=ep.onset - self.first))
         w = slice(self.first, self.stop)
+        targets = np.array([ep.target_branch for ep in self._episodes], np.int32)
         columns = {
             schema.SPLIT: self._split[w],
             schema.TIME: self.pool.time[w].astype("datetime64[s]").astype(np.int64),
-            schema.path(schema.Group.EPISODES, schema.EPISODE_TARGET_BRANCH): np.array(
-                [ep.target_branch for ep in self._episodes], np.int32
-            ),
+            schema.path(schema.Group.EPISODES, schema.EPISODE_TARGET_BRANCH): targets,
         }
         base_mva = float(self.meas.net.case.base_mva)
         header, knobs = writer.header(base_mva, self.build.seed), self._recorded()

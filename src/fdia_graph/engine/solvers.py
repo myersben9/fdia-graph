@@ -28,9 +28,8 @@ def ipopt(**options: Any) -> Any:
     lib = os.path.join(sys.prefix, "Library", "bin")
     path = os.environ.get("PATH", "")
     on_path = {os.path.normcase(os.path.normpath(p)) for p in path.split(os.pathsep) if p}
-    if (
-        os.path.isdir(lib) and os.path.normcase(os.path.normpath(lib)) not in on_path
-    ):  # whole entries, not text
+    # whole entries, not text
+    if os.path.isdir(lib) and os.path.normcase(os.path.normpath(lib)) not in on_path:
         os.environ["PATH"] = lib + os.pathsep + path
     exe = os.path.join(lib, "ipopt.exe")
     solver = pe.SolverFactory("ipopt", executable=exe) if os.path.exists(exe) else pe.SolverFactory("ipopt")

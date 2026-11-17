@@ -18,7 +18,7 @@ from ...constants.channels import NodeChannel
 from ...formulas.attacks import bus_load
 from ...formulas.network import complex_voltages, flow_sensitivities, subnetwork
 from ...models.frames import AreaScore
-from ..base import GridBase
+from ..measurement import MeasurementMixin
 
 # the regions `rule_area` chooses among: the buses within this many hops of the goal (ours)
 AREA_HOPS = (1, 2, 3, 4)
@@ -33,7 +33,7 @@ def area_score_total(s: AreaScore) -> float:
     return s.load_share + s.spread + s.stability + s.observability - AREA_SIZE_PENALTY * s.size
 
 
-class AreaMixin(GridBase):
+class AreaMixin(MeasurementMixin):
     """Where a stealthy attack acts: the interior buses it may move and the boundary around them."""
 
     def local_region(self, seeds: np.ndarray, hops: int) -> Optional[np.ndarray]:
