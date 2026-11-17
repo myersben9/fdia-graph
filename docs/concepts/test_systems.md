@@ -132,6 +132,7 @@ them. `AcSolver` avoids it by giving every branch a placeholder rating.
 |---|---|
 | `fixes.py` | two variants of the New York case, each a copy: `externals_at_base` and `hvdc_links` |
 | `ownership.py` | `Ownership`: which utility owns each New York bus |
+| `states.py` | `PoolStates`: solved voltages read frame by frame as the states a timeline walks |
 | `tables.py` | the reader of the CSV input tables |
 | `pandapower_types.py` | the pandapower net, named as types for `from_pandapower` |
 

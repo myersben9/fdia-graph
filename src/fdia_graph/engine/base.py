@@ -9,7 +9,7 @@ from typing import Optional
 
 import numpy as np
 
-from ..models.frames import MeterLayers
+from ..models.frames import LayerSet, MeterLayers
 from ..sensing.measure import Measurement
 from ..sensing.meters import MeterPlan
 from ..sensing.noise import NoiseModel
@@ -24,6 +24,7 @@ class GridBase:
     # and held by column, because the stored IEEE files depend on its last bit (`Network`)
     net: Network
     C: int
+    spec: LayerSet  # the layers a scan is laid out in (the flow layer's ends)
     E: int
     rng: np.random.Generator
     seed: int

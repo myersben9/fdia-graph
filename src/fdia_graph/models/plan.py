@@ -1,34 +1,36 @@
 """The records of a timeline's plan and design stages: a placed episode (`Slot`), a split and its
 frames (`SplitSpan`), a placed episode on its way through the design stage (`Planned`), the attack
-as it is written (`Episode`), what is placed (`Schedule`) and what the placement asked for and got
-(`Placement`), and what a design worker rebuilds its generator from (`GeneratorSpec`)."""
+as it is written (`Episode`, `EpisodeRecord`), what the placement asked for and got (`Placement`),
+and what a design worker rebuilds its generator from (`GeneratorSpec`)."""
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass, field, replace
-from typing import Generic, Optional, TypeVar, Union
+from typing import TYPE_CHECKING, Generic, Optional, TypeVar, Union
 
 import numpy as np
 
-from ..constants.families import FAMILY_CODE
 from .choices import Split
 from .config import MeterSettings
+from .frames import MinimizerResult
 
-# an episode's family: the timeline's code, or the New York family's name
-Family = TypeVar("Family", int, str)
-Design = TypeVar("Design")  # what a design stage finds for one episode (each grid has its own record)
+if TYPE_CHECKING:  # a designed episode is a producer's: named for the type checker only
+    from ..engine.attacks.family import DesignedEpisode
+
+Design = TypeVar("Design")  # what a design stage finds for one episode
 
 
 @dataclass(frozen=True, order=True)
-class Slot(Generic[Family]):
-    """One placed episode: its first frame `onset`, its `family` (the timeline's code, or the New
-    York family's name) and its `length` in frames. Slots sort by onset."""
+class Slot:
+    """One placed episode: its first frame `onset`, its `family` by name ("At", "Am") and its
+    `length` in frames. Slots sort by onset."""
 
     onset: int
-    family: Family
+    family: str
     length: int
 
-    def at(self, onset: int) -> Slot[Family]:
+    def at(self, onset: int) -> Slot:
         """The same episode at another onset."""
         return Slot(onset, self.family, self.length)
 
@@ -67,20 +69,43 @@ class SplitSpan:
 
 
 @dataclass(frozen=True)
-class Planned(Generic[Family, Design]):
+class Planned(Generic[Design]):
     """A placed episode not yet written: where it sits now, the `design` found at that onset (None
-    until it has one; the walk designs the IEEE ramp At itself as it reaches it, since its stealth
-    bound reads the frame written just before its onset), its `index` among the split's placed
-    episodes and the `moves` made so far for want of a feasible design."""
+    until it has one), its `index` among the split's placed episodes, the `moves` made so far for
+    want of a feasible design and the code of its `split`."""
 
-    slot: Slot[Family]
+    slot: Slot
     design: Optional[Design] = None
     index: int = 0
     moves: int = 0
+    split: int = 0
 
-    def moved_to(self, slot: Slot[Family]) -> Planned[Family, Design]:
+    def moved_to(self, slot: Slot) -> Planned[Design]:
         """The same episode after one more move, at `slot`."""
         return replace(self, slot=slot, moves=self.moves + 1)
+
+
+@dataclass(frozen=True)
+class DesignTask:
+    """One design to try: the family, the pool frame its window starts at, the true states of the
+    window [L, N, 4], and the key of its random stream."""
+
+    family: str
+    onset: int
+    window: np.ndarray
+    key: tuple[int, ...]
+
+
+@dataclass(frozen=True)
+class Tried:
+    """What one design attempt came to: the episode or None, the seconds it took, and why there is
+    none (a miss reason of `engine.attacks.family`; None with an episode or from a family that gives
+    none). `designed` is False for an attempt not made, its window touching an unsolved frame."""
+
+    episode: Optional[DesignedEpisode] = None
+    seconds: float = 0.0
+    miss: Optional[str] = None
+    designed: bool = True
 
 
 @dataclass(frozen=True)
@@ -102,46 +127,36 @@ class Episode:
     a: np.ndarray
 
 
-@dataclass
-class Schedule:
-    """What is placed on the timeline: the families, the episode lengths and the ramp's rate, and
-    the attacked fraction the placement fills up to."""
+@dataclass(frozen=True)
+class EpisodeRecord:
+    """What a file records of one emitted episode: its row of the episode table, what the fewest-tamper
+    search chose for it (None: the search did not run) and, for an overload Am, one row per target
+    line: branch, rating, goal, noiseless flow reached, emitted flow (MVA)."""
 
-    families: list[int]
-    ramp_len: int
-    ramp_rate: float
-    am_len: int
-    attacked_frac: float
-
-    def length_of(self, fid: int) -> int:
-        """The frames an episode of `fid` takes: the ramp length for At, `am_len` for Am."""
-        return self.ramp_len if fid == FAMILY_CODE["At"] else self.am_len
-
-    @property
-    def lengths(self) -> dict[int, int]:
-        """The episode length of every family, in the schedule's family order."""
-        return {f: self.length_of(f) for f in self.families}
+    episode: Episode
+    tamper: Optional[MinimizerResult] = None
+    lines: Sequence[tuple[int, float, float, float, float]] = ()
 
 
 @dataclass
-class Placement(Generic[Family]):
+class Placement:
     """What the placement asked for and got, per split (rows, `Split`) and family (columns, the
-    timeline's families): episodes requested, dropped because they would not fit, moved to
+    timeline's families by name): episodes requested, dropped because they would not fit, moved to
     another onset because no design was feasible, and built."""
 
-    families: list[Family]
+    families: list[str]
     requested: np.ndarray
     dropped: np.ndarray
     redraws: np.ndarray
     built: np.ndarray
 
     @classmethod
-    def empty(cls, families: list[Family]) -> Placement[Family]:
+    def empty(cls, families: list[str]) -> Placement:
         """The record of `families` with every count at zero."""
         zero = np.zeros((len(Split), len(families)), int)
         return cls(families, requested=zero, dropped=zero.copy(), redraws=zero.copy(), built=zero.copy())
 
-    def col(self, fid: Family) -> int:
+    def col(self, fid: str) -> int:
         """The column of family `fid`."""
         return self.families.index(fid)
 

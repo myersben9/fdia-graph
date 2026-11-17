@@ -14,7 +14,7 @@ from typing import Annotated, Optional, Union, cast
 
 import numpy as np
 
-from ..constants.families import GENERATED_FAMILIES, NEW_YORK_FAMILIES
+from ..constants.families import AT, GENERATED_FAMILIES, NEW_YORK_FAMILIES
 from ..constants.files import EXPORT_COLUMNS
 from ..constants.newyork import RELEASE_INTERFACE
 from ..errors import ConfigError
@@ -248,6 +248,10 @@ class TimelineSettings(Validated):
         """The Am episode length: `am_len`, or the ramp's length when none is given."""
         return self.ramp.length if self.am_len is None else self.am_len
 
+    def lengths_for(self, families: Sequence[str]) -> dict[str, int]:
+        """The episode length in frames of each of `families`: the ramp's for At, `am_frames` for Am."""
+        return {f: self.ramp.length if f == AT else self.am_frames for f in families}
+
     def as_record(self) -> dict[str, object]:
         """The settings as nested plain values (JSON-ready), what a file and the results store record;
         `workers` is left out, since the timeline does not depend on it."""
@@ -370,7 +374,6 @@ class NewYorkSettings(Validated):
     split: SplitSettings = field(default_factory=lambda: SplitSettings((0.7, 0.15, 0.15)))
     split_by: Annotated[str, OneOf(SplitBy)] = "week"  # whole weeks, or three blocks in time order ("time")
     workers: Count = 1  # the processes the designs run on (1: the caller's)
-    block: Count = 2016  # the frames written at a time
     verbose: Annotated[bool, Boolean()] = False
     survey: SurveyGrid = 0
     survey_cache: Optional[FolderPath] = None
@@ -385,8 +388,8 @@ class NewYorkSettings(Validated):
 
     def as_record(self) -> dict[str, object]:
         """The settings as nested plain values (JSON-ready), what a file records. Left out is what the
-        timeline does not depend on: `workers`, `block`, `verbose` and `survey_cache`."""
-        return _record(self, "workers", "block", "verbose", "survey_cache")
+        timeline does not depend on: `workers`, `verbose` and `survey_cache`."""
+        return _record(self, "workers", "verbose", "survey_cache")
 
     def lengths_for(self, families: Sequence[str]) -> dict[str, int]:
         """The episode length in frames of each of `families`."""

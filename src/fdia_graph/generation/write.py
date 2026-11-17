@@ -17,16 +17,13 @@ import numpy as np
 from .. import schema
 from ..constants.families import BENIGN_CODE, FAMILIES, FAMILY_CODE, STEALTHY_FAMILIES
 from ..formulas.temporal import recent_change_scale
-from ..models.choices import Split, family_label
+from ..models.choices import Split
 from ..models.frames import AttackVector, Frame, LayerSet, MinimizerResult
-from ..models.plan import Episode, Family, Placement
+from ..models.plan import Episode, EpisodeRecord, Placement
 from ..schema import Attr, Group
 
 _BATCH = 256  # frames staged in memory between two flushes to the file
 CleanSlice = Callable[[int, int], tuple[np.ndarray, np.ndarray]]  # the noiseless truth of frames a..b-1
-# the target lines of an overload Am episode, each: branch, rating, goal, noiseless flow reached, emitted flow
-AmRows = Sequence[tuple[int, float, float, float, float]]
-Tamper = Optional[MinimizerResult]  # what the fewest-tamper search chose for an episode; None: it did not run
 
 
 class TimelineWriter:
@@ -231,14 +228,15 @@ class TimelineWriter:
         if self._base < self.dims[0]:
             self._clean_batch = self._clean(self._base, self._base + self._n)
 
-    def add_episode(self, episode: Episode, tamper: Tamper = None, lines: AmRows = ()) -> None:
-        """Add the next row of episodes/; its index is the `sid` its frames were stored under. `tamper`
-        is what the fewest-tamper search chose, `lines` one row per target line of an overload Am."""
+    def add_episode(self, record: EpisodeRecord) -> None:
+        """Add the next row of episodes/; its index is the `sid` its frames were stored under. The
+        record also holds what the fewest-tamper search chose, and a row per target line of an
+        overload Am."""
         sid = len(self.episodes)
-        self.episodes.append(episode)
-        if tamper is not None:
-            self.min_rows.append((sid, tamper))
-        self.am_rows += [(sid, *row) for row in lines]
+        self.episodes.append(record.episode)
+        if record.tamper is not None:
+            self.min_rows.append((sid, record.tamper))
+        self.am_rows += [(sid, *row) for row in record.lines]
 
     # ---- 2. finish: after the walk, everything the file carries besides its frames -----------------
 
@@ -248,7 +246,7 @@ class TimelineWriter:
         header: Mapping[str, object],
         knobs: Mapping[str, object],
         record: dict[str, object],
-        rec: Placement[Family],
+        rec: Placement,
         frac: Sequence[float],
         tamper_rule: str = schema.IEEE_TAMPER_RULE,
     ) -> None:
@@ -325,7 +323,7 @@ class TimelineWriter:
         header: Mapping[str, object],
         knobs: Mapping[str, object],
         record: dict[str, object],
-        rec: Placement[Family],
+        rec: Placement,
         split: np.ndarray,
         frac: Sequence[float],
     ) -> None:
@@ -351,7 +349,7 @@ class TimelineWriter:
             Attr.SPLIT_FRAC: np.asarray(frac, float),
             Attr.SPLIT_SIZES: sizes,
             Attr.SPLIT_ATTACKED_FRAC: attacked / np.maximum(1, sizes),
-            Attr.PLACED_FAMILIES: ",".join(family_label(f) for f in rec.families),
+            Attr.PLACED_FAMILIES: ",".join(rec.families),
             Attr.EPISODES_REQUESTED: rec.requested,
             Attr.EPISODES_BUILT: rec.built,
             Attr.EPISODE_REDRAWS: rec.redraws,

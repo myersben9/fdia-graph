@@ -40,9 +40,11 @@ the data.
 
 ## The timeline
 
-After `source.generate(path)`, `NewYorkSource.summary()` returns a summary. When the build made fewer
-attacks than it placed, `missed` (and, with the
-onset survey on, `survey_missed`) says why, counted per family:
+After `source.generate(path)`, `NewYorkSource.summary()` returns a summary. A placed episode whose design
+finds no attack moves to another onset of its split (`moved` counts the moves) and is given up, with a
+warning, after `REDRAWS` moves (`given_up`). `missed` (and, with the
+onset survey on, `survey_missed`) says why design attempts found no attack, counted per family; a slot is
+tried again at every onset it moves to:
 
 | Reason | Meaning | What to do |
 |---|---|---|

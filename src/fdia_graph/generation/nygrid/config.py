@@ -17,7 +17,12 @@ class Settings:
     seed: int = 123
 
 
+def stream_key(settings: Settings, stage: str) -> tuple[int, int]:
+    """The key of one build stage's random stream: the seed and the stage's name."""
+    return (settings.seed, zlib.crc32(stage.encode()))
+
+
 def rng(settings: Settings, stage: str) -> np.random.Generator:
     """A generator for one build stage. Each stage gets its own stream, so rerunning or changing one
     stage never shifts the random draws of another."""
-    return np.random.default_rng([settings.seed, zlib.crc32(stage.encode())])
+    return np.random.default_rng(stream_key(settings, stage))

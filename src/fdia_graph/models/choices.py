@@ -10,8 +10,6 @@ from __future__ import annotations
 import re
 from enum import Enum
 
-from fdia_graph.constants.families import FAMILIES
-
 
 class Choice(str, Enum):
     """A string option from a fixed set."""
@@ -32,14 +30,6 @@ class Choice(str, Enum):
     def values(cls) -> list[str]:
         """Every allowed value, in declaration order."""
         return [m.value for m in cls]
-
-
-# ---- the attack families -------------------------------------------------------------------------
-
-
-def family_label(family: object) -> str:
-    """A family's name, from its code in a file (5 reads "At") or from the name itself."""
-    return FAMILIES[family] if isinstance(family, int) else str(family)
 
 
 # ---- the dataset ---------------------------------------------------------------------------------

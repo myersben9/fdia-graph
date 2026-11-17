@@ -6,7 +6,17 @@ import numpy as np
 
 from fdia_graph.constants.meters import JITTER_FRAC, MeterKind
 from fdia_graph.formulas.noise import accuracy_class_sigma
+from fdia_graph.formulas.temporal import wrap_degrees
 from fdia_graph.sensing.meters import MeterPlan
+
+
+def wrap_angles(d: np.ndarray, kind: np.ndarray) -> np.ndarray:
+    """A difference of readings `d [..., M]` with each angle difference (kinds va and ia, degrees)
+    wrapped to (-180, 180], since angle readings wrap at +-180 degrees; `kind [M]` the meter kinds."""
+    d = np.array(d, float, copy=True)
+    angle = np.isin(kind, (MeterKind.VA, MeterKind.IA))
+    d[..., angle] = wrap_degrees(d[..., angle])
+    return d
 
 
 class NoiseModel:
@@ -21,12 +31,18 @@ class NoiseModel:
         self.relative = plan.sigma_rel > 0
         self._class = np.where(self.relative, plan.sigma_rel, plan.sigma_abs)  # the class of [ASP14]
         self._other = plan.phasor_partner()  # the other part of a phasor's row, -1 on any other meter
-        self._is_real = plan.kind == MeterKind.IR
+        self._is_real, self._kind = plan.kind == MeterKind.IR, plan.kind
 
     def sigmas(self, z: np.ndarray) -> np.ndarray:
         """The accuracy-class standard deviation of each meter at exact readings z [..., M], the total of
         bias and jitter (what an estimator weights by and what a change must exceed to count)."""
         return accuracy_class_sigma(self._size(z), self._class, self.relative, self.sigma_abs)
+
+    def tampered(self, z: np.ndarray, a: np.ndarray) -> np.ndarray:
+        """[..., M] bool: the meters an attack vector `a` moves beyond their noise at exact readings
+        `z`, the meters [WU26] eq. 12 counts. An angle change is wrapped first, so a reading crossing
+        +-180 degrees counts by its true move."""
+        return np.abs(wrap_angles(a, self._kind)) > self.sigmas(z)
 
     def _size(self, z: np.ndarray) -> np.ndarray:
         """What a relative class is taken of: |z|, or the phasor's magnitude |I| on a part of one."""

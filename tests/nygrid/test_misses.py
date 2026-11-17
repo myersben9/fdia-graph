@@ -36,11 +36,11 @@ def _family(miss: str | None, solver_errors: int, found: bool):
     ids=["found", "no-target", "infeasible", "solver-error"],
 )
 def test_design_says_why_it_found_no_attack(miss, errors, found, want):
-    from fdia_graph.generation.nygrid import source
-    from fdia_graph.generation.nygrid.config import Settings
+    from fdia_graph.generation.design import Designer
+    from fdia_graph.models.plan import DesignTask
 
-    state = source._Designing({"Am": _family(miss, errors, found)}, Settings())
-    tried = source._design(state, source._Task("Am", 5, np.ones((1, 2)), np.zeros((1, 2))))
+    families = {"Am": _family(miss, errors, found)}
+    tried = Designer._design(families, DesignTask("Am", 5, np.ones((1, 2, 4)), (0, 1)))
     assert (tried.episode is not None) is found
     assert tried.miss == want
 

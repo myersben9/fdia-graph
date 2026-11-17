@@ -4,7 +4,7 @@ A timeline is first cut into train, val and test: three blocks in time order (`s
 weeks drawn at random, stratified on a weight per frame (`split_weeks`). Each split then gets the whole
 number of episodes whose frames come closest to its attacked fraction, shared evenly between the
 families and placed at uniform random onsets, never overlapping and never cut (`place_episodes`). An
-episode whose design is infeasible moves to another free onset of its split (`free_onset`).
+episode whose design is infeasible moves to another free onset of its split (`free_onset`), on either grid.
 Nothing here touches the grid: the plan is positions and counts.
 """
 
@@ -18,11 +18,10 @@ from typing import Optional, Union
 
 import numpy as np
 
-from ..constants.families import FAMILIES
 from ..constants.time import WEEK_SECONDS
 from ..errors import NoRoomForEpisode
-from ..models.choices import Split, family_label
-from ..models.plan import Family, Placement, Slot, SplitSpan
+from ..models.choices import Split
+from ..models.plan import Placement, Slot, SplitSpan
 
 PLACE_TRIES = 10  # whole-split placements tried before one episode is dropped
 STRATUM = 20  # weeks per stratum of `split_weeks`: one 14/3/3 draw at shares of 0.7, 0.15, 0.15
@@ -99,15 +98,15 @@ def uniform_onset(
 
 def place_once(
     rng: np.random.Generator,
-    episodes: Sequence[tuple[int, Family]],
+    episodes: Sequence[tuple[int, str]],
     n: int,
-    allowed: Optional[Mapping[Family, np.ndarray]] = None,
-) -> list[Slot[Family]]:
+    allowed: Optional[Mapping[str, np.ndarray]] = None,
+) -> list[Slot]:
     """One placement of (length, family) episodes in a split of n frames: longest first, each at an
     onset uniform among those where it fits and its family's `allowed` mask holds. Onsets are within
     the split. Raises NoRoomForEpisode, naming the family, when one does not fit."""
     occupied = np.zeros(n, bool)
-    placed: list[Slot[Family]] = []
+    placed: list[Slot] = []
     for length, fid in sorted(episodes, key=lambda x: -x[0]):
         mask = None if allowed is None else allowed.get(fid)
         try:
@@ -130,8 +129,8 @@ def capacity(allowed: np.ndarray, length: int) -> int:
 
 
 def capped_counts(
-    lengths: Mapping[Family, int], frac: float, n: int, allowed: Mapping[Family, np.ndarray]
-) -> dict[Family, int]:
+    lengths: Mapping[str, int], frac: float, n: int, allowed: Mapping[str, np.ndarray]
+) -> dict[str, int]:
     """Episodes per family for a split of n frames (`whole_episode_counts`), a family held to `allowed`
     onsets cut to what those onsets can hold (`capacity`)."""
     fams = list(lengths)
@@ -144,11 +143,11 @@ def capped_counts(
 
 def place_episodes(
     rng: np.random.Generator,
-    lengths: Mapping[Family, int],
+    lengths: Mapping[str, int],
     frac: float,
     n: int,
-    allowed: Optional[Mapping[Family, np.ndarray]] = None,
-) -> tuple[list[Slot[Family]], dict[Family, int], dict[Family, int]]:
+    allowed: Optional[Mapping[str, np.ndarray]] = None,
+) -> tuple[list[Slot], dict[str, int], dict[str, int]]:
     """The episodes of one split of n frames as slots sorted by onset (within the split), then the
     episodes requested and dropped per family. A placement that jams is retried whole PLACE_TRIES
     times; then one episode of the family that did not fit is dropped and the placement starts over."""
@@ -170,12 +169,12 @@ def place_episodes(
 
 def place_split(
     rng: np.random.Generator,
-    lengths: Mapping[Family, int],
+    lengths: Mapping[str, int],
     frac: float,
     span: SplitSpan,
-    rec: Placement[Family],
-    masks: Optional[Mapping[Family, np.ndarray]] = None,
-) -> list[Slot[Family]]:
+    rec: Placement,
+    masks: Optional[Mapping[str, np.ndarray]] = None,
+) -> list[Slot]:
     """The episodes of the split `span`, onsets in timeline frames; `rec` records what was requested
     and dropped. An episode starts only where its frames are consecutive on the timeline
     (`SplitSpan.onsets_fit`) and where its family's mask in `masks` ([T] bool) allows."""
@@ -190,7 +189,7 @@ def place_split(
         if dropped[f]:
             warnings.warn(
                 f"split {Split.values()[span.code]}: placements jammed {PLACE_TRIES} times, {dropped[f]} "
-                f"{family_label(f)} episode(s) dropped",
+                f"{f} episode(s) dropped",
                 RuntimeWarning,
                 stacklevel=2,
             )
@@ -205,21 +204,31 @@ def planned_until(spans: Sequence[SplitSpan], k: int) -> int:
     return min(later, default=max(span.stop for span in spans))
 
 
-def free_onset(rng: np.random.Generator, length: int, others: Sequence[Slot[int]], span: SplitSpan) -> int:
-    """An onset in the split `span`, uniform among every position where `length` frames fit without
-    touching any of the `others` (NoRoomForEpisode when none is left)."""
-    occupied = np.zeros(span.stop - span.start, bool)
+def free_onset(
+    rng: np.random.Generator,
+    length: int,
+    others: Sequence[Slot],
+    span: SplitSpan,
+    mask: Optional[np.ndarray] = None,
+) -> int:
+    """An onset in the split `span`, uniform among every position where `length` consecutive frames
+    of the split fit without touching any of the `others` and, with a family's `mask` ([T] bool over
+    the timeline), where it allows (NoRoomForEpisode when none is left)."""
+    index = span.index()
+    occupied = np.zeros(len(index), bool)
     for other in others:
-        lo, hi = max(other.onset, span.start), min(other.onset + other.length, span.stop)
-        if lo < hi:
-            occupied[lo - span.start : hi - span.start] = True
-    return span.start + uniform_onset(occupied, length, rng)
+        lo, hi = np.searchsorted(index, (other.onset, other.onset + other.length))
+        occupied[lo:hi] = True
+    allowed = span.onsets_fit(length)
+    if mask is not None:
+        allowed &= mask[index]
+    return int(index[uniform_onset(occupied, length, rng, allowed=allowed)])
 
 
-def give_up(split: int, fid: int, moves: int) -> None:
+def give_up(split: int, fid: str, moves: int) -> None:
     """Warn that an episode found no feasible design after `moves` moves (its shortfall is recorded)."""
     warnings.warn(
-        f"split {Split.values()[split]}: one {FAMILIES[fid]} episode found no feasible design after {moves} moves",
+        f"split {Split.values()[split]}: one {fid} episode found no feasible design after {moves} moves",
         RuntimeWarning,
         stacklevel=3,
     )

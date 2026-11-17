@@ -19,38 +19,34 @@ from .conftest import LENGTHS, UNSOLVED, T
 
 @pytest.fixture(scope="module")
 def written(grid, tmp_path_factory):
-    """(the open file, its source, what the source stored): the flat vectors the source laid out as layers
-    (every value `MeterPlan.scatter` was given, a row per frame), and each frame's family and episode row as
-    its designed episodes say."""
+    """(the open file, its source, what the source must have stored): the flat vectors worked out here from
+    the pool, a row per frame, and each frame's family and episode row as its designed episodes say. A frame's
+    benign scan is the exact reading with the noise of the frame's own stream, keyed (seed, JITTER_STREAM,
+    frame); under an episode the scan is that float32 reading plus its row of the attack vector."""
+    from fdia_graph.constants.streams import JITTER_STREAM
     from fdia_graph.dataset.clients import Dataset
-    from fdia_graph.engine.attacks.attacker import Attacker
     from fdia_graph.generation.nygrid.source import NewYorkSource
     from fdia_graph.models.config import NewYorkSettings
-    from fdia_graph.sensing.measure import Measurement
-    from fdia_graph.sensing.meters import MeterPlan
-
-    laid_out = []
-
-    class Recording(MeterPlan):
-        def scatter(self, z, buses, branches):
-            laid_out.append(np.asarray(z))
-            return super().scatter(z, buses, branches)
 
     pool, att, families, own = grid
-    plan = att.meas.plan
-    columns = [f.name for f in fields(plan) if f.init]  # `slots` is worked out from them
-    meas = Measurement(att.net, Recording(**{name: getattr(plan, name) for name in columns}))
-    settings = NewYorkSettings(length=LENGTHS, block=100)
-    source = NewYorkSource(pool, Attacker(att.net, meas), families, own, settings)
+    source = NewYorkSource(pool, att, families, own, NewYorkSettings(length=LENGTHS))
     path = source.generate(tmp_path_factory.mktemp("dataset") / "timeline.h5")
-    # the first value laid out is the meter mask; then, block by block, the scans, their benign twins and
-    # the tampered meters
-    names = ("z", "z_benign", "tampered")
-    stored = {name: np.concatenate(laid_out[1 + i :: 3]) for i, name in enumerate(names)}
+    meas, seed = att.meas, source.build.seed
+    with np.errstate(invalid="ignore"):  # the unsolved frames are NaN
+        scans = [
+            source.noise.sample(
+                meas.h(pool.vm[t], pool.va[t]), np.random.default_rng([seed, JITTER_STREAM, t])
+            )
+            for t in range(T)
+        ]
+    benign = np.array(scans).astype(np.float32)
+    stored = {"z": benign.copy(), "z_benign": benign, "tampered": np.zeros(benign.shape, bool)}
     stored["family"], stored["episode"] = np.zeros(T, int), np.full(T, -1)
-    for row, ep in enumerate(source._episodes):
-        stored["family"][ep.onset : ep.onset + ep.length] = FAMILY_CODE[ep.family]
-        stored["episode"][ep.onset : ep.onset + ep.length] = row
+    for row, ep in enumerate(source.episodes):
+        w = slice(ep.onset, ep.onset + ep.length)
+        stored["z"][w] = (benign[w] + ep.a).astype(np.float32)
+        stored["tampered"][w] = att.tampered(pool.vm[w], pool.va[w], ep.a)
+        stored["family"][w], stored["episode"][w] = FAMILY_CODE[ep.family], row
     return Dataset(path), source, stored
 
 
@@ -83,7 +79,7 @@ def test_the_file_holds_what_the_source_stored(written):
     assert ds.clients == own.names.tolist() and np.array_equal(ds.own.bus_client, own.bus_client)
     assert np.array_equal(ds.own.tie_lines, own.tie_lines)
     assert np.array_equal(h[schema.TIME][:].astype("datetime64[s]"), pool.time)
-    assert np.array_equal(h[schema.SPLIT][:], source._split)
+    assert np.array_equal(h[schema.SPLIT][:], source.split)
     assert np.array_equal(h[schema.FAMILY][:], stored["family"])
     assert np.array_equal(h[schema.SEQ_ID][:], stored["episode"])
     assert set(np.unique(stored["family"]).tolist()) == {0, FAMILY_CODE["Am"], FAMILY_CODE["At"]}
@@ -100,7 +96,7 @@ def test_the_file_holds_what_the_source_stored(written):
     assert np.array_equal(clean[:5, :, 1], p.astype(np.float32))
     # the episode table: one row per designed episode, in onset order
     e = h[schema.Group.EPISODES]
-    episodes = source._episodes
+    episodes = source.episodes
     assert len(episodes) >= 10 and e[schema.EPISODE_ONSET][:].tolist() == [ep.onset for ep in episodes]
     assert e[schema.EPISODE_FAMILY][:].tolist() == [FAMILY_CODE[ep.family] for ep in episodes]
     assert e[schema.EPISODE_TARGET_BRANCH][:].tolist() == [ep.target_branch for ep in episodes]
@@ -182,7 +178,7 @@ def test_the_settings_and_their_hash_identify_the_file(written):
     one = SingleEpisodeSource(source, 10, "At")
     assert one.record()["episode"] == {"family": "At", "onset": 10, "lag": 0, "lo": 10, "hi": 14}
     assert one.record()["release"] == source.release and "attacked_frac" not in one.record()
-    assert schema.Attr.TARGET_ATTACKED_FRAC not in one._recorded() and one._split_frac() == (1.0, 0.0, 0.0)
+    assert schema.Attr.TARGET_ATTACKED_FRAC not in one.recorded() and one.fractions == (1.0, 0.0, 0.0)
     others = (SingleEpisodeSource(source, 11, "At"), SingleEpisodeSource(source, 10, "At", lag=1))
     others += (SingleEpisodeSource(source, 10, "At", lo=5), SingleEpisodeSource(source, 10, "Am"))
     hashes |= {schema.config_hash(s.record()) for s in (one, *others)}
@@ -256,7 +252,7 @@ def test_operator_and_split_views(written):
     sizes = []
     for code, split in enumerate(Split.values()):
         v = ds.client(ds.clients[0], split)
-        assert np.array_equal(v.frames, np.flatnonzero(source._split == code))
+        assert np.array_equal(v.frames, np.flatnonzero(source.split == code))
         assert np.array_equal(v.z, stored["z"].astype(np.float32)[v.frames][:, mine], equal_nan=True)
         gaps = np.diff(v.frames) != 1
         assert (v.temporal()[1:][gaps] == 0).all()  # no change across another split's frames

@@ -5,7 +5,7 @@ The attacker scales a local subnetwork's loads and re-solves it with the boundar
 (`Attacker.false_state`), so every snapshot's readings are those of one AC state and the operator's
 residual test sees noise only [1]. The ramp follows the triangle profile of [1]: rise, hold, return.
 Each step is capped below the bus's natural frame-to-frame load variation over the window, which hides
-it from a per-snapshot check. The peak must clear the meter noise floor, or the window stays benign.
+it from a per-snapshot check. The peak must clear the meter noise floor, or the window has no attack.
 Every meter the attack moves beyond noise is written, and `Episode.clients` records their owners.
 """
 
