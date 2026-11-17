@@ -1,0 +1,7 @@
+/* A hand-written flow diagram is a 900 px PNG drawn for a phone (tools/render_mermaid.py): show it at
+   half its pixels at most, so it is not oversized on a wide screen. The generated class and module
+   diagrams and the diagrams of NOT_YET_REDRAWN in tools/prereview.py are wide and keep the full
+   width; the pre-review gate holds this list to that one. */
+.md-typeset img[src*="figures/diagrams/"]:not([src*="/classes_"]):not([src$="/modules.png"]):not([src$="/concepts_one_record.png"]):not([src$="/localization_flow.png"]):not([src$="/se_estimators.png"]):not([src$="/se_gated_prior.png"]):not([src$="/se_jacobian_weighting.png"]):not([src$="/trust_flow.png"]):not([src$="/pipeline.png"]) {
+  max-width: min(100%, 450px);
+}

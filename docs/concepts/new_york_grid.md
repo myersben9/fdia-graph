@@ -11,13 +11,15 @@ number the design decisions.
 
 ## How a run flows
 
-![The stages of fdia_graph.generation.nygrid](../figures/diagrams/nygrid_pipeline.png)
+![The New York build in seven stages, top to bottom: the inputs (fetch_inputs: NYgrid tables, NYISO 2019 load, utility territories); the network (Case, Network, Ownership: a client per utility); the operating points (LoadModel, hourly_dispatch, PoolBuilder: the Pool); the meters (plan_meters: the MeterPlan, Measurement h(x), NoiseModel); the attacker (Attacker: a local false state, AttackFamily.design: an Episode); the timeline (NewYorkSource.generate); the clients' view (Dataset, ClientView)](../figures/diagrams/nygrid_pipeline.png)
 
-Each box is a subpackage, one stage, and each stage reads what the one before it wrote. `grid` turns NYgrid's case into
-the network and the clients; `scenario` solves the year of true operating points (the slow step, built once into the
-pool); `sensing` places the meters; `attacks` designs each attack on a window of true states; `timeline` writes the
-noisy, labelled year. Beside the stages, `se/detect` holds the alarm rules, in the analysis toolkit
-(`fdia_analysis.se.detect`). Each package's `__init__.py` opens with what its stage does.
+Each box is one stage, in the order a build runs them. `systems/` holds the network and
+the clients. `generation/nygrid/` solves the year of true operating points (the slow step, built once into the
+pool). `sensing/` places the meters. `engine/attacks/` designs each attack on a window of true states; the interface limits
+(`Interface`, read from NYgrid's data in `generation/nygrid/interfaces.py`) enter there, as the goal of `Am`.
+`NewYorkSource` in `generation/nygrid/source.py` writes the noisy, labelled year, and `dataset/clients.py` reads it
+back by client. Beside the stages, `se/detect` holds the alarm rules, in the analysis toolkit
+(`fdia_analysis.se.detect`).
 
 ## Principles
 

@@ -1,173 +1,109 @@
 # fdia-graph
 
-Stealthy FDIA localization datasets for power grids, PyTorch-ready in one line. Eight IEEE systems
-(14 / 30 / 57 / 89 / 118 / 145 / 200 / 300 buses), one continuous timeline of 72,000 frames each:
-a record table when shuffled, a time series when not.
+A Python package that builds attacked measurement timelines on power-grid test systems, with a
+second toolkit to analyse them. Download a ready timeline or generate your own.
+
+A timeline is the meter readings of one grid, frame by frame, with false data injection attacks
+(FDIA) placed in it and labelled per bus.
+
+## Two toolkits
+
+| Toolkit | Package | What it does |
+|---|---|---|
+| `fdia-graph` | `fdia_graph` | generates a timeline and loads it |
+| `fdia-analysis` | `fdia_analysis` | runs estimators and localizers on a timeline |
+
+`fdia-analysis` holds state estimation, attack localization, federated training, trusted-meter
+selection and a results store. It depends on `fdia-graph`. `fdia-graph` never imports it.
+
+## Test systems
+
+| System | Buses | Data |
+|---|---|---|
+| IEEE and other public cases | 14, 30, 57, 89, 118, 145, 200, 300 | released datasets, downloaded by `fg.load` |
+| New York grid | 140 | case file in the package; you build the dataset |
+
+Each released dataset is one timeline of 72,000 frames. The New York grid is a MATPOWER case file
+with 140 buses and 227 branches; [the New York guide](docs/guides/new_york.md) builds its dataset.
+
+The generator makes two attack families: `At`, a slow load ramp, and `Am`, a line overload. The
+released files hold seven families: five that the generator does not make (`Aq`, `Ad`, `As`, `Ar`,
+`Al`), and an `Am` that drives no line to its limit.
+[The generation guide](docs/guides/generation.md) has the details.
+
+## Three steps
+
+**1. Load** a released dataset.
 
 ```python
 import fdia_graph as fg
 
-ds = fg.load("ieee118", split="train")     # auto-downloads + caches
-for batch in ds.loader(batch_size=64):
-    batch["node_x"], batch["edge_x"], batch["edge_index"], batch["y"], batch["family"]
-
-ts = fg.load("ieee118", split="test", order="time")   # the same frames in time order
-Xw, yw = ts.windows(W=24, stride=12)                  # [n, 24, N, 4] windows for an LSTM / TGN
+# downloads the IEEE-118 timeline once, then caches it
+train = fg.load("ieee118", split="train")
+arrays = train.export()
+print(arrays["node_x"].shape, arrays["y"].shape)
 ```
 
-![The pipeline: ISO load profiles feed fg.generate, which writes one timeline file per system with observed, benign and clean layers; fg.load reads it as a record table for fdia_analysis.se and fdia_analysis.localization, or as a time series of windows and episodes for a temporal model](https://raw.githubusercontent.com/myersben9/fdia-graph/main/docs/figures/diagrams/pipeline.png)
+**2. Generate** your own, then load it by name.
 
-| Read | To learn |
-|---|---|
-| [`docs/ROADMAP.md`](docs/ROADMAP.md) | which file does what, and how the paths connect |
-| [`docs/guides/generation.md`](docs/guides/generation.md) | how a timeline is generated, and which layers a feature may read |
-| [`docs/reference/DATA_DICTIONARY.md`](docs/reference/DATA_DICTIONARY.md) | what every array means |
-| [`docs/reference/GLOSSARY.md`](docs/reference/GLOSSARY.md) | every term, with where it lives in the code |
-| [`docs/reference/MODULES.md`](docs/reference/MODULES.md) | what every file does, in one line |
-| [`docs/reference/CONCEPTS_TO_CODE.md`](docs/reference/CONCEPTS_TO_CODE.md) | paper equations to functions |
-| [`docs/reference/CLASS_MAP.md`](docs/reference/CLASS_MAP.md) | architecture: the UML class and module diagrams, drawn from the code |
-| [`docs/reference/EXAMPLES.md`](docs/reference/EXAMPLES.md) | runnable baselines, the timeline as sequences, dataset stats |
-| [`docs/analysis/estimation/`](docs/analysis/estimation/README.md) · [`docs/analysis/localization/`](docs/analysis/localization/README.md) · [`docs/analysis/trust/`](docs/analysis/trust/README.md) · [`docs/analysis/federated/`](docs/analysis/federated/README.md) | the analysis modules, with results |
-| [`CONTRIBUTING.md`](CONTRIBUTING.md) | rules, pull-request flow, releases |
+```python
+# needs fdia-graph[generate]
+# downloads the IEEE-14 pool of solved operating points
+# about five minutes on a laptop
+fg.generate("ieee14", name="my_run", frames=2000)
+mine = fg.load("my_run", split="train")
+```
+
+**3. Analyse** it with an estimator.
+
+```python
+# needs fdia-analysis[se]
+from fdia_analysis.se.methods import WLS
+
+test = fg.load("ieee118", split="test")
+est = WLS().fit(train)
+print(est.score(test))
+```
+
+## How it flows
+
+<img src="https://raw.githubusercontent.com/myersben9/fdia-graph/main/docs/figures/diagrams/flow.png" width="450" alt="Six stages, top to bottom. 1. Test system: Case, Network. 2. Operating points: generate_states for the IEEE cases, PoolBuilder for New York. 3. Meters and attacks: MeterPlan, NoiseModel, the attack designs. 4. Timeline file: TimelineSource.generate, TimelineWriter. 5. Load: fg.load returns FdiaGraph. 6. Analyse: fdia_analysis.">
 
 ## Install
 
-| command | gives |
+| Command | Gives |
 |---|---|
 | `pip install fdia-graph` | the loader (numpy, h5py) |
-| `pip install "fdia-graph[torch]"` | + PyTorch DataLoader |
-| `pip install "fdia-graph[pyg]"` | + torch_geometric records and timelines |
-| `pip install "fdia-graph[generate]"` | + pandapower, to generate custom data |
-| `pip install "fdia-graph[iso]"` | + gridstatus, to download CAISO and ERCOT load profiles (NYISO needs no extra) |
-| `pip install "fdia-graph[all]"` | every extra above |
-| `pip install fdia-analysis` | the analysis toolkit, a second package on top of this one: state estimation, localization, federated training, trusted-meter selection (its extras: `[se]`, `[torch]`, `[federated]`, `[all]`) |
+| `pip install "fdia-graph[generate]"` | adds pandapower, to generate timelines |
+| `pip install "fdia-analysis[se]"` | the analysis toolkit with state estimation |
 
-The repository holds two toolkits. `fdia-graph` (the package `fdia_graph`, under `src/`) generates a
-timeline and loads it, and is everything above. `fdia-analysis` (the package `fdia_analysis`, under
-[`analysis/`](analysis/README.md)) is what is measured on a timeline; it depends on `fdia-graph`, and
-`fdia-graph` never imports it.
+Every extra of both toolkits is listed in [the roadmap](docs/ROADMAP.md#install).
 
-Data is pinned per SDK version and cached in `~/.cache/fdia_graph`. `fg.load(..., release="v0.8.1")`
-pins a data version, any timeline release from v0.8.0; `pip install --upgrade fdia-graph` moves it forward.
-The record shards of the data releases before v0.8.0 are read by `fdia-graph==0.21.0`.
+## Where next
 
-## Load
-
-One file per system, one loader. `order` decides what the file is to you:
-
-```python
-fg.load("ieee300", split="train")                              # 60/20/20 chronological split, episodes never cut
-fg.load("ieee118", split="test", families=["At"])             # family subset
-fg.load("ieee118", units="pu")                                 # per-unit + radians (default: physical)
-fg.load("ieee118", order="random", seed=0)                     # the record table: a fixed permutation
-fg.load("ieee118", split="test", order="time")                 # the time series: windows, episodes
-```
-
-| you want | call |
-|---|---|
-| a whole split at once | `ds.export()` (arrays), `ds.export(format="torch")`, `ds.export(format="pandas")` |
-| windows for an LSTM / TGN | `ds.windows(W, stride, label, layer, per_bus=True)` on a time-ordered view (one sequence per bus) |
-| the attack episodes | `ds.episodes` (onset, length, family, buses) |
-| the attack removed | every record carries `benign` and `edge_benign` next to `node_x` and `clean` |
-| custom data | `fg.generate(system, name, attacked_frac=..., families=..., frames=...)`, then `fg.load(name)` |
-
-## State estimation
-
-The analysis toolkit, `pip install "fdia-analysis[se]"`:
-
-```python
-from fdia_analysis.models.config import PriorConfig
-from fdia_analysis.se.methods import SubspacePrior
-
-train, test = fg.load("ieee118", split="train"), fg.load("ieee118", split="test")
-est = SubspacePrior(prior=PriorConfig(rank_frac=0.5, reweight="huber", c=2.5)).fit(train)
-xhat = est.estimate(test)          # [n, 2N-1] = [theta rad (non-slack) | V pu (all buses)]
-print(est.score(test))             # per-family angle / voltage MAE vs the clean truth
-```
-
-One solver, six estimators that each change one thing: `WLS`, `AdaptiveWeighting`, `ResidualRemoval`,
-`SubspacePrior`, `JacobianWeighting`, `GatedPrior`. Results: [`docs/analysis/estimation/`](docs/analysis/estimation/README.md).
-
-## Localization
-
-```python
-from fdia_analysis.localization.learned import BusCNN             # needs fdia-analysis[torch]
-from fdia_analysis.localization.methods import SwingThreshold     # numpy only
-from fdia_analysis.models.config import LocalizerConfig
-
-loc = SwingThreshold(localizer=LocalizerConfig(fa_target=0.01)).fit(train)     # per-bus thresholds from benign records only
-flag = loc.localize(test)                           # [n, N] bool: which buses are called attacked
-print(loc.score(test))                              # per-family node-F1, strict accuracy, DR next to FA
-
-zs = dict(families=[0, 1, 2])                       # the papers' zero-shot protocol
-cnn = BusCNN().fit(fg.load("ieee118", split="train", **zs), val=fg.load("ieee118", split="val", **zs))
-```
-
-One calibration, five localizers: `SwingThreshold`, `DeltaThreshold`, `ResidualLocalizer`, `BusMLP`,
-`BusCNN`. Results: [`docs/analysis/localization/`](docs/analysis/localization/README.md).
-
-## Data
-
-Each record is a sparse measurement graph with **N buses** (nodes) and **E branches** (edges).
-A shape reads "values per item": `[N,4]` is 4 numbers per bus.
-
-| field | shape | columns | meaning |
-|---|---|---|---|
-| `node_x` | `[N,4]` | <code>&#124;V&#124;</code>, `P_inj`, `Q_inj`, `theta` | bus meters (`node_m` is the mask) |
-| `edge_x` | `[E,2]` | `P_from`, `Q_from` | branch flows (`edge_m` is the mask) |
-| `edge_index` | `[2,E]` | `from_bus`; `to_bus` | connectivity |
-| `edge_attr` | `[E,8]` | `r`, `x`, `b`, `g`, `gs`, `bs`, `tap`, `shift` | static line physics (`Data.edge_phys` in PyG) |
-| `y` | `[N]` | | 1 attacked, 0 clean |
-| `family` | scalar | | 0 benign, 1 Aq, 2 Ad, 3 As, 4 Ar, 5 At, 6 Al, 7 Am (`fg.FAMILIES`) |
-| `temporal_delta`, `swing` | `[N,2]` | `ΔP`, `ΔQ` | change against the previous frame, and as a z-score of recent change |
-| `benign`, `edge_benign` | `[N,4]`, `[E,2]` | as above | the same scan with the attack removed, noise kept |
-| `clean`, `edge_clean`, `edge_clean_full` | `[N,4]`, `[E,2]`, `[E,2]` | as above | noiseless truth: buses, metered branches, every branch |
-| `seq_id`, `timestep`, `split` | scalars | | episode index (-1 benign), frame index, partition |
-| `slack`, `ybus`, `yf`, `yt` | dataset attributes | | reference bus, admittance matrices |
-
-Full reference: [`docs/reference/DATA_DICTIONARY.md`](docs/reference/DATA_DICTIONARY.md).
-
-## Attacks
-
-| family | attack | classical BDD | plausibility |
-|---|---|---|---|
-| `At` | slow load ramp, re-solved locally every frame; by default (`min_tamper=True`) on the support that tampers the fewest devices, else on the region within `hops` | evades | peak 2.4% to 5.2% of the load (0.2% per frame over a 12 to 26 frame rise), 60 frames |
-| `Am` | the overload attack of [WU26]: a line's reported flow driven to its rating (1.25 times its peak pool flow, or PGLib-OPF's) over the episode on the fewest-tamper support | evades | the rating reached at the last scan; every scan one AC state, the fewest devices beyond [WU26]'s noise |
-
-The generator makes these two multi-snapshot families. The single-snapshot families of data
-releases v0.8.3 and earlier (`Aq` load rescale, `Al` load redistribution, and the in-place `Ad`
-bias, `As` scaling and `Ar` replay) stay in those files and load, filter and score by name as
-before (`fg.load(..., release="v0.8.3", families=["Aq"])`); fdia-graph 0.20 is the last version
-that generates them.
-
-Every stealthy family is a local false state: the attacker solves the power flow of a subnetwork
-around the attack with the boundary voltages held true, writes only that subnetwork's meters, and
-the measurement vector stays consistent with an AC state, so the residual test sees noise. The
-meters written are the tamper masks in the file's `attack/` group. The generated `At` and `Am`
-satisfy equations (13)-(23) of [WU26] (the SCADA measurements, the PMU voltage magnitudes, angles
-and branch currents, and the operating limits); `Am` also meets the line-overload goal, eqs.
-(24)-(25), and both are held on the support that tampers the fewest devices, eq. (12), when
-`min_tamper=True` (the default for `At`; `Am` always picks its support that way, by the search or by
-[WU26]'s row reduction, `am_attack=OverloadSettings(support_method="rref")`). The single-snapshot families and the
-redistribution `Am` of the older releases were drawn at random targets, on meters without branch
-currents, and drove no line to its limit.
-
-![BDD statistic per family: the stealthy families sit below the alarm line with benign, the three tampering families sit far above it](https://raw.githubusercontent.com/myersben9/fdia-graph/main/docs/figures/fig_bdd.png)
-
-*Bad-data statistic relative to the alarm threshold, per family, on data release v0.8.3. Green families are indistinguishable
-from benign; red ones trip the alarm.* Meter error follows an accuracy-class model (per-meter bias
-plus per-scan jitter). Report per-family node-F1 next to the false-alarm rate, never accuracy.
+- [How a timeline is generated](docs/guides/generation.md)
+- [Building the New York dataset](docs/guides/new_york.md)
+- [Data dictionary: what every array means](docs/reference/DATA_DICTIONARY.md)
+- [Loading options and runnable baselines](docs/reference/EXAMPLES.md)
+- Analysis pages: [state estimation](docs/analysis/estimation/README.md),
+  [localization](docs/analysis/localization/README.md),
+  [trusted meters](docs/analysis/trust/README.md),
+  [federated training](docs/analysis/federated/README.md)
+- [Contributing: rules, pull requests, releases](CONTRIBUTING.md)
 
 ## Citation
 
-| cite | for |
-|---|---|
-| Yuan, Li & Ren, *Modeling load redistribution attacks in power systems*, IEEE T-SG 2(2), 2011 | `Al` |
-| Haghshenas, Hasnat & Naeini, *A Temporal GNN for Cyber Attack Detection and Localization in Smart Grids*, IEEE ISGT 2023 | `At` |
-| Zaman & Lin, *PING: Physics-Informed GNNs to Generalize FDIA Localization*, NAPS 2025 | measurement model |
-| Asprou, Kyriakides & Albu, *Variable Weights in a WLS State Estimator*, IEEE T-IM 63, 2014 | meter noise |
-| Boyaci et al., *Joint Detection and Localization of Stealth FDIA*, IEEE T-SG, 2022 | protocol |
-| Wu, Wang, Hu, Ye & Tang, *Dynamic PMU configuration for stealthy multi-snapshot FDIA mitigation*, IEEE T-SG 17(1), 2026 | local false states, Am, trusted meters |
+- `Al` (released files) and the load bound of `Am`: Yuan, Li & Ren, *Modeling load redistribution
+  attacks in power systems*, IEEE T-SG 2(2), 2011.
+- `At`: Haghshenas, Hasnat & Naeini, *A Temporal GNN for Cyber Attack Detection and Localization
+  in Smart Grids*, IEEE ISGT 2023.
+- Measurement model: Zaman & Lin, *PING: Physics-Informed GNNs to Generalize FDIA Localization*,
+  NAPS 2025.
+- Meter noise: Asprou, Kyriakides & Albu, *Variable Weights in a WLS State Estimator*, IEEE T-IM
+  63, 2014.
+- Protocol: Boyaci et al., *Joint Detection and Localization of Stealth FDIA*, IEEE T-SG, 2022.
+- Local false states, `Am`, trusted meters: Wu, Wang, Hu, Ye & Tang, *Dynamic PMU configuration
+  for stealthy multi-snapshot FDIA mitigation*, IEEE T-SG 17(1), 2026.
 
 ## License
 

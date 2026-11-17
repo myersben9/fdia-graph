@@ -38,7 +38,7 @@ Every step keeps a file that is already there.
 ## 2. The operating-point pool
 
 ```bash
-python $FG/pipelines/newyork/run_pool.py 2019-01-01 2020-01-01 out/pool_2019.h5 --workers 8
+python $FG/pipelines/newyork/run_pool.py 2019-01-01 2020-01-01 out/pool_2019_v3.h5 --workers 8
 ```
 
 The year is dispatched in weekly chunks in parallel, then each seam between chunks is solved again until
@@ -77,13 +77,12 @@ bus's steps are not its zone's. Their constants are in `constants/newyork.py`.
 
 Last, each zone's buses are rescaled to sum exactly to the zone's real 5-minute load.
 
-The two fit functions (`_fluctuation_fit`, `_switching_fit`) are not in the package; the constants are
-their results. They can be read and run in release 0.21.0, `fdia_graph/nyfed/scenario/loads.py`.
+The constants are the results of two fits. The fit functions are not part of the package.
 
 ## 3. The timeline
 
 ```bash
-python $FG/pipelines/newyork/build_timeline.py out/timeline_2019.h5 --pool out/pool_2019.h5 --workers 8
+python $FG/pipelines/newyork/build_timeline.py out/timeline_2019.h5 --pool out/pool_2019_v3.h5 --workers 8
 ```
 
 The script builds the release's source and generates it: `NewYorkSource.production(pool_path,
@@ -97,7 +96,7 @@ overload attack (Am) against the Sprain Brook/Dunwoodie South interface, the slo
 each split's frames attacked, and onsets surveyed among the hours an attack can reach. The weeks are split
 into train, validation and test, stratified on those hours.
 
-For one attack studied by hand, `pipelines/newyork/build_single_episodes.py OUT_DIR --pool out/pool_2019.h5
+For one attack studied by hand, `pipelines/newyork/build_single_episodes.py OUT_DIR --pool out/pool_2019_v3.h5
 --onset 2019-07-05T10:30:00` writes the whole day of that onset with a single Am episode in it.
 
 ## 4. Reading it as clients
@@ -118,7 +117,7 @@ The file has the layout of every timeline (`fdia_graph.schema`; the table is in
 opens it too: the static graph, the admittance matrices and the layers per frame. `Dataset` is the view by
 meter and by client: `ds.plan` is the meter table, `ds.z(frames)` the flat reading vector of that table,
 `ds.z(frames, benign=True)` the same scans without the attack and `ds.tampered(frames)` the tampered meters.
-A file written before this layout is refused; it reads with fdia-graph 0.21.
+A file with any other layout is refused.
 
 ## Tests
 

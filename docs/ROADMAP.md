@@ -11,11 +11,32 @@ results store's code. It depends on `fdia-graph`; nothing in `fdia_graph` import
 `fdia_analysis.localization`, `fdia_analysis.trust` and `fdia_analysis.federated` in the second;
 everything else serves them.
 
-![the package map in two boxes: the analysis toolkit fdia_analysis with federated over localization, localization and trust over se, the results store, and its own models and formulas; the generation toolkit fdia_graph with the public API over the dataset loader and the timeline writer, the loader over the registry and download, the writer over the engine, and its own models and formulas; one arrow, from the analysis toolkit to the generation toolkit: it reads timelines and uses the formulas and records](figures/diagrams/roadmap_modules.png)
+![the package map in two boxes, top to bottom. The analysis toolkit fdia_analysis: federated (training across clients, uses localization and se), localization (which buses, uses se), trust (which meters, uses se), se (state estimation) and the results store. One arrow, from the analysis toolkit down to the generation toolkit: it reads timelines and uses the formulas and records. The generation toolkit fdia_graph: dataset (fg.load: FdiaGraph, the loader), with registry.py and download.py at the package root; generation and engine (fg.generate: the walk, physics and attacks) over the foundations: systems, sensing, models, formulas and constants](figures/diagrams/roadmap_modules.png)
+
+## Install
+
+| command | gives |
+|---|---|
+| `pip install fdia-graph` | the loader (numpy, h5py) |
+| `pip install "fdia-graph[torch]"` | adds the PyTorch DataLoader |
+| `pip install "fdia-graph[pyg]"` | adds torch_geometric records and timelines |
+| `pip install "fdia-graph[generate]"` | adds pandapower, to generate timelines |
+| `pip install "fdia-graph[iso]"` | adds gridstatus, to download CAISO and ERCOT load profiles (NYISO needs no extra) |
+| `pip install "fdia-graph[ny]"` | adds what the New York build needs (pandapower, Pyomo; the Ipopt binary is installed apart): [`guides/new_york.md`](guides/new_york.md) |
+| `pip install "fdia-graph[all]"` | every extra above |
+| `pip install fdia-analysis` | the analysis toolkit and `fdia-graph`: the threshold localizers and the results store |
+| `pip install "fdia-analysis[se]"` | adds pandapower and scipy, for `fdia_analysis.se` and the residual localizer |
+| `pip install "fdia-analysis[torch]"` | adds torch, for the learned localizers |
+| `pip install "fdia-analysis[federated]"` | adds torch and scikit-learn, for `fdia_analysis.federated` |
+| `pip install "fdia-analysis[all]"` | every analysis extra above |
+
+Data is pinned per package version and cached in `~/.cache/fdia_graph`. `fg.load(..., release="v0.8.1")`
+reads another data release, any timeline release from v0.8.0; `pip install --upgrade fdia-graph` moves
+the pin forward.
 
 ## The two paths
 
-![fg.generate from ISO load series through the AC pool, the timeline walk and one scan per frame to one registered HDF5 file, and fg.load from registry.resolve through the cached download to FdiaGraph in random or time order](figures/diagrams/roadmap_generate_load.png)
+![the two paths as one column: a pool of operating points (the released pool, or your own from profiles.generate_states) feeds fg.generate, whose walk places attack episodes and benign frames; one scan is made per frame (sensing: meters and noise; engine: attacks); the result is one registered HDF5 file (data, benign, clean, episodes, attack); fg.load resolves the name and release in the registry, download.ensure_local caches and checks the file, and FdiaGraph gives records and batches in random order, windows and episodes in time order](figures/diagrams/roadmap_generate_load.png)
 
 ## Files
 
@@ -43,13 +64,13 @@ The generation toolkit, `src/fdia_graph/`:
 | `engine/`, `generation/` | the generator: a scan's physics and the attacks, and the stages that walk a timeline: [`guides/generation.md`](guides/generation.md) |
 | `generation/nygrid/` | the New York grid's build (loads, dispatch, the pool, the timeline source): [`concepts/new_york_grid.md`](concepts/new_york_grid.md) |
 
-The analysis toolkit, `analysis/src/fdia_analysis/` ([`../analysis/README.md`](../analysis/README.md)):
+The analysis toolkit, `analysis/src/fdia_analysis/` ([`analysis/README.md`](https://github.com/myersben9/fdia-graph/blob/main/analysis/README.md)):
 
 | file or folder | what it is |
 |---|---|
 | `se/`, `localization/`, `trust/`, `federated/` | the analysis packages, each with its page: [`analysis/estimation/README.md`](analysis/estimation/README.md), [`analysis/localization/README.md`](analysis/localization/README.md), [`analysis/trust/README.md`](analysis/trust/README.md), [`analysis/federated/README.md`](analysis/federated/README.md) |
 | `se/detect/` | the alarm rules of the New York grid: [`concepts/new_york_grid.md`](concepts/new_york_grid.md) |
-| `results/` | the results store's code: [`../results/README.md`](../results/README.md) |
+| `results/` | the results store's code: [`results/README.md`](https://github.com/myersben9/fdia-graph/blob/main/results/README.md) |
 | `models/` | the value bundles only the analysis packages use, on the generation toolkit's `Bundle` and validation engine: the settings in `fdia_analysis/models/config.py`, what the analysis formulas accept in `fdia_analysis/models/inputs.py`, the one rule only they declare in `fdia_analysis/models/validation.py`, the fixed-set arguments in `fdia_analysis/models/choices.py`; the score tables in `scores.py`, the truth an estimator is scored against in `fdia_analysis/models/data.py`, the estimator's pseudo-measurement records in `fdia_analysis/models/grid.py`, `federated.py` (a partition, a round's log), `training.py` and the results store's records in `fdia_analysis.models.results` |
 | `formulas/` | the mathematics of analysis as pure functions with source keys: [`reference/FORMULAS.md`](reference/FORMULAS.md) |
 
@@ -79,6 +100,7 @@ tool; the generated table opens [`reference/MODULES.md`](reference/MODULES.md)).
 | `analysis/` | one page per study with its figures and their CSV sidecars: `estimation/`, `localization/`, `trust/` and `federated/` |
 | `reference/` | the file map (`MODULES.md`), data dictionary, glossary, concepts to code, formulas, examples, benchmarks |
 | `figures/` | shared images with their data sidecars |
+| `stylesheets/` | the docs site's stylesheet: the display width of the phone diagrams |
 
 ## Tests and releases
 

@@ -3,6 +3,35 @@
 Runnable model examples, the temporal state-estimation recipe, and per-system statistics.
 Quickstart is in `../../README.md`, field definitions in `DATA_DICTIONARY.md`.
 
+## Loading
+
+One file per system, one loader. `order` decides what the file is to you: a record table when
+shuffled, a time series when not.
+
+```python
+import fdia_graph as fg
+
+# the chronological 60/20/20 split; no episode is cut
+fg.load("ieee300", split="train")
+# a subset of the families
+fg.load("ieee118", split="test", families=["At"])
+# per unit and radians (the default is physical units)
+fg.load("ieee118", units="pu")
+# the record table: a fixed permutation
+fg.load("ieee118", order="random", seed=0)
+# the time series: windows and episodes
+fg.load("ieee118", split="test", order="time")
+```
+
+| you want | call |
+|---|---|
+| batches for PyTorch | `ds.loader(batch_size=64)`: each batch holds `node_x`, `edge_x`, `edge_index`, `y`, `family` |
+| a whole split at once | `ds.export()` (arrays), `ds.export(format="torch")`, `ds.export(format="pandas")` |
+| windows for an LSTM / TGN | `ds.windows(W, stride, label, layer, per_bus=True)` on a time-ordered view (one sequence per bus) |
+| the attack episodes | `ds.episodes` (onset, length, family, buses) |
+| the attack removed | every record carries `benign` and `edge_benign` next to `node_x` and `clean` |
+| custom data | `fg.generate(system, name, attacked_frac=..., families=..., frames=...)`, then `fg.load(name)` |
+
 ## The timeline as sequences (LSTM / TGN)
 
 Every system is one continuous timeline of 72,000 frames on the real NYISO load trajectory, about
@@ -334,6 +363,12 @@ layer (the label stays the attack target).
 
 ## Dataset statistics
 
+![BDD statistic per family: the stealthy families sit below the alarm line with benign, the three tampering families sit far above it](../figures/fig_bdd.png)
+
+*Bad-data statistic relative to the alarm threshold, per family, on data release v0.8.3. Green families
+are indistinguishable from benign; red ones trip the alarm.* Meter error follows an accuracy-class model
+(per-meter bias plus per-scan jitter). Report per-family node-F1 next to the false-alarm rate, never accuracy.
+
 The tables in this section describe data release v0.8.3 (the results store's `data.release_stats`). Its `Aq` and `Al` episodes are one frame
 each, so a timeline holds more episodes than v0.8.0 and v0.8.1, whose
 `Aq` and `Al` were held over several frames; the pools, the other knobs and the seed are unchanged.
@@ -376,8 +411,8 @@ episode more or less moves 60 frames and their split counts vary most:
 | `Am` multi-snapshot | 3,627 | 960 | 1,140 | 5,727 |
 <!-- /results -->
 
-The v0.7.2 release shipped a record shard and a separate stream per system; from v0.8.0 the
-timeline is the one file. The shards and streams are read by `fdia-graph==0.21.0`.
+From data release v0.8.0 a system is one timeline file. The v0.7.2 release holds a record shard and a
+separate stream per system, which this package does not read.
 
 **Operating-state distributions** (from the 72k pool per system):
 

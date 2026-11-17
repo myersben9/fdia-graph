@@ -12,6 +12,8 @@ An open arrowhead is inheritance, a dashed arrow is a class using another (an ar
 type or a collaborator it builds), and a box marked with another package's name is a participant that
 lives there.
 
+The diagrams are wide and are best viewed on a wide screen. Each picture links to its full-size file.
+
 ## Modules
 
 Which module imports which, in one picture with a box per toolkit: every arrow between the boxes
@@ -22,7 +24,7 @@ returned records and the settings; the one validation engine is `fdia_graph.mode
 and source), `schema.py` (the file protocol) and `errors.py` (the named errors). Each package's own `__init__.py` (for `fdia_graph`, the `fg.*`
 public API, which imports everything) is left out for the same reason.
 
-![Module diagram in two boxes. The analysis toolkit, fdia_analysis: federated over localization and se; localization over se; trust over se; results beside them. The generation toolkit, fdia_graph: generation over engine, profiles, timeline, download and registry; engine over generation, ratings and registry; dataset over generation; timeline over generation; profiles over engine; download over registry. Between the boxes every arrow points from analysis to generation: federated, localization, se and trust read dataset; trust reads generation and registry](../figures/diagrams/modules.png)
+[![Module diagram in two boxes. The analysis toolkit, fdia_analysis: federated over localization and se; localization over se; trust over se; results beside them. The generation toolkit, fdia_graph: generation over engine, profiles, timeline, download and registry; engine over generation, ratings and registry; dataset over generation; timeline over generation; profiles over engine; download over registry. Between the boxes every arrow points from analysis to generation: federated, localization, se and trust read dataset; trust reads generation and registry](../figures/diagrams/modules.png)](../figures/diagrams/modules.png)
 
 ## The dataset
 
@@ -32,7 +34,7 @@ exports (`ExportMixin`) and the time-ordered windows and episodes (`SequenceMixi
 produce records return `models` bundles (a record, a batch, an exported split, the episode table, the
 summary); the graph properties are tensors or arrays, `loader()` is a DataLoader and `windows()` a tuple.
 
-![Class diagram of the dataset package: DatasetBase with GraphMixin, AdmittanceMixin, RecordsMixin, ExportMixin and SequenceMixin under it and FdiaGraph inheriting all five; the mixins use ArraysBundle, Summary, BatchBundle, RecordBundle, EpisodeTable, Admittances and BranchModel](../figures/diagrams/classes_dataset.png)
+[![Class diagram of the dataset package: DatasetBase with GraphMixin, AdmittanceMixin, RecordsMixin, ExportMixin and SequenceMixin under it and FdiaGraph inheriting all five; the mixins use ArraysBundle, Summary, BatchBundle, RecordBundle, EpisodeTable, Admittances and BranchModel](../figures/diagrams/classes_dataset.png)](../figures/diagrams/classes_dataset.png)
 
 ## The engine
 
@@ -45,7 +47,7 @@ A mixin lists as bases the mixins whose methods it calls.
 `engine/records.py` emits a benign scan and hands an attacked family to the mixin; `timeline.py`
 decides when and where each episode runs.
 
-![Class diagram of the engine package: GridBase, PhysicsMixin and MeasurementMixin each under it, AttackMixin composed of EpisodeDesignMixin and StealthyMixin, and FdiaGenerator inheriting AttackMixin; the mixins use Scan, AttackDesign, Frame and FrameKnobs, and the generator holds a Case, a Network, a MeterPlan, a Measurement and a NoiseModel](../figures/diagrams/classes_engine.png)
+[![Class diagram of the engine package: GridBase, PhysicsMixin and MeasurementMixin each under it, AttackMixin composed of EpisodeDesignMixin and StealthyMixin, and FdiaGenerator inheriting AttackMixin; the mixins use Scan, AttackDesign, Frame and FrameKnobs, and the generator holds a Case, a Network, a MeterPlan, a Measurement and a NoiseModel](../figures/diagrams/classes_engine.png)](../figures/diagrams/classes_engine.png)
 
 ## The attacks
 
@@ -56,7 +58,7 @@ the fewest devices over an attack window [WU26, eq. 12], `OverloadMixin` builds 
 and `EpisodeDesignMixin` draws what an `At` episode attacks at its onset. `AttackMixin.attack_frame`
 is the one entry for an attacked `At` scan; an `Am` frame comes from `overload_step`.
 
-![Class diagram of the attack package: MeasurementMixin with AreaMixin under it, FalseStateMixin under AreaMixin and PhysicsMixin, StealthyMixin and MinimizeMixin under FalseStateMixin, OverloadMixin under MinimizeMixin, EpisodeDesignMixin under OverloadMixin, and AttackMixin inheriting EpisodeDesignMixin and StealthyMixin; the mixins use AttackDesign, RampDesign, LoadGoal, FlowGoal, MinimizerResult, Frame, FrameKnobs, OperatingLimits and Scan](../figures/diagrams/classes_attacks.png)
+[![Class diagram of the attack package: MeasurementMixin with AreaMixin under it, FalseStateMixin under AreaMixin and PhysicsMixin, StealthyMixin and MinimizeMixin under FalseStateMixin, OverloadMixin under MinimizeMixin, EpisodeDesignMixin under OverloadMixin, and AttackMixin inheriting EpisodeDesignMixin and StealthyMixin; the mixins use AttackDesign, RampDesign, LoadGoal, FlowGoal, MinimizerResult, Frame, FrameKnobs, OperatingLimits and Scan](../figures/diagrams/classes_attacks.png)](../figures/diagrams/classes_attacks.png)
 
 ## State estimation
 
@@ -64,7 +66,7 @@ is the one entry for an attacked `At` scan; an `Am` frame comes from `overload_s
 chord-Newton loop. Each estimator overrides one hook. `GatedPrior` takes a fitted localizer as its gate;
 `JacobianFeatures` is the per-bus feature block the localizers can consume.
 
-![Class diagram of the estimation package: SEBase with WLS, AdaptiveWeighting, ResidualRemoval, SubspacePrior and JacobianWeighting under it, GatedPrior under SubspacePrior using a LocalizerBase gate, JacobianFeatures beside them; the estimators use ErrorPair, EstimatorScores, TrueState and JacobianOutputs](../figures/diagrams/classes_estimation.png)
+[![Class diagram of the estimation package: SEBase with WLS, AdaptiveWeighting, ResidualRemoval, SubspacePrior and JacobianWeighting under it, GatedPrior under SubspacePrior using a LocalizerBase gate, JacobianFeatures beside them; the estimators use ErrorPair, EstimatorScores, TrueState and JacobianOutputs](../figures/diagrams/classes_estimation.png)](../figures/diagrams/classes_estimation.png)
 
 ## Localization and trusted meters
 
@@ -73,7 +75,7 @@ feature, `ResidualLocalizer` runs an estimator, the learned arms train a per-bus
 `TrustSelector` chooses the meters to secure on the WLS Jacobian, by row reduction (`TrustedMeters`) or
 by a deep Q-network (`TrustedMetersDQN`), and scores the residual test with them secured.
 
-![Class diagram of localization and trust: LocalizerBase with SwingThreshold, DeltaThreshold, ResidualLocalizer and LearnedLocalizer under it, BusCNN and BusMLP under LearnedLocalizer; ResidualLocalizer uses an SEBase estimator, the learned arms use JacobianFeatures; TrustSelector with TrustedMeters and TrustedMetersDQN under it, using WLS; the scores are LocalizerScores, PerBusScores, GridScores and TrustScores](../figures/diagrams/classes_localization_trust.png)
+[![Class diagram of localization and trust: LocalizerBase with SwingThreshold, DeltaThreshold, ResidualLocalizer and LearnedLocalizer under it, BusCNN and BusMLP under LearnedLocalizer; ResidualLocalizer uses an SEBase estimator, the learned arms use JacobianFeatures; TrustSelector with TrustedMeters and TrustedMetersDQN under it, using WLS; the scores are LocalizerScores, PerBusScores, GridScores and TrustScores](../figures/diagrams/classes_localization_trust.png)](../figures/diagrams/classes_localization_trust.png)
 
 ## Federated training
 
@@ -82,7 +84,7 @@ each client trains its own copy with the shared `LocalTrainer` on its own buses,
 `FedBusCNN` take their encoder from `BusMLP` and `BusCNN`. `RoundLog` records every round.
 `RegionalPrior` is a `SubspacePrior` whose basis is fitted per client of a `Partition`.
 
-![Class diagram of the federated package: FederatedLocalizer under LearnedLocalizer, FedBusMLP under FederatedLocalizer and BusMLP, FedBusCNN under FederatedLocalizer and BusCNN; the federated localizer uses LocalTrainer, Partition, RoundLog and JacobianFeatures; RegionalPrior under SubspacePrior uses Partition](../figures/diagrams/classes_federated.png)
+[![Class diagram of the federated package: FederatedLocalizer under LearnedLocalizer, FedBusMLP under FederatedLocalizer and BusMLP, FedBusCNN under FederatedLocalizer and BusCNN; the federated localizer uses LocalTrainer, Partition, RoundLog and JacobianFeatures; RegionalPrior under SubspacePrior uses Partition](../figures/diagrams/classes_federated.png)](../figures/diagrams/classes_federated.png)
 
 ## The records
 
@@ -91,7 +93,7 @@ forms share one base, `RecordFields`, which declares every field once, so a reco
 carry the same names. An exported split adds the export-only `prev_*` fields
 (the previous frame's readings on a timeline).
 
-![Class diagram of the record bundles: Bundle, RecordFields under it, and RecordBundle, BatchBundle and ArraysBundle under RecordFields; EpisodeTable and Summary under Bundle](../figures/diagrams/classes_models.png)
+[![Class diagram of the record bundles: Bundle, RecordFields under it, and RecordBundle, BatchBundle and ArraysBundle under RecordFields; EpisodeTable and Summary under Bundle](../figures/diagrams/classes_models.png)](../figures/diagrams/classes_models.png)
 
 ## The scores
 
@@ -101,7 +103,7 @@ The result of every `score()` is a `Bundle` too, defined in the analysis toolkit
 for the trusted meters, `JacobianOutputs` for the feature block; `TrueState` (`fdia_analysis.models.data`)
 is the truth an estimator is scored against.
 
-![Class diagram of the score bundles: ErrorPair, EstimatorScores, OverallMetrics, BenignMetrics, FamilyMetrics, LocalizerScores, PerBusMetrics, PerBusScores, GridScores, TrustScores, JacobianOutputs and TrueState all under Bundle](../figures/diagrams/classes_scores.png)
+[![Class diagram of the score bundles: ErrorPair, EstimatorScores, OverallMetrics, BenignMetrics, FamilyMetrics, LocalizerScores, PerBusMetrics, PerBusScores, GridScores, TrustScores, JacobianOutputs and TrueState all under Bundle](../figures/diagrams/classes_scores.png)](../figures/diagrams/classes_scores.png)
 
 The named tuples of `models/frames.py` (`Scan`, `Frame`, `OperatingLimits`, `FrameKnobs`),
 `models/grid.py` (`BranchModel`, `Admittances`) and `models/assets.py` (`AssetSpec`) are plain

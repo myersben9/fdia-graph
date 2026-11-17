@@ -3,7 +3,7 @@
 Measurements in, state out, better than weighted least squares on the public test cases. Runs off
 the default timeline download (data release v0.8.3); `pip install "fdia-analysis[se]"`.
 
-![est.fit on benign records sets meter sigma, the chord Jacobian and the prior basis; est.estimate runs the chord-Newton loop; est.score compares the estimate with the clean state per family](../figures/diagrams/guide_state_estimation.png)
+![six steps, top to bottom: est.fit reads the benign records of the training split; the _fit_states hook lets SubspacePrior learn its basis; the meter weights are set from the residuals at the clean truth; the chord Jacobian H is taken at the benign mean, with G and its inverse; est.estimate runs the chord-Newton loop (hook: _solve) and returns an [n, 2N-1] array; est.score compares the estimate with the clean state per family, in degrees and per unit](../figures/diagrams/guide_state_estimation.png)
 
 ## Baseline first
 
@@ -73,8 +73,7 @@ of 20,000 draws to within 3% (`analysis/tests/test_pmu_channels.py`).
 
 Measured with `WLS` on the test split, with only the meter model changed: taking the angles away
 from the SCADA voltmeters raises the benign angle error, and the eq. (3) pseudo-measurements win part
-of it back. The comparison is rerun into the results store with the v0.9.0 data; its earlier numbers
-had no stored run behind them and are not repeated here.
+of it back. The results store holds no run of this comparison, so this page gives no numbers for it.
 
 ## What to expect per family
 

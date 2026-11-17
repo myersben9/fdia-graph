@@ -1,6 +1,6 @@
-"""Build the P5 pool for a time window as NYISO's real-time dispatch (N32, N39), in chunks run in parallel.
+"""Build the pool of operating points for a time window as NYISO's real-time dispatch, in chunks run in parallel.
 
-    python tools/run_pool.py START END OUT.h5 [--loads LOADS.npz] [--workers N] [--chunk-days D]
+    python pipelines/newyork/run_pool.py START END OUT.h5 [--loads LOADS.npz] [--workers N] [--chunk-days D]
                                              [--frames N] [--compare-hours] [--seam-frames N]
 
 START/END are local-clock stamps (END exclusive), e.g. 2019-01-07 2019-01-14. Each chunk (a week by
@@ -12,7 +12,7 @@ replace the stored ones. A seam that does not merge in that time has its whole c
 chunk before, and the next seam is repaired again from the new end. `--loads` is the cached LoadSeries of the year (built with LoadModel when
 missing). `--frames` stops after N frames (a smoke run). `--compare-hours` also projects every hour of the
 window and prints the dispatch cost against NYgrid's hourly AC point at the same prices. The grid keeps
-NYgrid's unit reactive limits (N38). Run from the nygrid repo root.
+NYgrid's unit reactive limits. Run from the nygrid repo root.
 """
 
 from __future__ import annotations

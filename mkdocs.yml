@@ -1,5 +1,5 @@
 site_name: fdia-graph
-site_description: Stealthy FDIA localization datasets for power grids, PyTorch-ready in one line
+site_description: A Python package that builds attacked measurement timelines on power-grid test systems, with a second toolkit to analyse them. Download a ready timeline or generate your own.
 site_url: https://fdia.artecommercellc.com
 repo_url: https://github.com/myersben9/fdia-graph
 repo_name: myersben9/fdia-graph
@@ -32,6 +32,9 @@ theme:
     - search.suggest
     - search.highlight
     - content.code.copy
+
+extra_css:
+  - stylesheets/extra.css
 
 markdown_extensions:
   - admonition

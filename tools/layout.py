@@ -105,6 +105,7 @@ DOCS = {
     "analysis": "one page per study with its figures: what was measured, on what, and the result",
     "reference": "facts to look up: the file map, the data dictionary, the glossary, the formulas, the references",
     "figures": "the images pages share, each with its data or its diagram source",
+    "stylesheets": "the docs site's stylesheet: the display width of the phone diagrams",
 }
 
 # The file map's sections: (heading, the folder its files live under); a file under none goes in the last.
