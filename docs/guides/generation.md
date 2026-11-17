@@ -99,7 +99,7 @@ timeline is pool timestep `t` (`data/timestep`).
 ## 2. Meter plan and noise
 
 The meter plan is drawn once per generator from the seed and is the same on every frame
-(`MeterPlan.from_coverage` in `engine/sensing/meters.py`, the table of meters the New York grid
+(`MeterPlan.from_coverage` in `sensing/meters.py`, the table of meters the New York grid
 also uses; `emit_from_state` lays a scan's readings out per bus and per branch).
 
 | channel | metered at | default |
@@ -354,17 +354,26 @@ estimators themselves default to `calibrate="truth"`, the estimation benchmark's
 ## Where each piece lives
 
 The generator is `FdiaGenerator` in `engine/core.py`, composed of mixins over the shared state contract of
-`engine/base.py`:
+`engine/base.py`. The grid it runs on is in `systems/` and its meters are in `sensing/`, the same for every
+grid; neither imports the engine or the generation stages:
 
 | file | holds |
 |---|---|
-| `engine/core.py` | `FdiaGenerator`: the IEEE case as a `Case` with its `Network`, its `MeterPlan`, `Measurement` and `NoiseModel` (the New York grid's classes), attack targeting, and the mixins below composed |
+| `engine/core.py` | `FdiaGenerator`: the IEEE case as a `Case` with its `Network` (`systems/`), its `MeterPlan`, `Measurement` and `NoiseModel` (`sensing/`; the classes the New York grid uses too), attack targeting, and the mixins below composed |
 | `engine/base.py` | `GridBase`: the attributes the mixins share |
 | `engine/measurement.py` | `MeasurementMixin`: a scan from a stored state, `Measurement.h` and `NoiseModel.sample` laid out as a file's layers |
 | `engine/physics.py` | a scan's load and generation, read from its stored state |
 | `engine/records.py` | one scan of the timeline writer: benign, or attacked by `engine.attacks` |
 | `engine/solvers.py` | the optimization solver the AC optimal power flows run on, found and checked in one place |
-| `engine/pandapower_types.py` | the pandapower objects `Case.from_pandapower` and the profile helpers read, as types |
+| `systems/case.py` | `Case`: one grid as a frozen record of arrays, read from a MATPOWER case file (`Case.from_matpower`) or from a pandapower net (`Case.from_pandapower`); `Case.from_ieee` is the IEEE case pandapower ships for a bus count, with its base power flow solved, and `nygrid_case()` reads the New York case file `case_nygrid.m` beside the module |
+| `systems/network.py` | `Network`: a case's admittances, built once, and the AC quantities they give for a state |
+| `systems/fixes.py` | two variants of the New York case: the external areas held at the base load, and the HVDC links |
+| `systems/ownership.py` | `Ownership`: the utility that owns each New York bus, assigned from the service territories (`assign_clients`) |
+| `systems/tables.py` | `read_rows`: a CSV table of the inputs, read whole and closed |
+| `systems/pandapower_types.py` | the pandapower objects `Case.from_pandapower` and the profile helpers read, as types |
+| `sensing/meters.py` | `MeterPlan`: every meter of a grid as one row of a table (`MeterPlan.from_coverage` places an IEEE case's, `plan_meters` the New York grid's) |
+| `sensing/measure.py` | `Measurement`: the measurement function h(x) of a meter plan, and its Jacobian |
+| `sensing/noise.py` | `NoiseModel`: each meter's accuracy class as a constant bias and a per-scan jitter |
 | `engine/attacks/area.py` | the attacker's area: the subnetwork a stealthy attack re-solves and the boundary it holds |
 | `engine/attacks/false_state.py` | the local false state: the area re-solved under false loads with the boundary held true |
 | `engine/attacks/stealthy.py` | `At` one scan at a time: a local false state added to the true scan |

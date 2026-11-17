@@ -16,7 +16,7 @@ import pandas as pd
 
 from fdia_graph.constants.newyork import INTERFACE_BRANCHES
 from fdia_graph.errors import DataConditionError
-from fdia_graph.generation.nygrid.case import Case
+from fdia_graph.systems.case import Case
 
 
 @dataclass(frozen=True)

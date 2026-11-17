@@ -7,9 +7,9 @@ from dataclasses import dataclass, replace
 import numpy as np
 
 from fdia_graph.constants import newyork
-from fdia_graph.generation.nygrid.case import Case
-from fdia_graph.generation.nygrid.fixes import externals_at_base
 from fdia_graph.generation.nygrid.inputs import NygridHour
+from fdia_graph.systems.case import Case
+from fdia_graph.systems.fixes import externals_at_base
 
 
 @dataclass(frozen=True)

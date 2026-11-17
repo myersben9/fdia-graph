@@ -44,7 +44,7 @@ def _pandas():
 if TYPE_CHECKING:
     import pandas as pd
 
-    from .engine.pandapower_types import PandapowerNet
+    from .systems.pandapower_types import PandapowerNet
 # per-bus scale at timestep t: clip(1 + K*S_t + jitter_t, *CLIP). K is the profile's weight, SIGMA the
 # jitter's std, and the clip holds a plausible load band.
 K_DEFAULT = 0.1

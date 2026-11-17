@@ -1,5 +1,5 @@
 """The meter error model: the standard deviation an accuracy class gives a reading [ASP14], and the
-noise [WU26]'s case studies state. `engine.sensing.noise.NoiseModel` splits a class into a constant
+noise [WU26]'s case studies state. `sensing.noise.NoiseModel` splits a class into a constant
 per-meter bias and a per-scan jitter (ours) and draws both."""
 
 from __future__ import annotations
@@ -38,7 +38,7 @@ def current_magnitude(current_true: np.ndarray) -> np.ndarray:
 def current_sigma(current_true: np.ndarray, rel: float, floor: float = CURRENT_FLOOR_PU) -> np.ndarray:
     """The std [..., E, 4] of every PMU branch-current channel [C37118], per unit on the base current:
     sigma_re = sigma_im = rel |I_end| + floor, `rel` the class (`PMU_CURRENT_CLASS`). The rule of
-    `engine.sensing.noise.NoiseModel` on a file's current layer."""
+    `sensing.noise.NoiseModel` on a file's current layer."""
     return rel * current_magnitude(current_true) + floor
 
 

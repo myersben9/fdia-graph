@@ -14,8 +14,8 @@ from fdia_graph.formulas.network import (
     edge_adjacency,
     hop_distances,
 )
-from fdia_graph.generation.nygrid.case import Case
 from fdia_graph.models.grid import BranchModel
+from fdia_graph.systems.case import Case
 
 
 class Network:

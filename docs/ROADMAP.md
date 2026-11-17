@@ -38,8 +38,10 @@ The generation toolkit, `src/fdia_graph/`:
 | `models/` | every value bundle the toolkit passes or returns, one module per subject: `fdia_graph/models/base.py` (`Bundle`), `fields.py` (the fields the record bundles share), `fdia_graph/models/grid.py`, `frames.py`, `plan.py` (a timeline's plan and design records), `fdia_graph/models/data.py`, `assets.py`; the settings in `fdia_graph/models/config.py` and the parser inputs in `fdia_graph/models/inputs.py`, checked by the one engine in `fdia_graph/models/validation.py`; and the fixed-set arguments in `fdia_graph/models/choices.py`. A model is imported from its module; the package's `__init__.py` exports no name. [`reference/DATA_DICTIONARY.md`](reference/DATA_DICTIONARY.md) lists every field |
 | `ratings/` | PGLib-OPF branch ratings of IEEE-14, 118 and 300 |
 | `formulas/` | the mathematics of generation as pure functions with source keys: [`reference/FORMULAS.md`](reference/FORMULAS.md) |
-| `engine/`, `generation/` | the generator: the AC physics, the meters and the attacks, and the stages that walk a timeline: [`guides/generation.md`](guides/generation.md) |
-| `generation/nygrid/`, `engine/sensing/` | the New York grid and its meters: [`concepts/new_york_grid.md`](concepts/new_york_grid.md) |
+| `systems/` | the test systems: a grid as a `Case` with its `Network`, the IEEE cases pandapower ships and the New York case file: [`guides/generation.md`](guides/generation.md) |
+| `sensing/` | the meters of any grid: the meter plan, the measurement function h(x) and the noise model: [`guides/generation.md`](guides/generation.md) |
+| `engine/`, `generation/` | the generator: a scan's physics and the attacks, and the stages that walk a timeline: [`guides/generation.md`](guides/generation.md) |
+| `generation/nygrid/` | the New York grid's build (loads, dispatch, the pool, the timeline source): [`concepts/new_york_grid.md`](concepts/new_york_grid.md) |
 
 The analysis toolkit, `analysis/src/fdia_analysis/` ([`../analysis/README.md`](../analysis/README.md)):
 

@@ -15,8 +15,8 @@ from pandapower.converter.pypower import from_ppc
 from fdia_graph.constants.grid import NO_LIMIT, BusType
 from fdia_graph.constants.newyork import HQ_BUS
 from fdia_graph.engine.solvers import ipopt
-from fdia_graph.generation.nygrid.case import Case
-from fdia_graph.generation.nygrid.network import Network
+from fdia_graph.systems.case import Case
+from fdia_graph.systems.network import Network
 
 # A unit held at a value its last bounds miss by rounding makes Pyomo warn (W1002); the bounds are reset each solve.
 logging.getLogger("pyomo.core").setLevel(logging.ERROR)

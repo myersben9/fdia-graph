@@ -52,7 +52,7 @@ CASE_FIELDS_NEEDED = (
     "gen_ramp",
 )
 CASE_FIELDS_PASSED_OVER = ("gencost", "gentype", "areas", "dclinecost")
-# The fields of a `Case` (`generation.nygrid.case`) read as they are from one column of the case file, as
+# The fields of a `Case` (`systems.case`) read as they are from one column of the case file, as
 # floats: field -> (mpc table, MATPOWER's name of the column).
 CASE_COLUMNS = {
     "kv": ("bus", "BASE_KV"),

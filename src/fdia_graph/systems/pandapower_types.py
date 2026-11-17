@@ -1,4 +1,4 @@
-"""The pandapower objects the engine reads, as types.
+"""The pandapower objects the package reads, as types.
 
 pandapower ships no type information and is an optional dependency, so the parts of a network that
 `Case.from_pandapower` and the profile helpers read are named here: the element tables, the result tables of a power flow, and the

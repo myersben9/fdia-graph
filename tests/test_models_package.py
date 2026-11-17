@@ -15,6 +15,8 @@ import fdia_graph.engine
 import fdia_graph.formulas
 import fdia_graph.generation
 import fdia_graph.models as models
+import fdia_graph.sensing
+import fdia_graph.systems
 from fdia_graph.models import data
 from fdia_graph.models.base import Bundle
 from tests.helpers import (
@@ -31,7 +33,9 @@ from tests.helpers import (
 NEW_YORK = (
     "fdia_graph.generation.nygrid",
     "fdia_graph.engine.attacks.family",
-    "fdia_graph.engine.sensing",
+    "fdia_graph.sensing",
+    "fdia_graph.systems.case",
+    "fdia_graph.systems.ownership",
 )
 ERRORS = "fdia_graph.errors"  # a first-party module a model may import: the errors it raises
 CONSTANTS = "fdia_graph.constants"  # and the other: the constants, which import nothing of the package
@@ -73,6 +77,19 @@ def test_the_constants_import_nothing_of_the_package():
     for module, imported in runtime_imports(fdia_graph.constants).items():
         assert imported <= allowed, f"fdia_graph.constants.{module} imports {imported - allowed}"
     assert exported_names(fdia_graph.constants) == set()
+
+
+def test_the_systems_and_the_meters_import_no_producer():
+    """A module of `fdia_graph.systems` or `fdia_graph.sensing` imports nothing of the engine, the
+    generation stages or the dataset at run time, and `systems` nothing of `sensing`: the imports
+    point one way, from the grid to the meters to what generates and reads a file."""
+    producers = {"fdia_graph.engine", "fdia_graph.generation", "fdia_graph.dataset"}
+    refused = {fdia_graph.systems: producers | {"fdia_graph.sensing"}, fdia_graph.sensing: producers}
+    for package, never in refused.items():
+        modules = runtime_imports(package)
+        assert modules, f"{package.__name__} has no module: the scan is reading the wrong folder"
+        for module, imported in modules.items():
+            assert not imported & never, f"{package.__name__}.{module} imports {imported & never}"
 
 
 def test_a_relative_import_of_a_producer_is_seen():

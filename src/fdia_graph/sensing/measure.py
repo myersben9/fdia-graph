@@ -7,8 +7,8 @@ from typing import Optional
 import numpy as np
 
 from fdia_graph.constants.meters import MeterKind
-from fdia_graph.engine.sensing.meters import MeterPlan
-from fdia_graph.generation.nygrid.network import Network
+from fdia_graph.sensing.meters import MeterPlan
+from fdia_graph.systems.network import Network
 
 
 # Derivatives are taken for every bus and branch end, then the metered ones are gathered; an unmetered

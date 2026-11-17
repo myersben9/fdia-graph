@@ -10,8 +10,8 @@ from __future__ import annotations
 import numpy as np
 
 from fdia_graph.engine.core import FdiaGenerator
-from fdia_graph.engine.sensing.meters import MeterPlan
 from fdia_graph.models.config import MeterSettings
+from fdia_graph.sensing.meters import MeterPlan
 
 # the two lines each scenario overloads at once
 SCENARIOS: dict[int, tuple[tuple[tuple[int, int], tuple[int, int]], ...]] = {

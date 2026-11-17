@@ -17,12 +17,12 @@ import numpy as np
 from fdia_graph.constants.grid import BusType
 from fdia_graph.constants.meters import MeterKind
 from fdia_graph.constants.newyork import BASEPOINT_BAND, HYDRO_RAMP_PER_MIN, IMPORT_RAMP_MW_PER_MIN, Q_SHARE
-from fdia_graph.engine.sensing.measure import Measurement
-from fdia_graph.engine.sensing.noise import NoiseModel
 from fdia_graph.formulas.network import local_flow_solve
 from fdia_graph.formulas.temporal import wrap_degrees
-from fdia_graph.generation.nygrid.case import Case
-from fdia_graph.generation.nygrid.network import Network
+from fdia_graph.sensing.measure import Measurement
+from fdia_graph.sensing.noise import NoiseModel
+from fdia_graph.systems.case import Case
+from fdia_graph.systems.network import Network
 
 
 def natural_steps(time: np.ndarray, p: np.ndarray, solved: np.ndarray, pct: float = 95.0) -> np.ndarray:

@@ -212,6 +212,8 @@ TOOLKIT = {
 LABEL = {
     GENERATION: "__init__.py<br/>fg.* public API",
     "dataset": "dataset/",
+    "systems": "systems/",
+    "sensing": "sensing/",
     "engine": "engine/",
     "generation": "generation/",
     "ratings": "ratings/",

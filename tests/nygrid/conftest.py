@@ -41,13 +41,13 @@ def grid():
     pytest.importorskip("scipy")
     from fdia_graph.constants.newyork import SolveKind
     from fdia_graph.engine.attacks.attacker import Attacker
-    from fdia_graph.engine.sensing.measure import Measurement
-    from fdia_graph.engine.sensing.meters import plan_meters
-    from fdia_graph.generation.nygrid.case import nygrid_case
     from fdia_graph.generation.nygrid.config import Settings, rng
-    from fdia_graph.generation.nygrid.network import Network
-    from fdia_graph.generation.nygrid.ownership import Ownership
     from fdia_graph.generation.nygrid.pool import Pool
+    from fdia_graph.sensing.measure import Measurement
+    from fdia_graph.sensing.meters import plan_meters
+    from fdia_graph.systems.case import nygrid_case
+    from fdia_graph.systems.network import Network
+    from fdia_graph.systems.ownership import Ownership
 
     case = nygrid_case()
     n = len(case.bus_id)

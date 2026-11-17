@@ -122,9 +122,9 @@ def test_bias_and_jitter_keep_the_class_total():
     pytest.importorskip("pandapower")
     from fdia_graph.constants.meters import MeterKind
     from fdia_graph.engine.core import FdiaGenerator
-    from fdia_graph.engine.sensing.measure import Measurement
-    from fdia_graph.engine.sensing.meters import MeterPlan
-    from fdia_graph.engine.sensing.noise import NoiseModel
+    from fdia_graph.sensing.measure import Measurement
+    from fdia_graph.sensing.meters import MeterPlan
+    from fdia_graph.sensing.noise import NoiseModel
     from tests.helpers import FixedDraws
 
     g = FdiaGenerator(14, seed=1)

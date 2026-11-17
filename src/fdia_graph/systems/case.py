@@ -3,7 +3,8 @@
 The New York grid is the file `case_nygrid.m` beside this module: `nygrid_case()` reads it, and a change to the grid
 is an edit to that file. `Case.from_matpower` reads a case file with matpowercaseframes, the reader pandapower uses,
 taking each column by MATPOWER's own name, and `Case.check` refuses a file whose fields disagree.
-`Case.from_pandapower` reads a pandapower net (the IEEE cases pandapower ships).
+`Case.from_pandapower` reads a pandapower net, and `Case.from_ieee` the IEEE case pandapower ships for a bus
+count.
 """
 
 from __future__ import annotations
@@ -17,6 +18,7 @@ import numpy as np
 
 from fdia_graph.constants import newyork
 from fdia_graph.constants.grid import (
+    IEEE_CASES,
     PANDAPOWER_IN_SERVICE,
     PANDAPOWER_NOT_READ,
     PANDAPOWER_SCALED,
@@ -33,7 +35,7 @@ if TYPE_CHECKING:
     import pandas as pd
     from matpowercaseframes import CaseFrames
 
-    from fdia_graph.engine.pandapower_types import PandapowerNet
+    from fdia_graph.systems.pandapower_types import PandapowerNet
 
 
 CASE_FILE = Path(__file__).with_name("case_nygrid.m")
@@ -186,6 +188,18 @@ class Case:
         )
 
     # ---- reading a pandapower net ----
+
+    @classmethod
+    def from_ieee(cls, buses: int) -> Case:
+        """The IEEE case of `buses` buses that pandapower ships, with its base power flow solved. The
+        net itself is not kept."""
+        # pandapower is heavy and optional: imported only when generating
+        import pandapower as pp
+        import pandapower.networks as pn
+
+        net = getattr(pn, IEEE_CASES[buses])()
+        pp.runpp(net)
+        return cls.from_pandapower(net)
 
     @classmethod
     def from_pandapower(cls, net: PandapowerNet) -> Case:

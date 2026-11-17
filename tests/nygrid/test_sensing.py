@@ -9,13 +9,13 @@ import scipy.linalg
 import scipy.sparse as sp
 
 from fdia_graph.constants.meters import JITTER_FRAC, KIND_ACCURACY, MeterKind
-from fdia_graph.engine.sensing.measure import Measurement
-from fdia_graph.engine.sensing.meters import _min_pmus, plan_meters
-from fdia_graph.engine.sensing.noise import NoiseModel
-from fdia_graph.generation.nygrid.case import nygrid_case
 from fdia_graph.generation.nygrid.config import Settings, rng
-from fdia_graph.generation.nygrid.network import Network
-from fdia_graph.generation.nygrid.ownership import assign_clients
+from fdia_graph.sensing.measure import Measurement
+from fdia_graph.sensing.meters import _min_pmus, plan_meters
+from fdia_graph.sensing.noise import NoiseModel
+from fdia_graph.systems.case import nygrid_case
+from fdia_graph.systems.network import Network
+from fdia_graph.systems.ownership import assign_clients
 
 from .inputs import TERRITORIES, needs_data
 

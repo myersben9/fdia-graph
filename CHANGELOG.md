@@ -5,6 +5,38 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- **The grid and the meters have their own packages, `fdia_graph.systems` and `fdia_graph.sensing`
+  (breaking for the module paths below; a move only: no class is renamed, no logic changes and no stored
+  byte changes: the five whole-file digests are unchanged, and thirty-two IEEE timelines are byte for byte
+  the files the previous code writes).** `fg.load`, `fg.generate` and `generate_timeline` are used as
+  before. New York is a test system like IEEE-14: its `Case`, its `Network` and its case file sit beside
+  the IEEE cases, and the meter plan, the measurement function and the noise model are no part of the
+  engine. `systems` and `sensing` import nothing of `engine`, `generation` or `dataset` (a test holds them to
+  it), so the generator (`engine/core.py`, `engine/base.py`) no longer imports `generation.nygrid`;
+  `engine/attacks/interface.py` still reads `Interface` from `generation.nygrid.interfaces`. The old module
+  paths are gone, with no alias.
+
+  | | Before | Now |
+  |---|---|---|
+  | `Case`, `nygrid_case`, `CASE_FILE` | `fdia_graph.generation.nygrid.case` | `fdia_graph.systems.case` |
+  | `Network` | `fdia_graph.generation.nygrid.network` | `fdia_graph.systems.network` |
+  | `externals_at_base`, `hvdc_links` | `fdia_graph.generation.nygrid.fixes` | `fdia_graph.systems.fixes` |
+  | the New York case file `case_nygrid.m` | in the package folder `generation/nygrid` | `src/fdia_graph/systems/case_nygrid.m` (the wheel ships it there) |
+  | `PandapowerNet`, `PpcTables` | `fdia_graph.engine.pandapower_types` | `fdia_graph.systems.pandapower_types` |
+  | the IEEE case of a bus count | built inside `FdiaGenerator._open_case` | `Case.from_ieee(buses)`, which `_open_case` calls |
+  | `Ownership`, `assign_clients` | `fdia_graph.generation.nygrid.ownership` | `fdia_graph.systems.ownership` |
+  | `read_rows` | `fdia_graph.generation.nygrid.tables` | `fdia_graph.systems.tables` |
+  | `MeterPlan`, `plan_meters` | `fdia_graph.engine.sensing.meters` | `fdia_graph.sensing.meters` |
+  | `Measurement` | `fdia_graph.engine.sensing.measure` | `fdia_graph.sensing.measure` |
+  | `NoiseModel` | `fdia_graph.engine.sensing.noise` | `fdia_graph.sensing.noise` |
+
+  The New York survey cache (`survey_cache`) keeps its `_v2` chunks: a chunk pickles `models.plan.Episode`
+  records, seconds and miss reasons, and none of the moved classes, so an existing cache still loads.
+  The layout gate's
+  page for both packages is `docs/guides/generation.md`. The case file's bytes are unchanged, so the comment
+  that opens it still names the reader by its old module path, and the recipe
+  `pipelines/newyork/make_case.py` writes that same line.
+
 - **One grid representation, one measurement function, one meter table and one noise model for the IEEE
   cases and New York (breaking for the internal names below; no stored byte changed: the five whole-file
   digests are unchanged, and thirty IEEE timelines are byte for byte the files the previous code writes:
@@ -378,7 +410,7 @@ the public API, the generated files and the numbers are the same as the previous
   - The integers of `graph/` (`edge_index`, `bus_type`, `bus_client`) are int32 on every platform, the
     type of an IEEE file's `edge_index`; they were the platform's own integer (int64 on Linux).
   - Removed. `case/` (the unit table, the HVDC links, the names and places of the buses and the base
-    state, which are the case file's, `generation/nygrid/case_nygrid.m`; the line ratings moved to
+    state, which are the case file's, `systems/case_nygrid.m`; the line ratings moved to
     `graph/edge_rating`), `meters/` (the table
     is rebuilt from the masks; the accuracy class is the table `ACCURACY`, the bias is drawn from the seed
     and is not stored, the owner is the owner of the meter's bus), `case/tie_lines` (a branch whose ends
@@ -658,7 +690,7 @@ the public API, the generated files and the numbers are the same as the previous
     The load constants the fits produced stay in `loads.py`, and the tie ratings stay in the case file.
 
 - **The New York grid is one MATPOWER case file (breaking for New York imports).** The grid every New York pool
-  and timeline is built on is `src/fdia_graph/generation/nygrid/case_nygrid.m`, shipped with the package, in place
+  and timeline is built on is `src/fdia_graph/systems/case_nygrid.m`, shipped with the package, in place
   of code that assembled it from NYgrid's `npcc.mat` each time. A change to the grid is now an edit to that file.
   No generated file changes: the file reads back to the same arrays, bit for bit, as the code built.
   - `nygrid_case()` returns the grid's `Case` (140 buses, 227 branches, 271 units). `production_builder`, the

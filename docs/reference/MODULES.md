@@ -66,19 +66,14 @@ What every folder of the repository holds, then what every Python file does, in 
 | `engine.base` | The state FdiaGenerator's mixins share: attribute annotations only. |
 | `engine.core` | The dataset generation engine: attack simulation and realistic meter readings on an IEEE case. |
 | `engine.measurement` | Measurement emission: the generator's meter readings of a stored state, as a file's layers. |
-| `engine.pandapower_types` | The pandapower objects the engine reads, as types. |
 | `engine.physics` | A scan's load and generation, read from its stored state. |
 | `engine.records` | One scan of the timeline writer: a benign scan, or an attacked At scan built by `engine.attacks`. |
-| `engine.sensing` | The meters: what each client measures, and how wrong each meter is. |
-| `engine.sensing.measure` | The measurement function: the meter readings a grid state gives, and their derivatives. |
-| `engine.sensing.meters` | The meter plan: every meter of a grid as one row of a table, with its owner and accuracy class. |
-| `engine.sensing.noise` | Meter noise: the accuracy class of each meter split into a constant bias and a per-scan jitter. |
 | `engine.solvers` | The optimization solver every nygrid OPF runs on, found and checked in one place. |
 | `errors` | Every error the package raises on purpose, defined in this one module. |
 | `formulas` | The mathematics of the generation toolkit as named, pure functions: numpy in, numpy out, no files, no dataset objects, no torch. Each function carries its equation and a source key from docs/reference/REFERENCES.md; docs/reference/FORMULAS.md is the catalogue. Import a formula from its module (`formulas.network`, `formulas.noise`, `formulas.attacks`, `formulas.temporal`, `formulas.trust`). The formulas of estimation, localization, federated training and trust selection are the analysis toolkit's (`fdia_analysis.formulas`). |
 | `formulas.attacks` | Attack shapes defined by the dataset [DAT26] that are pure functions of their parameters. |
 | `formulas.network` | The AC network model: branch admittances, bus injections and branch flows [AE04, ch. 2], [MP19]. |
-| `formulas.noise` | The meter error model: the standard deviation an accuracy class gives a reading [ASP14], and the noise [WU26]'s case studies state. `engine.sensing.noise.NoiseModel` splits a class into a constant per-meter bias and a per-scan jitter (ours) and draws both. |
+| `formulas.noise` | The meter error model: the standard deviation an accuracy class gives a reading [ASP14], and the noise [WU26]'s case studies state. `sensing.noise.NoiseModel` splits a class into a constant per-meter bias and a per-scan jitter (ours) and draws both. |
 | `formulas.temporal` | The temporal features of a scan [FED26]: the one-step injection change and its z-score against the bus's typical recent change, and the recent-change scale itself. |
 | `formulas.trust` | Row reduction for stealthy attacks under trusted meters [WU26]: the reduced row echelon form of a matrix, and the sparsest rows of a row space, which the attack generator searches for an attack vector the trusted meters leave open. |
 | `generation` | generate(system, name, **knobs) — build a custom dataset and register it as `name`. |
@@ -86,21 +81,16 @@ What every folder of the repository holds, then what every Python file does, in 
 | `generation.emit` | The emit stage of a timeline: every frame in time order, benign or under its episode's design. |
 | `generation.ieee` | An IEEE case as the source of a timeline: its pool of operating points and its steps of the driver. |
 | `generation.nygrid` | The New York system: NYgrid's NPCC-140 case made solvable in AC, its reduced network, the 2019 loads by bus, the hourly dispatch and the five-minute pool of AC operating states, and the timeline written from them. |
-| `generation.nygrid.case` | The grid as one frozen record of arrays, read from a MATPOWER case file or from a pandapower net. |
 | `generation.nygrid.config` | Build settings and the one place random generators are made. |
 | `generation.nygrid.dispatch` | Hourly unit dispatch, NYgrid's allocation of the NYISO fuel mix to the fixed unit list. |
-| `generation.nygrid.fixes` | Two variants of a case, applied when one is asked for: the external areas held at the base load, and NYgrid's HVDC links in place of the AC branch 81-125. The changes every build has (zone J's split, the 765 kV line) are in the case file itself (`case.py` reads it). |
 | `generation.nygrid.inputs` | Historical inputs: NYgrid's hourly 2019 tables and NYISO's 5-minute zonal load, and `fetch_inputs`, which downloads everything the build reads at its pinned version. |
 | `generation.nygrid.interfaces` | NYISO's internal transmission interfaces on the reduced case, with their real 2019 hourly limits and flows. |
 | `generation.nygrid.io` | The pool file of the build, HDF5. A timeline is written by the writer every grid uses (`fdia_graph.generation.write`) and read through `fdia_graph.dataset`. |
 | `generation.nygrid.load_sources` | Where the bottom-up load profiles come from ([LI21]), each downloaded once into a cache: the NREL ResStock and ComStock county profiles, each utility's EIA-861 sector sales, the census county centroids and the IAC industrial plants, with the clock rules the plants run on. `LoadModel` (`loads.py`) builds the bus profiles from these. |
 | `generation.nygrid.loads` | Per-bus load profiles by the bottom-up method of [LI21], scaled to the real zone load. |
-| `generation.nygrid.network` | Admittances of a Case, built once, and the AC quantities they give for any state, from the SDK's network formulas (`formulas.network`). |
-| `generation.nygrid.ownership` | Federated clients: each NY bus belongs to the electric utility whose service territory holds it. |
 | `generation.nygrid.pool` | The pool: one AC operating state per 5-minute frame, from a ramp-constrained real-time dispatch. |
 | `generation.nygrid.solver` | AC solutions of a Case: the hourly projection (an AC-OPF in Pyomo, solved by Ipopt) and the power flows between hours (pandapower). |
 | `generation.nygrid.source` | The New York grid as the source of a timeline: the year of pool states and its steps of the one path. |
-| `generation.nygrid.tables` | The CSV tables of the inputs, read whole and closed: the NYgrid checkout's bus, unit and renewable tables and the bus locations. One reader, so no input file is left open. |
 | `generation.plan` | The plan stage of a timeline: where its splits are cut and where each split's episodes go. |
 | `generation.source` | The system a timeline is generated on, and the one path that generates it. |
 | `generation.write` | The one writer of a timeline file, for every grid: `TimelineWriter` owns the open HDF5 file. |
@@ -120,6 +110,17 @@ What every folder of the repository holds, then what every Python file does, in 
 | `ratings` | Branch thermal ratings for the overload attack of [WU26] (eqs. 24-25), stored with the package. |
 | `registry` | The dataset registry: the built-in (downloadable) datasets and the locally generated ones. |
 | `schema` | The file protocol: every group, dataset and attribute name an fdia-graph HDF5 file carries, defined once. The writer (`generation`) and the readers (`dataset`) agree through these names; `tools/readability.py` refuses a path-shaped literal ("data/...", "graph/...") in any other module. Field names (`node_x`, `clean`, ...) stay as words in the code; `FIELD_PATH` maps them to paths. |
+| `sensing` | The meters: what each client measures, and how wrong each meter is. |
+| `sensing.measure` | The measurement function: the meter readings a grid state gives, and their derivatives. |
+| `sensing.meters` | The meter plan: every meter of a grid as one row of a table, with its owner and accuracy class. |
+| `sensing.noise` | Meter noise: the accuracy class of each meter split into a constant bias and a per-scan jitter. |
+| `systems` | The test systems: a grid as a `Case` with its `Network`, whichever grid it is. |
+| `systems.case` | The grid as one frozen record of arrays, read from a MATPOWER case file or from a pandapower net. |
+| `systems.fixes` | Two variants of a case, applied when one is asked for: the external areas held at the base load, and NYgrid's HVDC links in place of the AC branch 81-125. The changes every build has (zone J's split, the 765 kV line) are in the case file itself (`case.py` reads it). |
+| `systems.network` | Admittances of a Case, built once, and the AC quantities they give for any state, from the SDK's network formulas (`formulas.network`). |
+| `systems.ownership` | Federated clients: each NY bus belongs to the electric utility whose service territory holds it. |
+| `systems.pandapower_types` | The pandapower objects the package reads, as types. |
+| `systems.tables` | The CSV tables of the inputs, read whole and closed: the NYgrid checkout's bus, unit and renewable tables and the bus locations. One reader, so no input file is left open. |
 | `timeline` | One continuous attacked timeline per system, written as one HDF5 file. |
 
 ## The analysis toolkit, `fdia_analysis`

@@ -11,8 +11,8 @@ import numpy as np
 from fdia_graph.constants.newyork import HQ_BUS, SolveKind
 from fdia_graph.constants.time import HALF_HOUR
 from fdia_graph.errors import DataConditionError, NotFitted
-from fdia_graph.generation.nygrid.case import Case
-from fdia_graph.generation.nygrid.network import Network
+from fdia_graph.systems.case import Case
+from fdia_graph.systems.network import Network
 
 if TYPE_CHECKING:  # the pool record is read without pandapower, so the solver is only a type here
     from fdia_graph.generation.nygrid.dispatch import Dispatch
