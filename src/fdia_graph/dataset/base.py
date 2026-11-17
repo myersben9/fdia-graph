@@ -29,9 +29,9 @@ import h5py
 import numpy as np
 
 from .. import schema
+from ..errors import MissingCapability
 from ..models.choices import FAMILY_CODE, HELDOUT_FAMILIES, Capability
 from ..models.inputs import FamilySelection, Requirement
-from ..models.validation import MissingCapability
 
 # As, Ar reserved for test-only in the unseen-attack protocol (Boyaci et al. 2022)
 _HELDOUT_TRAIN_EXCLUDE = {FAMILY_CODE[n] for n in HELDOUT_FAMILIES}

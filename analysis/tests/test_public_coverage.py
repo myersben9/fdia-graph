@@ -9,7 +9,7 @@ import numpy as np
 import pytest
 
 import fdia_graph as fg
-from fdia_analysis.models import LearnedConfig, RemovalConfig, TrustConfig
+from fdia_analysis.models.config import LearnedConfig, RemovalConfig, TrustConfig
 
 # ---- the replay families' benign buffer ------------------------------------------------------------
 
@@ -43,8 +43,7 @@ def test_sparse_basis_opens_and_closes_with_the_secured_rows():
 
 def test_trust_selector_base(splits):
     pytest.importorskip("pandapower")
-    from fdia_analysis.trust import TrustedMeters
-    from fdia_analysis.trust.base import TrustSelector
+    from fdia_analysis.trust.base import TrustedMeters, TrustSelector
 
     with pytest.raises(NotImplementedError):
         TrustSelector(TrustConfig(k=2)).fit(splits["train"])
@@ -55,7 +54,7 @@ def test_trust_selector_base(splits):
 
 def test_removal_keeps_every_meter_the_guard_refuses(splits):
     pytest.importorskip("pandapower")
-    from fdia_analysis.se import ResidualRemoval
+    from fdia_analysis.se.methods import ResidualRemoval
 
     est = ResidualRemoval(removal=RemovalConfig(threshold=0.5)).fit(
         splits["train"]
@@ -76,7 +75,7 @@ def test_removal_keeps_every_meter_the_guard_refuses(splits):
 
 def test_tune_threshold_picks_one_global_tau(splits, timeline):
     pytest.importorskip("torch")
-    from fdia_analysis.localization import BusMLP
+    from fdia_analysis.localization.learned import BusMLP
 
     loc = BusMLP(learned=LearnedConfig(epochs=2, device="cpu")).fit(splits["train"], val=splits["val"])
     assert loc.tau is not None and np.round(loc.tau / 0.05) * 0.05 == pytest.approx(loc.tau)

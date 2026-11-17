@@ -16,8 +16,8 @@ from tests.helpers import OLD_FAMILIES, TIMELINES, family_names
 @pytest.mark.parametrize("release", sorted(TIMELINES))
 def test_old_releases_score_per_old_family(release):
     """A per-family estimator and localizer score on an old timeline names the old families."""
-    from fdia_analysis.localization import SwingThreshold
-    from fdia_analysis.se import WLS
+    from fdia_analysis.localization.methods import SwingThreshold
+    from fdia_analysis.se.methods import WLS
     from fdia_graph.dataset import FdiaGraph
 
     path = TIMELINES[release]

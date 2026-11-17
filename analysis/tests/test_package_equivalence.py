@@ -66,7 +66,7 @@ def test_replay_keeps_the_newest_in_arrival_order():
 
 
 def _bfs_subnetwork(edge_index, seeds, hops, n_bus):
-    """The hand-written breadth-first search `formulas.subnetwork` used before csgraph."""
+    """The hand-written breadth-first search `formulas.network.subnetwork` used before csgraph."""
     adj = [set() for _ in range(n_bus)]
     for a, b in zip(edge_index[0], edge_index[1]):
         adj[int(a)].add(int(b))
@@ -84,8 +84,8 @@ def test_subnetwork_and_hop_distance_match_breadth_first_search():
     """`subnetwork` and `hop_distance` (scipy's shortest path) give the breadth-first search's
     interiors, boundaries and hop counts, unreachable buses included."""
     pytest.importorskip("scipy")
-    from fdia_analysis.formulas import hop_distance
-    from fdia_graph.formulas import subnetwork
+    from fdia_analysis.formulas.federated import hop_distance
+    from fdia_graph.formulas.network import subnetwork
 
     rng = np.random.default_rng(4)
     n = 30

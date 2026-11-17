@@ -204,9 +204,9 @@ class GatedPrior(SubspacePrior):
     detection (which sees the stealthy re-solve families the residual cannot) can reach the
     estimate. `GateConfig("oracle")` uses the true per-bus labels and gives the ceiling for any gate.
     `secured` names meters (indices into the masked measurement vector, the layout of
-    `trust.TrustSelector.order`) the gate never down-weights: a secured meter reads its true
+    `trust.base.TrustSelector.order`) the gate never down-weights: a secured meter reads its true
     value whatever bus the gate flags, and pulling it out with the rest of the bus's meters throws
-    away exactly what securing it bought (on a `trust.secured_copy` every gate was worse than no
+    away exactly what securing it bought (on a `trust.secured.secured_copy` every gate was worse than no
     gate until this exemption).
     """
 

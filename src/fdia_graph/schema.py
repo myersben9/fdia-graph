@@ -62,7 +62,6 @@ PMU_I = path(Group.DATA, "pmu_i")
 PMU_I_M = path(Group.DATA, "pmu_i_m")
 PMU_I_BENIGN = path(Group.BENIGN, "pmu_i_benign")
 PMU_I_TAMPER = path(Group.ATTACK, "pmu_i_tamper")
-CURRENT_LAYERS = (PMU_I, PMU_I_M, PMU_I_BENIGN, PMU_I_TAMPER)  # all of them or none, by meter model
 # graph/
 EDGE_INDEX = path(Group.GRAPH, "edge_index")
 
@@ -211,8 +210,6 @@ class Attr:
     YBUS_RECONSTRUCTIBLE = "ybus_reconstructible"
     TAMPER = "tamper"  # on attack/: what a 1 in the tamper masks means
 
-
-ATTR_KEYS = frozenset(v for k, v in vars(Attr).items() if not k.startswith("_"))
 
 KIND_TIMELINE = "timeline"
 # The two forms of a PMU current phasor in pmu_i, per branch end: real and imaginary part (the IEEE

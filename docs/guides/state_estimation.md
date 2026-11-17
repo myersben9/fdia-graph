@@ -9,7 +9,7 @@ the default timeline download (data release v0.8.3); `pip install "fdia-analysis
 
 ```python
 import fdia_graph as fg
-from fdia_analysis.se import WLS
+from fdia_analysis.se.methods import WLS
 
 train, test = fg.load("ieee14", split="train"), fg.load("ieee14", split="test")
 wls = WLS().fit(train)
@@ -25,8 +25,8 @@ print(wls.score(test).geo)  # angle_mae_deg, voltage_mae_pu (docs/analysis/estim
 ## The better estimator
 
 ```python
-from fdia_analysis.models import PriorConfig
-from fdia_analysis.se import SubspacePrior
+from fdia_analysis.models.config import PriorConfig
+from fdia_analysis.se.methods import SubspacePrior
 
 est = SubspacePrior(prior=PriorConfig(rank_frac=0.2, reweight="huber", c=1.5)).fit(train)
 print(est.score(test).geo)  # about half WLS's angle error on IEEE-14 (the table below)

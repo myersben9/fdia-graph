@@ -16,7 +16,6 @@ import numpy as np
 
 from ..models.choices import BENIGN_CODE
 from ..models.frames import AttackDesign, Frame, FrameKnobs
-from .attacks.false_state import FalseStateMixin
 
 if TYPE_CHECKING:
     from .core import FdiaGenerator
@@ -52,10 +51,3 @@ def _benign_frame(g: FdiaGenerator, Xt: np.ndarray) -> Frame:
         i_x=scan.i_x,
         i_m=scan.i_m,
     )
-
-
-# the public names this module held before engine.attacks: the mixins' own functions, called with
-# the generator first as they were here
-stealthy_state = FalseStateMixin.stealthy_state
-with_region = FalseStateMixin.with_region
-is_feasible = FalseStateMixin.is_feasible

@@ -11,6 +11,7 @@ import pytest
 
 from fdia_graph import schema
 from fdia_graph.models.choices import FAMILY_CODE, SPLITS
+from tests.helpers import ATTR_KEYS, CURRENT_LAYERS
 
 from .conftest import LENGTHS, UNSOLVED, T
 
@@ -116,9 +117,9 @@ def test_every_name_in_the_file_is_a_schema_name(written):
     new_york_only |= {schema.path(schema.Group.GRAPH, name) for name in graph_only}
     assert new_york_only <= set(names)  # what only this grid's files carry
     assert {schema.Attr.CURRENT_FORM, schema.Attr.CLIENT_NAMES} <= attrs
-    assert attrs <= schema.ATTR_KEYS, sorted(attrs - schema.ATTR_KEYS)
+    assert attrs <= ATTR_KEYS, sorted(attrs - ATTR_KEYS)
     assert not {schema.TEMPORAL_DELTA, schema.SWING} & set(names)  # left out on this grid for now
-    per_frame = set(schema.FIELD_PATH.values()) | set(schema.CURRENT_LAYERS) | {schema.SPLIT, schema.TIME}
+    per_frame = set(schema.FIELD_PATH.values()) | set(CURRENT_LAYERS) | {schema.SPLIT, schema.TIME}
     per_frame |= {schema.NODE_TAMPER, schema.EDGE_TAMPER, schema.MAG_PTR, schema.MAG_BUS, schema.MAG}
     graph = {schema.EDGE_INDEX} | {schema.path(schema.Group.GRAPH, k) for k in schema.STATIC_PHYSICS}
     episodes = {n for n in names if n.startswith(schema.Group.EPISODES)}
@@ -282,7 +283,7 @@ def test_temporal_wraps_angle_changes(written):
 
 def test_a_file_in_the_earlier_new_york_layout_is_refused(tmp_path):
     from fdia_graph.dataset.clients import Dataset
-    from fdia_graph.models.errors import NotATimeline
+    from fdia_graph.errors import NotATimeline
 
     old = tmp_path / "old.h5"
     with h5py.File(old, "w") as h:

@@ -15,6 +15,7 @@ from typing import Annotated, Optional, Union, cast
 
 import numpy as np
 
+from ..errors import ConfigError
 from .choices import (
     GENERATED_FAMILIES,
     NEW_YORK_FAMILIES,
@@ -37,7 +38,6 @@ from .validation import (
     AsTuple,
     AtLeast,
     Boolean,
-    ConfigError,
     Finite,
     InRange,
     Integer,

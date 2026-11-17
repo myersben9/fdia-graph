@@ -7,17 +7,9 @@ from typing import Annotated, Optional
 import numpy as np
 import pytest
 
+from fdia_graph.errors import ConfigError
 from fdia_graph.models.choices import Choice, Iso
-from fdia_graph.models.validation import (
-    AtLeast,
-    Boolean,
-    ConfigError,
-    InRange,
-    Integer,
-    OneOf,
-    Positive,
-    Validated,
-)
+from fdia_graph.models.validation import AtLeast, Boolean, InRange, Integer, OneOf, Positive, Validated
 
 
 class Mode(Choice):

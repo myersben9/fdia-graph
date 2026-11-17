@@ -6,14 +6,14 @@ import numpy as np
 import pytest
 
 import fdia_graph as fg
-from fdia_analysis.models import GateConfig, PriorConfig, RemovalConfig, TrustConfig
+from fdia_analysis.models.config import GateConfig, PriorConfig, RemovalConfig, TrustConfig
 
 pytest.importorskip("pandapower")
 
 
 @pytest.fixture(scope="module")
 def wls(splits):
-    from fdia_analysis.se import WLS
+    from fdia_analysis.se.methods import WLS
 
     return WLS().fit(splits["train"])
 
@@ -25,9 +25,10 @@ def test_arrays(splits, wls):
 
 
 def test_every_public_path_refuses_a_per_unit_view(timeline, splits, wls):
-    from fdia_analysis.localization import ResidualLocalizer
-    from fdia_analysis.se import JacobianFeatures, JacobianWeighting
-    from fdia_analysis.trust import TrustedMeters
+    from fdia_analysis.localization.methods import ResidualLocalizer
+    from fdia_analysis.se.jacobian import JacobianFeatures
+    from fdia_analysis.se.methods import JacobianWeighting
+    from fdia_analysis.trust.base import TrustedMeters
 
     pu = fg.load(timeline, split="test", units="pu")
     with pytest.raises(ValueError, match="units='physical'"):
@@ -45,7 +46,7 @@ def test_every_public_path_refuses_a_per_unit_view(timeline, splits, wls):
 
 
 def test_residual_localizer_keeps_a_fitted_estimator(splits, wls):
-    from fdia_analysis.localization import ResidualLocalizer
+    from fdia_analysis.localization.methods import ResidualLocalizer
 
     H = wls.H
     ResidualLocalizer(estimator=wls).fit(splits["val"])
@@ -53,8 +54,8 @@ def test_residual_localizer_keeps_a_fitted_estimator(splits, wls):
 
 
 def test_a_composed_gated_estimator_is_the_gated_estimator(splits):
-    from fdia_analysis.localization import ResidualLocalizer
-    from fdia_analysis.se import GatedPrior
+    from fdia_analysis.localization.methods import ResidualLocalizer
+    from fdia_analysis.se.methods import GatedPrior
 
     est = GatedPrior(GateConfig(gate="oracle"), prior=PriorConfig(rank_frac=0.5, reweight="huber")).fit(
         splits["train"]
@@ -81,7 +82,7 @@ def test_weighted_solve_considers_its_last_step(wls, test_arrays):
 
 
 def test_removal_takes_out_one_gross_error_and_keeps_its_neighbours(splits, test_arrays):
-    from fdia_analysis.se import ResidualRemoval
+    from fdia_analysis.se.methods import ResidualRemoval
 
     est = ResidualRemoval(removal=RemovalConfig(threshold=4.0)).fit(splits["train"])
     z, fam = test_arrays
@@ -109,7 +110,7 @@ def test_removal_takes_out_one_gross_error_and_keeps_its_neighbours(splits, test
 
 
 def test_meter_sigma_is_calibrated_across_the_benign_set(splits):
-    from fdia_analysis.se import WLS
+    from fdia_analysis.se.methods import WLS
 
     train = splits["train"]
     d = train.export(["node_x", "edge_x", "clean", "family"])
@@ -123,7 +124,7 @@ def test_meter_sigma_is_calibrated_across_the_benign_set(splits):
 
 
 def test_fit_refuses_a_dataset_whose_slack_disagrees(timeline):
-    from fdia_analysis.se import WLS
+    from fdia_analysis.se.methods import WLS
 
     ds = fg.load(timeline, split="train")
     ds.slack = 3
@@ -134,7 +135,7 @@ def test_fit_refuses_a_dataset_whose_slack_disagrees(timeline):
 def test_the_angle_reference_is_one_constant_from_the_fit(timeline):
     """fit takes the reference from the training split and refuses a slack angle that varies."""
 
-    from fdia_analysis.se import WLS
+    from fdia_analysis.se.methods import WLS
 
     est = WLS().fit(fg.load(timeline, split="train"))
     clean = fg.load(timeline, split="test").export(["clean"])["clean"]
@@ -150,7 +151,7 @@ def test_measured_calibration_reads_no_clean_layer(timeline, tmp_path):
 
     import h5py
 
-    from fdia_analysis.se import WLS
+    from fdia_analysis.se.methods import WLS
     from fdia_graph import schema
     from fdia_graph.formulas.noise import ACCURACY_CLASS
 
@@ -177,7 +178,7 @@ def test_measured_calibration_fits_without_a_clean_layer(timeline, tmp_path):
 
     import h5py
 
-    from fdia_analysis.se import WLS, SubspacePrior
+    from fdia_analysis.se.methods import WLS, SubspacePrior
     from fdia_graph import FdiaGraph, schema
 
     copy = str(tmp_path / "no_clean.h5")

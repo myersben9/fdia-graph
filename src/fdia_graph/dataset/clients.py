@@ -17,10 +17,10 @@ import numpy as np
 
 from fdia_graph import schema
 from fdia_graph.engine.sensing.meters import KINDS, MeterPlan
+from fdia_graph.errors import NotATimeline
 from fdia_graph.formulas.temporal import wrap_degrees
 from fdia_graph.generation.nygrid.ownership import Ownership
 from fdia_graph.models.choices import SPLITS
-from fdia_graph.models.errors import NotATimeline
 from fdia_graph.models.frames import MeterLayers
 from fdia_graph.schema import Attr, Static
 

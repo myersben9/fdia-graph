@@ -125,13 +125,14 @@ def test_the_search_counts_the_current_channels(gens, pool):
 
 def test_the_hybrid_file_carries_the_current_layers_and_the_old_one_does_not(pmu_files):
     from fdia_graph import schema
+    from tests.helpers import CURRENT_LAYERS
 
     old, new = pmu_files
     with h5py.File(old) as f:  # the v0.8.3 release: no current layers
-        assert not any(p in f for p in schema.CURRENT_LAYERS)
+        assert not any(p in f for p in CURRENT_LAYERS)
         assert "meter_model" not in f.attrs
     with h5py.File(new) as f:
-        assert all(p in f for p in schema.CURRENT_LAYERS)
+        assert all(p in f for p in CURRENT_LAYERS)
         assert f.attrs["meter_model"] == "hybrid"
         fam = f[schema.FAMILY][:]
         i, ib, tam = f[schema.PMU_I][:], f[schema.PMU_I_BENIGN][:], f[schema.PMU_I_TAMPER][:]

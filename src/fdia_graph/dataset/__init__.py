@@ -31,9 +31,9 @@ import h5py
 import numpy as np
 
 from .. import schema
+from ..errors import NotATimeline
 from ..models.choices import Split
 from ..models.config import LoadOptions
-from ..models.errors import NotATimeline
 from ..models.grid import NODE
 from ..schema import SPLIT_CODE as _SPLIT
 from ..schema import STATIC_PHYSICS as _STATIC_PHYSICS

@@ -9,7 +9,7 @@ import numpy as np
 import pytest
 
 import fdia_graph as fg
-from fdia_analysis.models import (
+from fdia_analysis.models.config import (
     GateConfig,
     HuberConfig,
     JacobianWeightingConfig,
@@ -23,7 +23,7 @@ from fdia_analysis.models import (
 
 
 def test_estimator_constructor_checks():
-    from fdia_analysis.se import (
+    from fdia_analysis.se.methods import (
         WLS,
         AdaptiveWeighting,
         GatedPrior,
@@ -51,7 +51,7 @@ def test_estimator_constructor_checks():
 
 
 def test_estimator_fit_and_score_input_checks(timeline, splits):
-    from fdia_analysis.se import WLS
+    from fdia_analysis.se.methods import WLS
 
     with pytest.raises(ValueError, match="units='physical'"):
         WLS().fit(fg.load(timeline, split="train", units="pu"))
@@ -63,7 +63,7 @@ def test_estimator_fit_and_score_input_checks(timeline, splits):
 
 
 def test_localizer_input_checks(timeline, splits):
-    from fdia_analysis.localization import SwingThreshold
+    from fdia_analysis.localization.methods import SwingThreshold
 
     with pytest.raises(ValueError, match="fa_target"):
         SwingThreshold(localizer=LocalizerConfig(fa_target=1.5))
@@ -84,7 +84,7 @@ def test_ieee118_estimator_sanity():
     """WLS on the published IEEE-118 timeline: the benign angle error is a fraction of a degree and
     every class scores finite. A loose bound, so a data or solver regression shows without pinning
     the paper's numbers here (docs/analysis/estimation/README.md holds those)."""
-    from fdia_analysis.se import WLS
+    from fdia_analysis.se.methods import WLS
 
     train, test = fg.load("ieee118", split="train"), fg.load("ieee118", split="test")
     s = WLS().fit(train).score(test)

@@ -28,14 +28,13 @@ The generation toolkit, `src/fdia_graph/`:
 | file or folder | what it is |
 |---|---|
 | `__init__.py` | the public API; the heavy helpers resolve lazily so `load()` never imports torch or pandapower |
-| `_lazy.py` | the public names of the New York packages, loaded on first use |
-| `errors.py` | every error the package raises on purpose |
+| `errors.py` | every error the package raises on purpose, defined there |
 | `registry.py`, `download.py` | `(name, release)` to a download spec with that release's file layout; fetch to `~/.cache/fdia_graph`, sha256-verified |
 | `schema.py` | the file protocol: every HDF5 group, dataset and attribute name, defined once |
 | `timeline.py` | one continuous attacked timeline per system, written as one HDF5 file through the stages of `generation/` |
 | `profiles.py` | ISO load profiles to AC operating-state pools |
 | `dataset/` | `FdiaGraph`, composed of `graph.py` (the static graph), `physics.py` (admittances, clean flows), `records.py` (items, collate, DataLoader), `export.py` (whole-split arrays) and `sequence.py` (windows, episodes) over `dataset/base.py` (shared state); `clients.py` reads a New York timeline as federated clients |
-| `models/` | every value bundle the toolkit passes or returns, one module per subject: `fdia_graph/models/base.py` (`Bundle`), `fields.py` (the field groups bundles share), `fdia_graph/models/grid.py`, `frames.py`, `plan.py` (a timeline's plan and design records), `fdia_graph/models/data.py`, `assets.py`; the settings in `fdia_graph/models/config.py` and the parser inputs in `fdia_graph/models/inputs.py`, checked by the one engine in `fdia_graph/models/validation.py`; the fixed-set arguments in `fdia_graph/models/choices.py` and the data-condition errors in `models/errors.py`. [`reference/DATA_DICTIONARY.md`](reference/DATA_DICTIONARY.md) lists every field |
+| `models/` | every value bundle the toolkit passes or returns, one module per subject: `fdia_graph/models/base.py` (`Bundle`), `fields.py` (the field groups bundles share), `fdia_graph/models/grid.py`, `frames.py`, `plan.py` (a timeline's plan and design records), `fdia_graph/models/data.py`, `assets.py`; the settings in `fdia_graph/models/config.py` and the parser inputs in `fdia_graph/models/inputs.py`, checked by the one engine in `fdia_graph/models/validation.py`; and the fixed-set arguments in `fdia_graph/models/choices.py`. A model is imported from its module; the package's `__init__.py` exports no name. [`reference/DATA_DICTIONARY.md`](reference/DATA_DICTIONARY.md) lists every field |
 | `ratings/` | PGLib-OPF branch ratings of IEEE-14, 118 and 300 |
 | `formulas/` | the mathematics of generation as pure functions with source keys: [`reference/FORMULAS.md`](reference/FORMULAS.md) |
 | `engine/`, `generation/` | the generator: the AC physics, the meters and the attacks, and the stages that walk a timeline: [`guides/generation.md`](guides/generation.md) |

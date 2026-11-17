@@ -5,6 +5,7 @@ their own package to. The fixtures are in the repository root's `conftest.py`.""
 import ast
 import dataclasses
 import importlib
+import importlib.util
 import inspect
 import os
 import pathlib
@@ -13,8 +14,9 @@ import pkgutil
 import numpy as np
 import pytest
 
+from fdia_graph import schema
 from fdia_graph.errors import ConfigError
-from fdia_graph.models import Bundle
+from fdia_graph.models.base import Bundle
 from fdia_graph.models.validation import Validated
 
 # ---- the checkout ---------------------------------------------------------------------------------
@@ -55,6 +57,12 @@ def family_names(ds) -> set[str]:
     from fdia_graph.models.choices import FAMILIES
 
     return {FAMILIES[int(f)] for f in np.unique(ds.export(["family"])["family"])} - {"benign"}
+
+
+# ---- the file protocol ----------------------------------------------------------------------------
+# every attribute name the schema defines, and the PMU current layers (all of them or none, by meter model)
+ATTR_KEYS = frozenset(v for k, v in vars(schema.Attr).items() if not k.startswith("_"))
+CURRENT_LAYERS = (schema.PMU_I, schema.PMU_I_M, schema.PMU_I_BENIGN, schema.PMU_I_TAMPER)
 
 
 # ---- bundles --------------------------------------------------------------------------------------
@@ -158,10 +166,77 @@ def models_defined(models_package) -> set[str]:
     return defined
 
 
+def functions_defined(package) -> set[str]:
+    """Every public function the modules of a package define (`fdia_graph.formulas`)."""
+    defined: set[str] = set()
+    for info in pkgutil.iter_modules(package.__path__):
+        module = importlib.import_module(f"{package.__name__}.{info.name}")
+        defined |= {
+            n
+            for n, o in vars(module).items()
+            if inspect.isfunction(o) and o.__module__ == module.__name__ and not n.startswith("_")
+        }
+    return defined
+
+
+def exported_names(package) -> set[str]:
+    """The public names `package` itself holds that are not its modules, once every module under it is
+    imported: empty for a package whose `__init__.py` is a docstring."""
+    for info in pkgutil.walk_packages(package.__path__, package.__name__ + "."):
+        try:
+            importlib.import_module(info.name)
+        except ImportError:  # an optional extra (torch, pandapower, pyomo) is not installed
+            continue
+    return {n for n, o in vars(package).items() if not n.startswith("_") and not inspect.ismodule(o)}
+
+
+def top_level_definitions(package) -> set[str]:
+    """The names the `__init__.py` of `package` defines itself: its functions, classes and assignments."""
+    defined: set[str] = set()
+    for node in ast.parse(pathlib.Path(package.__file__).read_text(encoding="utf-8")).body:
+        if isinstance(node, (ast.FunctionDef, ast.ClassDef)):
+            defined.add(node.name)
+        elif isinstance(node, (ast.Assign, ast.AnnAssign)):
+            targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+            defined |= {n.id for t in targets for n in ast.walk(t) if isinstance(n, ast.Name)}
+    return defined
+
+
+# every folder of Python that imports the two toolkits
+SOURCE_FOLDERS = ("src", "analysis/src", "tests", "analysis/tests", "tools", "pipelines", "examples")
+
+
+def imported_through(package) -> set[str]:
+    """The names any module of the repository imports from `package` itself (`from package import X`,
+    written absolutely or with dots), its own submodules left out."""
+    target = package.__name__
+    submodules = {info.name for info in pkgutil.iter_modules(package.__path__)}
+    names: set[str] = set()
+    for folder in SOURCE_FOLDERS:
+        root = pathlib.Path(REPO, folder)
+        source = folder if folder.endswith("src") else ""  # where a relative import can be resolved
+        for path in root.rglob("*.py"):
+            inside = ".".join(path.relative_to(root).parts[:-1])  # the package the file is in
+            for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+                if not isinstance(node, ast.ImportFrom):
+                    continue
+                module = node.module or ""
+                if node.level:
+                    if not source:
+                        continue
+                    module = importlib.util.resolve_name("." * node.level + module, inside)
+                if module == target:
+                    names |= {a.name for a in node.names}
+    return names - submodules
+
+
 def runtime_imports(models_package) -> dict[str, set[str]]:
     """module -> what it imports at run time, as "package" or, for a first-party import, "package.sub"
-    (`fdia_graph.models`); type-only imports (a torch tensor in an annotation) are not dependencies,
-    nor are a module's imports of its own package's siblings."""
+    (`fdia_graph.errors`). A relative import is resolved to the absolute name first (`from ..errors import
+    X` in `fdia_graph.models.config` is `fdia_graph.errors`), so a producer cannot hide behind the dots.
+    Type-only imports (a torch tensor in an annotation) are not dependencies, nor are a module's imports
+    of its own package's siblings, written either way."""
+    own = models_package.__name__
     out = {}
     for info in pkgutil.iter_modules(models_package.__path__):
         path = os.path.join(models_package.__path__[0], info.name + ".py")
@@ -178,11 +253,13 @@ def runtime_imports(models_package) -> dict[str, set[str]]:
                 continue
             if isinstance(node, ast.Import):
                 names |= {a.name for a in node.names}
-            elif isinstance(node, ast.ImportFrom) and node.level == 0:
-                names.add(node.module or "")
-        out[info.name] = {
-            ".".join(n.split(".")[:2]) if n.startswith("fdia_") else n.split(".")[0] for n in names
-        }
+            elif isinstance(node, ast.ImportFrom):
+                target = "." * node.level + (node.module or "")
+                module = importlib.util.resolve_name(target, own) if node.level else target
+                # `from . import config` and `from .. import schema` name the module in the imported names
+                names |= {f"{module}.{a.name}" for a in node.names} if not node.module else {module}
+        short = {".".join(n.split(".")[:2]) if n.startswith("fdia_") else n.split(".")[0] for n in names}
+        out[info.name] = short - {own}
     return out
 
 

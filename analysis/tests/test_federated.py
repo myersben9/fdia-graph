@@ -6,9 +6,9 @@ random_state 42, as cached with its runs), reproduced from the test timeline's t
 import numpy as np
 import pytest
 
-from fdia_analysis.federated import compute_nodes, partition_from_assignment, spectral_partition
+from fdia_analysis.federated.partition import compute_nodes, partition_from_assignment, spectral_partition
 from fdia_analysis.formulas.federated import attackable_affinity, fedavg, halo_nodes
-from fdia_analysis.models import FederatedSettings, GateConfig, LearnedConfig, PriorConfig
+from fdia_analysis.models.config import FederatedSettings, GateConfig, LearnedConfig, PriorConfig
 
 # The paper's cached IEEE-14 partitions: assignment, cut edges, interior and boundary bus counts.
 PAPER_14 = {
@@ -150,7 +150,7 @@ def test_every_formula_refuses_malformed_input():
 
 
 def test_topology_is_checked_and_one_bus_per_client_needs_no_clustering(edges):
-    from fdia_analysis.federated import bus_adjacency
+    from fdia_analysis.federated.partition import bus_adjacency
 
     ei, N = edges
     for bad in (np.array([[0, -1]]).T, np.array([[0, N]]).T, np.zeros((3, 2), int), np.zeros((2, 2))):
@@ -195,7 +195,7 @@ def zs(timeline):
 def test_one_client_is_the_centralized_fit_weight_for_weight(zs, name):
     torch = pytest.importorskip("torch")
     from fdia_analysis.federated.localizer import FedBusCNN, FedBusMLP
-    from fdia_analysis.localization import BusCNN, BusMLP
+    from fdia_analysis.localization.learned import BusCNN, BusMLP
 
     was = torch.are_deterministic_algorithms_enabled()
     torch.use_deterministic_algorithms(True)
@@ -236,8 +236,8 @@ def test_two_clients_train_score_and_log_their_rounds(zs):
 
 def test_local_power_balance_changes_only_buses_on_foreign_metered_branches(zs):
     pytest.importorskip("torch")
-    from fdia_analysis.federated import partition_from_assignment
     from fdia_analysis.federated.localizer import FedBusMLP
+    from fdia_analysis.federated.partition import partition_from_assignment
 
     tr, _, _ = zs
     ei = tr.edge_index_np
@@ -321,8 +321,8 @@ def test_a_two_client_fit_is_reproducible_and_leaves_no_client_stream_shared(zs)
 
 def test_a_halo_client_gets_context_features_but_only_its_own_labels(zs):
     pytest.importorskip("torch")
-    from fdia_analysis.federated import partition_from_assignment
     from fdia_analysis.federated.localizer import FedBusMLP
+    from fdia_analysis.federated.partition import partition_from_assignment
 
     tr, va, _ = zs
     part = partition_from_assignment(PAPER_14[2][0], tr.edge_index_np)
@@ -341,8 +341,8 @@ def test_a_halo_client_gets_context_features_but_only_its_own_labels(zs):
 
 def test_one_region_is_the_subspace_prior_and_two_are_block_diagonal(splits, edges):
     pytest.importorskip("pandapower")
-    from fdia_analysis.federated import RegionalPrior
-    from fdia_analysis.se import SubspacePrior
+    from fdia_analysis.federated.se import RegionalPrior
+    from fdia_analysis.se.methods import SubspacePrior
 
     ei, N = edges
     tr, te = splits["train"], splits["test"]
@@ -367,7 +367,7 @@ def test_a_federated_localizer_gates_the_estimator(zs, splits):
     pytest.importorskip("pandapower")
     pytest.importorskip("torch")
     from fdia_analysis.federated.localizer import FedBusMLP
-    from fdia_analysis.se import GatedPrior
+    from fdia_analysis.se.methods import GatedPrior
 
     tr, va, _ = zs
     gate = FedBusMLP(
@@ -398,7 +398,7 @@ def test_block_diagonal_basis_checks_its_blocks():
 
 def test_a_regional_prior_refuses_a_partition_with_gaps(splits):
     pytest.importorskip("pandapower")
-    from fdia_analysis.federated import RegionalPrior
+    from fdia_analysis.federated.se import RegionalPrior
     from fdia_analysis.models.federated import Partition
 
     N = splits["train"].N
@@ -413,7 +413,7 @@ def test_the_jacobian_feature_set_federates_with_one_central_block(zs):
     torch = pytest.importorskip("torch")
     pytest.importorskip("pandapower")
     from fdia_analysis.federated.localizer import FedBusCNN
-    from fdia_analysis.localization import BusCNN
+    from fdia_analysis.localization.learned import BusCNN
 
     was = torch.are_deterministic_algorithms_enabled()
     torch.use_deterministic_algorithms(True)
@@ -463,7 +463,7 @@ def test_the_previous_swing_set_federates_client_locally(zs):
     one client is the centralized fit, two clients fit and score the unseen families."""
     torch = pytest.importorskip("torch")
     from fdia_analysis.federated.localizer import FedBusCNN
-    from fdia_analysis.localization import BusCNN
+    from fdia_analysis.localization.learned import BusCNN
 
     was = torch.are_deterministic_algorithms_enabled()
     torch.use_deterministic_algorithms(True)

@@ -24,8 +24,9 @@ noisy, labelled year. Beside the stages, `se/detect` holds the alarm rules, in t
 1. A setting is an argument of the function or constructor that uses it. Code never changes a library object's
    settings, or a shared record's arrays, after it is built: a variant is a copy (`with_overshoot`,
    `with_voltage_margin`).
-2. Each package's `__init__.py` lists its public names (`__all__`), imported on first use, so reading a dataset never
-   loads pandapower or Pyomo (`se.detect` imports its two names directly: they need only numpy). A name outside `__all__` is internal and may change; a public name that is renamed is a
+2. A name is imported from the module that defines it; a package's `__init__.py` holds no table of names. The
+   modules that need pandapower or Pyomo import them inside the functions that use them, so reading a dataset never
+   loads either. A name with a leading underscore is internal and may change; a public name that is renamed is a
    changelog entry, with no alias kept.
 3. A class owns state, cached work, or a shared interface. A plain function is stateless math. Data records are
    frozen dataclasses of numpy arrays.
@@ -49,7 +50,6 @@ noisy, labelled year. Beside the stages, `se/detect` holds the alarm rules, in t
 ```
 src/fdia_graph/
   generation/nygrid/
-    __init__.py         the New York system's public names, loaded on first use
     config.py           Settings, rng()
     io.py               read_pool, write_pool (the pool file)
     tables.py           read_rows (the input CSV tables, read whole and closed)
@@ -70,7 +70,7 @@ src/fdia_graph/
   engine/
     solvers.py          ipopt (the checked Ipopt every OPF runs on; SolverUnavailable when it cannot run)
   engine/sensing/
-    __init__.py         what the stage does, and its public names
+    __init__.py         what the stage does (no names: each is imported from its defining module)
     meters.py           MeterPlan, plan_meters
     measure.py          Measurement
     noise.py            NoiseModel
@@ -82,10 +82,9 @@ src/fdia_graph/
     ramp.py             Ramp
   dataset/
     clients.py          Dataset, ClientView
-  _lazy.py            attach: the public names of a package, imported on first use
 analysis/src/fdia_analysis/
   se/detect/
-    __init__.py         what the stage does, and its public names
+    __init__.py         what the stage does (no names: each is imported from its defining module)
     rules.py            AlarmRule (protocol), PersistenceRule (k of the last n past a fitted threshold, N79)
 pipelines/newyork/
   build_timeline.py    the release timeline from a pool (--fetch downloads the inputs)

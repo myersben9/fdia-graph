@@ -395,7 +395,7 @@ def test_the_same_seed_gives_the_same_file(variants, pool, tmp_path):
     "bad", [(0.6, 0.4), (0.5, 0.3, 0.3), (0.0, 0.5, 0.5), (0.6, 0.2, float("nan")), "train"]
 )
 def test_a_malformed_split_is_refused_before_any_work(bad):
-    from fdia_graph.models.validation import ConfigError
+    from fdia_graph.errors import ConfigError
 
     with pytest.raises(ConfigError, match="SplitSettings"):
         tl.generate_timeline(14, states=np.zeros((5, 14, 4)), split=bad, out="never_written.h5")

@@ -56,7 +56,7 @@ in a new data release.
 
 ## `node_x` `[N,4]`: bus measurements (voltage first)
 
-The column order is defined once, in `fdia_graph.models.NodeColumns` (`v`, `p_inj`, `q_inj`, `theta`);
+The column order is defined once, in `fdia_graph.models.grid.NodeColumns` (`v`, `p_inj`, `q_inj`, `theta`);
 every record, batch and split exposes named views of it through `.node()` and `.edge()`,
 and the generator, loader and estimator index columns through `NODE` and `EDGE` rather than literals:
 
@@ -179,7 +179,7 @@ Every frame of a timeline carries three aligned layers, for node and for edge me
 
 On a hybrid-meter file a SCADA voltmeter reads no angle, so `node_m[:, 3]` is 1 at the PMU buses only,
 and each PMU reads the current phasor of every in-service branch at its bus [WU26, eqs. 19-20]. The
-columns of `pmu_i` are defined in `fdia_graph.models.CurrentIndex` (`re_from`, `im_from`, `re_to`,
+columns of `pmu_i` are defined in `fdia_graph.models.grid.CurrentIndex` (`re_from`, `im_from`, `re_to`,
 `im_to`): the real and imaginary part of `I_from = Y_f V` and `I_to = Y_t V` in per unit on the base
 current, the same on a `units="pu"` or `"physical"` view, zero where no PMU reads that end
 (`pmu_i_m` is 0 there). `pmu_i_benign` is the attack-removed twin and `pmu_i_tamper` marks the
@@ -196,7 +196,7 @@ Chunked along the frame axis so a window of W frames is one read. A file without
 <!-- models:begin -->
 ## Models
 
-Every dict the two toolkits return is a typed bundle (`fdia_graph.models.Bundle`): a frozen
+Every dict the two toolkits return is a typed bundle (`fdia_graph.models.base.Bundle`): a frozen
 dataclass that is also the `dict` it always was, so `out["node_x"]`, `**out` and iteration
 keep working and `out.node_x` is new. Fields set to None are absent from the dict. The loader's
 bundles are the generation toolkit's (`fdia_graph.models`), the score tables the analysis
@@ -297,6 +297,17 @@ Field groups: `PmuCurrentFields`, `PreviousFrameFields`, `StreamLayers`, `GraphF
 | `pmu_i_benign` | `pmu_i_benign` | Array |  | [..., E, 4] attack removed, noise kept (PmuCurrentFields) |
 | `prev_pmu_i` | `prev_pmu_i` | Array |  | [..., E, 4] the previous frame's PMU branch currents (hybrid meters) (PreviousFrameFields) |
 
+### `EpisodeTable` (`fdia_graph.models.data`)
+
+`FdiaGraph.episodes` on a timeline file: one row per attack episode in the view.
+
+| field | dict key | type | required | meaning |
+|---|---|---|---|---|
+| `onset` | `onset` | array | yes | [K] the file row (frame) the episode starts at |
+| `length` | `length` | array | yes | [K] frames |
+| `family` | `family` | array | yes | [K] family code |
+| `buses` | `buses` | list[array] | yes | K arrays, the buses the episode labelled |
+
 ### `Summary` (`fdia_graph.models.data`)
 
 `FdiaGraph.summary()`: the system, its size, the number of records in the view, and the record count per family present.
@@ -309,16 +320,14 @@ Field groups: `PmuCurrentFields`, `PreviousFrameFields`, `StreamLayers`, `GraphF
 | `n` | `n` | int | yes | records in this view |
 | `families` | `families` | dict[str, int] | yes | record count per family name present |
 
-### `EpisodeTable` (`fdia_graph.models.data`)
+### `ErrorPair` (`fdia_analysis.models.scores`)
 
-`FdiaGraph.episodes` on a timeline file: one row per attack episode in the view.
+Mean absolute error of one record class: angles in degrees, voltage magnitudes per unit.
 
 | field | dict key | type | required | meaning |
 |---|---|---|---|---|
-| `onset` | `onset` | array | yes | [K] the file row (frame) the episode starts at |
-| `length` | `length` | array | yes | [K] frames |
-| `family` | `family` | array | yes | [K] family code |
-| `buses` | `buses` | list[array] | yes | K arrays, the buses the episode labelled |
+| `angle_mae_deg` | `angle_mae_deg` | float | yes | mean &#124;theta_hat - theta&#124; over buses and records, degrees |
+| `voltage_mae_pu` | `voltage_mae_pu` | float | yes | mean &#124;&#124;V&#124;_hat - &#124;V&#124;&#124; over buses and records, per unit |
 
 ### `EstimatorScores` (`fdia_analysis.models.scores`)
 
@@ -335,43 +344,6 @@ Field groups: `PmuCurrentFields`, `PreviousFrameFields`, `StreamLayers`, `GraphF
 | `Al` | `Al` | ErrorPair |  | load redistribution |
 | `Am` | `Am` | ErrorPair |  | multi-snapshot (timeline files) |
 | `geo` | `geo` | ErrorPair | yes | geometric mean over the classes present |
-
-### `ErrorPair` (`fdia_analysis.models.scores`)
-
-Mean absolute error of one record class: angles in degrees, voltage magnitudes per unit.
-
-| field | dict key | type | required | meaning |
-|---|---|---|---|---|
-| `angle_mae_deg` | `angle_mae_deg` | float | yes | mean &#124;theta_hat - theta&#124; over buses and records, degrees |
-| `voltage_mae_pu` | `voltage_mae_pu` | float | yes | mean &#124;&#124;V&#124;_hat - &#124;V&#124;&#124; over buses and records, per unit |
-
-### `LocalizerScores` (`fdia_analysis.models.scores`)
-
-`LocalizerBase.score`: `all` (pooled), `benign`, and one entry per attacked family present. Indexable by family name as before.
-
-| field | dict key | type | required | meaning |
-|---|---|---|---|---|
-| `all` | `all` | OverallMetrics | yes | pooled over every record |
-| `benign` | `benign` | BenignMetrics |  | attack-free records |
-| `Aq` | `Aq` | FamilyMetrics |  | stealthy re-solve attack |
-| `Ad` | `Ad` | FamilyMetrics |  | additive bias |
-| `As` | `As` | FamilyMetrics |  | scaling |
-| `Ar` | `Ar` | FamilyMetrics |  | replay |
-| `At` | `At` | FamilyMetrics |  | slow ramp |
-| `Al` | `Al` | FamilyMetrics |  | load redistribution |
-| `Am` | `Am` | FamilyMetrics |  | multi-snapshot (timeline files) |
-
-### `TrustScores` (`fdia_analysis.models.scores`)
-
-`TrustedMeters.score`: what securing the selected meters does. `cost` is the attack cost after each secured meter (the meters the cheapest stealthy attack still has to touch, inf once none is left); `detected_before` / `detected_after` the fraction of attacked records of each family present whose largest normalized residual crosses the benign alarm level, with the attacker free to write every meter and with the secured meters reading their un-attacked value; `false_alarm` the benign record fraction over the alarm level (the calibration target).
-
-| field | dict key | type | required | meaning |
-|---|---|---|---|---|
-| `order` | `order` | list[int] | yes | the secured meters, in the order they were secured (masked measurement index) |
-| `cost` | `cost` | list[float] | yes | the attack cost after each |
-| `detected_before` | `detected_before` | dict[str, float] | yes | per family present: detection rate with every meter writable |
-| `detected_after` | `detected_after` | dict[str, float] | yes | per family present: detection rate with the secured meters pinned |
-| `false_alarm` | `false_alarm` | float | yes | benign records over the alarm level |
 
 ### `OverallMetrics` (`fdia_analysis.models.scores`)
 
@@ -407,31 +379,21 @@ On one attacked family: strict localization accuracy, micro node precision/recal
 | `sample_f1` | `sample_f1` | float | yes | mean per-record F1 |
 | `detection_rate` | `detection_rate` | float | yes | records with any bus flagged |
 
-### `JacobianOutputs` (`fdia_analysis.models.scores`)
+### `LocalizerScores` (`fdia_analysis.models.scores`)
 
-`JacobianFeatures.transform`: the per-bus block [n, N, 8], the global features [n, 4] (under the dict key "global"), the implied state change [n, SD] and the unexplained residual [n, m].
-
-| field | dict key | type | required | meaning |
-|---|---|---|---|---|
-| `bus` | `bus` | array | yes | [n, N, 8] per-bus features |
-| `global_` | `global` | array | yes | [n, 4] per-record features, dict key "global" |
-| `dx_hat` | `dx_hat` | array | yes | [n, 2N-1] implied state change (H^T W H)^-1 H^T W dz |
-| `r_perp` | `r_perp` | array | yes | [n, m] residual the Jacobian cannot explain, (I - P) dz |
-
-### `PerBusScores` (`fdia_analysis.models.scores`)
-
-`LocalizerBase.score_perbus`: `all` over every record, and per attacked family the block over that family's records plus the benign ones (the paper's per-type convention).
+`LocalizerBase.score`: `all` (pooled), `benign`, and one entry per attacked family present. Indexable by family name as before.
 
 | field | dict key | type | required | meaning |
 |---|---|---|---|---|
-| `all` | `all` | PerBusMetrics | yes | every record |
-| `Aq` | `Aq` | PerBusMetrics |  | stealthy re-solve attack (+ benign) |
-| `Ad` | `Ad` | PerBusMetrics |  | additive bias (+ benign) |
-| `As` | `As` | PerBusMetrics |  | scaling (+ benign) |
-| `Ar` | `Ar` | PerBusMetrics |  | replay (+ benign) |
-| `At` | `At` | PerBusMetrics |  | slow ramp (+ benign) |
-| `Al` | `Al` | PerBusMetrics |  | load redistribution (+ benign) |
-| `Am` | `Am` | PerBusMetrics |  | multi-snapshot (+ benign) |
+| `all` | `all` | OverallMetrics | yes | pooled over every record |
+| `benign` | `benign` | BenignMetrics |  | attack-free records |
+| `Aq` | `Aq` | FamilyMetrics |  | stealthy re-solve attack |
+| `Ad` | `Ad` | FamilyMetrics |  | additive bias |
+| `As` | `As` | FamilyMetrics |  | scaling |
+| `Ar` | `Ar` | FamilyMetrics |  | replay |
+| `At` | `At` | FamilyMetrics |  | slow ramp |
+| `Al` | `Al` | FamilyMetrics |  | load redistribution |
+| `Am` | `Am` | FamilyMetrics |  | multi-snapshot (timeline files) |
 
 ### `PerBusMetrics` (`fdia_analysis.models.scores`)
 
@@ -451,6 +413,21 @@ One block of per-bus localization metrics at the localizer's thresholds, the fed
 | `macro_fr` | `macro_fr` | float | yes | mean of fr |
 | `macro_auprc` | `macro_auprc` | float | yes | mean of auprc over the buses where it exists (NaN if none) |
 
+### `PerBusScores` (`fdia_analysis.models.scores`)
+
+`LocalizerBase.score_perbus`: `all` over every record, and per attacked family the block over that family's records plus the benign ones (the paper's per-type convention).
+
+| field | dict key | type | required | meaning |
+|---|---|---|---|---|
+| `all` | `all` | PerBusMetrics | yes | every record |
+| `Aq` | `Aq` | PerBusMetrics |  | stealthy re-solve attack (+ benign) |
+| `Ad` | `Ad` | PerBusMetrics |  | additive bias (+ benign) |
+| `As` | `As` | PerBusMetrics |  | scaling (+ benign) |
+| `Ar` | `Ar` | PerBusMetrics |  | replay (+ benign) |
+| `At` | `At` | PerBusMetrics |  | slow ramp (+ benign) |
+| `Al` | `Al` | PerBusMetrics |  | load redistribution (+ benign) |
+| `Am` | `Am` | PerBusMetrics |  | multi-snapshot (+ benign) |
+
 ### `GridScores` (`fdia_analysis.models.scores`)
 
 `LearnedLocalizer.score_grid`: record-level detection, a record flagged when its highest attackable-bus probability exceeds `tau` (tuned on validation for grid F1).
@@ -461,4 +438,27 @@ One block of per-bus localization metrics at the localizer's thresholds, the fed
 | `false_alarm` | `false_alarm` | float | yes | benign records flagged |
 | `detection_rate` | `detection_rate` | float | yes | attacked records flagged (every family) |
 | `by_family` | `by_family` | dict | yes | detection rate per attacked family present |
+
+### `TrustScores` (`fdia_analysis.models.scores`)
+
+`TrustedMeters.score`: what securing the selected meters does. `cost` is the attack cost after each secured meter (the meters the cheapest stealthy attack still has to touch, inf once none is left); `detected_before` / `detected_after` the fraction of attacked records of each family present whose largest normalized residual crosses the benign alarm level, with the attacker free to write every meter and with the secured meters reading their un-attacked value; `false_alarm` the benign record fraction over the alarm level (the calibration target).
+
+| field | dict key | type | required | meaning |
+|---|---|---|---|---|
+| `order` | `order` | list[int] | yes | the secured meters, in the order they were secured (masked measurement index) |
+| `cost` | `cost` | list[float] | yes | the attack cost after each |
+| `detected_before` | `detected_before` | dict[str, float] | yes | per family present: detection rate with every meter writable |
+| `detected_after` | `detected_after` | dict[str, float] | yes | per family present: detection rate with the secured meters pinned |
+| `false_alarm` | `false_alarm` | float | yes | benign records over the alarm level |
+
+### `JacobianOutputs` (`fdia_analysis.models.scores`)
+
+`JacobianFeatures.transform`: the per-bus block [n, N, 8], the global features [n, 4] (under the dict key "global"), the implied state change [n, SD] and the unexplained residual [n, m].
+
+| field | dict key | type | required | meaning |
+|---|---|---|---|---|
+| `bus` | `bus` | array | yes | [n, N, 8] per-bus features |
+| `global_` | `global` | array | yes | [n, 4] per-record features, dict key "global" |
+| `dx_hat` | `dx_hat` | array | yes | [n, 2N-1] implied state change (H^T W H)^-1 H^T W dz |
+| `r_perp` | `r_perp` | array | yes | [n, m] residual the Jacobian cannot explain, (I - P) dz |
 <!-- models:end -->

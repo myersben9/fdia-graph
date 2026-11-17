@@ -1,7 +1,8 @@
 """Per-bus FDIA localization on fdia-graph datasets, sklearn style.
 
-    from fdia_graph.models import LocalizerConfig
-    from fdia_analysis.localization import SwingThreshold, DeltaThreshold, ResidualLocalizer, BusCNN
+    from fdia_analysis.models.config import LocalizerConfig
+    from fdia_analysis.localization.learned import BusCNN
+    from fdia_analysis.localization.methods import SwingThreshold, DeltaThreshold, ResidualLocalizer
 
     train = fg.load("ieee118", split="train")
     test = fg.load("ieee118", split="test")
@@ -20,19 +21,3 @@ results compare detection signals rather than implementations. The threshold met
 numpy-only; ResidualLocalizer composes an estimator from fdia_analysis.se and needs the [se] extra;
 BusCNN and BusMLP train on the records they are given and need the [torch] extra.
 """
-
-from .base import LocalizerBase
-from .learned import BusCNN, BusMLP, LearnedLocalizer, full14, kcl_residual
-from .methods import DeltaThreshold, ResidualLocalizer, SwingThreshold
-
-__all__ = [
-    "LocalizerBase",
-    "SwingThreshold",
-    "DeltaThreshold",
-    "ResidualLocalizer",
-    "LearnedLocalizer",
-    "BusCNN",
-    "BusMLP",
-    "full14",
-    "kcl_residual",
-]

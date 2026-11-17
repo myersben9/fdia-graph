@@ -19,8 +19,8 @@ import h5py
 import numpy as np
 
 from .. import schema
-from ..engine import FdiaGenerator
 from ..engine.attacks.stealthy import AM_FAMILY
+from ..engine.core import FdiaGenerator
 from ..errors import ConfigError
 from ..models.config import TimelineSettings
 from ..models.frames import AmOverloadDesign, FrameContext, FrameKnobs, LayerSet

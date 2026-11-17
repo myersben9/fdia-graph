@@ -5,6 +5,81 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- **The analysis toolkit's names are imported from the module that defines them: the eight tables of
+  re-exported names in `fdia_analysis` are removed (breaking for these import paths; no behaviour, no
+  stored byte and no result number changed).** The same change as the generation toolkit's, below. Each
+  package's `__init__.py` is now its docstring; `import fdia_analysis` and `fdia_analysis.__version__`
+  are unchanged.
+  - `fdia_analysis.se` exports no name: `WLS`, `AdaptiveWeighting`, `ResidualRemoval`, `SubspacePrior`,
+    `JacobianWeighting` and `GatedPrior` come from `fdia_analysis.se.methods`, `SEBase` from `se.base`,
+    `JacobianFeatures` from `se.jacobian`. `fdia_analysis.se.detect` exports none either: `AlarmRule` and
+    `PersistenceRule` come from `se.detect.rules`.
+  - `fdia_analysis.localization`: `SwingThreshold`, `DeltaThreshold` and `ResidualLocalizer` come from
+    `localization.methods`, `BusCNN`, `BusMLP`, `LearnedLocalizer`, `full14` and `kcl_residual` from
+    `localization.learned`, `LocalizerBase` from `localization.base`.
+  - `fdia_analysis.federated`: `FedBusCNN`, `FedBusMLP` and `FederatedLocalizer` come from
+    `federated.localizer`, `spectral_partition`, `partition_from_assignment`, `bus_adjacency` and
+    `compute_nodes` from `federated.partition`, `RegionalPrior` from `federated.se`; `Partition` and
+    `RoundLog` from `fdia_analysis.models.federated`, which defines them.
+  - `fdia_analysis.trust`: `TrustedMeters` and `TrustSelector` come from `trust.base`, `TrustedMetersDQN`
+    from `trust.meter_dqn`, `secured_copy` from `trust.secured`.
+  - `fdia_analysis.results`: `Run` comes from `results.run`, `Store` from `results.store`, `QUERIES`,
+    `fill`, `query` and `stale` from `results.docs`, `cell`, `figure_data`, `pivot` and `table` from
+    `results.render`; `METRICS`, `Better`, `Metric`, `Provenance` and `Record` from
+    `fdia_analysis.models.results`, which defines them.
+  - `fdia_analysis.models` exports no name (`__all__` and `PUBLIC` are gone): `from fdia_analysis.models
+    import PriorConfig` becomes `from fdia_analysis.models.config import PriorConfig`, and likewise
+    `models.inputs`, `models.scores`, `models.data`, `models.grid`, `models.federated`, `models.training`
+    and `models.results`. The bundles the data dictionary lists for this toolkit are the ones
+    `models/scores.py` defines, now in that file's order (the same eleven tables, each unchanged).
+  - `fdia_analysis.formulas` exports no name: a formula is imported from `formulas.estimation`,
+    `formulas.federated`, `formulas.linalg`, `formulas.measurement`, `formulas.metrics`,
+    `formulas.projection` or `formulas.trust`.
+  - As for any package, `fdia_analysis.se.methods` (or any other submodule) is an attribute of its package
+    only once that submodule has been imported.
+- **Names only the tests reached are removed (breaking for these names; no behaviour and no stored byte
+  changed).** None was named in the docs or used by either toolkit.
+  - `FdiaGraph.edge_attr_np` is gone: `ds.edge_attr.numpy()` holds the same values.
+  - `fdia_graph.engine.records.stealthy_state`, `with_region` and `is_feasible` are gone: they were
+    aliases of the `FalseStateMixin` methods of the same names, which every caller already used.
+  - `fdia_graph.schema.ATTR_KEYS` and `fdia_graph.schema.CURRENT_LAYERS` are gone (the tests that compared
+    a file against them build the two sets themselves, from `schema.Attr` and the four `PMU_I*` paths).
+  - `fdia_graph.timeline.DEFAULT_FAMILIES` is gone: it was `models.choices.GENERATED_FAMILIES`.
+  - `fdia_graph.generation.nygrid.loads.SWITCH_INDUSTRIAL_MW` is gone: a constant no code read.
+- **A name is imported from the module that defines it: the tables of re-exported names are removed
+  (breaking for these import paths; no behaviour and no stored byte changed).** `fg.load`, `fg.generate`,
+  the profile helpers, `fg.FdiaGraph` and the rest of `import fdia_graph as fg` are unchanged, and so is
+  `fdia_graph.timeline.generate_timeline`.
+  - `fdia_graph.models` exports no name (`__all__` and `PUBLIC` are gone): `from fdia_graph.models import
+    RecordBundle` becomes `from fdia_graph.models.data import RecordBundle`, and likewise `models.base`
+    (`Bundle`), `models.config` (the settings), `models.inputs`, `models.fields`, `models.frames`,
+    `models.grid` (`NODE`, `EDGE`, `CURRENT`, `MeterPlan`, ...), `models.plan` and `models.assets`. The
+    bundles the data dictionary lists are the ones `models/data.py` defines.
+  - `fdia_graph.formulas` exports no name: a formula is imported from `formulas.network`, `formulas.noise`,
+    `formulas.attacks`, `formulas.temporal` or `formulas.trust`.
+  - `fdia_graph.generation.nygrid` exports no name: `nygrid_case`, `Case` and `ZONES` come from
+    `generation.nygrid.case`, `Network` from `.network`, `read_pool` and `write_pool` from `.io`, `Pool`,
+    `PoolBuilder`, `peak_ratings` and the solve kinds from `.pool`, `NewYorkSource`, `SingleEpisodeSource` and
+    `Survey` from `.source`, `Settings` and `rng` from `.config`, and so on by module; `Dataset` and
+    `ClientView` from `fdia_graph.dataset.clients`, `ipopt` from `fdia_graph.engine.solvers`.
+  - `fdia_graph.engine.sensing` exports no name (`meters.MeterPlan`, `meters.plan_meters`, `meters.KINDS`,
+    `measure.Measurement`, `noise.NoiseModel`), and `fdia_graph.engine` none: `FdiaGenerator` is
+    `fdia_graph.engine.core.FdiaGenerator`.
+  - `fdia_graph.generation` no longer serves `DesignPool`, `IeeeSource` and `TimelineSource`: they are
+    `generation.design.DesignPool`, `generation.ieee.IeeeSource` and `generation.source.TimelineSource`.
+  - The module `fdia_graph._lazy` (`attach`) is removed with the tables it served.
+  - The errors have one home, `fdia_graph.errors`, which now defines them: the module
+    `fdia_graph.models.errors` is removed, and `ConfigError` and `MissingCapability` are no longer names of
+    `fdia_graph.models.validation`. The classes are the same ones, so an `except` clause is unaffected;
+    their `__module__` is now `fdia_graph.errors`, which is what a traceback, a `repr` and a pickle name.
+  - `fdia_graph.formulas.<module>` and `fdia_graph.models.<module>` are attributes of the package only once
+    that submodule has been imported, as for any package: `import fdia_graph.formulas` alone no longer
+    makes `fdia_graph.formulas.network` reachable; `import fdia_graph.formulas.network` does.
+  - The module-level `__all__` lists of `models.fields`, `formulas.trust`, `engine.solvers`,
+    `generation.nygrid.tables` and `fdia_analysis.se.detect.rules` are removed. Nothing star-imported
+    these modules; `from fdia_graph import *` keeps its list.
+  - `import fdia_graph` loads six fewer modules than before (four formula modules, `models.frames` and
+    `models.plan`, which only the tables pulled in) and, as before, neither pandapower, torch, pandas, scipy nor Pyomo.
 - **One file layout: a New York timeline is written in the layout of every timeline (breaking for New York
   files; IEEE files are unchanged).** The New York grid wrote its own layout with its own writer and reader.
   It now writes the groups, datasets and attributes named in `fdia_graph.schema`, through the writer the IEEE
@@ -96,7 +171,7 @@ the public API, the generated files and the numbers are the same as the previous
   the IEEE cases and of New York are the same, the settings hash stored in a file included) and no result
   number changes (no results block of the docs changed). No alias is kept for a moved name.
   - What a caller sees, in short. The imports of the analysis packages change from `fdia_graph.*` to
-    `fdia_analysis.*` (`from fdia_graph.se import WLS` becomes `from fdia_analysis.se import WLS`). The `se`
+    `fdia_analysis.*` (`from fdia_graph.se import WLS` becomes `from fdia_analysis.se.methods import WLS`). The `se`
     and `federated` extras move to `fdia-analysis` (`pip install "fdia-graph[se]"` becomes
     `pip install "fdia-analysis[se]"`). The two toolkits share one version and are released together:
     `fdia-analysis` X.Y.Z requires exactly `fdia-graph==X.Y.Z`, so upgrading one upgrades the other.
@@ -104,7 +179,8 @@ the public API, the generated files and the numbers are the same as the previous
     `fdia_graph.localization` is `fdia_analysis.localization`, `fdia_graph.federated` is
     `fdia_analysis.federated`, `fdia_graph.trust` is `fdia_analysis.trust`, and `fdia_graph.results` (the
     results store's code) is `fdia_analysis.results`. Their classes and functions keep their names and
-    behaviour: `from fdia_analysis.se import WLS`, `from fdia_analysis.localization import SwingThreshold`.
+    behaviour: `from fdia_analysis.se.methods import WLS`,
+    `from fdia_analysis.localization.methods import SwingThreshold`.
   - What stays in `fdia_graph`: `fg.load`, `fg.generate`, `FdiaGraph`, the profiles, the registry and the
     download, the file protocol (`schema`), `generation` (the New York grid included), `engine`, `dataset`,
     `ratings`, `errors` (every named error, the ones the analysis packages raise too), and the models and
@@ -126,7 +202,8 @@ the public API, the generated files and the numbers are the same as the previous
     `OptimConfig` (all of `models.training`), and the results store's records (all of `models.results`:
     `Record`, `Provenance`, `RunRecords`, `Metric`, `METRICS`, `Better`, `Leaf`, `KEYS`, `leaves`,
     `as_values`). Each is in the module of the same name (`fdia_analysis.models.config`, and so on).
-    `fdia_graph.models.PUBLIC` names the loader's bundles and `fdia_analysis.models.PUBLIC` the score tables.
+    The loader's bundles are the ones `fdia_graph.models.data` defines; the score tables are the ones
+    `fdia_analysis.models.scores` defines.
   - The formulas only the analysis packages use are in `fdia_analysis.formulas`. Whole modules:
     `formulas.estimation` (`normal_matrix`, `wls_step`, `wls_step_batched`, `weighted_objective`,
     `residual_covariance_diag`, `critical_measurements`, `floored_covariance`, `normalized_residual`,
@@ -278,7 +355,7 @@ the public API, the generated files and the numbers are the same as the previous
     release, as before.
   - The dataset accessors `edge_status`, `edge_is_trafo`, `bus_type`, `bus_vmin`, `bus_vmax`, `bus_base_kv`,
     `bus_is_zero_inj`, `bus_has_gen`, `bus_base_pd`, `bus_base_qd` and `bus_attackable` are removed.
-    `ds.edge_attr`, `ds.edge_attr_np`, the `ds.branch_*` columns and `ds.bus_shunt_g` / `ds.bus_shunt_b` stay.
+    `ds.edge_attr`, the `ds.branch_*` columns and `ds.bus_shunt_g` / `ds.bus_shunt_b` stay.
   - `models.TimelineKnobs` is removed: `TimelineSettings` holds the same settings and is what
     `generate_timeline` reads.
   - `models.BranchColumns`, `models.BranchIndex`, `models.BRANCH` and `models.CurrentColumns` are removed. The

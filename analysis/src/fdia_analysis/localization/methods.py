@@ -76,7 +76,7 @@ class ResidualLocalizer(LocalizerBase):
         return ["node_x", "edge_x"]
 
     def _fit_stats(self, d: dict[str, np.ndarray], ben: np.ndarray, ds: FdiaGraph) -> None:
-        from ..se import WLS
+        from ..se.methods import WLS
 
         self.est = self.estimator if self.estimator is not None else WLS()
         if not self.est.is_fitted:  # an estimator fitted elsewhere (another split, a gate) is kept as is

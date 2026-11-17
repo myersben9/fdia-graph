@@ -150,7 +150,7 @@ def test_a_stealthy_frame_is_the_benign_scan_plus_its_attack_vector(timeline_fil
     """observed - benign on an At frame equals h(x_false) - h(x_true) of the false state rebuilt
     from the frame's own labels (targets, magnitudes, the clean state), on every tampered channel,
     and is zero elsewhere: no second noise draw enters."""
-    from fdia_graph.engine import FdiaGenerator
+    from fdia_graph.engine.core import FdiaGenerator
 
     a, attrs = _read(timeline_file)
     red = {k: float(attrs[k]) for k in ("vbus_frac", "pmu_frac", "flow_frac")}  # the file's meter plan
@@ -187,7 +187,7 @@ def test_a_stealthy_frame_is_the_benign_scan_plus_its_attack_vector(timeline_fil
 def test_a_slack_bus_load_is_never_a_target():
     """IEEE-57 carries a load on its slack bus; the slack never enters a region, so that load is
     not attackable (a frame scaling it would be labelled attacked with no attack in the state)."""
-    from fdia_graph.engine import FdiaGenerator
+    from fdia_graph.engine.core import FdiaGenerator
 
     g = FdiaGenerator(57, seed=1)
     assert g.slack_bus in set(g.load_bus.tolist())
@@ -197,7 +197,7 @@ def test_a_slack_bus_load_is_never_a_target():
 def test_area_equivalent_loads_are_never_targets():
     """IEEE-145 lumps regions into gigawatt loads; the cap keeps them out of the target set and
     leaves every other ladder system's set as it was."""
-    from fdia_graph.engine import FdiaGenerator
+    from fdia_graph.engine.core import FdiaGenerator
 
     g = FdiaGenerator(145, seed=1)
     p = np.abs(g.base.load.p_mw.values)
@@ -212,7 +212,7 @@ def test_area_equivalent_loads_are_never_targets():
 def test_a_step_without_a_local_solution_is_halved(monkeypatch):
     """A ramp frame is built at the largest halving of its step that solves (STEP_HALVINGS at most),
     past the noise floor: its design step is sub-floor anyway."""
-    from fdia_graph.engine import FdiaGenerator
+    from fdia_graph.engine.core import FdiaGenerator
     from fdia_graph.models.frames import AttackDesign, FrameKnobs
 
     g = FdiaGenerator(14, seed=1)
@@ -237,7 +237,7 @@ def test_operating_limits_are_the_case_limits_widened_to_the_pool():
     """Bus and generator limits are the case's; a true state already outside one is its own bound
     and may not be made worse; the generator output behind a pool state is recovered exactly, and
     a false state that pushes a generator past its cap or a bus past its limit is refused."""
-    from fdia_graph.engine import FdiaGenerator
+    from fdia_graph.engine.core import FdiaGenerator
     from fdia_graph.formulas.attacks import generator_output, within_limits
 
     g = FdiaGenerator(14, seed=1)
@@ -281,7 +281,7 @@ def test_the_fixture_records_its_limits(timeline_file):
 
 
 def test_local_region_keeps_a_boundary_and_the_slack_fixed():
-    from fdia_graph.engine import FdiaGenerator
+    from fdia_graph.engine.core import FdiaGenerator
     from fdia_graph.formulas.network import subnetwork
 
     g = FdiaGenerator(14, seed=1)
@@ -316,7 +316,7 @@ def test_a_producing_static_generator_bus_injects():
     """IEEE-89 buses 1, 65, 69, 79 are fed by a static generator alone: injection buses, metered
     as such, never zero-injection junctions; IEEE-200's static generators all produce 0 MW, so their
     buses stay zero-injection unless another element sits there."""
-    from fdia_graph.engine import FdiaGenerator
+    from fdia_graph.engine.core import FdiaGenerator
 
     g = FdiaGenerator(89, seed=1)
     for b in (1, 65, 69, 79):
@@ -331,7 +331,7 @@ def test_a_producing_static_generator_bus_injects():
 def test_reactive_load_adds_back_the_generators_output():
     """At a load bus with a generator the stored Q injection is load minus generator output, so the
     reactive load adds it back; the local solve with unchanged loads reproduces the scan."""
-    from fdia_graph.engine import FdiaGenerator
+    from fdia_graph.engine.core import FdiaGenerator
     from fdia_graph.profiles import _case_buses, _solve_states_chunk
 
     g = FdiaGenerator(14, seed=5)
@@ -361,7 +361,7 @@ def test_stealthy_families_never_target_a_generator_bus(timeline_file):
 def test_stealthy_targets_avoid_every_generator_and_live_static_generator_bus():
     """On the two systems with static generators, no stealthy target sits on a bus holding a
     generator or a static generator that produces P or Q; the in-place set is not narrowed by it."""
-    from fdia_graph.engine import FdiaGenerator
+    from fdia_graph.engine.core import FdiaGenerator
 
     for C in (89, 300):
         g = FdiaGenerator(C, seed=1)

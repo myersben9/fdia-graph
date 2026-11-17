@@ -1,7 +1,7 @@
 """The repository's results queries: what each results block in the docs renders from the store.
 
 `tools/results_docs.py` imports this file, which registers every query below with
-`fdia_analysis.results.query`. A block names a query and its arguments:
+`fdia_analysis.results.docs.query`. A block names a query and its arguments:
 
     <!-- results: se.comparison angle_mae_deg -->          a whole table
     <!-- results: v se ieee14 prior+huber geo angle_mae_deg -->   one number
@@ -14,8 +14,10 @@ from __future__ import annotations
 
 from typing import Optional
 
-from fdia_analysis.results import METRICS, Record, Store, cell, query, table
-from fdia_analysis.results.render import number
+from fdia_analysis.models.results import METRICS, Record
+from fdia_analysis.results.docs import query
+from fdia_analysis.results.render import cell, number, table
+from fdia_analysis.results.store import Store
 from fdia_graph.errors import NoSuchResult
 
 ALIASES = {

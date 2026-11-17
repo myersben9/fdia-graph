@@ -50,7 +50,7 @@ def test_shunt_draws_leave_the_injections_like_the_loop():
 
 def test_edge_adjacency_is_symmetric_zero_one():
     pytest.importorskip("scipy")
-    from fdia_graph.formulas import edge_adjacency
+    from fdia_graph.formulas.network import edge_adjacency
 
     A = edge_adjacency(np.array([[0, 0, 1, 2], [1, 1, 2, 0]]), 4).toarray()  # a parallel pair on 0-1
     np.testing.assert_array_equal(A, A.T)

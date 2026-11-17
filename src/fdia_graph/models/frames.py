@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, NamedTuple, Optional, Union
 import numpy as np
 
 if TYPE_CHECKING:  # the generator is a producer: named for the type checker only
-    from ..engine import FdiaGenerator
+    from ..engine.core import FdiaGenerator
 
 
 class LayerSet(NamedTuple):

@@ -15,11 +15,13 @@ from fdia_graph.engine.attacks.rref import RrefSupport
 pytest.importorskip("pandapower")
 
 from fdia_graph.engine.attacks.minimize import _Window  # noqa: E402
+from fdia_graph.errors import ConfigError  # noqa: E402
 from fdia_graph.formulas.trust import sparsest_rows  # noqa: E402
-from fdia_graph.models import TrustSchedule  # noqa: E402
-from fdia_graph.models.config import OverloadSettings  # noqa: E402
+from fdia_graph.models.config import (
+    OverloadSettings,  # noqa: E402
+    TrustSchedule,  # noqa: E402
+)
 from fdia_graph.models.grid import NODE  # noqa: E402
-from fdia_graph.models.validation import ConfigError  # noqa: E402
 
 from . import case_studies  # noqa: E402
 from .test_trusted_pmus import ORDER, SLOTS, _setup  # noqa: E402

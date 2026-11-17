@@ -32,9 +32,9 @@ from typing import Optional
 
 import numpy as np
 
+from ...errors import NoLineRatings
 from ...formulas.attacks import branch_ratings, generator_output
 from ...models.config import OverloadSettings
-from ...models.errors import NoLineRatings
 from ...models.frames import AmOverloadDesign, FlowGoal, Frame, FrameKnobs
 from ...models.grid import NODE
 from ...ratings import pglib_branches

@@ -76,8 +76,8 @@ fg.load("ieee118", split="test", order="time")                 # the time series
 The analysis toolkit, `pip install "fdia-analysis[se]"`:
 
 ```python
-from fdia_analysis.models import PriorConfig
-from fdia_analysis.se import SubspacePrior
+from fdia_analysis.models.config import PriorConfig
+from fdia_analysis.se.methods import SubspacePrior
 
 train, test = fg.load("ieee118", split="train"), fg.load("ieee118", split="test")
 est = SubspacePrior(prior=PriorConfig(rank_frac=0.5, reweight="huber", c=2.5)).fit(train)
@@ -91,8 +91,9 @@ One solver, six estimators that each change one thing: `WLS`, `AdaptiveWeighting
 ## Localization
 
 ```python
-from fdia_analysis.localization import SwingThreshold, BusCNN     # numpy only / fdia-analysis[torch]
-from fdia_analysis.models import LocalizerConfig
+from fdia_analysis.localization.learned import BusCNN             # needs fdia-analysis[torch]
+from fdia_analysis.localization.methods import SwingThreshold     # numpy only
+from fdia_analysis.models.config import LocalizerConfig
 
 loc = SwingThreshold(localizer=LocalizerConfig(fa_target=0.01)).fit(train)     # per-bus thresholds from benign records only
 flag = loc.localize(test)                           # [n, N] bool: which buses are called attacked

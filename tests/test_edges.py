@@ -5,7 +5,7 @@ import numpy as np
 import pytest
 
 import fdia_graph as fg
-from fdia_graph.dataset import family_ids
+from fdia_graph.dataset.base import family_ids
 from fdia_graph.models.choices import FAMILIES
 
 # ---- registry and loading -------------------------------------------------------------------------

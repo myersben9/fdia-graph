@@ -13,9 +13,10 @@ from fdia_graph.errors import NoLineRatings  # noqa: E402
 from fdia_graph.formulas.attacks import branch_ratings  # noqa: E402
 from fdia_graph.formulas.network import bus_injections, complex_voltages, local_flow_solve  # noqa: E402
 from fdia_graph.generation import _load_states  # noqa: E402
+from fdia_graph.models.choices import GENERATED_FAMILIES  # noqa: E402
 from fdia_graph.models.frames import FrameKnobs  # noqa: E402
 from fdia_graph.models.grid import NODE  # noqa: E402
-from fdia_graph.timeline import DEFAULT_FAMILIES, generate_timeline  # noqa: E402
+from fdia_graph.timeline import generate_timeline  # noqa: E402
 
 
 @pytest.fixture(scope="module")
@@ -230,7 +231,7 @@ def test_the_goal_rides_on_the_true_flow_and_ends_at_the_rating(g, pool):
 
 def test_new_generation_makes_the_multi_snapshot_families(tmp_path, pool):
     """The generator makes At and Am; an older family is refused before any frame is walked."""
-    assert DEFAULT_FAMILIES == ("At", "Am")
+    assert GENERATED_FAMILIES == ("At", "Am")
     generate_timeline(14, states=pool[:40], seed=1, families=("At",), ramp_len=10, out=str(tmp_path / "a.h5"))
     for old in ("Aq", "Ad", "As", "Ar", "Al"):
         with pytest.raises(ValueError, match=f"{old} are single-snapshot"):

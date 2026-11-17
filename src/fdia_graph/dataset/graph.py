@@ -102,17 +102,3 @@ class GraphMixin(DatasetBase):
             ],
             dim=1,
         )
-
-    @property
-    def edge_attr_np(self) -> np.ndarray:
-        """`edge_attr` as a float32 numpy array [E, 8], built from the cached graph fields without
-        torch (the series admittance derived from r and x when the file predates it)."""
-        p, missing = self._physics_arrays(("edge_r", "edge_x", "edge_b", "edge_g", "edge_tap", "edge_shift"))
-        if missing:
-            raise AttributeError("edge_attr needs a v0.5.0+ file; this file predates the physics schema")
-        gs, bs = self._phys.get("edge_gs"), self._phys.get("edge_bs")
-        if gs is None or bs is None:
-            y = 1.0 / (p["edge_r"] + 1j * p["edge_x"])
-            gs, bs = y.real, y.imag
-        cols = (p["edge_r"], p["edge_x"], p["edge_b"], p["edge_g"], gs, bs, p["edge_tap"], p["edge_shift"])
-        return np.stack(cols, axis=1).astype(np.float32)

@@ -32,7 +32,7 @@ class TrustSelector:
         self.cost: list[float] = []
 
     def fit(self, ds: FdiaGraph) -> TrustSelector:
-        from ..se import WLS
+        from ..se.methods import WLS
 
         est = WLS()
         est.fit(ds, calibrate="measured")  # the residual test is a detector: measurements only
@@ -118,7 +118,7 @@ class TrustSelector:
         """A copy of the timeline behind `ds` with the first `k` selected meters (default: all)
         reading their benign value on every frame, the attacker locked out of them, written to
         `out` and registered under `name` when given; the estimators and localizers read it like
-        any timeline (`trust.secured_copy`)."""
+        any timeline (`trust.secured.secured_copy`)."""
         from .secured import secured_copy
 
         return secured_copy(self, ds, out, name, k)

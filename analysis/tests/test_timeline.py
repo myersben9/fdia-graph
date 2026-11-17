@@ -19,7 +19,7 @@ def test_stealthy_families_pass_the_residual_test(timeline_file):
     residual test at the 1% benign alarm level flags a stealthy frame no more often than it flags
     that frame's own benign twin (a noisy stretch of true states raises both alike)."""
     pytest.importorskip("torch")
-    from fdia_analysis.se import WLS
+    from fdia_analysis.se.methods import WLS
     from fdia_graph.dataset import FdiaGraph
 
     train, test = (
@@ -44,7 +44,7 @@ def test_stealthy_families_pass_the_residual_test(timeline_file):
 def test_score_bundles_accept_the_seventh_family():
     """`SEBase.score` and `LocalizerBase.score` build their bundles from `FAMILIES`, so both carry
     an `Am` slot once a scored view holds Am frames."""
-    from fdia_analysis.models import (
+    from fdia_analysis.models.scores import (
         ErrorPair,
         EstimatorScores,
         FamilyMetrics,

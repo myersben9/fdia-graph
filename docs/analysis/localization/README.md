@@ -4,8 +4,9 @@ Which buses are under attack, per scan.
 
 ```python
 import fdia_graph as fg
-from fdia_analysis.localization import SwingThreshold, DeltaThreshold, ResidualLocalizer, BusCNN, BusMLP
-from fdia_analysis.models import LocalizerConfig
+from fdia_analysis.localization.learned import BusCNN, BusMLP
+from fdia_analysis.localization.methods import SwingThreshold, DeltaThreshold, ResidualLocalizer
+from fdia_analysis.models.config import LocalizerConfig
 
 train = fg.load("ieee14", split="train")
 test = fg.load("ieee14", split="test")
@@ -121,7 +122,7 @@ episodes are long and so carry many of the scored frames.
 
 ## Feature ablation
 
-`fdia_analysis.se.JacobianFeatures` transforms the measurement change through the estimator's Jacobian
+`fdia_analysis.se.jacobian.JacobianFeatures` transforms the measurement change through the estimator's Jacobian
 (implied state move `H⁺Δz`, explained and unexplained parts and their ratio, sensitivity, leverage,
 weak-direction energy) and aggregates it to buses. The change is taken against the previous frame's
 estimate, and the estimator is calibrated from measurements only (`calibrate="measured"`), so every

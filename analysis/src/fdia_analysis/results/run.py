@@ -1,7 +1,7 @@
 """How a harness records what it measured: open a `Run`, add values, and the run writes them to the
 store with its provenance when it closes.
 
-    from fdia_analysis.results import Run
+    from fdia_analysis.results.run import Run
 
     with Run("se.estimators", system="ieee14", settings=hp, data_release="v0.9.0", seed=1) as run:
         for name, est in methods.items():

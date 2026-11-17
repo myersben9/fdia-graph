@@ -1,7 +1,8 @@
 """Which meters to trust so that stealthy attacks stop being stealthy [WU26], sklearn style.
 
-    from fdia_graph.models import DqnConfig, TrustConfig
-    from fdia_analysis.trust import TrustedMeters, TrustedMetersDQN
+    from fdia_analysis.models.config import DqnConfig, TrustConfig
+    from fdia_analysis.trust.base import TrustedMeters
+    from fdia_analysis.trust.meter_dqn import TrustedMetersDQN
 
     train = fg.load("ieee118", split="train")
     test = fg.load("ieee118", split="test")
@@ -18,14 +19,3 @@ kernel (`formulas.trust`) and the scoring: the secured meters are set back to th
 reading on every attacked record and the residual test of a WLS estimator says whether the attack
 now shows. Needs the [se] extra; the DQN the [torch] extra.
 """
-
-from .base import TrustedMeters, TrustSelector
-from .meter_dqn import TrustedMetersDQN
-from .secured import secured_copy
-
-__all__ = [
-    "TrustSelector",
-    "TrustedMeters",
-    "TrustedMetersDQN",
-    "secured_copy",
-]

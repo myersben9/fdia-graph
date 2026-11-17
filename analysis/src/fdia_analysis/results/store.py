@@ -21,7 +21,7 @@ from types import TracebackType
 from typing import IO, Optional
 
 from fdia_analysis.models.results import KEYS, Provenance, Record, RunRecords, as_values
-from fdia_graph.models.errors import NoSuchResult
+from fdia_graph.errors import NoSuchResult
 
 _RECORD_COLS = ("run_id", "experiment", "system", "method", "family", "split", "metric", "tags")
 _VALUE_COLS = ("value", "sd", "ci_lo", "ci_hi")

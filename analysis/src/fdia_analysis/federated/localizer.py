@@ -17,7 +17,7 @@ first three are the formulas of `formulas.federated` and `formulas.metrics`.
 
 With K = 1 and no gradient clip the fit is the centralized one, weight for weight.
 
-    from fdia_graph.models import FederatedSettings
+    from fdia_analysis.models.config import FederatedSettings
     loc = FedBusCNN(federated=FederatedSettings(K=3, rounds=60, local_epochs=3)).fit(train, val=val)   # needs the [federated] extra
 """
 

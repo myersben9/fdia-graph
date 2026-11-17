@@ -83,7 +83,6 @@ DEFERRED: dict[str, str] = {
     f"{GENERATION}/engine/sensing": _AS_WRITTEN,
     f"{GENERATION}/engine/solvers.py": _AS_WRITTEN,
     f"{GENERATION}/dataset/clients.py": _AS_WRITTEN,
-    f"{GENERATION}/_lazy.py": _AS_WRITTEN,
     f"{ANALYSIS}/se/detect": _AS_WRITTEN,
 }
 
@@ -328,7 +327,6 @@ _KW = "keyword arguments forwarded unchanged to another signature, each its own 
 _STAGE = "a record's staging dict: tensors and scalar provenance, each key its own type, unpacked into RecordBundle"
 _BUNDLE = "a bundle's fields as a dict: arrays, tensors, scalars and lists, each key its own type"
 ANY_ALLOWED: dict[str, str] = {
-    f"{GENERATION}/__init__.py:__getattr__:return": "a lazily imported public name: any of the package's functions or classes",
     f"{GENERATION}/generation/__init__.py:generate:**knobs": _KW,
     f"{GENERATION}/dataset/records.py:RecordsMixin._add_benign:item": _STAGE,
     f"{GENERATION}/dataset/records.py:RecordsMixin._add_currents:item": _STAGE,

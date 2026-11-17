@@ -14,8 +14,6 @@ from typing import Any
 
 from fdia_graph.errors import SolverUnavailable
 
-__all__ = ["ipopt"]
-
 
 def ipopt(**options: Any) -> Any:
     """A Pyomo `SolverFactory` for Ipopt with `options` set, checked to run.

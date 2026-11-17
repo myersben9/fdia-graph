@@ -32,8 +32,8 @@ the files through `fdia_graph.dataset` and builds on the generation toolkit's fo
 
 ```python
 import fdia_graph as fg
-from fdia_analysis.models import PriorConfig
-from fdia_analysis.se import SubspacePrior  # pip install "fdia-analysis[se]"
+from fdia_analysis.models.config import PriorConfig
+from fdia_analysis.se.methods import SubspacePrior  # pip install "fdia-analysis[se]"
 
 train, test = fg.load("ieee118", split="train"), fg.load("ieee118", split="test")
 est = SubspacePrior(prior=PriorConfig(rank_frac=0.5, reweight="huber", c=2.5)).fit(train)

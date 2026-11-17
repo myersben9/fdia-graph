@@ -48,11 +48,7 @@ import numpy as np
 
 from .generation.ieee import IeeeSource
 from .generation.source import OutPath
-from .models.choices import GENERATED_FAMILIES
 from .models.config import TimelineSettings
-
-# the generator makes the multi-snapshot families [WU26]: the ramp At and the overload Am
-DEFAULT_FAMILIES = GENERATED_FAMILIES
 
 
 def generate_timeline(

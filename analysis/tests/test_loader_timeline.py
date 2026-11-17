@@ -10,12 +10,12 @@ pytest.importorskip("pandapower")
 pytest.importorskip("torch")
 
 import fdia_graph as fg  # noqa: E402
-from fdia_analysis.models import LocalizerConfig
+from fdia_analysis.models.config import LocalizerConfig
 
 
 def test_estimator_and_localizer_score_a_timeline_with_am(timeline):
-    from fdia_analysis.localization import SwingThreshold
-    from fdia_analysis.se import WLS
+    from fdia_analysis.localization.methods import SwingThreshold
+    from fdia_analysis.se.methods import WLS
 
     train, test = fg.load(timeline, split="train"), fg.load(timeline, split="test")
     assert 7 in set(test.export(["family"])["family"].tolist())
