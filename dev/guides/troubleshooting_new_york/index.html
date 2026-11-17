@@ -863,28 +863,6 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#the-operator" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        The operator
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#the-detection-tools" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        The detection tools
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#the-golden-snapshots" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1145,34 +1123,6 @@
     
   
     Federated
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../analysis/defense_reproduction/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Defense reproduction
   
 
     
@@ -1655,28 +1605,6 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#the-operator" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        The operator
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#the-detection-tools" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        The detection tools
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#the-golden-snapshots" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1710,8 +1638,7 @@
 <h1 id="the-new-york-grid-how-it-fails">The New York grid: how it fails<a class="headerlink" href="#the-new-york-grid-how-it-fails" title="Permanent link">&para;</a></h1>
 <p>Every stage of <code>fdia_graph.generation.nygrid</code> either raises a named error or records why it produced less than asked. This
 page lists what each stage reports, what it means and what to do. The stages are those of
-<a href="../new_york/">the guide</a>: environment, inputs, the operating-point pool, the timeline, the operator and
-the detection tools. The errors live in <code>fdia_graph.errors</code>. A wrong argument is a <code>ConfigError</code> and data that
+<a href="../new_york/">the guide</a>: environment, inputs, the operating-point pool and the timeline. The errors live in <code>fdia_graph.errors</code>. A wrong argument is a <code>ConfigError</code> and data that
 does not meet a condition is a <code>DataConditionError</code>. Both are a <code>ValueError</code>, so existing <code>except ValueError</code>
 code keeps working. <code>SolverUnavailable</code> is a <code>RuntimeError</code>, because a broken environment is not a property of
 the data.</p>
@@ -1742,7 +1669,7 @@ the data.</p>
 </tr>
 <tr>
 <td><code>FileNotFoundError</code> on <code>data/...</code></td>
-<td>The build tools and the operator read <code>data/</code> and <code>out/</code> relative to the working folder</td>
+<td>The build tools read <code>data/</code> and <code>out/</code> relative to the working folder</td>
 <td>Run from the work folder that holds <code>data/</code>, or pass <code>--data</code> and <code>--pool</code></td>
 </tr>
 </tbody>
@@ -1840,45 +1767,11 @@ onset survey on, <code>survey_missed</code>) says why, counted per family:</p>
 </table>
 <p><code>build_episode</code> raises <code>NoAdmissibleTarget</code> naming the reason when its one window has no attack, and a
 <code>DataConditionError</code> when the window touches an unsolved frame.</p>
-<h2 id="the-operator">The operator<a class="headerlink" href="#the-operator" title="Permanent link">&para;</a></h2>
-<p><code>respond</code> checks its choices before anything runs: an unknown <code>mode</code>, <code>after</code> or <code>entry</code> raises a <code>ConfigError</code>
-listing the allowed values. In the result:</p>
-<table>
-<thead>
-<tr>
-<th>What you see</th>
-<th>Meaning</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>pf_failed_scans</code> above zero in <code>summarize</code> (or <code>Twin.pf_failed</code>)</td>
-<td>The AC power flow of the operator's dispatch on the true grid failed on those scans. Their interface changes and margin are NaN, which means unknown, not safe. They are not counted in <code>over_scans</code></td>
-</tr>
-<tr>
-<td><code>margin_min_mw</code> below zero with <code>over_scans</code> zero</td>
-<td>The benign twin is over the limit as far, or further. The dispatch holds a binding interface at the limit in its own model at the loads it reads, and the true flow can pass it with no attack. <code>benign_margin_min_mw</code> gives the benign twin's tightest margin, and <code>over_*</code> count only the attack's excess</td>
-</tr>
-<tr>
-<td><code>alarm_scans</code> NaN</td>
-<td>The interchange check never fired in the window</td>
-</tr>
-<tr>
-<td><code>RuntimeError: scan t: ...</code> from the dispatch</td>
-<td>The operator's AC optimal power flow found no optimum on that scan (Ipopt, after its retry from the AC point)</td>
-</tr>
-</tbody>
-</table>
-<h2 id="the-detection-tools">The detection tools<a class="headerlink" href="#the-detection-tools" title="Permanent link">&para;</a></h2>
-<p>The research tools under <code>pipelines/newyork/</code> show every warning; none is silenced. Their detection thresholds come
-from the calibration files under <code>results/</code>.</p>
 <h2 id="the-golden-snapshots">The golden snapshots<a class="headerlink" href="#the-golden-snapshots" title="Permanent link">&para;</a></h2>
-<p><code>tests/nygrid/test_golden.py</code> compares what the operator, the detection tools and the interface attack return
+<p><code>tests/nygrid/test_golden.py</code> compares what the persistence rule and the interface attack return
 on fixed inputs with the snapshots in <code>tests/nygrid/golden/</code>. A failure names the first value that changed. If the
 change is intended, rewrite the snapshots with <code>NYGRID_UPDATE_GOLDEN=1</code> and say in the pull request which numbers
-moved and why. The operator and detection snapshots run on the attack days checked in under
-<code>tests/nygrid/data/days</code> with NYgrid's inputs, so CI runs them; the interface attack's design also needs the whole
-2019 pool under <code>NYGRID_ROOT</code> and skips without it.</p>
+moved and why. The interface attack's design needs the whole 2019 pool under <code>NYGRID_ROOT</code> and skips without it.</p>
 <p>The same folder holds whole-file digests of a New York timeline and of two episodes
 (<code>tests/nygrid/test_timeline_digests.py</code>): bit for bit on the machine that recorded them, skipped
 elsewhere. Rewrite those with <code>FDIA_UPDATE_DIGESTS=1</code>, under the same rule.</p>

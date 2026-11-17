@@ -1125,34 +1125,6 @@
 
               
             
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../defense_reproduction/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Defense reproduction
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
           </ul>
         </nav>
       
@@ -1693,8 +1665,7 @@ set back to their benign reading (the attacker cannot write them) and a WLS resi
 benign false-alarm level says whether the attack now shows. <code>detected_before</code> is the residual test
 with every meter writable, <code>detected_after</code> with the trust in place.</p>
 <h2 id="files">Files<a class="headerlink" href="#files" title="Permanent link">&para;</a></h2>
-<p>The package holds two things: the trusted-meter selectors on a dataset, and the trusted-PMU defense of [WU26]
-on an overload window, the latter both on the generator's attack and on the paper's own attack.</p>
+<p>The package holds the trusted-meter selectors on a dataset.</p>
 <table>
 <thead>
 <tr>
@@ -1715,30 +1686,8 @@ on an overload window, the latter both on the generator's attack and on the pape
 <td><code>trust/secured.py</code></td>
 <td><code>secured_copy</code>: a copy of a timeline with chosen meters secured and its temporal features recomputed</td>
 </tr>
-<tr>
-<td><code>trust/pmu_environment.py</code></td>
-<td><code>DefenseEnv</code>, the protocol both trusted-PMU MDPs implement, and <code>WuDefenseEnv</code>: the trusted-PMU configuration as an MDP on one overload window of the generator, its reward the rise in the fewest-tamper search's cost</td>
-</tr>
-<tr>
-<td><code>trust/pmu_row_reduction.py</code></td>
-<td><code>TrustedPMUs</code>: the trusted PMUs by row reduction of the measurement matrix (the paper's Solution 1)</td>
-</tr>
-<tr>
-<td><code>trust/pmu_dqn.py</code></td>
-<td><code>TrustedPMUsDQN</code>: the trusted PMUs by a deep Q-network trained with the paper's Algorithm 1 (Solution 2)</td>
-</tr>
-<tr>
-<td><code>trust/faithful_attack.py</code></td>
-<td>the paper's attack as the paper states it, on a pandapower case: the meter plan, the multi-snapshot attack on IPOPT, incremental trust (needs the <code>[wu]</code> extra)</td>
-</tr>
-<tr>
-<td><code>trust/faithful_defense.py</code></td>
-<td><code>Wu26DefenseEnv</code> and <code>wu26_solution1</code>: the trusted-PMU MDP and Solution 1 on that attack</td>
-</tr>
 </tbody>
 </table>
-<p>The defense results are reproduced on the generator and on the paper's attack; the
-numbers are in <a href="../defense_reproduction/"><code>../defense_reproduction/README.md</code></a>.</p>
 <h2 id="results">Results<a class="headerlink" href="#results" title="Permanent link">&para;</a></h2>
 <p>The scripts that ran the study are not part of this repository. The study wrote a run of
 <code>trust.selection</code> to the results store: the selection, the attack-cost curve, and the detection table. Read the detection

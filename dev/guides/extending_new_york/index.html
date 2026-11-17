@@ -824,17 +824,6 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#an-operator" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        An operator
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#changing-the-package-itself" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1123,34 +1112,6 @@
     
   
     Federated
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../analysis/defense_reproduction/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Defense reproduction
   
 
     
@@ -1622,17 +1583,6 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#an-operator" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        An operator
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#changing-the-package-itself" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1688,20 +1638,8 @@ no data, and CI runs each of them, so they stay current with the code. For how t
 <tr>
 <td>An alarm rule</td>
 <td><code>first_alarm(stat) -&gt; int</code> (the <code>AlarmRule</code> protocol)</td>
-<td>anywhere <code>PersistenceRule</code> is used, the detection tools included</td>
+<td>your own detector, in place of <code>PersistenceRule</code>: the package ships the rule and the protocol, and the code that computes the statistic and asks the rule is yours</td>
 <td><a href="../../examples/nygrid/custom_alarm_rule.py">custom_alarm_rule.py</a></td>
-</tr>
-<tr>
-<td>An operator</td>
-<td><code>respond(day, *, calib, alarm_at) -&gt; Response</code> (the <code>Operator</code> protocol)</td>
-<td><code>summarize</code> and the detection tools, unchanged</td>
-<td><a href="../../examples/nygrid/custom_operator.py">custom_operator.py</a></td>
-</tr>
-<tr>
-<td>A study</td>
-<td>a job over attack windows</td>
-<td><code>fdia_graph.results.studies</code>: <code>study_days</code>, <code>run_parallel</code></td>
-<td>the tools under <code>pipelines/newyork/</code></td>
 </tr>
 </tbody>
 </table>
@@ -1714,16 +1652,10 @@ why; <code>design_explained</code> then reports <code>no_target</code>, and a No
 false state, as the package's <code>Attacker</code> does. A family that does not, like the example's slow bias, is the naive
 attack the residual test is meant to catch, and is useful as a baseline.</p>
 <h2 id="an-alarm-rule">An alarm rule<a class="headerlink" href="#an-alarm-rule" title="Permanent link">&para;</a></h2>
-<p>A rule turns a statistic per scan (the residual sum of <code>wls</code>, a tie gap, any score) into the first scan it alarms
-on, or -1. Calibrate it on benign days only: <code>PersistenceRule.fit</code> takes a percentile of benign statistics, and a
-rule fitted on no statistic at all is an error (<code>NoBenignRecords</code>), since it would never alarm. Report its false
-alarms on benign days of other months beside its detection rate, and on other meter fleets (<code>with_fleet</code>).</p>
-<h2 id="an-operator">An operator<a class="headerlink" href="#an-operator" title="Permanent link">&para;</a></h2>
-<p>An operator runs on an <code>OperatorDay</code> and returns a <code>Response</code>: its run on the attacked scans and on their benign
-twin, each a <code>Twin</code> of per-scan arrays (dispatch, regulation, the imbalance the neighbours supply, the true interface
-changes and margins, and <code>pf_failed</code> where the true grid's power flow failed). <code>summarize</code> reports the attack's
-consequence as attacked less benign, so an operator only has to produce both runs the same way. The package's own,
-<code>NyisoOperator(policy)</code>, takes its choices from an <code>OperatorPolicy</code>, which checks every choice when it is built.</p>
+<p>A rule turns a statistic per scan (a residual sum, a gap between two meters, any score) into the first scan it
+alarms on, or -1. Calibrate it on benign days only: <code>PersistenceRule.fit</code> takes a percentile of benign statistics,
+and a rule fitted on no statistic at all is an error (<code>NoBenignRecords</code>), since it would never alarm. Report its
+false alarms on benign days of other months beside its detection rate.</p>
 <h2 id="changing-the-package-itself">Changing the package itself<a class="headerlink" href="#changing-the-package-itself" title="Permanent link">&para;</a></h2>
 <ul>
 <li>The grid is the MATPOWER case file <code>src/fdia_graph/generation/nygrid/case_nygrid.m</code>, read by <code>nygrid_case()</code>. To
@@ -1733,7 +1665,7 @@ consequence as attacked less benign, so an operator only has to produce both run
   the checks). A study on another grid passes its own <code>Case</code> (<code>Case.from_matpower</code> of its own file) wherever the
   package takes one; that file must follow this file's conventions: area 1 on every bus, and the zone codes
   of the legend in its header (1 to 11 the NYISO load zones, 12 to 15 the neighbors). A change to the file moves generated numbers, so it comes with the goldens and digests below.</li>
-<li>The golden snapshots (<code>tests/nygrid/test_golden.py</code>) pin what the operator, the detection tools and the
+<li>The golden snapshots (<code>tests/nygrid/test_golden.py</code>) pin what the persistence rule and the
   interface attack return on fixed inputs. A change that should not move a number must pass them unchanged; one
   that should must rewrite them (<code>NYGRID_UPDATE_GOLDEN=1</code>) and say in the pull request which numbers moved and why.</li>
 <li>The timeline digests (<code>tests/nygrid/test_timeline_digests.py</code>) pin every dataset and attribute of a built

@@ -26,15 +26,6 @@ flowchart TB
         builder["TimelineBuilder: timeline.h5"]
         ds["Dataset, ClientView"]
     end
-    subgraph operator["operator: the consequence"]
-        day["operator_day"]
-        respond["respond(policy): a Response"]
-        summary["summarize"]
-        tie["interchange_alarm: the tie check"]
-    end
-    subgraph detect["detect: the residual test"]
-        wls["wls + PersistenceRule"]
-    end
     nygrid --> case
     terr --> own
     nygrid --> ifaces
@@ -48,14 +39,8 @@ flowchart TB
     plan --> meas
     meas --> att
     att --> fam
+    ifaces --> fam
     pool --> builder
     fam --> builder
     meas --> builder
     builder --> ds
-    builder --> day
-    pool --> day
-    ifaces --> day
-    day --> respond
-    respond --> summary
-    respond --> wls
-    day --> tie

@@ -1191,34 +1191,6 @@
 
               
             
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../analysis/defense_reproduction/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Defense reproduction
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
           </ul>
         </nav>
       
@@ -1774,12 +1746,11 @@
 
 
 <h1 id="architecture">Architecture<a class="headerlink" href="#architecture" title="Permanent link">&para;</a></h1>
-<p><code>fdia_graph.generation.nygrid</code> builds a federated FDIA dataset on the New York grid and studies attacks through the New York
-operator's own rules. It has been part of fdia-graph since 2026-11-02, its modules in the SDK's packages by job (the files below), its tests
+<p><code>fdia_graph.generation.nygrid</code> builds a federated FDIA dataset on the New York grid. It has been part of fdia-graph since 2026-11-02, its modules in the SDK's packages by job (the files below), its tests
 <code>tests/nygrid/</code> (inputs under <code>NYGRID_ROOT</code>), its research tools <code>pipelines/newyork/</code>, its runnable extension examples
 <code>examples/nygrid/</code>, and the results files <code>results/</code>.</p>
 <p>Read alongside: <a href="../../getting-started/new_york_walkthrough/">the walkthrough</a> follows one attack through every stage with the call that does each
-step, <a href="../../guides/extending_new_york/">the extending guide</a> says how to add an attack, a detector or an operator, and
+step, <a href="../../guides/extending_new_york/">the extending guide</a> says how to add an attack or an alarm rule, and
 <a href="../../guides/troubleshooting_new_york/">the troubleshooting page</a> what each stage reports when it fails. Tags N1 onward in the code
 number the design decisions.</p>
 <h2 id="how-a-run-flows">How a run flows<a class="headerlink" href="#how-a-run-flows" title="Permanent link">&para;</a></h2>
@@ -1787,8 +1758,7 @@ number the design decisions.</p>
 <p>Each box is a subpackage, one stage, and each stage reads what the one before it wrote. <code>grid</code> turns NYgrid's case into
 the network and the clients; <code>scenario</code> solves the year of true operating points (the slow step, built once into the
 pool); <code>sensing</code> places the meters; <code>attacks</code> designs each attack on a window of true states; <code>timeline</code> writes the
-noisy, labelled year; <code>operator</code> runs the operator on an attacked day and its benign twin; <code>detect</code> holds the residual
-test's building blocks. <code>experiments</code> runs a study over many attack windows. Each package's <code>__init__.py</code> opens with what
+noisy, labelled year. Beside the stages, <code>se/detect</code> holds the alarm rules. Each package's <code>__init__.py</code> opens with what
 its stage does.</p>
 <h2 id="principles">Principles<a class="headerlink" href="#principles" title="Permanent link">&para;</a></h2>
 <ol>
@@ -1799,9 +1769,9 @@ its stage does.</p>
    loads pandapower or Pyomo. A name outside <code>__all__</code> is internal and may change; a public name that is renamed is a
    changelog entry, with no alias kept.</li>
 <li>A class owns state, cached work, or a shared interface. A plain function is stateless math. Data records are
-   frozen dataclasses of numpy arrays, and choices are validated records (<code>OperatorPolicy</code>).</li>
-<li>Extension points are small: <code>AttackFamily</code> is the base class of the attack families, and <code>Operator</code> and
-   <code>AlarmRule</code> are protocols. The overload family is two classes: <code>OpfFdia</code> holds the
+   frozen dataclasses of numpy arrays.</li>
+<li>Extension points are small: <code>AttackFamily</code> is the base class of the attack families, and
+   <code>AlarmRule</code> is a protocol. The overload family is two classes: <code>OpfFdia</code> holds the
    support search and the per-scan OPF, and <code>InterfaceFdia</code> adds the goal and <code>design</code>, as their docstrings say.</li>
 <li>One job per file. A file stays short enough to read in one sitting.</li>
 <li>Dependencies point one way (below). pandapower lives in <code>generation/nygrid/solver.py</code>, h5py in <code>io.py</code>, random number
@@ -1810,9 +1780,9 @@ its stage does.</p>
 <li>Measurements are one flat vector <code>z</code> per frame with a meter table beside it. A client's data is
    <code>z[:, meters.owner == c]</code>.</li>
 <li>Failures are named: a wrong argument is a <code>ConfigError</code>, data that does not meet a condition a
-   <code>DataConditionError</code>, a broken solver <code>SolverUnavailable</code>; what a stage cannot do it counts (<code>missed</code>,
-   <code>pf_failed_scans</code>) rather than hides.</li>
-<li>The golden snapshots pin what the operator, the detection tools and the interface attack return on fixed inputs,
+   <code>DataConditionError</code>, a broken solver <code>SolverUnavailable</code>; what a stage cannot do it counts (<code>missed</code>)
+   rather than hides.</li>
+<li>The golden snapshots pin what the persistence rule and the interface attack return on fixed inputs,
    so a change that moves a number says so.</li>
 </ol>
 <h2 id="files">Files<a class="headerlink" href="#files" title="Permanent link">&para;</a></h2>
@@ -1833,7 +1803,7 @@ its stage does.</p>
 <a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>    loads.py            LoadSeries, LoadModel (the bus profiles, with their within-hour terms)
 <a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>    load_sources.py     the building-stock, EIA-861, census and IAC inputs the profiles come from, downloaded once
 <a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>    dispatch.py         Dispatch, hourly_dispatch
-<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>    solver.py           AcSolver, Compensation, OperatorOpf, OpfSolution (the operator's AC dispatch model)
+<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>    solver.py           AcSolver, Compensation
 <a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a>    pool.py             Pool, PoolBuilder, peak_ratings
 <a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a>    timeline.py         TimelineBuilder
 <a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a>  engine/
@@ -1849,43 +1819,29 @@ its stage does.</p>
 <a id="__codelineno-0-31" name="__codelineno-0-31" href="#__codelineno-0-31"></a>    opf.py              OpfFdia (the base of the OPF attacks: the support search and the per-scan local AC OPF, N35)
 <a id="__codelineno-0-32" name="__codelineno-0-32" href="#__codelineno-0-32"></a>    interface.py        InterfaceFdia (Am against a NYISO interface, N48, N49; overshoot and max_overshoot, N58)
 <a id="__codelineno-0-33" name="__codelineno-0-33" href="#__codelineno-0-33"></a>    ramp.py             Ramp
-<a id="__codelineno-0-34" name="__codelineno-0-34" href="#__codelineno-0-34"></a>  operator/
+<a id="__codelineno-0-34" name="__codelineno-0-34" href="#__codelineno-0-34"></a>  se/detect/
 <a id="__codelineno-0-35" name="__codelineno-0-35" href="#__codelineno-0-35"></a>    __init__.py         what the stage does, and its public names
-<a id="__codelineno-0-36" name="__codelineno-0-36" href="#__codelineno-0-36"></a>    day.py              OperatorDay, operator_day, INTERFACES, node_lbmp, PoolFrames, pool_frames (an attacked day as the operator meets it, NYISO's hourly prices, the pool's own inputs for its frames)
-<a id="__codelineno-0-37" name="__codelineno-0-37" href="#__codelineno-0-37"></a>    acsced.py           AcSced, Step, shortage_usd, loss_factors, ac_shift, ac_power_flow, open_branch (N59, N60; the operator's dispatch as an AC OPF each scan, least movement or least cost with AC LMPs; AC sensitivities; the AC power flow of an outage)
-<a id="__codelineno-0-38" name="__codelineno-0-38" href="#__codelineno-0-38"></a>    ties.py             tie_meters, neighbour_reads, tie_gap, interchange_alarm, seen_interfaces (the interchange check, N62)
-<a id="__codelineno-0-39" name="__codelineno-0-39" href="#__codelineno-0-39"></a>    truegrid.py         TrueGrid (state, run_state, change: AC power flows on the true grid; the N-1 screen is an AC power flow per outage)
-<a id="__codelineno-0-40" name="__codelineno-0-40" href="#__codelineno-0-40"></a>    policy.py           OperatorPolicy (the operator's choices, validated), OperatorMode, AlarmAnswer, Entry, MODES, AFTER, ENTRY, entry_share
-<a id="__codelineno-0-41" name="__codelineno-0-41" href="#__codelineno-0-41"></a>    run.py              Twin, Response, respond, Operator (protocol), NyisoOperator, REG_CAP, reported_changes (the operator scan by scan)
-<a id="__codelineno-0-42" name="__codelineno-0-42" href="#__codelineno-0-42"></a>    summary.py          summarize (the attack's consequence, attacked less benign)
-<a id="__codelineno-0-43" name="__codelineno-0-43" href="#__codelineno-0-43"></a>    areas.py            area_damage, attack_surface, zone_levers, neighbor_prices, FEEDS (who bears it: by zone, utility and neighbor)
-<a id="__codelineno-0-44" name="__codelineno-0-44" href="#__codelineno-0-44"></a>  se/detect/
-<a id="__codelineno-0-45" name="__codelineno-0-45" href="#__codelineno-0-45"></a>    __init__.py         what the stage does, and its public names
-<a id="__codelineno-0-46" name="__codelineno-0-46" href="#__codelineno-0-46"></a>    estimate.py         WlsFit, wls, exact_state, reference_bus (the residual test's AC weighted least squares)
-<a id="__codelineno-0-47" name="__codelineno-0-47" href="#__codelineno-0-47"></a>    rules.py            AlarmRule (protocol), PersistenceRule (k of the last n past a fitted threshold, N79)
-<a id="__codelineno-0-48" name="__codelineno-0-48" href="#__codelineno-0-48"></a>    fleets.py           FLEET_STREAM, fleet_bias, with_fleet (other realizations of the meters' constant biases, N81)
-<a id="__codelineno-0-49" name="__codelineno-0-49" href="#__codelineno-0-49"></a>  federated/
-<a id="__codelineno-0-50" name="__codelineno-0-50" href="#__codelineno-0-50"></a>    utilities.py        Ownership, assign_clients
-<a id="__codelineno-0-51" name="__codelineno-0-51" href="#__codelineno-0-51"></a>  dataset/
-<a id="__codelineno-0-52" name="__codelineno-0-52" href="#__codelineno-0-52"></a>    clients.py          Dataset, ClientView
-<a id="__codelineno-0-53" name="__codelineno-0-53" href="#__codelineno-0-53"></a>  results/
-<a id="__codelineno-0-54" name="__codelineno-0-54" href="#__codelineno-0-54"></a>    studies.py          study_days, variant, load_calib, add_study_arguments, run_parallel (what every study tool repeats)
-<a id="__codelineno-0-55" name="__codelineno-0-55" href="#__codelineno-0-55"></a>  _lazy.py            attach: the public names of a package, imported on first use
-<a id="__codelineno-0-56" name="__codelineno-0-56" href="#__codelineno-0-56"></a>pipelines/newyork/
-<a id="__codelineno-0-57" name="__codelineno-0-57" href="#__codelineno-0-57"></a>  build_timeline.py    the release timeline from a pool (--fetch downloads the inputs)
-<a id="__codelineno-0-58" name="__codelineno-0-58" href="#__codelineno-0-58"></a>  make_case.py         the recipe of the case file and its writer: case_nygrid.m made again from NYgrid's Data/ folder
-<a id="__codelineno-0-59" name="__codelineno-0-59" href="#__codelineno-0-59"></a>  build_single_episodes.py  one Am per file over its whole day, for studying one attack by hand
-<a id="__codelineno-0-60" name="__codelineno-0-60" href="#__codelineno-0-60"></a>  matlab/nygrid/       MATLAB reference for NYgrid's AC feasibility (README inside)
-<a id="__codelineno-0-61" name="__codelineno-0-61" href="#__codelineno-0-61"></a>  run_pool.py          builds the pool in parallel chunks (a week each, from its first hour's AC point), then repairs each seam by solving the next chunk's first frames again from the chunk before's last state until the thermal dispatch meets the stored one within 0.5 MW, so the year is one continuous dispatch; per-unit ramps from engine/attacks/attacker.py's constants, NYgrid's reactive limits (N38)
-<a id="__codelineno-0-62" name="__codelineno-0-62" href="#__codelineno-0-62"></a>results/
-<a id="__codelineno-0-63" name="__codelineno-0-63" href="#__codelineno-0-63"></a>  nygrid.ac_year.csv   per-hour MATLAB results over 2019, the scenario tests' reference
-<a id="__codelineno-0-64" name="__codelineno-0-64" href="#__codelineno-0-64"></a>tests/nygrid/
-<a id="__codelineno-0-65" name="__codelineno-0-65" href="#__codelineno-0-65"></a>  inputs.py      where the tests find their inputs, and which tests each input lets run
-<a id="__codelineno-0-66" name="__codelineno-0-66" href="#__codelineno-0-66"></a>  test_{grid,scenario,sensing,attacks,timeline,dataset,operator}.py
-<a id="__codelineno-0-67" name="__codelineno-0-67" href="#__codelineno-0-67"></a>  test_{solvers,choices,misses,tables,configs,detect,policy,public,experiments}.py   checks that need no data
-<a id="__codelineno-0-68" name="__codelineno-0-68" href="#__codelineno-0-68"></a>  test_golden.py, golden/   snapshots of the operator, the persistence rule and the interface attack
-<a id="__codelineno-0-69" name="__codelineno-0-69" href="#__codelineno-0-69"></a>  data/matlab_ref/     operating points from dump_hours.m that the Python port must match
-<a id="__codelineno-0-70" name="__codelineno-0-70" href="#__codelineno-0-70"></a>  data/days/           two damage-study days, the single-episode day and the pool's frames of those days (README inside)
+<a id="__codelineno-0-36" name="__codelineno-0-36" href="#__codelineno-0-36"></a>    rules.py            AlarmRule (protocol), PersistenceRule (k of the last n past a fitted threshold, N79)
+<a id="__codelineno-0-37" name="__codelineno-0-37" href="#__codelineno-0-37"></a>  federated/
+<a id="__codelineno-0-38" name="__codelineno-0-38" href="#__codelineno-0-38"></a>    utilities.py        Ownership, assign_clients
+<a id="__codelineno-0-39" name="__codelineno-0-39" href="#__codelineno-0-39"></a>  dataset/
+<a id="__codelineno-0-40" name="__codelineno-0-40" href="#__codelineno-0-40"></a>    clients.py          Dataset, ClientView
+<a id="__codelineno-0-41" name="__codelineno-0-41" href="#__codelineno-0-41"></a>  _lazy.py            attach: the public names of a package, imported on first use
+<a id="__codelineno-0-42" name="__codelineno-0-42" href="#__codelineno-0-42"></a>pipelines/newyork/
+<a id="__codelineno-0-43" name="__codelineno-0-43" href="#__codelineno-0-43"></a>  build_timeline.py    the release timeline from a pool (--fetch downloads the inputs)
+<a id="__codelineno-0-44" name="__codelineno-0-44" href="#__codelineno-0-44"></a>  make_case.py         the recipe of the case file and its writer: case_nygrid.m made again from NYgrid's Data/ folder
+<a id="__codelineno-0-45" name="__codelineno-0-45" href="#__codelineno-0-45"></a>  build_single_episodes.py  one Am per file over its whole day, for studying one attack by hand
+<a id="__codelineno-0-46" name="__codelineno-0-46" href="#__codelineno-0-46"></a>  matlab/nygrid/       MATLAB reference for NYgrid's AC feasibility (README inside)
+<a id="__codelineno-0-47" name="__codelineno-0-47" href="#__codelineno-0-47"></a>  run_pool.py          builds the pool in parallel chunks (a week each, from its first hour's AC point), then repairs each seam by solving the next chunk's first frames again from the chunk before's last state until the thermal dispatch meets the stored one within 0.5 MW, so the year is one continuous dispatch; per-unit ramps from engine/attacks/attacker.py's constants, NYgrid's reactive limits (N38)
+<a id="__codelineno-0-48" name="__codelineno-0-48" href="#__codelineno-0-48"></a>results/
+<a id="__codelineno-0-49" name="__codelineno-0-49" href="#__codelineno-0-49"></a>  nygrid.ac_year.csv   per-hour MATLAB results over 2019, the scenario tests' reference
+<a id="__codelineno-0-50" name="__codelineno-0-50" href="#__codelineno-0-50"></a>tests/nygrid/
+<a id="__codelineno-0-51" name="__codelineno-0-51" href="#__codelineno-0-51"></a>  inputs.py      where the tests find their inputs, and which tests each input lets run
+<a id="__codelineno-0-52" name="__codelineno-0-52" href="#__codelineno-0-52"></a>  test_{grid,scenario,sensing,attacks,timeline,dataset}.py
+<a id="__codelineno-0-53" name="__codelineno-0-53" href="#__codelineno-0-53"></a>  test_{solvers,misses,tables,configs,detect,public}.py   checks that need no data
+<a id="__codelineno-0-54" name="__codelineno-0-54" href="#__codelineno-0-54"></a>  test_golden.py, golden/   snapshots of the persistence rule and the interface attack
+<a id="__codelineno-0-55" name="__codelineno-0-55" href="#__codelineno-0-55"></a>  data/matlab_ref/     operating points from dump_hours.m that the Python port must match
+<a id="__codelineno-0-56" name="__codelineno-0-56" href="#__codelineno-0-56"></a>  data/days/           the pool's frames of two days, which the timeline digests build on (README inside)
 </code></pre></div>
 <p><code>tools/</code>, <code>results/</code> and <code>tests/data/</code> follow the fdia_graph_sdk layout, so the move into the SDK
 copies them as they are.</p>
@@ -1904,10 +1860,7 @@ copies them as they are.</p>
   operator's one residual test over all meters reads one AC state; <code>Episode.clients</code> records the
   owners of those meters, one or several.</li>
 <li><code>timeline</code> imports everything above it and <code>io</code>.</li>
-<li><code>operator</code> reads timeline files through <code>io</code> and imports <code>grid</code>, <code>scenario</code> and <code>sensing</code>. Nothing in the package
-  imports it; the tools and the tests do.</li>
-<li><code>detect</code> imports <code>attacks</code> (for <code>wrap_angles</code>), <code>grid</code> and <code>sensing</code>; <code>experiments</code> imports nothing of the
-  package, it only runs jobs.</li>
+<li><code>detect</code> imports nothing of the package: a rule reads a statistic per scan.</li>
 <li><code>dataset</code> imports only <code>io</code> and <code>generation/nygrid/network.py</code>, so loading data never needs pandapower.</li>
 </ul>
 <h2 id="records">Records<a class="headerlink" href="#records" title="Permanent link">&para;</a></h2>
@@ -2057,42 +2010,6 @@ copies them as they are.</p>
 <td><code>build(path) -&gt; dict</code> (writes the file; returns slots placed and episodes built per split and family, slots skipped for unsolved frames, the median design seconds per family, seconds). The splits come from <code>split_weeks</code> on the frames some waiting family may start at (or three blocks in time order (<code>split_bounds</code>) with <code>split_by="time"</code>); each split's episodes are placed by <code>place_episodes</code> inside one contiguous run of its frames and, for a family with an <code>onset_mask</code>, only where it allows; each is designed on its own window of true pool states (in <code>workers</code> spawn processes when above 1); a window touching an unsolved frame, or one the family returns None for, stays benign. With <code>survey</code> (frames, N42) every allowed onset of a family with an <code>onset_mask</code> whose window lies in one week, on that grid, is designed first, the weeks are then split stratified on the onsets with an attack in strata of <code>HIT_STRATUM</code> weeks (N46), and the family's episodes are placed only among those with an attack, reusing the designs, each chunk of <code>SURVEY_CHUNK</code> designs saved under <code>survey_cache</code> when given so a stopped build resumes; the summary adds <code>survey</code> (tried and found per split and family). <code>build_episode(path, onset, family="Am", lo=None, hi=None, using=None, lag=0) -&gt; dict</code> writes one episode alone, designed at pool frame <code>onset</code> (at <code>onset - lag</code> with a lag, its vector added to the true scans), over the pool frames lo..hi (default its window), every frame in the train split, the file's frames and onset counted from lo (single-episode files for the analytical study, Ben 2026-11-02); both write through <code>_write</code>. Frames: <code>z_benign = NoiseModel.sample(h(x_true))</code>, <code>z = z_benign + a</code> on episode frames; <code>meter_tampered</code> is <code>Attacker.tampered</code>, <code>bus_attacked</code> is true where a tampered meter sits at the bus</td>
 </tr>
 <tr>
-<td><code>AcSced</code></td>
-<td><code>operator/acsced.py</code></td>
-<td>built as <code>AcSced(case, unit_p [T, G], cost [T, G], interfaces, state=(vm, va), loads=(pd, qd), frames=PoolFrames, bus_load=None, quick_start=None, objective="movement")</code>: the AC points and their loads, the pool's own bounds and schedules, its <code>OperatorOpf</code></td>
-<td><code>step(t, load_p [N], load_q [N], corr [I], limit [I], prev, shed_ok) -&gt; Step</code>: one AC OPF at the loads the operator reads (<code>movement</code>: least movement, cost breaking ties; <code>cost</code>: least cost, <code>price</code> the AC LMPs), interface AC flows plus the reading correction within their limits or priced over, shed and balance slacks priced above any unit; <code>delivered(t, dev, shed)</code></td>
-</tr>
-<tr>
-<td><code>OperatorOpf</code>, <code>OpfSolution</code></td>
-<td><code>generation/nygrid/solver.py</code></td>
-<td>the Case and each interface's branches and signs; the Pyomo AC OPF with mutable loads, bounds, anchors, weights and interface rows</td>
-<td><code>solve(load_p, load_q, *, ...) -&gt; OpfSolution</code> (units, shed, interface excess, unmatched, model flows, state, balance and interface duals) or None</td>
-</tr>
-<tr>
-<td><code>PoolFrames</code></td>
-<td><code>operator/day.py</code></td>
-<td><code>p_lo</code>, <code>p_hi</code>, <code>sp [T, G]</code> (the pool's unit bounds before the ramp and its setpoints), <code>qd [T, N]</code> (the pool's reactive loads)</td>
-<td></td>
-</tr>
-<tr>
-<td><code>Step</code></td>
-<td><code>operator/acsced.py</code></td>
-<td><code>dev [G]</code> (MW from the basepoint), <code>shed [N]</code> (MW of load relief), <code>unrelieved [I]</code>, <code>unmatched</code>, <code>relief_usd</code> (the dispatch's cost less that of the same dispatch with no interface limit)</td>
-<td></td>
-</tr>
-<tr>
-<td><code>OperatorDay</code></td>
-<td><code>operator/day.py</code></td>
-<td>one timeline file's frames with the pool basepoint, the interpolated unit costs, the real zonal LBMP and the interfaces</td>
-<td></td>
-</tr>
-<tr>
-<td><code>Twin</code>, <code>Response</code></td>
-<td><code>operator/run.py</code></td>
-<td>the operator's run on the attacked scans and on the benign twin: dispatch, regulation, unrelieved and unmatched MW, the true interface and N-1 changes, fuel and settled $ per scan, and under a least-cost dispatch the congestion and energy prices and each bus's price <code>price [T, N]</code></td>
-<td></td>
-</tr>
-<tr>
 <td><code>TimelineWriter</code></td>
 <td><code>io.py</code></td>
 <td>an open HDF5 file, built as <code>TimelineWriter(path)</code></td>
@@ -2115,7 +2032,7 @@ copies them as they are.</p>
 <h2 id="the-case-file">The case file<a class="headerlink" href="#the-case-file" title="Permanent link">&para;</a></h2>
 <p>The New York grid is one MATPOWER case file, <code>src/fdia_graph/generation/nygrid/case_nygrid.m</code>, shipped with the package the way the IEEE test cases ship with pandapower. <code>nygrid_case()</code> reads it, and every build, test and pipeline starts from that <code>Case</code>. A change to the grid is an edit to the file: no code patches the case on the way in.</p>
 <p><code>Case.from_matpower(path)</code> reads the file with matpowercaseframes, the reader pandapower uses for <code>.m</code> files, and takes every column by MATPOWER's own name (<code>BUS_I</code>, <code>PD</code>, <code>RATE_A</code>, <code>TAP</code>). Standard MATPOWER fields carry everything they can: the bus <code>zone</code> column says where each bus is, as a number (the table below), <code>mpc.bus_name</code> the bus names and <code>mpc.genfuel</code> the unit fuels. Two numeric fields are ours: <code>mpc.bus_latlon</code> (latitude and longitude in degrees) and <code>mpc.gen_ramp</code> (MW per minute, <code>NaN</code> where the source gives none). A branch with status 0 is left out, and a tap ratio of 0, MATPOWER's mark of a line, is 1.</p>
-<p>The case file is one system, so it has one area: the bus <code>area</code> column is 1 on every row (<code>FILE_AREA</code>), and a file with another number there is refused. The region of a bus is its zone code. The reader, the recipe's writer and the legend in the file follow one table of the codes, their names and the area each gives, in <code>generation/nygrid/case.py</code> (<code>ZONES</code> and <code>REGIONS</code>). <code>generation/nygrid/dispatch.py</code> and <code>operator/</code> still tell the neighbors apart by the area numbers of <code>Case.area</code>.</p>
+<p>The case file is one system, so it has one area: the bus <code>area</code> column is 1 on every row (<code>FILE_AREA</code>), and a file with another number there is refused. The region of a bus is its zone code. The reader, the recipe's writer and the legend in the file follow one table of the codes, their names and the area each gives, in <code>generation/nygrid/case.py</code> (<code>ZONES</code> and <code>REGIONS</code>). <code>generation/nygrid/dispatch.py</code> still tells the neighbors apart by the area numbers of <code>Case.area</code>.</p>
 <table>
 <thead>
 <tr>
@@ -2201,7 +2118,7 @@ copies them as they are.</p>
 <td><code>hourly_interfaces(case, time, data, names=None, year=2019)</code></td>
 <td><code>generation/nygrid/interfaces.py</code></td>
 <td><code>Case</code>, the pool's frame times, NYgrid's data folder</td>
-<td>a list of <code>Interface</code> (branches and signs from <code>updateOpCond.m</code> L420-430, real hourly limit and flow per frame from <code>interflowHourly_2019.csv</code>); <code>Interface.model_flow(pf)</code> the signed sum</td>
+<td>a list of <code>Interface</code> (branches and signs from <code>updateOpCond.m</code> L420-430, real hourly limit and flow per frame from <code>interflowHourly_2019.csv</code>)</td>
 </tr>
 <tr>
 <td><code>peak_ratings(case, pool, factor=1.0)</code></td>
@@ -2340,54 +2257,6 @@ copies them as they are.</p>
 <td><code>generation/nygrid/timeline.py</code></td>
 <td>one onset</td>
 <td>one episode alone over frames lo..hi; <code>using</code> designs it with a family variant (such as <code>with_overshoot</code>) in place of the builder's own; <code>lag</code> (frames) designs it on the window <code>lag</code> frames earlier, the attacker's persistence forecast, and adds its vector to the true scans from <code>onset</code></td>
-</tr>
-<tr>
-<td><code>shortage_usd(mw)</code></td>
-<td><code>operator/acsced.py</code></td>
-<td>MW over an interface limit for one scan</td>
-<td>$ at the 2019 transmission shortage curve (N60)</td>
-</tr>
-<tr>
-<td><code>operator_day(timeline, pool, data_dir, interfaces=("SPR/DUN-SOUTH",))</code></td>
-<td><code>operator/day.py</code></td>
-<td>a timeline file, its pool, NYgrid's <code>Data/</code></td>
-<td><code>OperatorDay</code></td>
-</tr>
-<tr>
-<td><code>pool_frames(day, loads=None)</code></td>
-<td><code>operator/day.py</code></td>
-<td><code>OperatorDay</code>, the pool's load series (default <code>NYGRID_LOADS</code> or <code>out/loads_2019_v2.npz</code>)</td>
-<td><code>PoolFrames</code> (<code>PoolBuilder.frame_limits</code> on the hours the day touches)</td>
-</tr>
-<tr>
-<td><code>ac_shift(case, vm, va, interfaces)</code>, <code>ac_power_flow(case, net, vm, va, p, q)</code>, <code>open_branch(case, k)</code></td>
-<td><code>operator/acsced.py</code></td>
-<td>an AC state</td>
-<td><code>[I, N]</code> AC interface sensitivities to bus injections (power flow Jacobian), the Newton AC power flow at fixed injections, the case without branch <code>k</code></td>
-</tr>
-<tr>
-<td><code>tie_meters(case, plan)</code>, <code>neighbour_reads(plan, rows, far, rng)</code></td>
-<td><code>operator/ties.py</code></td>
-<td>the case and plan, the far-end flows</td>
-<td>the ties with a New York-end P-flow meter, and the neighbours' readings of them through meters of the same class (N67)</td>
-</tr>
-<tr>
-<td><code>tie_gap(day, z)</code></td>
-<td><code>operator/ties.py</code></td>
-<td><code>OperatorDay</code>, scans <code>[T, M]</code></td>
-<td><code>[T]</code> the net interchange read at the New York ends of the ties less what the neighbours meter at their ends (the true flow there), the interchange check of N62</td>
-</tr>
-<tr>
-<td><code>seen_interfaces(plan, interfaces, z)</code></td>
-<td><code>operator/ties.py</code></td>
-<td>the meter plan, the interfaces, scans <code>[T, M]</code></td>
-<td><code>[T, I]</code> each interface's flow as the operator reads it from its branches' P-flow meters</td>
-</tr>
-<tr>
-<td><code>respond(day, delay=0, over=0.0, mode="trusting", calib=None)</code>, <code>summarize(response, voll=None)</code></td>
-<td><code>operator/run.py</code>, <code>operator/summary.py</code></td>
-<td><code>OperatorDay</code></td>
-<td><code>Response</code> (O1, O2, O5, N50 to N65: every interface of <code>INTERFACES</code> enforced, quick-start units, regulation capped at <code>REG_CAP</code> with the rest an ACE excursion, the interchange alarm, and with <code>defended</code> the operator that stops acting on the tampered scans from the alarm), and its day totals, attacked less benign, with regulation and shed by utility</td>
 </tr>
 </tbody>
 </table>
@@ -2529,10 +2398,6 @@ Unsolved pool frames keep their place with NaN state and readings and no labels.
 <tr>
 <td>D3</td>
 <td><code>build.py</code> (<code>fetch_inputs</code>, <code>production_builder</code>), <code>pipelines/newyork/build_timeline.py</code>, <code>pipelines/newyork/build_single_episodes.py</code></td>
-</tr>
-<tr>
-<td>O1, O2, O5</td>
-<td><code>operator/acsced.py</code>, <code>operator/run.py</code></td>
 </tr>
 </tbody>
 </table>

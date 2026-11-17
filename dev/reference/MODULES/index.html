@@ -1029,34 +1029,6 @@
 
               
             
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../analysis/defense_reproduction/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Defense reproduction
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
           </ul>
         </nav>
       
@@ -2068,7 +2040,7 @@
 </tr>
 <tr>
 <td><code>generation.nygrid.solver</code></td>
-<td>AC solutions of a Case: the hourly projection (an AC-OPF in Pyomo, solved by Ipopt), the power flows between hours (pandapower), and the operator's AC dispatch model (<code>OperatorOpf</code>), solved scan by scan.</td>
+<td>AC solutions of a Case: the hourly projection (an AC-OPF in Pyomo, solved by Ipopt) and the power flows between hours (pandapower).</td>
 </tr>
 <tr>
 <td><code>generation.nygrid.tables</code></td>
@@ -2171,42 +2143,6 @@
 <td>The one place inputs are checked (CONTRIBUTING.md, "an input is checked in one place").</td>
 </tr>
 <tr>
-<td><code>operator</code></td>
-<td>The grid operator under attack: what it does with false readings, and what that costs on the true grid.</td>
-</tr>
-<tr>
-<td><code>operator.acsced</code></td>
-<td>The operator's real-time dispatch as an AC optimal power flow (<code>AcSced</code>), scan by scan.</td>
-</tr>
-<tr>
-<td><code>operator.areas</code></td>
-<td>Who bears an attack's damage, and whose grid the attacker uses: the consequence split by New York zone, by utility and by neighboring area, with what the attack tampered in each.</td>
-</tr>
-<tr>
-<td><code>operator.day</code></td>
-<td>An attacked day as the operator meets it: the scans it reads and their benign twin, the true states, the pool's unit dispatch and costs, the zonal prices, and the interfaces with their real limits (<code>operator_day</code>).</td>
-</tr>
-<tr>
-<td><code>operator.policy</code></td>
-<td>The operator's choices as one record (<code>OperatorPolicy</code>): which operator (<code>OperatorMode</code>), how late it acts, where the inadvertent interchange its neighbours supply enters (<code>Entry</code>, <code>entry_share</code>), whether it reads the true flows after its own dispatch, and how it answers an alarm (<code>AlarmAnswer</code>). The record checks every choice when it is built, so a typo is a <code>ConfigError</code> before anything runs.</td>
-</tr>
-<tr>
-<td><code>operator.run</code></td>
-<td>The operator scan by scan (D1 to D6). It dispatches on what it reads (<code>AcSced</code>), the attacked scans and, separately, their benign twin, each in closed loop on its own dispatch. The dispatch is applied to the true grid, whose load the attack never changed: the imbalance it leaves is picked up by regulation, the online free units in proportion to their five-minute ramp (AGC), up to <code>REG_CAP</code>, and the rest by the neighbours as inadvertent interchange. The attack's consequence is the attacked run less the benign one, so whatever the model does alike in both (the cost model) cancels. <code>respond</code> runs both and returns the <code>Response</code>.</td>
-</tr>
-<tr>
-<td><code>operator.summary</code></td>
-<td>The attack's consequence over a day, attacked run less benign run (<code>summarize</code>): the dispatch moved, the regulation and its energy by utility, the inadvertent interchange, the true interface changes and margins, the scans over a true limit and those whose power flow failed, the costs, and any load shed.</td>
-</tr>
-<tr>
-<td><code>operator.ties</code></td>
-<td>The interchange check: what the operator reads across the ties against what the neighbours' own meters read (N62, N67). The New York ends of the ties carry the attack's false interchange, the neighbours' ends do not, so the gap between them (<code>tie_gap</code>) leaves its benign noise once an attack moves the interchange, and <code>interchange_alarm</code> names the first scan it does. <code>seen_interfaces</code> is the interface flow the operator reads from its own scans.</td>
-</tr>
-<tr>
-<td><code>operator.truegrid</code></td>
-<td>The true grid of a day: what the operator's actions do to the flows the attack never changed. An AC power flow at the true loads for any unit dispatch (<code>TrueGrid.state</code>), the true state once a run has acted (<code>run_state</code>, the closed loop), and the interface flows and the worst single 345 kV outage it gives (<code>change</code>). A power flow that fails returns None and its scan is unknown, never safe. Each outage is screened by an AC power flow of the grid without the branch (<code>ac_power_flow</code>).</td>
-</tr>
-<tr>
 <td><code>profiles</code></td>
 <td>Load-profile ingestion + operating-state generation — the FRONT of the pipeline.</td>
 </tr>
@@ -2239,10 +2175,6 @@
 <td>The results store: one tidy CSV per experiment plus one table of runs, in a folder kept in git.</td>
 </tr>
 <tr>
-<td><code>results.studies</code></td>
-<td>Studies over attack windows: the parts every research tool under <code>pipelines/newyork/</code> repeats, in one place.</td>
-</tr>
-<tr>
 <td><code>schema</code></td>
 <td>The file protocol: every group, dataset and attribute name an fdia-graph HDF5 file carries, defined once. The writer (<code>timeline</code>, <code>generation</code>), the readers (<code>dataset</code>) and the tools agree through these names and nowhere else; <code>tools/readability.py</code> refuses a path-shaped literal ("data/...", "graph/...") in any other module. Field names (<code>node_x</code>, <code>clean</code>, ...) are the public vocabulary of a record and stay as words in the code; <code>FIELD_PATH</code> maps them here.</td>
 </tr>
@@ -2256,15 +2188,7 @@
 </tr>
 <tr>
 <td><code>se.detect</code></td>
-<td>Detection: what the operator's checks see, as building blocks.</td>
-</tr>
-<tr>
-<td><code>se.detect.estimate</code></td>
-<td>The operator's state estimator: AC weighted least squares on one scan, and its residual test statistic.</td>
-</tr>
-<tr>
-<td><code>se.detect.fleets</code></td>
-<td>Other meter fleets: the same meters and accuracy classes with fresh constant biases.</td>
+<td>Detection: when a detector alarms, as a building block.</td>
 </tr>
 <tr>
 <td><code>se.detect.rules</code></td>
@@ -2291,28 +2215,8 @@
 <td>The shared machinery of the trusted-meter selectors: the measurement Jacobian at the benign mean (from a WLS estimator of <code>fdia_graph.se</code>), the attack-cost kernel, and the scoring that pins the secured meters and asks the residual test whether the attack shows.</td>
 </tr>
 <tr>
-<td><code>trust.faithful_attack</code></td>
-<td>[WU26]'s attack and defense as the paper states them (docs/analysis/defense_reproduction/README.md, "Faithful reproduction"): the meter plan, the multi-snapshot attack and the incremental trusted-PMU defense, on a pandapower case.</td>
-</tr>
-<tr>
-<td><code>trust.faithful_defense</code></td>
-<td>[WU26]'s trusted-PMU defense on the faithful attack (<code>trust.faithful_attack</code>): the MDP (Sec. IV-D2, Fig. 1, Algorithm 1) and Solution 1's row reduction (Sec. IV-D1, p. 657).</td>
-</tr>
-<tr>
 <td><code>trust.meter_dqn</code></td>
 <td>The trusted-meter selection as a Markov decision process solved by a deep Q-network (the learned selection of [WU26]).</td>
-</tr>
-<tr>
-<td><code>trust.pmu_dqn</code></td>
-<td>[WU26]'s Solution 2: the trusted PMUs by a deep Q-network trained with Algorithm 1 (Sec. IV-D2, p. 658) on trusted-PMU MDPs (<code>trust.WuDefenseEnv</code>).</td>
-</tr>
-<tr>
-<td><code>trust.pmu_environment</code></td>
-<td>[WU26]'s trusted-PMU configuration as a Markov decision process (Sec. IV-D2, Fig. 1, Algorithm 1), on the overload attack of one window.</td>
-</tr>
-<tr>
-<td><code>trust.pmu_row_reduction</code></td>
-<td>[WU26]'s Solution 1: the trusted PMUs by row reduction of the measurement matrix (Sec. IV-D1, p. 657), on the trusted-PMU MDP of one overload window (<code>trust.WuDefenseEnv</code>).</td>
 </tr>
 <tr>
 <td><code>trust.secured</code></td>
@@ -2389,6 +2293,10 @@
 </thead>
 <tbody>
 <tr>
+<td><code>tests/case_studies.py</code></td>
+<td>[WU26]'s case studies as test inputs: the lines each scenario overloads, its PMU buses and the attacker's area, in MATPOWER bus numbers, and their positions in a generator's grid.</td>
+</tr>
+<tr>
 <td><code>tests/conftest.py</code></td>
 <td>Shared fixtures. The suite builds its own tiny IEEE-14 timeline (about 20 s, needs the [generate] extra and the operating-point pool download) inside a throwaway cache, so it never touches a user's ~/.cache/fdia_graph and never downloads a full timeline. Old releases are read from the checked-in files under tests/data (tests/data/README.md).</td>
 </tr>
@@ -2397,16 +2305,8 @@
 <td>Whole-file digests of a generated HDF5 file: the proof that a refactor did not move a number.</td>
 </tr>
 <tr>
-<td><code>tests/nygrid/conftest.py</code></td>
-<td>The New York tests' shared setup: the operator's dispatch reads the bus reactive loads of the checked-in days.</td>
-</tr>
-<tr>
 <td><code>tests/nygrid/inputs.py</code></td>
 <td>The inputs of the nygrid tests in one place, and which tests each one lets run.</td>
-</tr>
-<tr>
-<td><code>tests/nygrid/test_areas.py</code></td>
-<td>The damage split by area adds up to the whole: the zones and the utilities each partition New York's units, the neighbors' supply is the inadvertent interchange, and the attack surface counts the meters the day's labels mark.</td>
 </tr>
 <tr>
 <td><code>tests/nygrid/test_attacks.py</code></td>
@@ -2421,10 +2321,6 @@
 <td><code>Case.from_matpower</code> on a three-bus case file written here: what it reads and what it refuses. Needs no input data.</td>
 </tr>
 <tr>
-<td><code>tests/nygrid/test_choices.py</code></td>
-<td>The operator's choices are checked before anything runs: a typo is an error, never a silent fall back to the default run (no data needed).</td>
-</tr>
-<tr>
 <td><code>tests/nygrid/test_configs.py</code></td>
 <td>Settings are passed in, never patched onto shared objects: a widened case and an overshoot variant are copies, and the originals stay as they were (no data needed).</td>
 </tr>
@@ -2434,15 +2330,11 @@
 </tr>
 <tr>
 <td><code>tests/nygrid/test_detect.py</code></td>
-<td>The detection building blocks that need no grid: the persistence rule and its calibration, and the meter fleets (the estimator itself is checked on real days by the golden snapshots).</td>
+<td>The detection building block: the persistence rule and its calibration (no data needed).</td>
 </tr>
 <tr>
 <td><code>tests/nygrid/test_examples.py</code></td>
 <td>The extension examples of docs/guides/extending_new_york.md run as published, so the guide never shows code that broke (no data needed).</td>
-</tr>
-<tr>
-<td><code>tests/nygrid/test_experiments.py</code></td>
-<td>The study helpers every research tool shares: the day files of a study, a day's variant, the interchange calibration, and the parallel runner that writes a sorted CSV (no data needed).</td>
 </tr>
 <tr>
 <td><code>tests/nygrid/test_golden.py</code></td>
@@ -2455,14 +2347,6 @@
 <tr>
 <td><code>tests/nygrid/test_misses.py</code></td>
 <td>Every design that finds no attack says why (a miss reason), so a timeline with few attacks can be read: nothing to attack, nothing feasible, or a solver that failed (no data needed).</td>
-</tr>
-<tr>
-<td><code>tests/nygrid/test_operator.py</code></td>
-<td>The operator's real-time dispatch (<code>operator.acsced</code>, an AC optimal power flow each scan): the 2019 shortage price, the delivery factors and AC sensitivities, the outage power flow, and the operator on days under attack.</td>
-</tr>
-<tr>
-<td><code>tests/nygrid/test_policy.py</code></td>
-<td>The operator's choices are one validated record, and an operator is anything that returns a Response (no data needed).</td>
 </tr>
 <tr>
 <td><code>tests/nygrid/test_public.py</code></td>
@@ -2503,10 +2387,6 @@
 <tr>
 <td><code>tests/test_estimators.py</code></td>
 <td>Estimator behaviour the frozen scores cannot see: the per-unit guard on every public path, one estimator whatever calls it, the weighted solve keeping its best step, classical one-at-a-time residual removal, and the spread-out meter-sigma calibration.</td>
-</tr>
-<tr>
-<td><code>tests/test_faithful_attack.py</code></td>
-<td>[WU26]'s attack as the paper states it (<code>trust.faithful_attack</code>): the meter plan, the objective's form, the incremental trust and the reproduction's settings.</td>
 </tr>
 <tr>
 <td><code>tests/test_federated.py</code></td>
@@ -2563,18 +2443,6 @@
 <tr>
 <td><code>tests/test_pmu_channels.py</code></td>
 <td>The hybrid meter model: angles at the PMU buses only, the PMU branch-current phasors [WU26 eqs. 19-20] emitted, stored, loaded and attacked, and the eq. (3) pseudo-measurements an estimator can derive from them. The v0.8.3 meter model stays the default and writes none of it.</td>
-</tr>
-<tr>
-<td><code>tests/test_pmu_dqn.py</code></td>
-<td>[WU26]'s Solution 2 (<code>trust.TrustedPMUsDQN</code>, Algorithm 1): the stated hyperparameters, a constructed MDP where the right first PMU is known, seeded determinism, and one short run on the paper's IEEE-14 scenario.</td>
-</tr>
-<tr>
-<td><code>tests/test_pmu_environment.py</code></td>
-<td>[WU26]'s trusted-PMU MDP (<code>trust.WuDefenseEnv</code>) on the paper's IEEE-14 scenario for lines 1-2 and 4-5: the configuration model, the reward as the rise in the search's cost under the schedule (eq. 33), the cache, the state of Fig. 1, and the paper's line-8 break.</td>
-</tr>
-<tr>
-<td><code>tests/test_pmu_row_reduction.py</code></td>
-<td>[WU26]'s Solution 1 (<code>trust.TrustedPMUs</code>, p. 657 steps 1-5) on the paper's IEEE-14 scenarios: one PMU per configuration step, each a PMU reading the sparsest attack that moves a target line, scored by the trusted-PMU MDP.</td>
 </tr>
 <tr>
 <td><code>tests/test_profiles.py</code></td>
@@ -2658,10 +2526,6 @@
 <tr>
 <td><code>examples/nygrid/custom_attack_family.py</code></td>
 <td>An attack family of your own: a slow bias on one load bus's injection meter.</td>
-</tr>
-<tr>
-<td><code>examples/nygrid/custom_operator.py</code></td>
-<td>An operator of your own: one that ignores what it reads and never redispatches.</td>
 </tr>
 <tr>
 <td><code>examples/quickstart.py</code></td>

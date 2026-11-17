@@ -1029,34 +1029,6 @@
 
               
             
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../analysis/defense_reproduction/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Defense reproduction
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
           </ul>
         </nav>
       
@@ -1767,7 +1739,7 @@ real dependencies show: <code>models/</code> (every returned record, every confi
 engine), <code>formulas/</code> (the equations), <code>schema.py</code> (the file protocol) and <code>errors.py</code> (the named
 errors). <code>__init__.py</code>, the <code>fg.*</code> public API, imports everything and is left out for the
 same reason.</p>
-<p><img alt="Module diagram: federated over localization, se, dataset and generation; trust over se, dataset, engine, generation and registry; localization over se and dataset; se over dataset, engine and generation; generation over engine, dataset, federated, profiles, timeline, download and registry; engine over generation, federated, ratings and registry; dataset over generation; timeline over engine, generation, registry and results; profiles over engine; download over registry. The New York code's imports make generation, engine, dataset and federated read each other in both directions" src="../../figures/diagrams/modules.png" /></p>
+<p><img alt="Module diagram: federated over localization, se, dataset and generation; trust over se, dataset, generation and registry; localization over se and dataset; se over dataset; generation over engine, dataset, federated, profiles, timeline, download and registry; engine over generation, federated, ratings and registry; dataset over generation; timeline over engine, generation, registry and results; profiles over engine; download over registry. The New York code's imports make generation, engine, dataset and federated read each other in both directions" src="../../figures/diagrams/modules.png" /></p>
 <h2 id="the-dataset">The dataset<a class="headerlink" href="#the-dataset" title="Permanent link">&para;</a></h2>
 <p><code>FdiaGraph</code> is the file. Five mixins over <code>DatasetBase</code> give it its faces: the static graph physics
 (<code>GraphMixin</code>), the admittance matrices (<code>AdmittanceMixin</code>), records and batches (<code>RecordsMixin</code>), the
