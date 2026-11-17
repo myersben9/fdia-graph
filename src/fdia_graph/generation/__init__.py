@@ -26,9 +26,9 @@ from typing import Any, Optional, Union
 import h5py
 import numpy as np
 
+from ..constants.channels import NodeChannel
 from ..errors import UnknownColumnOrder
 from ..models.config import ShardRun, TimelineSettings
-from ..models.grid import NODE
 from ..models.inputs import StatePool, StateSource
 from ..registry import CACHE_DIR, register_local
 from ..schema import KIND_TIMELINE
@@ -48,7 +48,7 @@ def as_v_first(X: np.ndarray) -> np.ndarray:
     def looks_like_v(col: np.ndarray) -> bool:
         return bool(np.all((col > 0.5) & (col < 1.5)))
 
-    v0, v2 = looks_like_v(X[:, :, NODE.v]), looks_like_v(X[:, :, NODE.q_inj])
+    v0, v2 = looks_like_v(X[:, :, NodeChannel.V]), looks_like_v(X[:, :, NodeChannel.Q_INJ])
     if v0 and not v2:
         return X
     if v2 and not v0:

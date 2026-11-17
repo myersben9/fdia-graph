@@ -8,6 +8,7 @@ import pytest
 
 pytest.importorskip("pandapower")
 
+from fdia_graph.constants.channels import NodeChannel  # noqa: E402
 from fdia_graph.engine.attacks.episodes import draw_ramp  # noqa: E402
 from fdia_graph.engine.core import FdiaGenerator  # noqa: E402
 from fdia_graph.formulas.network import (  # noqa: E402
@@ -21,7 +22,6 @@ from fdia_graph.formulas.network import (  # noqa: E402
 from fdia_graph.generation import _load_states  # noqa: E402
 from fdia_graph.models.config import OverloadSettings  # noqa: E402
 from fdia_graph.models.frames import FrameKnobs, LoadGoal  # noqa: E402
-from fdia_graph.models.grid import NODE  # noqa: E402
 
 WINDOW = 8
 MARGIN = 1.2  # S_max = MARGIN x each branch's peak true flow over the window
@@ -107,7 +107,7 @@ def test_the_row_block_product_equals_the_full_one(gen, pool):
     product's values (to rounding: the sum runs over fewer terms)."""
     lut = gen._ppc_row[np.arange(gen.C)]
     V = np.zeros(gen._n_ppc_buses, complex)
-    V[lut] = complex_voltages(pool[0][:, NODE.v], pool[0][:, NODE.theta])
+    V[lut] = complex_voltages(pool[0][:, NodeChannel.V], pool[0][:, NodeChannel.THETA])
     for rows in (np.array([0]), np.array([2, 3, 8]), np.arange(gen.E)):
         for Y in (gen._Yf, gen._Yt, gen._dense_admittances()[1]):
             block, cols = _row_block(Y, rows)
@@ -122,7 +122,7 @@ def test_the_reused_blocks_solve_as_the_fresh_ones(gen, pool):
     Xt = pool[0]
     lut = gen._ppc_row[np.arange(gen.C)]
     V = np.zeros(gen._n_ppc_buses, complex)
-    V[lut] = complex_voltages(Xt[:, NODE.v], Xt[:, NODE.theta])
+    V[lut] = complex_voltages(Xt[:, NodeChannel.V], Xt[:, NodeChannel.THETA])
     Yb, Yf = gen._dense_admittances()
     line, S = 4, np.array([2, 3, 4, 8])
     touched = gen.touched_buses(S)

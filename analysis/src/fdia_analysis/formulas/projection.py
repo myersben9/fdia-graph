@@ -132,7 +132,7 @@ def meter_positions(
     n_bus, n_branch : N, E
     mask            : [4N + 2E] bool, which slots exist, in the order V, P, Q, θ, Pf, Qf
     meters          : indices into the masked vector (a trusted-meter selection)
-    returns         : (node positions, edge positions); node columns follow NODE, edge columns EDGE
+    returns         : (node positions, edge positions); node columns follow `NodeChannel`, edge columns `EdgeChannel`
     """
     N, E = n_bus, n_branch
     slots = np.flatnonzero(np.asarray(mask, bool))

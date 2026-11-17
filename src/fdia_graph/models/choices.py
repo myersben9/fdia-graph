@@ -11,6 +11,8 @@ from __future__ import annotations
 import re
 from enum import Enum
 
+from fdia_graph.constants.families import FAMILIES
+
 
 class Choice(str, Enum):
     """A string option from a fixed set."""
@@ -34,19 +36,6 @@ class Choice(str, Enum):
 
 
 # ---- the attack families -------------------------------------------------------------------------
-# The read-only label table: every code a released file's data/family can carry, the single-snapshot
-# families of data releases v0.8.3 and earlier included, so old releases keep loading and scoring per
-# family. Generation makes GENERATED_FAMILIES only.
-FAMILIES = {0: "benign", 1: "Aq", 2: "Ad", 3: "As", 4: "Ar", 5: "At", 6: "Al", 7: "Am"}
-FAMILY_CODE = {name: code for code, name in FAMILIES.items()}  # "Aq" -> 1
-BENIGN_CODE = FAMILY_CODE["benign"]
-# local false states that pass the residual test
-STEALTHY_FAMILIES = {FAMILY_CODE[n] for n in ("Aq", "At", "Al", "Am")}
-HELDOUT_FAMILIES = ("As", "Ar")  # kept out of train and val in the unseen-attack protocol [BOY22]
-# what the generator makes: the multi-snapshot families [WU26] (the ramp At, the overload Am)
-GENERATED_FAMILIES = ("At", "Am")
-# the families the New York release builds, by the names its files carry
-NEW_YORK_FAMILIES = ("Am", "At")
 
 
 def family_label(family: object) -> str:
@@ -61,11 +50,6 @@ class Split(Choice):
     TRAIN = "train"
     VAL = "val"
     TEST = "test"
-
-
-# ("train", "val", "test"): a split's position is its code in a file's split column (0, 1, 2) and its
-# row in the per-split attributes, for the IEEE timelines and the New York ones alike.
-SPLITS = tuple(Split.values())
 
 
 class SplitBy(Choice):

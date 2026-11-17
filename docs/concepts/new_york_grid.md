@@ -53,12 +53,12 @@ src/fdia_graph/
     config.py           Settings, rng()
     io.py               read_pool, write_pool (the pool file)
     tables.py           read_rows (the input CSV tables, read whole and closed)
-    case.py             Case (from_matpower, check), nygrid_case, ZONES, REGIONS (Region), FILE_AREA, NY_AREA, HQ_BUS
+    case.py             Case (from_matpower, check), nygrid_case
     network.py          Network
     ownership.py        Ownership, assign_clients (the utility that owns each bus)
     case_nygrid.m       the New York grid, one MATPOWER case file (140 buses, 227 branches, 271 units)
     fixes.py            externals_at_base, hvdc_links
-    interfaces.py       Interface, hourly_interfaces, NYISO_INTERFACES (N48)
+    interfaces.py       Interface, hourly_interfaces (N48)
     ny_bus_locations.csv each NY bus located on the territories (N12)
     inputs.py           ZoneLoad, NygridHour, read_nygrid, fetch_nyiso, download_once, fetch_inputs (every input at its pinned version)
     loads.py            LoadSeries, LoadModel (the bus profiles, with their within-hour terms)
@@ -138,7 +138,7 @@ Frozen dataclasses of arrays, passed between classes.
 | `LoadSeries` | `generation/nygrid/loads.py` | `time [T]`, `p [T, N]`, `q [T, N]` |
 | `NygridHour` | `generation/nygrid/inputs.py` | one hour of NYgrid inputs: `time`, `fuel_mw [7]`, `iface_flow`, `iface_pos`, `iface_neg [17]`, `nuclear_mw [6]`, `stl_cf`, `thermal_mw [227]`, NYgrid's bus split `ny_pd`, `ny_qd [N]`, netted renewables `renew_mw [N]`, the thermal units' linear cost `thermal_cost [227]` ($/MWh, weekly fuel price times heat rate, allocateGen.m 'lm'), the proxy-bus LBMPs `ext_lbmp [4]` (NPX, O H, PJM, H Q) |
 | `Dispatch` | `generation/nygrid/dispatch.py` | `hour [H]`, `unit_p [H, G]`, `unit_on [H, G]`, `hvdc_p [H, D]`, the bus loads they balance `pd`, `qd [H, N]`, and NYgrid's generation cost `unit_cost [H, G]` ($/MWh: thermal from `thermal_cost`, nuclear and hydro at NYgrid's fixed draws, external units at their area's proxy LBMP) |
-| `Pool` | `generation/nygrid/pool.py` | `time [T]`, `vm [T, N]`, `va [T, N]`, `p [T, N]`, `q [T, N]`, `solve_kind [T]` (`SOLVED`, `FAILED`, `NO_HOUR`, `NO_LOAD`; unsolved frames keep their place with NaN state, branch flows are `Network.flows(vm, va)`), `unit_p [T, G]` each unit's real-time dispatch basepoint (N32; None for a pool written before N32) |
+| `Pool` | `generation/nygrid/pool.py` | `time [T]`, `vm [T, N]`, `va [T, N]`, `p [T, N]`, `q [T, N]`, `solve_kind [T]` (a `SolveKind` of `constants/newyork.py`: `SOLVED`, `FAILED`, `NO_HOUR`, `NO_LOAD`; unsolved frames keep their place with NaN state, branch flows are `Network.flows(vm, va)`), `unit_p [T, G]` each unit's real-time dispatch basepoint (N32; None for a pool written before N32) |
 | `Compensation` | `generation/nygrid/solver.py` | reactive support for a sensitivity of the benign dispatch (the release has none): switched shunt banks `shunt_lo`, `shunt_hi [N]` (MVAr at 1 p.u., reactors negative), a generator voltage schedule `v_schedule [N]` (p.u., NaN unregulated) held at `v_weight` k$/h per p.u.^2, the banks' switching cost `shunt_cost` (k$/h per MVAr), unit reactive limits `q_lo`, `q_hi [G]` and the operating band `v_lo`, `v_hi [N]` (NaN keeps the case's limit); `band(case)`, `shunt_buses` |
 | `MeterPlan` | `engine/sensing/meters.py` | one row per meter: `kind` (v, va, p, q, pf, qf, i, ia), `bus`, `branch`, `end`, `owner`, `sigma_rel`, `sigma_abs`, `bias` |
 | `Episode` | `models/plan.py` | `family`, `clients` (owners of the tampered meters), `onset`, `length`, `buses`, `target_branch`, `a [length, M]` |
@@ -169,7 +169,7 @@ The New York grid is one MATPOWER case file, `src/fdia_graph/generation/nygrid/c
 
 `Case.from_matpower(path)` reads the file with matpowercaseframes, the reader pandapower uses for `.m` files, and takes every column by MATPOWER's own name (`BUS_I`, `PD`, `RATE_A`, `TAP`). Standard MATPOWER fields carry everything they can: the bus `zone` column says where each bus is, as a number (the table below), `mpc.bus_name` the bus names and `mpc.genfuel` the unit fuels. Two numeric fields are ours: `mpc.bus_latlon` (latitude and longitude in degrees) and `mpc.gen_ramp` (MW per minute, `NaN` where the source gives none). A branch with status 0 is left out, and a tap ratio of 0, MATPOWER's mark of a line, is 1.
 
-The case file is one system, so it has one area: the bus `area` column is 1 on every row (`FILE_AREA`), and a file with another number there is refused. The region of a bus is its zone code. The reader, the recipe's writer and the legend in the file follow one table of the codes, their names and the area each gives, in `generation/nygrid/case.py` (`ZONES` and `REGIONS`). `generation/nygrid/dispatch.py` still tells the neighbors apart by the area numbers of `Case.area`.
+The case file is one system, so it has one area: the bus `area` column is 1 on every row (`FILE_AREA`), and a file with another number there is refused. The region of a bus is its zone code. The reader, the recipe's writer and the legend in the file follow one table of the codes, their names and the area each gives, in `constants/newyork.py` (`ZONES` and `REGIONS`). `generation/nygrid/dispatch.py` still tells the neighbors apart by the area numbers of `Case.area`.
 
 | zone code in the file | where | `Case.zone` | `Case.area` |
 |---|---|---|---|
@@ -267,7 +267,7 @@ Not in the file: the unit table, the HVDC links and the bus names and places, wh
 (`generation/nygrid/case_nygrid.m`). The line ratings are in the file because the case file does not give
 them all: the release rates a branch the case leaves unrated at its peak flow over the pool (N8), so
 `graph/edge_rating` is the ratings the attacks were designed against. Also not in the file: each meter's
-accuracy class (the table `ACCURACY` of `engine/sensing/meters.py`) and its bias (drawn from the seed), and
+accuracy class (the table `KIND_ACCURACY` of `constants/meters.py`) and its bias (drawn from the seed), and
 each meter's owner (the owner of its bus).
 
 `z - z_benign` is the attack. Unsolved pool frames keep their place with NaN state and readings and no labels.

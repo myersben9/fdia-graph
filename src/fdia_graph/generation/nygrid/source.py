@@ -45,6 +45,8 @@ from pathlib import Path
 import numpy as np
 
 from fdia_graph import schema
+from fdia_graph.constants.families import AM, AT, FAMILY_CODE
+from fdia_graph.constants.newyork import BUS_LOCATIONS_FILE, TERRITORIES_FILE, SolveKind
 from fdia_graph.engine.attacks.attacker import (
     Attacker,
     generator_band,
@@ -62,43 +64,30 @@ from fdia_graph.errors import ConfigError, DataConditionError, NoAdmissibleTarge
 from fdia_graph.generation.design import DesignPool
 from fdia_graph.generation.nygrid.case import Case, nygrid_case
 from fdia_graph.generation.nygrid.config import Settings, rng
-from fdia_graph.generation.nygrid.inputs import GEOJSON, LOCATIONS
 from fdia_graph.generation.nygrid.interfaces import hourly_interfaces
 from fdia_graph.generation.nygrid.io import read_pool
 from fdia_graph.generation.nygrid.network import Network
 from fdia_graph.generation.nygrid.ownership import Ownership, assign_clients
-from fdia_graph.generation.nygrid.pool import SOLVED, Pool, peak_ratings
+from fdia_graph.generation.nygrid.pool import Pool, peak_ratings
 from fdia_graph.generation.plan import STRATUM, split_bounds, split_column, split_weeks, week_index
 from fdia_graph.generation.source import OutPath, TimelineSource
-from fdia_graph.generation.write import GRAPH_LEGEND, TimelineWriter
-from fdia_graph.models.choices import FAMILY_CODE, NEW_YORK_FAMILIES, SPLITS, SplitBy
+from fdia_graph.generation.write import TimelineWriter
+from fdia_graph.models.choices import Split, SplitBy
 from fdia_graph.models.config import NewYorkRelease, NewYorkSettings
 from fdia_graph.models.frames import Frame, LayerSet
 from fdia_graph.models.plan import Episode, Placement, Slot, SplitSpan
-from fdia_graph.schema import Attr, Static
+from fdia_graph.schema import NEW_YORK_GRAPH_LEGEND, NEW_YORK_TAMPER_RULE, Attr, Static
 
 # weeks per stratum of the split when the weight is the surveyed attacks (N46): they sit in about 9 weeks, one
 # of them holding 40%, so a 20-week stratum can leave a split one episode; 5 draws 3/1/1 per stratum
 HIT_STRATUM = 5
 SURVEY_CHUNK = 240  # onsets designed and saved at a time with `survey_cache`
 LOG_EVERY = 50  # designs between two progress lines of a verbose build
-AM, AT = NEW_YORK_FAMILIES  # the families `NewYorkSource.production` builds
 AM_RISE = 16  # Am's rise scans; its window adds as many exit scans (N37)
 AT_LENGTH = 16  # the slow ramp's window (scans)
 RELEASE_LENGTH = {AM: 2 * AM_RISE, AT: AT_LENGTH}  # the release's episode lengths (scans)
-ATTACKED_FRAC = 0.2
 # what a New York file carries per frame: PMU currents, the flows at both branch ends, no temporal features
 LAYERS = LayerSet(currents=True, both_ends=True, temporal=False)
-# what a 1 means in the tamper masks of a New York file (a bus is labelled attacked where a meter at it is 1)
-TAMPER_RULE = (
-    "1 where the attack moves the meter's reading by more than its accuracy-class standard deviation"
-)
-# the legends of the graph group: the rows are in the case file's order
-NY_GRAPH_LEGEND = {
-    **GRAPH_LEGEND,
-    Attr.EDGE_FEAT_STATIC: "r,x,b,g,tap,shift,status,is_trafo (per unit, the case file's branch order)",
-    Attr.BUS_FEAT_STATIC: "shunt_g,shunt_b (MW/MVAr at 1.0 pu, the case file's bus order)",
-}
 
 
 @dataclass(frozen=True)
@@ -187,7 +176,7 @@ class Survey:
         """Per split and family ("train/Am"): the onsets tried and those with an attack."""
         out = {}
         for f in self.tried:
-            for code, name in enumerate(SPLITS):
+            for code, name in enumerate(Split.values()):
                 here = split == code
                 out[f"{name}/{f}"] = [int((self.tried[f] & here).sum()), int((self.masks[f] & here).sum())]
         return out
@@ -196,8 +185,8 @@ class Survey:
 def _ownership(case: Case, root: Path) -> Ownership:
     """One client per utility, from the territories `fetch_inputs` left under `root/data`."""
     terr = root / "data" / "territories"
-    with open(terr / GEOJSON, encoding="utf-8") as f:
-        return assign_clients(case, json.load(f), terr / LOCATIONS)
+    with open(terr / TERRITORIES_FILE, encoding="utf-8") as f:
+        return assign_clients(case, json.load(f), terr / BUS_LOCATIONS_FILE)
 
 
 def _interface_family(att: Attacker, pool: Pool, release: NewYorkRelease, nygrid: Path) -> InterfaceFdia:
@@ -210,7 +199,7 @@ def _interface_family(att: Attacker, pool: Pool, release: NewYorkRelease, nygrid
         )
     # Am's exit: each bus's natural five-minute step by hour over the whole pool (what the attacker knows),
     # generator buses bounded by their units' five-minute ramp (nuclear 0, hydro and imports inf)
-    steps = natural_steps(pool.time, pool.p, pool.solve_kind == SOLVED)
+    steps = natural_steps(pool.time, pool.p, pool.solve_kind == SolveKind.SOLVED)
     steps[:, att.gen_bus] = generator_ramps(case)[att.gen_bus]
     q_lo, q_hi = generator_q_capability(case)
     gen_output = np.zeros((len(pool.time), len(case.bus_id)))  # the units' output at each bus (N42)
@@ -291,8 +280,9 @@ class NewYorkSource(TimelineSource[str, Episode]):
         clients, meters and the pool at `pool_path` (relative to `release.root`, whose `data/` holds
         `fetch_inputs`'s files), with the families `release` names: Am targets the NYISO interfaces (N48,
         N49) from the OPF attacker with the units' output (N42), At is the slow ramp. The Am window is 32
-        scans, the At window 16, and 20% of each split's frames are placed under an episode. The attacker's
-        sensitivities are the fields of `NewYorkRelease`."""
+        scans, the At window 16, and the share of each split's frames placed under an episode is the
+        default of `NewYorkSettings.attacked_frac`, 20%. The attacker's sensitivities are the fields of
+        `NewYorkRelease`."""
         root = Path(release.root)
         case = nygrid_case()
         own = _ownership(case, root)
@@ -313,7 +303,6 @@ class NewYorkSource(TimelineSource[str, Episode]):
                 families[name] = Ramp(att)
         settings = NewYorkSettings(
             length={f: RELEASE_LENGTH[f] for f in families},
-            attacked_frac=ATTACKED_FRAC,
             workers=release.workers,
             verbose=True,
             survey=release.survey,
@@ -344,7 +333,7 @@ class NewYorkSource(TimelineSource[str, Episode]):
         self._writer = TimelineWriter(path, (self.frames, *self._size), self._clean, LAYERS)
         case = self.meas.net.case
         edges = np.vstack([case.f, case.t]).astype(np.int32)  # the IEEE files' type, on every platform
-        self._writer.write_graph(edges, self._graph(), NY_GRAPH_LEGEND)
+        self._writer.write_graph(edges, self._graph(), NEW_YORK_GRAPH_LEGEND)
 
     def _graph(self) -> dict[str, np.ndarray]:
         """The static graph a file carries, by `Static` name: the branch model and bus shunts that give the
@@ -408,8 +397,8 @@ class NewYorkSource(TimelineSource[str, Episode]):
         asked = self.record().get("attacked_frac")
         return {
             **({} if asked is None else {Attr.TARGET_ATTACKED_FRAC: asked}),
-            Attr.CURRENT_FEAT: "I_from,angle_from,I_to,angle_to",
-            Attr.CURRENT_UNITS: "I:pu on the base current,angle:deg",
+            Attr.CURRENT_FEAT: schema.CURRENT_FEAT_LEGEND[schema.CURRENT_POLAR],
+            Attr.CURRENT_UNITS: schema.CURRENT_UNITS_LEGEND[schema.CURRENT_POLAR],
             Attr.CURRENT_FORM: schema.CURRENT_POLAR,
             Attr.CLIENT_NAMES: ",".join(str(name) for name in self.own.names),
         }
@@ -438,7 +427,7 @@ class NewYorkSource(TimelineSource[str, Episode]):
             self._split = split_weeks(
                 self.pool.time, frac, loaded, rng(self.build, "split"), self._survey.stratum
             )
-        return [self._span(code) for code in range(len(SPLITS))]
+        return [self._span(code) for code in range(len(Split))]
 
     def _span(self, code: int) -> SplitSpan:
         """The split `code` with the frames it holds, in time order."""
@@ -499,7 +488,9 @@ class NewYorkSource(TimelineSource[str, Episode]):
         }
         base_mva = float(self.meas.net.case.base_mva)
         header, knobs = writer.header(base_mva, self.build.seed), self._recorded()
-        writer.finish(columns, header, knobs, self.record(), self.rec, self._split_frac(), TAMPER_RULE)
+        writer.finish(
+            columns, header, knobs, self.record(), self.rec, self._split_frac(), NEW_YORK_TAMPER_RULE
+        )
         self._seconds = time.perf_counter() - self._started
 
     def close(self, finished: bool) -> None:
@@ -517,7 +508,7 @@ class NewYorkSource(TimelineSource[str, Episode]):
         return {
             "frames": self.frames,
             "families": list(self.families),
-            "splits": list(SPLITS),
+            "splits": Split.values(),
             "placed": (self.rec.requested - self.rec.dropped).tolist(),
             "built": self.rec.built.tolist(),
             "skipped_unsolved": sum(not t.designed for _, t in self._tried),
@@ -558,7 +549,7 @@ class NewYorkSource(TimelineSource[str, Episode]):
     def _onsets_ok(self, blocks: np.ndarray, masks: dict[str, np.ndarray]) -> dict[str, np.ndarray]:
         """[T] per family: the onsets whose window lies in one block (`blocks` [T], a code per frame such
         as the week), on solved frames, where the family allows."""
-        T, solved = len(blocks), self.pool.solve_kind == SOLVED
+        T, solved = len(blocks), self.pool.solve_kind == SolveKind.SOLVED
         run = np.r_[0, np.cumsum(blocks[1:] != blocks[:-1])]  # [T] which run of one block a frame is in
         unsolved = np.r_[0, np.cumsum(~solved)]
         ok = {}
@@ -609,7 +600,7 @@ class NewYorkSource(TimelineSource[str, Episode]):
         """The design of `slot` to try, on its own window of pool states; None when the window touches an
         unsolved frame."""
         w = slice(slot.onset, slot.onset + slot.length)
-        if not (self.pool.solve_kind[w] == SOLVED).all():
+        if not (self.pool.solve_kind[w] == SolveKind.SOLVED).all():
             return None
         return _Task(slot.family, slot.onset, self.pool.vm[w], self.pool.va[w])
 
@@ -735,7 +726,7 @@ class SingleEpisodeSource(NewYorkSource):
         if not 0 <= lag <= onset:
             raise ConfigError(f"the lag must be between 0 and the onset {onset} frames, not {lag}")
         for start in {onset, onset - lag}:
-            if not (self.pool.solve_kind[start : start + L] == SOLVED).all():
+            if not (self.pool.solve_kind[start : start + L] == SolveKind.SOLVED).all():
                 raise DataConditionError(f"the window at {start} touches an unsolved frame")
 
     def record(self) -> dict[str, object]:

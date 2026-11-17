@@ -44,7 +44,7 @@ class Scan(NamedTuple):
     node_m: np.ndarray  # [N, 4] meter mask
     edge_x: np.ndarray  # [E, 2] P_from, Q_from
     edge_m: np.ndarray  # [E, 2] meter mask
-    # the PMU branch-current phasors [E, 4] (CURRENT columns, per unit) and their mask; None when the
+    # the PMU branch-current phasors [E, 4] (`CurrentChannel` columns, per unit) and their mask; None when the
     # meter plan has no currents (the v0.8.3 meter model)
     i_x: Optional[np.ndarray] = None
     i_m: Optional[np.ndarray] = None

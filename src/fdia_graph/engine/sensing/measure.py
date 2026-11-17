@@ -6,7 +6,8 @@ from dataclasses import fields
 
 import numpy as np
 
-from fdia_graph.engine.sensing.meters import IA, KINDS, PF, QF, VA, I, MeterPlan, P, Q, V
+from fdia_graph.constants.meters import MeterKind
+from fdia_graph.engine.sensing.meters import MeterPlan
 from fdia_graph.generation.nygrid.network import Network
 
 
@@ -31,7 +32,7 @@ class Measurement:
 
     def __init__(self, net: Network, plan: MeterPlan):
         self.net, self.plan = net, plan
-        self._rows = {k: np.flatnonzero(plan.kind == k) for k in range(len(KINDS))}
+        self._rows = {k: np.flatnonzero(plan.kind == k) for k in MeterKind}
 
     def _gather(self, out: np.ndarray, bus: dict, branch: dict) -> np.ndarray:
         """Fill each meter row of `out` from the per-bus values `bus[kind]` (last axis buses) or the
@@ -52,17 +53,17 @@ class Measurement:
         pf, qf, pt, qt = self.net.flows(vm, va)
         i_f, i_t = self.net.currents(vm, va)
         branch = {
-            PF: (pf, pt),
-            QF: (qf, qt),
-            I: (np.abs(i_f), np.abs(i_t)),
-            IA: (np.angle(i_f, deg=True), np.angle(i_t, deg=True)),
+            MeterKind.PF: (pf, pt),
+            MeterKind.QF: (qf, qt),
+            MeterKind.I: (np.abs(i_f), np.abs(i_t)),
+            MeterKind.IA: (np.angle(i_f, deg=True), np.angle(i_t, deg=True)),
         }
         z = np.empty(np.shape(vm)[:-1] + (len(self.plan.kind),))
-        return self._gather(z, {V: vm, VA: va, P: p, Q: q}, branch)
+        return self._gather(z, {MeterKind.V: vm, MeterKind.VA: va, MeterKind.P: p, MeterKind.Q: q}, branch)
 
     def jacobian(self, vm: np.ndarray, va: np.ndarray) -> np.ndarray:
         """dz/dx [M, 2N] at one state, x = (vm [N] p.u., va [N] degrees)."""
-        net, case = self.net, self.net.case
+        net, case, K = self.net, self.net.case, MeterKind
         v = vm * np.exp(1j * np.deg2rad(va))
         dv = np.hstack([np.diag(v / vm), np.diag(1j * v * np.pi / 180.0)])  # dV/dvm, dV/dva
         i_bus, i_f, i_t = net.ybus @ v, net.yf @ v, net.yt @ v
@@ -71,12 +72,12 @@ class Measurement:
         ds = (np.conj(i_bus)[:, None] * dv + v[:, None] * np.conj(d_bus)) * case.base_mva
         ds_f = (np.conj(i_f)[:, None] * dv[case.f] + v[case.f, None] * np.conj(d_f)) * case.base_mva
         ds_t = (np.conj(i_t)[:, None] * dv[case.t] + v[case.t, None] * np.conj(d_t)) * case.base_mva
-        bus = {V: _magnitude(v, dv), VA: _angle(v, dv), P: ds.real, Q: ds.imag}
+        bus = {K.V: _magnitude(v, dv), K.VA: _angle(v, dv), K.P: ds.real, K.Q: ds.imag}
         branch = {
-            PF: (ds_f.real, ds_t.real),
-            QF: (ds_f.imag, ds_t.imag),
-            I: (_magnitude(i_f, d_f), _magnitude(i_t, d_t)),
-            IA: (_angle(i_f, d_f), _angle(i_t, d_t)),
+            K.PF: (ds_f.real, ds_t.real),
+            K.QF: (ds_f.imag, ds_t.imag),
+            K.I: (_magnitude(i_f, d_f), _magnitude(i_t, d_t)),
+            K.IA: (_angle(i_f, d_f), _angle(i_t, d_t)),
         }
         # rows index the first axis here, so move the meter axis last for the gather and back
         bus = {k: d.T for k, d in bus.items()}

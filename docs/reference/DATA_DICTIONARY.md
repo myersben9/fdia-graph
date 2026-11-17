@@ -56,14 +56,17 @@ in a new data release.
 
 ## `node_x` `[N,4]`: bus measurements (voltage first)
 
-The column order is defined once, in `fdia_graph.models.grid.NodeColumns` (`v`, `p_inj`, `q_inj`, `theta`);
-every record, batch and split exposes named views of it through `.node()` and `.edge()`,
-and the generator, loader and estimator index columns through `NODE` and `EDGE` rather than literals:
+The column order is defined once, in `fdia_graph.constants.channels.NodeChannel` (`V`, `P_INJ`, `Q_INJ`,
+`THETA`). A member is its column number, so it indexes a numpy array or a tensor directly, and the
+generator, the loader and the estimator index columns through `NodeChannel` and `EdgeChannel` rather
+than literals:
 
 ```python
+from fdia_graph.constants.channels import NodeChannel
+
 rec = ds[0]
-rec.node().theta  # the angle column, a view of rec.node_x[..., 3]
-NodeColumns.of(ds.export(["clean"]).clean).v  # works on any [..., 4] array, a split's clean layer included
+rec.node_x[..., NodeChannel.THETA]  # the angle column, a view of rec.node_x[..., 3]
+ds.export(["clean"]).clean[..., NodeChannel.V]  # any [..., 4] array, a split's clean layer included
 ```
 
 | col | name | physical units | pu units |
@@ -179,12 +182,13 @@ Every frame of a timeline carries three aligned layers, for node and for edge me
 
 On a hybrid-meter file a SCADA voltmeter reads no angle, so `node_m[:, 3]` is 1 at the PMU buses only,
 and each PMU reads the current phasor of every in-service branch at its bus [WU26, eqs. 19-20]. The
-columns of `pmu_i` are defined in `fdia_graph.models.grid.CurrentIndex` (`re_from`, `im_from`, `re_to`,
-`im_to`): the real and imaginary part of `I_from = Y_f V` and `I_to = Y_t V` in per unit on the base
+columns of `pmu_i` are defined in `fdia_graph.constants.channels.CurrentChannel` (`RE_FROM`, `IM_FROM`,
+`RE_TO`, `IM_TO`): the real and imaginary part of `I_from = Y_f V` and `I_to = Y_t V` in per unit on the base
 current, the same on a `units="pu"` or `"physical"` view, zero where no PMU reads that end
 (`pmu_i_m` is 0 there). `pmu_i_benign` is the attack-removed twin and `pmu_i_tamper` marks the
 channels the attacker wrote. A New York file stores each current as magnitude (per unit) and angle
-(degrees) instead, and says so (`attrs["current_form"]` is `polar`); a `units="pu"` view gives those
+(degrees) instead (`PolarCurrentChannel`: `MAG_FROM`, `ANGLE_FROM`, `MAG_TO`, `ANGLE_TO`), and says so
+(`attrs["current_form"]` is `polar`); a `units="pu"` view gives those
 angles in radians. A file without these datasets (every released file) loads unchanged
 and its records carry no `pmu_i`. `export(["prev_pmu_i"])` gives the previous emitted frame's
 currents on a hybrid-meter timeline, like `prev_node_x`.

@@ -16,10 +16,11 @@ from typing import Optional
 
 import numpy as np
 
-from fdia_graph.formulas.trust import TOL, rref
+from fdia_graph.constants.numerics import ZERO_TOL
+from fdia_graph.formulas.trust import rref
 
 
-def attack_subspace(H: np.ndarray, secured: np.ndarray, tol: float = TOL) -> np.ndarray:
+def attack_subspace(H: np.ndarray, secured: np.ndarray, tol: float = ZERO_TOL) -> np.ndarray:
     """A basis of the attack vectors the secured meters leave open [WU26].
 
         {H c : H_S c = 0} = H N,   N a basis of null(H_S)
@@ -39,7 +40,7 @@ def attack_subspace(H: np.ndarray, secured: np.ndarray, tol: float = TOL) -> np.
     return H @ N
 
 
-def sparse_basis(H: np.ndarray, secured: np.ndarray, tol: float = TOL) -> np.ndarray:
+def sparse_basis(H: np.ndarray, secured: np.ndarray, tol: float = ZERO_TOL) -> np.ndarray:
     """The reduced row echelon basis of the open attack subspace: [d, m] rows, each an attack, in
     the sparsest form row reduction gives; empty when the secured rows leave no stealthy attack."""
     B = attack_subspace(H, secured, tol)
@@ -49,7 +50,9 @@ def sparse_basis(H: np.ndarray, secured: np.ndarray, tol: float = TOL) -> np.nda
     return R[: len(pivots)]
 
 
-def attack_cost(H: np.ndarray, secured: np.ndarray, tol: float = TOL) -> tuple[float, Optional[np.ndarray]]:
+def attack_cost(
+    H: np.ndarray, secured: np.ndarray, tol: float = ZERO_TOL
+) -> tuple[float, Optional[np.ndarray]]:
     """The cost of the cheapest stealthy attack the secured meters leave open, and that attack.
 
     The cost is the number of meters the attack touches, min ‖a‖₀ over the open subspace. The exact
@@ -69,7 +72,7 @@ def attack_cost(H: np.ndarray, secured: np.ndarray, tol: float = TOL) -> tuple[f
     return float(nnz[i]), R[i]
 
 
-def greedy_trusted_meters(H: np.ndarray, k: int, tol: float = TOL) -> tuple[list[int], list[float]]:
+def greedy_trusted_meters(H: np.ndarray, k: int, tol: float = ZERO_TOL) -> tuple[list[int], list[float]]:
     """Secure meters one at a time, each the meter that raises the attack cost most (the
     row-reduction selection of [WU26]): at every step take the cheapest open attack and secure the meter
     on its support whose protection leaves the attacker the costliest cheapest attack; among

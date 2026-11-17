@@ -28,6 +28,18 @@ What every folder of the repository holds, then what every Python file does, in 
 | file | what it does |
 |---|---|
 | `fdia_graph` | fdia-graph — load & generate ML-only dangerous FDIA localization datasets (realistic measurement graphs). |
+| `constants` | The toolkit's constants, one module per subject: facts only, each with its unit and its source. |
+| `constants.channels` | The column of each quantity on the last axis of a measurement array: `node_x[..., NodeChannel.P_INJ]`. |
+| `constants.families` | The attack families: the code a file's `data/family` column carries for each, and the named subsets. |
+| `constants.files` | The names and layouts of the files around a timeline: the unfinished file, the index of local datasets, and an operator's load export. A timeline file's own names are in `schema.py`. |
+| `constants.grid` | The power systems: the IEEE cases the toolkit builds, the bus types and the "no limit" ratings. |
+| `constants.meters` | The meters: their kinds, their accuracy classes and noise floors, and where each kind's reading sits in a timeline file. |
+| `constants.newyork` | The New York grid: NYISO's zones and neighbors, the fields of the case file, the pinned inputs and their addresses, NYgrid's dispatch numbers, the fitted load model and the operating rules. |
+| `constants.numerics` | The fixed numerical tolerances and finite-difference steps of the algorithms. |
+| `constants.records` | The fields of a record, by group: the names a record, a batch and an export carry, in their order. |
+| `constants.releases` | The data releases: where the built-in datasets are published, which release is pinned, and the sha256 of every asset of the releases the registry verifies. |
+| `constants.streams` | The keys of the random streams a timeline draws from. Each stream is seeded with the timeline's seed, a key below and a position, so a draw of one kind never shifts a draw of another. The keys are arbitrary and fixed: a different key gives a different file. |
+| `constants.time` | Time: the calendar, the New York frame, and how a load profile is correlated from scan to scan. |
 | `dataset` | FdiaGraph: a PyTorch-ready dataset over one HDF5 file, a timeline (one row per frame in time order, `kind="timeline"`). |
 | `dataset.base` | The loader's shared state and the constants its concerns read. |
 | `dataset.clients` | The timeline as federated clients: each utility sees only its own meters, buses and labels. |
@@ -164,6 +176,7 @@ What every folder of the repository holds, then what every Python file does, in 
 |---|---|
 | `tools/bench.py` | Time the estimators and the generator on the tiny timeline, and store the timings as a run of the `bench` experiment in the results store (`results/bench.csv`), where docs/reference/BENCHMARKS.md renders them from (a results block). |
 | `tools/class_diagrams.py` | Write the class and module diagrams of the two toolkits (`fdia_graph` and `fdia_analysis`) from their source, as Mermaid sources under docs/figures/diagrams/, so the pictures in docs/reference/CLASS_MAP.md never drift from the code. |
+| `tools/count_lines.py` | Count the lines of the two toolkits: all lines, code lines (no docstring, comment or blank line), and the code inside and outside the homes of constants (`constants/` and `schema.py`). |
 | `tools/layout.py` | The repository's layout rules, and the file map they keep current (docs/reference/MODULES.md). |
 | `tools/models_doc.py` | Render the public data models into docs/reference/DATA_DICTIONARY.md. |
 | `tools/pr.py` | Pull requests from the command line, without the gh CLI (CONTRIBUTING.md, "The pull request"). |
@@ -210,7 +223,7 @@ What every folder of the repository holds, then what every Python file does, in 
 | `tests/test_minimize.py` | The fewest-tamper support search [WU26 eq. 12]: exact against brute force on IEEE-14, a lower bound that never exceeds a cost, the two sigmas (the emitter's per-scan jitter, the meters' accuracy class the search counts against), and a continuous reweighted-l1 cross-check the search is never beaten by. |
 | `tests/test_models.py` | Bundle, the dual-access base of the typed records: every dict use the package's callers rely on must keep working, and the attribute view must agree with it. |
 | `tests/test_models_doc.py` | The models section of the data dictionary is generated from the dataclasses; this keeps it so. |
-| `tests/test_models_package.py` | Every data model of a toolkit lives in its `models` package: they are defined nowhere else, each is imported from the module that defines it, and the package's own modules depend on nothing but numpy, the standard library and the named errors (`fdia_graph.errors`). The checks are functions of the package (tests/helpers.py), so the analysis toolkit holds its own `fdia_analysis.models` to them (analysis/tests/test_models_package.py). |
+| `tests/test_models_package.py` | Every data model of a toolkit lives in its `models` package: they are defined nowhere else, each is imported from the module that defines it, and the package's own modules depend on nothing but numpy, the standard library, the named errors (`fdia_graph.errors`) and the constants (`fdia_graph.constants`, which imports nothing of the package). The checks are functions of the package (tests/helpers.py), so the analysis toolkit holds its own `fdia_analysis.models` to them (analysis/tests/test_models_package.py). |
 | `tests/test_namespace.py` | The package namespace: the heavy helpers resolve lazily to the real functions, so their docstrings and signatures cannot drift from a wrapper's, and `import fdia_graph` stays light. |
 | `tests/test_old_releases.py` | The pinned data releases stay readable. The generator makes only At and Am, but a timeline of each of v0.8.0, v0.8.1 and v0.8.3 loads, splits, filters by family name and scores per family as before; the record shards and stream files of the releases before v0.8.0 are refused. Each fixture under tests/data was written by the SDK that built its release, or is a slice of the published file (tests/data/README.md). |
 | `tests/test_one_path.py` | The one path that generates a timeline (`TimelineSource.generate`), checked on the parts both grids share: how far the walk may run once a split is planned, where an episode fits in a split that lists its frames, the worker pool the designs run on, and what a run leaves on disk when it fails. |
@@ -230,6 +243,7 @@ What every folder of the repository holds, then what every Python file does, in 
 | `tests/test_timeline.py` | The one-file timeline writer: its layout, its episodes and the At and Am frames. |
 | `tests/test_timeline_digests.py` | The generated IEEE timeline, whole: every dataset and attribute of the file against a stored digest. |
 | `tests/test_toolkit_boundary.py` | The dependency between the two toolkits points one way: the analysis toolkit `fdia_analysis` builds on the generation toolkit `fdia_graph`, and `fdia_graph` never imports it. Checked in the source (no import, no module name in a lazy table) and by running: a fresh interpreter in which `fdia_analysis` is blocked (so the check is the same whether or not it is installed) loads every module of `fdia_graph`, generates a timeline and reads it back. |
+| `tests/test_tools.py` | Two repository tools on small samples: the constants rule of `tools/layout.py` on a temporary tree, and `tools/count_lines.py` on a file whose lines are easy to miscount. |
 | `tests/test_trust_formulas.py` | The row reduction the attack search and the trusted-meter kernel share (the kernel itself, the open attack subspace, its cost and the greedy selection, is checked in analysis/tests/test_trust_formulas.py). |
 | `tests/test_trusted_pmus.py` | [WU26]'s trusted-PMU schedule as a constraint on the fewest-tamper search: a PMU trusted at slot s keeps its bus's /V/ and angle true at every snapshot t >= s (eqs. 26-32), its branch currents stay untrusted (eq. 27), and one support is held for the window. |
 | `tests/test_validation.py` | The validation engine (models.validation): rules declared on fields, one message shape, and the public entry points that build their config models before any work. |

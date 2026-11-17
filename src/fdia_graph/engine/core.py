@@ -18,8 +18,10 @@ from typing import TYPE_CHECKING, Optional, Union
 
 import numpy as np
 
+from ..constants.grid import IEEE_CASES
+from ..constants.meters import ACCURACY_CLASS, JITTER_FRAC, PMU_CURRENT_CLASS
 from ..formulas.network import series_admittance
-from ..formulas.noise import ACCURACY_CLASS, JITTER_FRAC, PMU_CURRENT_CLASS, bias_jitter_split
+from ..formulas.noise import bias_jitter_split
 from ..models.config import GeneratorOptions
 from ..models.grid import INTACT, BranchModel, MeterBias, MeterPlan
 from ..registry import system_id
@@ -30,20 +32,6 @@ from .physics import PhysicsMixin
 if TYPE_CHECKING:
     from ..models.plan import GeneratorSpec
     from .pandapower_types import PandapowerNet, PpcTables
-
-# Bus-count knob (14/118/300) -> pandapower.networks factory name.
-# Bus-count -> pandapower.networks builder. Transmission systems only (>=110 kV, meshed). A system is
-# load()-able only once its pool + registry entry ship; listing it here just lets the generator build it.
-_CASE = {
-    14: "case14",
-    30: "case30",
-    57: "case57",
-    89: "case89pegase",
-    118: "case118",
-    145: "case145",
-    200: "case_illinois200",
-    300: "case300",
-}
 
 
 class FdiaGenerator(MeasurementMixin, PhysicsMixin, AttackMixin):
@@ -86,7 +74,7 @@ class FdiaGenerator(MeasurementMixin, PhysicsMixin, AttackMixin):
         # and a per-meter bias (see formulas.noise).
         self.SD = dict(ACCURACY_CLASS)
         self.SDj, self._bias_sd = bias_jitter_split(self.SD, jitter_frac=JITTER_FRAC)
-        self.NET = getattr(pn, _CASE[self.C])
+        self.NET = getattr(pn, IEEE_CASES[self.C])
         self.base = self._open_case()
         self._load_tables(self.base)
         self._meter_plan(self.base, vbus_frac, pmu_frac, flow_frac, hybrid)

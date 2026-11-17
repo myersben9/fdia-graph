@@ -6,14 +6,10 @@ from typing import Optional
 
 import numpy as np
 
+from ..constants.channels import CurrentChannel, NodeChannel
+from ..constants.grid import UNRATED_MVA
+from ..constants.numerics import LIMIT_TOL_PQ, LIMIT_TOL_V, ZERO_TOL
 from ..models.frames import OperatingLimits
-from ..models.grid import CURRENT, NODE
-
-# Slack under a limit, below what a meter resolves (0.0012 pu on |V|, 1e-3 MW on P and Q): a true
-# state outside a limit is itself the bound (a regulated bus at its setpoint), and a false state
-# that moves it by less than the meter floor violates nothing an operator could see.
-LIMIT_TOL_V = 1e-3  # pu
-LIMIT_TOL_PQ = 1e-3  # MW, MVAr
 
 
 def operating_limits(
@@ -52,9 +48,9 @@ def generator_output(X: np.ndarray, load_base: np.ndarray, gen_base: np.ndarray)
 
     with P_inj, Q_inj load-positive; a bus whose base net injection is zero keeps s = 1."""
     net = load_base[:, 0] - gen_base[:, 0]
-    safe = np.where(np.abs(net) > 1e-9, net, 1.0)
-    s = np.where(np.abs(net) > 1e-9, X[..., NODE.p_inj] / safe, 1.0)
-    return np.stack([s * gen_base[:, 0], s * load_base[:, 1] - X[..., NODE.q_inj]], axis=-1)
+    safe = np.where(np.abs(net) > ZERO_TOL, net, 1.0)
+    s = np.where(np.abs(net) > ZERO_TOL, X[..., NodeChannel.P_INJ] / safe, 1.0)
+    return np.stack([s * gen_base[:, 0], s * load_base[:, 1] - X[..., NodeChannel.Q_INJ]], axis=-1)
 
 
 def bus_load(X: np.ndarray, load_base: np.ndarray, gen_base: np.ndarray) -> np.ndarray:
@@ -70,7 +66,7 @@ def bus_load(X: np.ndarray, load_base: np.ndarray, gen_base: np.ndarray) -> np.n
     nets out the external grid's balancing output, which the pool does not keep, so the value there
     is not the load; the slack load is never attacked, and a full re-solve lets the external grid
     absorb it, which leaves the bus's net injection (all that is metered) exact."""
-    return X[..., NODE.p_inj] + generator_output(X, load_base, gen_base)[..., 0]
+    return X[..., NodeChannel.P_INJ] + generator_output(X, load_base, gen_base)[..., 0]
 
 
 def element_loads(bus_p: np.ndarray, load_bus: np.ndarray, p0: np.ndarray) -> np.ndarray:
@@ -108,14 +104,14 @@ def within_limits(
 
         v_lo_i = min(V_i^min, |V_i^true|),  v_hi_i = max(V_i^max, |V_i^true|)
     """
-    V, Vt = Xa[:, NODE.v], Xt[:, NODE.v]
+    V, Vt = Xa[:, NodeChannel.V], Xt[:, NodeChannel.V]
     if np.any(V < np.minimum(limits.v_lo, Vt) - LIMIT_TOL_V) or np.any(
         V > np.maximum(limits.v_hi, Vt) + LIMIT_TOL_V
     ):
         return False
     I_ = np.asarray(interior, int)
-    p = gen_true[I_, 0] - (Xa[I_, NODE.p_inj] - Xt[I_, NODE.p_inj] - load_delta[I_])
-    q = gen_true[I_, 1] - (Xa[I_, NODE.q_inj] - Xt[I_, NODE.q_inj])
+    p = gen_true[I_, 0] - (Xa[I_, NodeChannel.P_INJ] - Xt[I_, NodeChannel.P_INJ] - load_delta[I_])
+    q = gen_true[I_, 1] - (Xa[I_, NodeChannel.Q_INJ] - Xt[I_, NodeChannel.Q_INJ])
     return bool(
         np.all(p >= limits.p_lo[I_] - LIMIT_TOL_PQ)
         and np.all(p <= limits.p_hi[I_] + LIMIT_TOL_PQ)
@@ -187,27 +183,24 @@ def tampered_devices(
     node_mask, edge_mask : tampered channels, [N, 4] and [E, 2] booleans (`tampered_channels`)
     pmu_bus              : [N] booleans, the buses with a PMU
     from_bus             : [E] from-end bus of each branch (the end its flow is metered at)
-    current_mask         : [E, 4] tampered branch-current channels (`CURRENT` columns), or None
+    current_mask         : [E, 4] tampered branch-current channels (`CurrentChannel` columns), or None
     to_bus               : [E] to-end bus of each branch, needed with `current_mask`
     returns              : sorted unique device ids
     """
     node_mask = np.asarray(node_mask, bool)
     N = node_mask.shape[0]
     pmu = np.asarray(pmu_bus, bool)
-    power = node_mask[:, NODE.p_inj] | node_mask[:, NODE.q_inj]
-    voltage = node_mask[:, NODE.v] | node_mask[:, NODE.theta]
+    power = node_mask[:, NodeChannel.P_INJ] | node_mask[:, NodeChannel.Q_INJ]
+    voltage = node_mask[:, NodeChannel.V] | node_mask[:, NodeChannel.THETA]
     scada = power | (voltage & ~pmu)
     flow_buses = np.asarray(from_bus)[np.asarray(edge_mask, bool).any(axis=1)]
     ids = [np.where(scada)[0], flow_buses, N + np.where(voltage & pmu)[0]]
     if current_mask is not None and to_bus is not None:
         cm = np.asarray(current_mask, bool)
-        from_end = cm[:, CURRENT.re_from] | cm[:, CURRENT.im_from]
-        to_end = cm[:, CURRENT.re_to] | cm[:, CURRENT.im_to]
+        from_end = cm[:, CurrentChannel.RE_FROM] | cm[:, CurrentChannel.IM_FROM]
+        to_end = cm[:, CurrentChannel.RE_TO] | cm[:, CurrentChannel.IM_TO]
         ids += [N + np.asarray(from_bus)[from_end], N + np.asarray(to_bus)[to_end]]
     return np.unique(np.concatenate(ids).astype(np.int64))
-
-
-UNRATED_MVA = 9900.0  # MATPOWER's "no limit" rating, which PGLib-OPF keeps on a few branches
 
 
 def branch_ratings(ends: list[tuple[int, int]], rows: list[tuple[int, int, float]]) -> np.ndarray:

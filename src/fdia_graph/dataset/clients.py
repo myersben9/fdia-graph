@@ -16,16 +16,14 @@ import h5py
 import numpy as np
 
 from fdia_graph import schema
-from fdia_graph.engine.sensing.meters import KINDS, MeterPlan
+from fdia_graph.constants.meters import ANGLE_KINDS, BUS_KINDS
+from fdia_graph.engine.sensing.meters import MeterPlan
 from fdia_graph.errors import NotATimeline
 from fdia_graph.formulas.temporal import wrap_degrees
 from fdia_graph.generation.nygrid.ownership import Ownership
-from fdia_graph.models.choices import SPLITS
+from fdia_graph.models.choices import Split
 from fdia_graph.models.frames import MeterLayers
 from fdia_graph.schema import Attr, Static
-
-_BUS_KINDS = ("v", "va", "p", "q")  # the node features, in this order
-_ANGLE_KINDS = ("va", "ia")  # readings in degrees that wrap at +-180
 
 
 class ClientView:
@@ -42,10 +40,10 @@ class ClientView:
         """`[T, N_c, 4]` per owned bus its |V| (p.u.), voltage angle (degrees), P and Q injection (MW,
         MVAr) as metered, NaN where the bus carries no meter of that kind (|V| at 60% of buses, the
         angle only at PMU buses)."""
-        out = np.full((len(self.z), len(self.buses), len(_BUS_KINDS)), np.nan, self.z.dtype)
+        out = np.full((len(self.z), len(self.buses), len(BUS_KINDS)), np.nan, self.z.dtype)
         pos = {int(b): i for i, b in enumerate(self.buses)}
-        for j, kind in enumerate(_BUS_KINDS):
-            rows = np.flatnonzero(self.meters.kind == KINDS.index(kind))
+        for j, kind in enumerate(BUS_KINDS):
+            rows = np.flatnonzero(self.meters.kind == kind)
             out[:, [pos[int(b)] for b in self.meters.bus[rows]], j] = self.z[:, rows]
         return out
 
@@ -56,7 +54,7 @@ class ClientView:
         d = np.zeros_like(self.z)
         d[1:] = np.diff(self.z, axis=0)
         d[1:][np.diff(self.frames) != 1] = 0.0
-        angle = np.isin(self.meters.kind, [KINDS.index(k) for k in _ANGLE_KINDS])
+        angle = np.isin(self.meters.kind, ANGLE_KINDS)
         d[:, angle] = wrap_degrees(d[:, angle])
         return d
 
@@ -89,7 +87,7 @@ class Dataset:
         """The frame indices of `split` exactly: week splits interleave, so a span from its first to its
         last frame would take in the other splits' weeks."""
         col = self.h[schema.SPLIT][:]
-        return np.arange(len(col)) if split is None else np.flatnonzero(col == SPLITS.index(split))
+        return np.arange(len(col)) if split is None else np.flatnonzero(col == Split.values().index(split))
 
     def _rows(self, name: str, frames: np.ndarray) -> np.ndarray:
         """Dataset `name` at the increasing `frames`, read one contiguous run at a time."""

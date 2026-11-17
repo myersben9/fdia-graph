@@ -8,6 +8,8 @@ from typing import NamedTuple, Optional, Union
 
 import numpy as np
 
+from ...constants.channels import NodeChannel
+from ...constants.numerics import ZERO_TOL
 from ...formulas.attacks import bus_load, generator_output, operating_limits, within_limits
 from ...formulas.network import (
     _dense,
@@ -19,7 +21,6 @@ from ...formulas.network import (
     local_flow_solve,
 )
 from ...models.frames import AttackDesign, Frame, FrameKnobs, OperatingLimits, Scan
-from ...models.grid import NODE
 from .area import AreaMixin
 
 
@@ -28,10 +29,10 @@ def _voltages_out_of_range(
 ) -> dict[int, float]:
     """The buses of S whose false |V| left its limit (21) (the bound at a bus already outside it is
     its true value, as `within_limits` has it), each with the limit to hold it at."""
-    lo, hi = np.minimum(limits.v_lo, Xt[:, NODE.v]), np.maximum(limits.v_hi, Xt[:, NODE.v])
+    lo, hi = np.minimum(limits.v_lo, Xt[:, NodeChannel.V]), np.maximum(limits.v_hi, Xt[:, NodeChannel.V])
     out: dict[int, float] = {}
     for b in np.asarray(S, int):
-        v = Xa[b, NODE.v]
+        v = Xa[b, NodeChannel.V]
         if int(b) not in held and (v < lo[b] or v > hi[b]):
             out[int(b)] = float(np.clip(v, lo[b], hi[b]))
     return out
@@ -93,7 +94,7 @@ class FalseStateMixin(AreaMixin):
         when the local power flow does not converge."""
         C = self.C
         Xa = np.array(Xt, np.float64, copy=True)
-        Pinj, Qinj = Xa[:, NODE.p_inj].copy(), Xa[:, NODE.q_inj].copy()
+        Pinj, Qinj = Xa[:, NodeChannel.P_INJ].copy(), Xa[:, NodeChannel.Q_INJ].copy()
         # the pool's injection is load-positive: every load element at a bus minus that bus's
         # generation, held at this scan's dispatch (the attacker moves loads only)
         load, qload = np.zeros(C), np.zeros(C)
@@ -104,17 +105,17 @@ class FalseStateMixin(AreaMixin):
         Qinj[buses] = qload[buses] - self.scan_reactive_generation(Xt)[buses]
         lut = self._ppc_row[np.arange(C)]
         Vc = np.zeros(self._n_ppc_buses, complex)
-        Vc[lut] = complex_voltages(Xa[:, NODE.v], Xa[:, NODE.theta])
+        Vc[lut] = complex_voltages(Xa[:, NodeChannel.V], Xa[:, NodeChannel.THETA])
         target = -(Pinj[interior] + 1j * Qinj[interior]) / self._base_mva  # generation-positive, per unit
         Vf = local_ac_solve(self._dense_admittances()[0], Vc, lut[interior], target)
         if Vf is None:
             return None
-        Xa[interior, NODE.v] = np.abs(Vf[lut[interior]])
-        Xa[interior, NODE.theta] = np.degrees(np.angle(Vf[lut[interior]]))
+        Xa[interior, NodeChannel.V] = np.abs(Vf[lut[interior]])
+        Xa[interior, NodeChannel.THETA] = np.degrees(np.angle(Vf[lut[interior]]))
         touched = np.union1d(interior, self._boundary(interior)[1])  # and its boundary
         S = bus_injections(Vf, self._Ybus, self._base_mva)[lut[touched]]
-        Xa[touched, NODE.p_inj] = -S.real
-        Xa[touched, NODE.q_inj] = -S.imag
+        Xa[touched, NodeChannel.P_INJ] = -S.real
+        Xa[touched, NodeChannel.Q_INJ] = -S.imag
         return Xa
 
     def free_load_buses(self) -> np.ndarray:
@@ -212,7 +213,7 @@ class FalseStateMixin(AreaMixin):
         lut = self._ppc_row[np.arange(self.C)]
         lines = np.atleast_1d(np.asarray(line, np.int64))
         V = np.zeros(self._n_ppc_buses, complex)
-        V[lut] = complex_voltages(Xt[:, NODE.v], Xt[:, NODE.theta])
+        V[lut] = complex_voltages(Xt[:, NodeChannel.V], Xt[:, NodeChannel.THETA])
         touched, blocks = self._support_blocks(S, lines)
         # per unit, the model's injections at the true voltages
         S_true = bus_injections(V, blocks.Yb)[lut[touched]]
@@ -286,12 +287,12 @@ class FalseStateMixin(AreaMixin):
         if Vf is None:
             return None
         Xa = np.array(Xt, np.float64, copy=True)
-        Xa[S, NODE.v] = np.abs(Vf[lut[S]])
-        Xa[S, NODE.theta] = np.degrees(np.angle(Vf[lut[S]]))
+        Xa[S, NodeChannel.V] = np.abs(Vf[lut[S]])
+        Xa[S, NodeChannel.THETA] = np.degrees(np.angle(Vf[lut[S]]))
         dS = np.zeros(C, complex)
         dS[touched] = (bus_injections(Vf, Yb)[lut[touched]] - region.S_true) * self._base_mva
-        Xa[touched, NODE.p_inj] -= np.real(dS[touched])  # the stored injection is load positive
-        Xa[touched, NODE.q_inj] -= np.imag(dS[touched])
+        Xa[touched, NodeChannel.P_INJ] -= np.real(dS[touched])  # the stored injection is load positive
+        Xa[touched, NodeChannel.Q_INJ] -= np.imag(dS[touched])
         return Xa, dS
 
     def _out_of_bounds(
@@ -385,7 +386,7 @@ class FalseStateMixin(AreaMixin):
         a = self._current_attack(Xa, Xt)
         if a is None or scan.i_x is None or scan.i_m is None:
             return None, None
-        moved = (np.abs(a) > 1e-9) & (scan.i_m > 0)
+        moved = (np.abs(a) > ZERO_TOL) & (scan.i_m > 0)
         ix = scan.i_x.copy()
         ix[moved] += a[moved].astype(np.float32)
         return ix, ix != scan.i_x

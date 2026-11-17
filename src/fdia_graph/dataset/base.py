@@ -30,11 +30,8 @@ import numpy as np
 
 from .. import schema
 from ..errors import MissingCapability
-from ..models.choices import FAMILY_CODE, HELDOUT_FAMILIES, Capability
+from ..models.choices import Capability
 from ..models.inputs import FamilySelection, Requirement
-
-# As, Ar reserved for test-only in the unseen-attack protocol (Boyaci et al. 2022)
-_HELDOUT_TRAIN_EXCLUDE = {FAMILY_CODE[n] for n in HELDOUT_FAMILIES}
 
 
 def family_ids(families: Sequence[Union[str, int]]) -> list[int]:
@@ -51,49 +48,6 @@ def _torch() -> ModuleType:
         return torch
     except ImportError as e:
         raise ImportError("PyTorch is required: pip install 'fdia-graph[torch]'") from e
-
-
-# v0.5.0+ static per-branch physics, bus shunts and per-bus attributes stored under graph/.
-# The scalars of a record collate() gathers into one long tensor per batch (it stacks every other field
-# of a `BatchBundle` the record carries).
-
-
-_BATCH_SCALARS = ("family", "stealthy", "seq_id", "timestep")
-# Layers stored once per POOL timestep (not per record), resolved through data/timestep.
-
-
-_CLEAN_LAYERS = ("clean", "edge_clean", "edge_clean_full")
-# The attack-removed layer of a timeline file: record field -> dataset path, one row per frame.
-_BENIGN_LAYERS = {k: schema.FIELD_PATH[k] for k in ("benign", "edge_benign")}
-# The PMU branch-current layers of a hybrid-meter timeline: record field -> dataset path, one row
-# per frame, per unit on every view (a current has no MW form to convert from; the angles of a polar
-# file are converted like theta).
-_CURRENT_LAYERS = {k: schema.FIELD_PATH[k] for k in ("pmu_i", "pmu_i_m", "pmu_i_benign")}
-# The previous frame's readings on a timeline (the row emitted just before each record, whatever
-# split or family it belongs to): observed data an operator holds, offered on request only.
-_PREV_FIELDS = {
-    "prev_node_x": "node_x",
-    "prev_edge_x": "edge_x",
-    "prev_timestep": "timestep",
-    "prev_swing": "swing",
-    "prev_pmu_i": "pmu_i",  # hybrid-meter timelines only
-}
-# Which unit conversion each returned array takes under units="pu" (masks, labels, swing: none).
-_UNIT_KIND = {
-    "node_x": "node",
-    "prev_node_x": "node",
-    "clean": "node",
-    "benign": "node",
-    "edge_x": "edge",
-    "prev_edge_x": "edge",
-    "edge_clean": "edge",
-    "edge_clean_full": "edge",
-    "edge_benign": "edge",
-    "temporal_delta": "td",
-    "pmu_i": "current",
-    "pmu_i_benign": "current",
-    "prev_pmu_i": "current",
-}
 
 
 # What a view may lack that a consumer needs: the test and what the consumer needs, in words.
@@ -171,8 +125,8 @@ class DatasetBase:
         """The layers this file stores per frame beside data/ (record field -> dataset path): the
         attack-removed scan, and the PMU currents of a hybrid-meter file."""
         return {
-            **(_BENIGN_LAYERS if self.has_benign else {}),
-            **(_CURRENT_LAYERS if self.has_currents else {}),
+            **(schema.BENIGN_PATH if self.has_benign else {}),
+            **(schema.CURRENT_PATH if self.has_currents else {}),
         }
 
     def __len__(self) -> int: ...

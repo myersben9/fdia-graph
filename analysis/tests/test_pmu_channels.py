@@ -9,8 +9,8 @@ import pytest
 
 from fdia_analysis.formulas.estimation import pmu_pseudo_links, pmu_pseudo_voltages
 from fdia_analysis.models.config import SolveConfig
+from fdia_graph.constants.channels import NodeChannel
 from fdia_graph.formulas.network import branch_currents
-from fdia_graph.models.grid import NODE
 
 pytest.importorskip("pandapower")
 
@@ -135,7 +135,11 @@ def test_estimate_builds_the_pseudo_measurements_chunk_by_chunk(pmu_files):
 
     pv = est._pseudo_of(d["node_x"], d["pmu_i"])
     V_f = pmu_pseudo_phasors(
-        est._links, est.N, d["node_x"][:, :, NODE.v], np.deg2rad(d["node_x"][:, :, NODE.theta]), d["pmu_i"]
+        est._links,
+        est.N,
+        d["node_x"][:, :, NodeChannel.V],
+        np.deg2rad(d["node_x"][:, :, NodeChannel.THETA]),
+        d["pmu_i"],
     )
     np.testing.assert_array_equal(np.abs(V_f), pv.v)
     np.testing.assert_array_equal(np.angle(V_f), pv.theta)

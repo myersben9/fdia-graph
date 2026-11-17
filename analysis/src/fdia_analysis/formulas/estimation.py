@@ -163,7 +163,7 @@ def pmu_pseudo_links(
     bus has no PMU of its own.
 
     pmu        : [N] bool, the PMU buses
-    current_m  : [E, 4] the PMU branch-current mask (`CURRENT` columns)
+    current_m  : [E, 4] the PMU branch-current mask (`CurrentChannel` columns)
     f_bus, t_bus : [E] the branch terminals, in the same bus order as the columns of Yf and Yt
     Yf, Yt     : [E, N] complex branch admittances, I_f = Yf V and I_t = Yt V
     returns    : `PseudoLinks`, one row per usable metered end
@@ -251,7 +251,7 @@ def pmu_pseudo_voltages(
     links      : `pmu_pseudo_links`
     n_bus      : N
     v, theta   : [n, N] or [N] bus |V| (pu) and angle (rad), read at the PMU buses
-    current    : [n, E, 4] or [E, 4] the PMU branch-current readings (`CURRENT` columns, pu)
+    current    : [n, E, 4] or [E, 4] the PMU branch-current readings (`CurrentChannel` columns, pu)
     sigma_v, sigma_theta : [N] or [n, N] the standard deviations of the PMU |V| and angle
     sigma_i    : [n, E, 4] or [E, 4] the standard deviation of every current channel
     returns    : `PseudoVoltages`, NaN where no link reaches

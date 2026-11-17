@@ -12,11 +12,12 @@ import pandapower as pp
 import pyomo.environ as pe
 from pandapower.converter.pypower import from_ppc
 
+from fdia_graph.constants.grid import NO_LIMIT, BusType
+from fdia_graph.constants.newyork import HQ_BUS
 from fdia_graph.engine.solvers import ipopt
-from fdia_graph.generation.nygrid.case import HQ_BUS, REF, Case
+from fdia_graph.generation.nygrid.case import Case
 from fdia_graph.generation.nygrid.network import Network
 
-_NO_LIMIT = 9999.0
 # A unit held at a value its last bounds miss by rounding makes Pyomo warn (W1002); the bounds are reset each solve.
 logging.getLogger("pyomo.core").setLevel(logging.ERROR)
 
@@ -60,20 +61,20 @@ def _ppc(case: Case) -> dict:
     n, nl = len(case.bus_id), len(case.f)
     bus = np.zeros((n, 13))
     bus[:, 0] = np.arange(1, n + 1)
-    bus[:, 1] = np.where(case.bus_type == REF, REF, 1)
+    bus[:, 1] = np.where(case.bus_type == BusType.REF, BusType.REF, 1)
     bus[:, 6] = case.area
     bus[:, 7], bus[:, 8], bus[:, 9] = case.vm, case.va, case.kv
     bus[:, 10], bus[:, 11], bus[:, 12] = 1, case.vmax, case.vmin
     br = np.zeros((nl, 13))
     br[:, 0], br[:, 1] = case.f + 1, case.t + 1
     br[:, 2], br[:, 3], br[:, 4] = case.r, case.x, case.b
-    br[:, 5] = _NO_LIMIT  # from_ppc fails on zero ratings; ratings do not enter a power flow
+    br[:, 5] = NO_LIMIT  # from_ppc fails on zero ratings; ratings do not enter a power flow
     br[:, 8] = np.where(case.tap == 1.0, 0.0, case.tap)
     br[:, 9], br[:, 10], br[:, 11], br[:, 12] = case.shift, 1, -360, 360
-    ref = int(np.flatnonzero(case.bus_type == REF)[0])
+    ref = int(np.flatnonzero(case.bus_type == BusType.REF)[0])
     gen = np.zeros((1, 21))
     gen[0, [0, 5, 7]] = [ref + 1, case.vm[ref], 1]
-    gen[0, 3], gen[0, 4], gen[0, 8], gen[0, 9] = _NO_LIMIT, -_NO_LIMIT, _NO_LIMIT, -_NO_LIMIT
+    gen[0, 3], gen[0, 4], gen[0, 8], gen[0, 9] = NO_LIMIT, -NO_LIMIT, NO_LIMIT, -NO_LIMIT
     return {"version": "2", "baseMVA": case.base_mva, "bus": bus, "branch": br, "gen": gen}
 
 
@@ -166,7 +167,7 @@ class AcSolver:
         self.compensation = compensation
         self.network = Network(case)
         self.vm, self.va = case.vm.copy(), case.va.copy()
-        self._ref = int(np.flatnonzero(case.bus_type == REF)[0])
+        self._ref = int(np.flatnonzero(case.bus_type == BusType.REF)[0])
         # the external units, which updateOpCond.m L360 bounds at 1.5 times their setpoint; the HQ import is
         # appended after that line with its own -1100 to 1500 MW (L367-377), so it keeps its case limits (N45)
         self._import = (case.fuel == "Import") & (case.bus_id[case.unit_bus] != HQ_BUS)

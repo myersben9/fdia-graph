@@ -7,7 +7,8 @@ from typing import Union
 
 import numpy as np
 
-from ..models.grid import EDGE, NODE
+from ..constants.channels import CurrentChannel, EdgeChannel, NodeChannel
+from ..constants.meters import CURRENT_FLOOR_PU, JITTER_FRAC, WU26_NOISE
 
 
 def accuracy_class_sigma(
@@ -29,18 +30,6 @@ def accuracy_class_sigma(
     """
     mean_abs, cls = np.asarray(mean_abs, np.float64), np.asarray(cls, np.float64)
     return np.where(np.asarray(relative, bool), cls * mean_abs + floor, cls)
-
-
-# Meter accuracy classes [ASP14]: the error std of every meter type. |V| and angle are the
-# class-0.2/sqrt(3) instrument-transformer figures, absolute (pu, rad); injections and flows a ~1.7%
-# power-measurement std, relative to the reading, with POWER_NOISE_FLOOR_MW as an absolute floor.
-# The IEEE generator's noise model, the New York meter plan (`engine.sensing.meters.ACCURACY`, the
-# same classes per meter kind) and a measurement-only estimator calibration all read these.
-ACCURACY_CLASS = {"pf": 0.017, "qf": 0.017, "v": 0.0012, "pi": 0.017, "qi": 0.017, "va": 0.00168}
-POWER_NOISE_FLOOR_MW = 1e-3
-# Share of each class that is per-scan jitter; the rest is a constant per-meter bias, with
-# bias^2 + jitter^2 = class^2. Meter error is mostly a fixed calibration offset.
-JITTER_FRAC = 0.25
 
 
 def bias_jitter_split(
@@ -88,13 +77,13 @@ def jitter_sigma(
     node_true = np.asarray(node_true, np.float64)
     flow_true = np.asarray(flow_true, np.float64)
     sig_node = np.empty(node_true.shape, np.float64)
-    sig_node[:, NODE.v] = jitter["v"]
-    sig_node[:, NODE.p_inj] = np.abs(node_true[:, NODE.p_inj]) * jitter["pi"] + floor_mw
-    sig_node[:, NODE.q_inj] = np.abs(node_true[:, NODE.q_inj]) * jitter["qi"] + floor_mw
-    sig_node[:, NODE.theta] = np.degrees(jitter["va"])
+    sig_node[:, NodeChannel.V] = jitter["v"]
+    sig_node[:, NodeChannel.P_INJ] = np.abs(node_true[:, NodeChannel.P_INJ]) * jitter["pi"] + floor_mw
+    sig_node[:, NodeChannel.Q_INJ] = np.abs(node_true[:, NodeChannel.Q_INJ]) * jitter["qi"] + floor_mw
+    sig_node[:, NodeChannel.THETA] = np.degrees(jitter["va"])
     sig_flow = np.empty(flow_true.shape, np.float64)
-    sig_flow[:, EDGE.p_from] = np.abs(flow_true[:, EDGE.p_from]) * jitter["pf"] + floor_mw
-    sig_flow[:, EDGE.q_from] = np.abs(flow_true[:, EDGE.q_from]) * jitter["qf"] + floor_mw
+    sig_flow[:, EdgeChannel.P_FROM] = np.abs(flow_true[:, EdgeChannel.P_FROM]) * jitter["pf"] + floor_mw
+    sig_flow[:, EdgeChannel.Q_FROM] = np.abs(flow_true[:, EdgeChannel.Q_FROM]) * jitter["qf"] + floor_mw
     return sig_node, sig_flow
 
 
@@ -123,13 +112,15 @@ def accuracy_sigma(
     N, E = node_true.shape[0], flow_true.shape[0]
 
     sig_node = np.empty((N, 4), np.float64)
-    sig_node[:, NODE.v] = _class_rule(node_true[:, NODE.v], cls["v"], False, floor_mw)
-    sig_node[:, NODE.p_inj] = _class_rule(node_true[:, NODE.p_inj], cls["pi"], True, floor_mw)
-    sig_node[:, NODE.q_inj] = _class_rule(node_true[:, NODE.q_inj], cls["qi"], True, floor_mw)
-    sig_node[:, NODE.theta] = np.degrees(_class_rule(node_true[:, NODE.theta], cls["va"], False, floor_mw))
+    sig_node[:, NodeChannel.V] = _class_rule(node_true[:, NodeChannel.V], cls["v"], False, floor_mw)
+    sig_node[:, NodeChannel.P_INJ] = _class_rule(node_true[:, NodeChannel.P_INJ], cls["pi"], True, floor_mw)
+    sig_node[:, NodeChannel.Q_INJ] = _class_rule(node_true[:, NodeChannel.Q_INJ], cls["qi"], True, floor_mw)
+    sig_node[:, NodeChannel.THETA] = np.degrees(
+        _class_rule(node_true[:, NodeChannel.THETA], cls["va"], False, floor_mw)
+    )
     sig_flow = np.empty((E, 2), np.float64)
-    sig_flow[:, EDGE.p_from] = _class_rule(flow_true[:, EDGE.p_from], cls["pf"], True, floor_mw)
-    sig_flow[:, EDGE.q_from] = _class_rule(flow_true[:, EDGE.q_from], cls["qf"], True, floor_mw)
+    sig_flow[:, EdgeChannel.P_FROM] = _class_rule(flow_true[:, EdgeChannel.P_FROM], cls["pf"], True, floor_mw)
+    sig_flow[:, EdgeChannel.Q_FROM] = _class_rule(flow_true[:, EdgeChannel.Q_FROM], cls["qf"], True, floor_mw)
     return sig_node, sig_flow
 
 
@@ -139,19 +130,12 @@ def _class_rule(reading: np.ndarray, c: float, relative: bool, floor: float) -> 
     return accuracy_class_sigma(np.abs(reading), np.full(n, c), np.full(n, relative), floor)
 
 
-# The PMU branch-current accuracy class [C37118]: a total vector error of at most 1% in steady
-# state, taken as three standard deviations of each component relative to the phasor's magnitude;
-# CURRENT_FLOOR_PU keeps a branch carrying almost no current from a zero standard deviation.
-PMU_CURRENT_CLASS = 0.01 / 3
-CURRENT_FLOOR_PU = 1e-5
-
-
 def current_magnitude(current_true: np.ndarray) -> np.ndarray:
     """Each PMU branch-current channel's end-phasor magnitude [..., E, 4]: |I_from| on the two from
     columns, |I_to| on the two to columns, the scale of the C37.118 error model [C37118]."""
     i = np.asarray(current_true, np.float64)
-    from_mag = np.hypot(i[..., 0], i[..., 1])
-    to_mag = np.hypot(i[..., 2], i[..., 3])
+    from_mag = np.hypot(i[..., CurrentChannel.RE_FROM], i[..., CurrentChannel.IM_FROM])
+    to_mag = np.hypot(i[..., CurrentChannel.RE_TO], i[..., CurrentChannel.IM_TO])
     return np.stack([from_mag, from_mag, to_mag, to_mag], axis=-1)
 
 
@@ -175,16 +159,12 @@ def current_sigma(current_true: np.ndarray, rel: float, floor: float = CURRENT_F
 
         sigma_re = sigma_im = rel |I_end| + floor          (per unit on the base current)
 
-    current_true : [..., E, 4] the true Re/Im of I_from and I_to (`CURRENT` columns)
+    current_true : [..., E, 4] the true Re/Im of I_from and I_to (`CurrentChannel` columns)
     rel          : the relative std (the class, or its jitter part)
     floor        : the absolute floor, per unit
     returns      : [..., E, 4] sigma per channel
     """
     return rel * current_magnitude(current_true) + floor
-
-
-# The measurement noise of [WU26]'s case studies: 0.03 pu on SCADA channels, 0.01 pu on PMU channels.
-WU26_NOISE = {"scada": 0.03, "pmu": 0.01}
 
 
 def paper_current_sigma(shape: tuple[int, ...]) -> np.ndarray:
@@ -214,9 +194,9 @@ def paper_sigma(
     """
     scada, pmu = WU26_NOISE["scada"], WU26_NOISE["pmu"]
     sig_node = np.empty(node_shape, np.float64)
-    sig_node[:, NODE.v] = np.where(np.asarray(pmu_bus, bool), pmu, scada)
-    sig_node[:, NODE.p_inj] = scada * base_mva
-    sig_node[:, NODE.q_inj] = scada * base_mva
-    sig_node[:, NODE.theta] = np.degrees(pmu)
+    sig_node[:, NodeChannel.V] = np.where(np.asarray(pmu_bus, bool), pmu, scada)
+    sig_node[:, NodeChannel.P_INJ] = scada * base_mva
+    sig_node[:, NodeChannel.Q_INJ] = scada * base_mva
+    sig_node[:, NodeChannel.THETA] = np.degrees(pmu)
     sig_flow = np.full(edge_shape, scada * base_mva, np.float64)
     return sig_node, sig_flow

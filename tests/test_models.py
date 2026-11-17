@@ -188,42 +188,45 @@ def test_default_collate_treats_a_bundle_as_a_dict():
     assert tuple(batch["node_x"].shape) == (4, 3, 4) and batch["family"].tolist() == [0, 1, 2, 3]
 
 
-def test_column_views_name_the_documented_order():
-    """`NodeColumns` is the one definition of the node_x order (|V|, P_inj, Q_inj, theta) and
-    `EdgeColumns` of the edge_x order (P_from, Q_from); the views share memory with the array."""
-    from fdia_graph.models.data import RecordBundle
-    from fdia_graph.models.grid import EDGE, NODE, EdgeColumns, NodeColumns
+def test_channels_name_the_documented_order():
+    """`NodeChannel` is the one definition of the node_x order (|V|, P_inj, Q_inj, theta) and
+    `EdgeChannel` of the flow order (P_from, Q_from, then the to end); the legends a file carries name
+    the same columns, and a member indexes the last axis of a numpy array or a tensor with no copy."""
+    import torch
 
-    assert NODE == (0, 1, 2, 3) and NODE._fields == ("v", "p_inj", "q_inj", "theta")
-    assert EDGE == (0, 1) and EDGE._fields == ("p_from", "q_from")
-    # the index constants and the views name the same columns in the same order
-    assert NODE._fields == NodeColumns._fields and EDGE._fields == EdgeColumns._fields
-    a = np.arange(24.0).reshape(2, 3, 4)
-    cols = NodeColumns.of(a)
-    assert np.array_equal(cols.theta, a[:, :, 3]) and np.shares_memory(cols.v, a)
-    rec = RecordBundle(
-        edge_index=np.zeros((2, 1), int),
-        node_x=a[0],
-        node_m=np.ones((3, 4)),
-        edge_x=np.ones((1, 2)),
-        edge_m=np.ones((1, 2)),
-        y=np.zeros(3),
-        family=0,
-        stealthy=0,
-        seq_id=-1,
-        timestep=0,
+    from fdia_graph import schema
+    from fdia_graph.constants.channels import (
+        TO_END_OFFSET,
+        CurrentChannel,
+        EdgeChannel,
+        NodeChannel,
+        PolarCurrentChannel,
     )
-    assert np.array_equal(rec.node().p_inj, a[0, :, 1]) and rec.edge().q_from.shape == (1,)
-    assert EdgeColumns.of(np.ones((5, 2))).p_from.shape == (5,)
+
+    assert [c.name for c in NodeChannel] == ["V", "P_INJ", "Q_INJ", "THETA"]
+    assert [c.name for c in EdgeChannel] == ["P_FROM", "Q_FROM", "P_TO", "Q_TO"]
+    assert schema.NODE_FEAT_LEGEND.upper().split(",") == [c.name for c in NodeChannel]
+    assert [name.upper() for name in schema.FLOW_NAMES] == [c.name for c in EdgeChannel]
+    assert schema.EDGE_FEAT_DEFAULT == ",".join(schema.FLOW_NAMES[: EdgeChannel.Q_FROM + 1])
+    for channels in (NodeChannel, EdgeChannel, CurrentChannel, PolarCurrentChannel):
+        assert [int(c) for c in channels] == [0, 1, 2, 3]
+    # the to end of a branch quantity sits TO_END_OFFSET columns after its from end
+    assert EdgeChannel.P_TO - EdgeChannel.P_FROM == EdgeChannel.Q_TO - EdgeChannel.Q_FROM == TO_END_OFFSET
+    assert CurrentChannel.RE_TO - CurrentChannel.RE_FROM == TO_END_OFFSET
+    assert PolarCurrentChannel.ANGLE_TO - PolarCurrentChannel.ANGLE_FROM == TO_END_OFFSET
+    a = np.arange(24.0).reshape(2, 3, 4)
+    theta = a[..., NodeChannel.THETA]
+    assert np.array_equal(theta, a[:, :, 3]) and np.shares_memory(theta, a)
+    t = torch.arange(24.0).reshape(2, 3, 4)
+    assert torch.equal(t[..., NodeChannel.P_INJ], t[:, :, 1])
 
 
 def test_loader_columns_agree_with_the_definition(splits):
-    """The clean layer read through the views: voltages near 1 pu, the slack angle exactly zero."""
-    from fdia_graph.models.grid import NodeColumns
+    """The clean layer read through the channels: voltages near 1 pu, the slack angle exactly zero."""
+    from fdia_graph.constants.channels import NodeChannel
 
     ds = splits["test"]
-    cols = NodeColumns.of(ds.export(["clean"]).clean)
-    assert 0.8 < cols.v.mean() < 1.2
-    assert np.allclose(
-        cols.theta[:, ds.slack], 0.0, atol=1e-6
-    )  # the layer is float32; same tolerance as the loader
+    clean = ds.export(["clean"]).clean
+    assert 0.8 < clean[..., NodeChannel.V].mean() < 1.2
+    # the layer is float32; same tolerance as the loader
+    assert np.allclose(clean[..., NodeChannel.THETA][:, ds.slack], 0.0, atol=1e-6)

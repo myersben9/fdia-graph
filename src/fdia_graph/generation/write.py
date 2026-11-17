@@ -16,73 +16,18 @@ import h5py
 import numpy as np
 
 from .. import schema
-from ..formulas.temporal import SWING_WINDOW, recent_change_scale
-from ..models.choices import BENIGN_CODE, FAMILIES, FAMILY_CODE, SPLITS, STEALTHY_FAMILIES, family_label
+from ..constants.families import BENIGN_CODE, FAMILIES, FAMILY_CODE, STEALTHY_FAMILIES
+from ..formulas.temporal import recent_change_scale
+from ..models.choices import Split, family_label
 from ..models.frames import AttackVector, Frame, LayerSet, MinimizerResult
 from ..models.plan import Episode, Family, Placement
 from ..schema import Attr, Group
 
 _BATCH = 256  # frames staged in memory between two flushes to the file
-_CHUNK_ROWS = 128  # per-frame datasets are chunked along the frame axis for efficient partial reads
-# what a 1 in the tamper masks of an IEEE file means (the `tamper` attribute of attack/)
-TAMPER_RULE = (
-    "1 where the attacker wrote the meter: the meters the local false state moves for the "
-    "stealthy families, the changed channels for Ad/As/Ar"
-)
-# the legends of an IEEE file's graph/ group: what its datasets are and the order of their rows
-GRAPH_LEGEND = {
-    Attr.EDGE_FEAT_STATIC: "r,x,b,g,tap,shift,status,is_trafo (per unit, ppc order = lines then trafos)",
-    Attr.BUS_FEAT_STATIC: "shunt_g,shunt_b (MW/MVAr at 1.0 pu, ppc bus order)",
-    Attr.YBUS_RECONSTRUCTIBLE: "yes, see fdia_graph tests: Y = f(edge_r,x,b,g,tap,shift,status)+bus shunts",
-}
 CleanSlice = Callable[[int, int], tuple[np.ndarray, np.ndarray]]  # the noiseless truth of frames a..b-1
 # the target lines of an overload Am episode, each: branch, rating, goal, noiseless flow reached, emitted flow
 AmRows = Sequence[tuple[int, float, float, float, float]]
 Tamper = Optional[MinimizerResult]  # what the fewest-tamper search chose for an episode; None: it did not run
-
-_FLOW = -1  # in the layer tables: as many columns as a flow layer has (`LayerSet.edge_width`)
-# the per-frame layers: name -> (one row per bus "C" or per branch "E", columns (0: none), dtype)
-_LAYERS = {
-    schema.NODE_X: ("C", 4, np.float32),
-    schema.EDGE_X: ("E", _FLOW, np.float32),
-    schema.Y: ("C", 0, np.uint8),
-    schema.TEMPORAL_DELTA: ("C", 2, np.float32),
-    schema.SWING: ("C", 2, np.float32),
-    schema.NODE_BENIGN: ("C", 4, np.float32),
-    schema.EDGE_BENIGN: ("E", _FLOW, np.float32),
-    schema.NODE_CLEAN: ("C", 4, np.float32),
-    schema.EDGE_CLEAN: ("E", _FLOW, np.float32),
-    schema.NODE_TAMPER: ("C", 4, np.uint8),
-    schema.EDGE_TAMPER: ("E", _FLOW, np.uint8),
-}
-_TEMPORAL = (schema.TEMPORAL_DELTA, schema.SWING)  # filled after the walk; a `LayerSet` may leave them out
-# the PMU branch-current layers of a hybrid-meter timeline, created only when the meter
-# plan reads currents, so a v0.8.3-meter file has exactly its old datasets
-_CURRENT_LAYERS = {
-    schema.PMU_I: ("E", 4, np.float32),
-    schema.PMU_I_BENIGN: ("E", 4, np.float32),
-    schema.PMU_I_TAMPER: ("E", 4, np.uint8),
-}
-# the columns of the episode tables under episodes/, in the order of a row's values
-_EPISODE_COLUMNS = (
-    (schema.EPISODE_ONSET, np.int32),
-    (schema.EPISODE_LENGTH, np.int32),
-    (schema.EPISODE_FAMILY, np.int8),
-)
-_MIN_COLUMNS = (
-    (schema.EPISODE_MIN_EPISODE, np.int32),
-    (schema.EPISODE_MIN_DEVICES, np.int32),
-    (schema.EPISODE_MIN_CHANNELS, np.int32),
-    (schema.EPISODE_MIN_EVALUATED, np.int32),
-)
-_AM_COLUMNS = (
-    (schema.EPISODE_AM_EPISODE, np.int32),
-    (schema.EPISODE_AM_LINE, np.int32),
-    (schema.EPISODE_AM_RATING, np.float32),
-    (schema.EPISODE_AM_TARGET, np.float32),
-    (schema.EPISODE_AM_REACHED, np.float32),
-    (schema.EPISODE_AM_EMITTED, np.float32),
-)
 
 
 class TimelineWriter:
@@ -98,6 +43,53 @@ class TimelineWriter:
     `dims` are the file's frames, buses and branches, `clean` gives the noiseless truth of a run of
     frames and `spec` says which layers the file carries.
     """
+
+    # ---- the layout this writer creates: the datasets, their shapes and their types ------------------
+    CHUNK_ROWS = 128  # frames per chunk: a per-frame dataset is chunked along the frame axis
+    FLOW_WIDTH = -1  # in the layer tables: as many columns as a flow layer has (`LayerSet.edge_width`)
+    # the per-frame layers: path -> (one row per bus "C" or per branch "E", columns (0: none), dtype)
+    FRAME_LAYERS = {
+        schema.NODE_X: ("C", 4, np.float32),
+        schema.EDGE_X: ("E", FLOW_WIDTH, np.float32),
+        schema.Y: ("C", 0, np.uint8),
+        schema.TEMPORAL_DELTA: ("C", 2, np.float32),
+        schema.SWING: ("C", 2, np.float32),
+        schema.NODE_BENIGN: ("C", 4, np.float32),
+        schema.EDGE_BENIGN: ("E", FLOW_WIDTH, np.float32),
+        schema.NODE_CLEAN: ("C", 4, np.float32),
+        schema.EDGE_CLEAN: ("E", FLOW_WIDTH, np.float32),
+        schema.NODE_TAMPER: ("C", 4, np.uint8),
+        schema.EDGE_TAMPER: ("E", FLOW_WIDTH, np.uint8),
+    }
+    # the temporal features: filled after the walk; a `LayerSet` may leave them out
+    TEMPORAL_LAYERS = (schema.TEMPORAL_DELTA, schema.SWING)
+    # the PMU branch-current layers of a hybrid-meter timeline, created only when the meter plan reads
+    # currents, so a v0.8.3-meter file has exactly its old datasets
+    CURRENT_LAYERS = {
+        schema.PMU_I: ("E", 4, np.float32),
+        schema.PMU_I_BENIGN: ("E", 4, np.float32),
+        schema.PMU_I_TAMPER: ("E", 4, np.uint8),
+    }
+    # the columns of the episode tables under episodes/, in the order of a row's values: (name, dtype)
+    EPISODE_COLUMNS = (
+        (schema.EPISODE_ONSET, np.int32),
+        (schema.EPISODE_LENGTH, np.int32),
+        (schema.EPISODE_FAMILY, np.int8),
+    )
+    MIN_COLUMNS = (
+        (schema.EPISODE_MIN_EPISODE, np.int32),
+        (schema.EPISODE_MIN_DEVICES, np.int32),
+        (schema.EPISODE_MIN_CHANNELS, np.int32),
+        (schema.EPISODE_MIN_EVALUATED, np.int32),
+    )
+    AM_COLUMNS = (
+        (schema.EPISODE_AM_EPISODE, np.int32),
+        (schema.EPISODE_AM_LINE, np.int32),
+        (schema.EPISODE_AM_RATING, np.float32),
+        (schema.EPISODE_AM_TARGET, np.float32),
+        (schema.EPISODE_AM_REACHED, np.float32),
+        (schema.EPISODE_AM_EMITTED, np.float32),
+    )
 
     # ---- 1. stage frames: the file is opened, its layers created, the walk's frames stored ------------
 
@@ -142,17 +134,17 @@ class TimelineWriter:
         for group in (Group.DATA, Group.BENIGN, Group.CLEAN, Group.ATTACK):
             self.f.create_group(group)
         spec, rows = self.spec, {"C": self.dims[1], "E": self.dims[2]}
-        table = {name: layer for name, layer in _LAYERS.items() if spec.temporal or name not in _TEMPORAL}
-        table.update(_CURRENT_LAYERS if spec.currents else {})
+        table = {n: v for n, v in self.FRAME_LAYERS.items() if spec.temporal or n not in self.TEMPORAL_LAYERS}
+        table.update(self.CURRENT_LAYERS if spec.currents else {})
         for name, (axis, width, dtype) in table.items():
-            width = spec.edge_width if width == _FLOW else width
+            width = spec.edge_width if width == self.FLOW_WIDTH else width
             shape = (rows[axis], width) if width else (rows[axis],)
             self._sink[name] = self._create(name, shape, dtype)
             self._layers[name] = np.zeros((self._n, *shape), dtype)
 
     def _create(self, name: str, shape: tuple[int, ...], dtype: type) -> h5py.Dataset:
         """A per-frame dataset at full length, chunked along the frame axis and gzipped."""
-        full, chunks = (self.dims[0], *shape), (min(_CHUNK_ROWS, self.dims[0]), *shape)
+        full, chunks = (self.dims[0], *shape), (min(self.CHUNK_ROWS, self.dims[0]), *shape)
         return self.f.create_dataset(name, shape=full, dtype=dtype, chunks=chunks, compression="gzip")
 
     def header(self, base_mva: float, seed: int) -> dict[str, Union[int, float, str]]:
@@ -161,16 +153,16 @@ class TimelineWriter:
         Units are ENGINEERING quantities (node_x = [V pu, P_inj MW, Q_inj MVAr, theta deg], edge flows
         MW/MVAr, at the from end or at both ends); baseMVA lets the loader also serve a per-unit view."""
         T, N, E = self.dims
-        flows = [f"{q}_{end}" for end in (("from", "to") if self.spec.both_ends else ("from",)) for q in "PQ"]
+        flows = schema.FLOW_NAMES[: self.spec.edge_width]
         return {
             Attr.SYSTEM: N,
             Attr.N: N,
             Attr.E: E,
             Attr.N_RECORDS: T,
-            Attr.NODE_FEAT: "V,P_inj,Q_inj,theta",
+            Attr.NODE_FEAT: schema.NODE_FEAT_LEGEND,
             Attr.EDGE_FEAT: ",".join(flows),
-            Attr.NODE_UNITS: "V:pu,P_inj:MW,Q_inj:MVAr,theta:deg",
-            Attr.EDGE_UNITS: ",".join(f"{name}:{'MW' if name[0] == 'P' else 'MVAr'}" for name in flows),
+            Attr.NODE_UNITS: schema.NODE_UNITS_LEGEND,
+            Attr.EDGE_UNITS: ",".join(f"{name}:{unit}" for name, unit in zip(flows, schema.FLOW_UNITS)),
             Attr.BASEMVA: base_mva,
             Attr.SEED: seed,
         }
@@ -179,7 +171,7 @@ class TimelineWriter:
         self,
         edges: np.ndarray,
         values: Mapping[str, Optional[np.ndarray]],
-        legend: Mapping[str, str] = GRAPH_LEGEND,
+        legend: Mapping[str, str] = schema.GRAPH_LEGEND,
     ) -> None:
         """graph/: the static topology shared by all frames (`edges [2, E]`) with the per-unit branch
         physics and bus shunts that reconstruct Ybus exactly (verified against makeYbus to 7e-15, 3e-14
@@ -279,7 +271,7 @@ class TimelineWriter:
         record: dict[str, object],
         rec: Placement[Family],
         frac: Sequence[float],
-        tamper_rule: str = TAMPER_RULE,
+        tamper_rule: str = schema.IEEE_TAMPER_RULE,
     ) -> None:
         """After the walk: the last batch, the meter masks, the per-frame columns (the grid's own
         `columns` among them, by dataset path), the episodes (the `tamper` attribute of attack/ is
@@ -325,16 +317,16 @@ class TimelineWriter:
         Am its rating, goal and the flow reached."""
         eg = self.f.require_group(Group.EPISODES)  # a grid's own column may have made it
         ep, found = self.episodes, self.min_rows
-        self._write_table(_EPISODE_COLUMNS, [(e.onset, e.length, FAMILY_CODE[e.family]) for e in ep])
+        self._write_table(self.EPISODE_COLUMNS, [(e.onset, e.length, FAMILY_CODE[e.family]) for e in ep])
         self._write_ragged(eg, (schema.EPISODE_BUS_PTR, schema.EPISODE_BUS_IDX), [e.buses for e in ep])
         self._write_ragged(self.f, (schema.MAG_PTR, schema.MAG_BUS), self.mag_bus)
         self.f.create_dataset(schema.MAG, data=np.concatenate(self.mag))  # float32, one list per frame
         if found:  # the fewest-tamper knob: what the search chose per episode
-            self._write_table(_MIN_COLUMNS, [(s, r.devices, r.channels, r.evaluated) for s, r in found])
+            self._write_table(self.MIN_COLUMNS, [(s, r.devices, r.channels, r.evaluated) for s, r in found])
             names = (schema.EPISODE_MIN_SUPPORT_PTR, schema.EPISODE_MIN_SUPPORT_IDX)
             self._write_ragged(eg, names, [r.support for _, r in found])
         if self.am_rows:  # the overload attack: one row per target line of each Am episode
-            self._write_table(_AM_COLUMNS, self.am_rows)
+            self._write_table(self.AM_COLUMNS, self.am_rows)
         self.f[Group.ATTACK].attrs[Attr.TAMPER] = tamper_rule
 
     def _write_table(self, columns: Sequence[tuple[str, type]], rows: Sequence[Iterable[float]]) -> None:
@@ -370,8 +362,8 @@ class TimelineWriter:
         and family (columns, `placed_families`): requested, built, moved for want of a feasible
         design, dropped because they did not fit, and short of the request."""
         T = self.dims[0]
-        sizes = np.bincount(split, minlength=len(SPLITS)).astype(int)
-        attacked = np.bincount(split[self.seq_id >= 0], minlength=len(SPLITS)).astype(float)
+        sizes = np.bincount(split, minlength=len(Split)).astype(int)
+        attacked = np.bincount(split[self.seq_id >= 0], minlength=len(Split)).astype(float)
         in_episodes = sum(e.length for e in self.episodes)
         out = {
             **header,
@@ -407,11 +399,11 @@ class TimelineWriter:
     def write_temporal_layers(f: h5py.File, block: int = 2000) -> None:
         """`temporal_delta` and `swing` of every frame, from the observed injections alone: each frame
         against the previous emitted frame, the swing scale from the observed changes of the frames
-        before it (formulas.temporal.recent_change_scale over SWING_WINDOW frames). Nothing but the
+        before it (formulas.temporal.recent_change_scale over `schema.SWING_WINDOW_SCANS` frames). Nothing but the
         measurements enters, so a detector reading these features at test time sees only what an
         operator sees. Called by `finish` and by trust.secured_copy after it pins meters (on its own
         file). Runs in blocks of frames with bounded memory: each block's scale comes from the kernel
-        over the block and the SWING_WINDOW + 1 frames before it, which covers every window the
+        over the block and the window + 1 frames before it, which covers every window the
         block's frames use."""
         nx = f[schema.NODE_X]
         T = nx.shape[0]
@@ -433,8 +425,9 @@ class TimelineWriter:
     @staticmethod
     def _block_scale(nx: h5py.Dataset, a: int, b: int) -> np.ndarray:
         """The swing scale of frames a..b-1 [b - a, N, 2]: the kernel run over the frames from
-        SWING_WINDOW + 1 before a to b-1, so every frame's window lies inside the slice."""
-        g0 = max(0, a - SWING_WINDOW - 1)
+        window + 1 before a to b-1, so every frame's window lies inside the slice."""
+        window = schema.SWING_WINDOW_SCANS
+        g0 = max(0, a - window - 1)
         pq = np.zeros((b - g0, nx.shape[1], 4), np.float64)  # the kernel reads columns 1:3
         pq[:, :, 1:3] = nx[g0:b, :, 1:3]
-        return recent_change_scale(pq, SWING_WINDOW, nx.shape[1])[a - g0 :]
+        return recent_change_scale(pq, window, nx.shape[1])[a - g0 :]

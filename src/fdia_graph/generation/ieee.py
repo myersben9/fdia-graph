@@ -16,7 +16,7 @@ from typing import Optional, Union
 import numpy as np
 
 from .. import schema
-from ..engine.attacks.stealthy import AM_FAMILY
+from ..constants.families import AM_CODE
 from ..engine.core import FdiaGenerator
 from ..errors import ConfigError
 from ..models.config import TimelineSettings
@@ -52,7 +52,7 @@ class IeeeSource(TimelineSource[int, AmOverloadDesign]):
         self.system, self.seed, self.settings = system, seed, s
         # one column per family: a family named twice adds nothing
         fams = tuple(dict.fromkeys(GeneratedFamilies(s.families).codes))
-        self.am_runs = AM_FAMILY in fams
+        self.am_runs = AM_CODE in fams
         # the walk's generator on the meter plan of the settings; `_check_targets` sets the Am ratings
         self.g = FdiaGenerator.from_spec(GeneratorSpec(system, seed, s.max_load_mw, s.meters, None))
         self.X = _load_states(system, states)
@@ -75,7 +75,7 @@ class IeeeSource(TimelineSource[int, AmOverloadDesign]):
             return  # a timeline placing no attacked frame needs no target
         # the overload Am is not checked here: its targets are the rated, metered lines of each
         # window, decided per episode (a window with none stays benign)
-        AdmissibleTargets(tuple(f for f in fams if f != AM_FAMILY), self.g.target_counts())
+        AdmissibleTargets(tuple(f for f in fams if f != AM_CODE), self.g.target_counts())
         if self.am_runs:
             self.g.use_line_ratings(self.settings.overload, self.X)
 
@@ -127,8 +127,8 @@ class IeeeSource(TimelineSource[int, AmOverloadDesign]):
             out[Attr.STEALTH_SCALE] = s.ramp.stealth_scale
         if self.g.current_mask() is not None:  # a hybrid-meter file, which reads PMU currents
             out[Attr.METER_MODEL] = s.meters.meter_model
-            out[Attr.CURRENT_FEAT] = "Re_I_from,Im_I_from,Re_I_to,Im_I_to"
-            out[Attr.CURRENT_UNITS] = "pu on the base current"
+            out[Attr.CURRENT_FEAT] = schema.CURRENT_FEAT_LEGEND[schema.CURRENT_RECTANGULAR]
+            out[Attr.CURRENT_UNITS] = schema.CURRENT_UNITS_LEGEND[schema.CURRENT_RECTANGULAR]
         return out
 
     def _topology(self) -> dict[str, object]:

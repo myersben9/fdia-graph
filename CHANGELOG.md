@@ -5,6 +5,98 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- **Constants have one home: the `fdia_graph.constants` package (breaking for the names below; no
+  behaviour and no stored byte changed: the five whole-file digests are unchanged, and an IEEE timeline
+  is byte for byte the file the previous code writes).** `fg.load`, `fg.generate`, `fg.FAMILIES` and
+  `fg.STEALTHY_FAMILIES` are used as before.
+  - **`.node()` / `.edge()` are removed** from a record, a batch and a split; write
+    `rec.node_x[..., NodeChannel.THETA]` (`from fdia_graph.constants.channels import NodeChannel`).
+  - **`fdia_graph.constants`**, one module per subject, each constant with its unit and source:
+    `channels`, `families`, `meters`, `grid`, `time`, `streams`, `numerics`, `records`, `files`,
+    `releases` and `newyork`. The modules import nothing from the rest of the toolkit. The
+    module-level constants of 37 modules moved there or to `schema.py`; a name is imported from its
+    module of `constants`, no longer from the module that held it.
+  - **Columns are enums.** `constants.channels.NodeChannel` (`V`, `P_INJ`, `Q_INJ`, `THETA`),
+    `EdgeChannel` (`P_FROM`, `Q_FROM`, and `P_TO`, `Q_TO` in a file with both branch ends),
+    `CurrentChannel` (`RE_FROM`, `IM_FROM`, `RE_TO`, `IM_TO`) and `PolarCurrentChannel` (a New York
+    file's magnitude and angle) index the last axis of an array: `node_x[..., NodeChannel.P_INJ]`.
+    They replace `models.grid.NODE`, `EDGE`, `CURRENT`, `NodeColumns`, `EdgeColumns`, `NodeIndex`,
+    `EdgeIndex` and `CurrentIndex`.
+  - **Codes are enums.** `constants.meters.MeterKind` replaces the meter-kind numbers `V`, `VA`, `P`,
+    `Q`, `PF`, `QF`, `I`, `IA` and the tuple `KINDS` of `engine.sensing.meters`, `KV`, `KPF`, `KQF` of
+    `engine.attacks.interface` and `P_KIND`, `Q_KIND` of `engine.attacks.opf`; `constants.grid.BusType`
+    replaces `PQ`, `PV`, `REF` of `generation.nygrid.case`; `constants.newyork.SolveKind` replaces
+    `SOLVED`, `FAILED`, `NO_HOUR`, `NO_LOAD` of `generation.nygrid.pool`.
+  - **`schema.py`** also holds the legends a file carries (`NODE_FEAT_LEGEND`, `FLOW_NAMES`,
+    `CURRENT_FEAT_LEGEND`, `IEEE_TAMPER_RULE`, `GRAPH_LEGEND` and the New York ones) and the window of
+    the swing feature. The shapes and types of the datasets are tables of the one class that creates
+    them: `TimelineWriter.FRAME_LAYERS`, `CURRENT_LAYERS`, `TEMPORAL_LAYERS`, `EPISODE_COLUMNS`,
+    `MIN_COLUMNS`, `AM_COLUMNS`, `CHUNK_ROWS` and `FLOW_WIDTH` (before: `_LAYERS`, `_CURRENT_LAYERS`,
+    `_TEMPORAL`, `_EPISODE_COLUMNS`, `_MIN_COLUMNS`, `_AM_COLUMNS`, `_CHUNK_ROWS` and `_FLOW` of
+    `generation.write`).
+  - **`REGIONS`** (the neighbors of New York) is plain data, `(zone code, name, area)` per neighbor; the
+    `Region` record of `generation.nygrid.case` is removed.
+  - **`tools/layout.py`** refuses a module-level UPPER_CASE name of `fdia_graph` outside `constants/`
+    and `schema.py` (one assigned under an `if` or a `try` as well) unless its `EXEMPT` table lists it
+    with the reason (the knobs that have no settings model yet, among them), and refuses a new one in
+    `fdia_analysis` (`EXEMPT_ANALYSIS` lists the ones it has). **`tools/count_lines.py`** prints each
+    toolkit's lines, code lines, and the code inside and outside the homes of constants.
+  - **Every renamed name.** A name not listed kept its name and moved to the module of `constants`
+    for its subject (`FAMILIES`, `FAMILY_CODE`, `BENIGN_CODE`, `STEALTHY_FAMILIES` and
+    `GENERATED_FAMILIES` of `models.choices` are in `constants.families`; `ACCURACY_CLASS`,
+    `JITTER_FRAC`, `WU26_NOISE` and the noise floors of `formulas.noise` in `constants.meters`).
+
+    | Before | Now |
+    |---|---|
+    | `engine.attacks.stealthy.RAMP_FAMILY`, `AM_FAMILY` | `constants.families.AT_CODE`, `AM_CODE` |
+    | `models.choices.HELDOUT_FAMILIES`, `dataset.base._HELDOUT_TRAIN_EXCLUDE` | `constants.families.HELDOUT_CODES` (the codes; the tuple of names is removed) |
+    | `models.choices.SPLITS` | removed: `Split.values()`, `len(Split)` |
+    | `models.inputs.FAMILY_WORDS` | private to `models.inputs` (`_FAMILY_WORDS`) |
+    | `formulas.trust.TOL` | `constants.numerics.ZERO_TOL` |
+    | `engine.attacks.rref.ZERO` | `constants.numerics.RELATIVE_ZERO` |
+    | `engine.attacks.rref.V_STEP`, `THETA_STEP` | `constants.numerics.JACOBIAN_V_STEP`, `JACOBIAN_THETA_STEP` |
+    | `formulas.network._BACKTRACK_HALVINGS` | `constants.numerics.BACKTRACK_HALVINGS` |
+    | `engine.attacks.opf.MIN_BUDGET` | `engine.attacks.opf.SUPPORT_BUDGET` (not the `min_budget` of `SearchSettings`) |
+    | `generation.plan.WEEK` | `constants.time.WEEK_SECONDS` |
+    | `generation.nygrid.load_sources.HOURS`, `QUARTERS` | `constants.time.HOURS_PER_YEAR`, `QUARTERS_PER_YEAR` |
+    | `generation.nygrid.loads.FRAME_MIN` | `constants.time.FRAME_MINUTES` |
+    | `generation.nygrid.pool._HALF_HOUR` | `constants.time.HALF_HOUR` |
+    | `profiles.JITTER_RHO` | `constants.time.LOAD_JITTER_RHO` |
+    | `formulas.temporal.SWING_WINDOW` | `schema.SWING_WINDOW_SCANS` |
+    | `generation.write.TAMPER_RULE` | `schema.IEEE_TAMPER_RULE` |
+    | `generation.nygrid.source.TAMPER_RULE`, `NY_GRAPH_LEGEND` | `schema.NEW_YORK_TAMPER_RULE`, `NEW_YORK_GRAPH_LEGEND` |
+    | `engine.measurement._NODE_DRAW_ORDER` | `constants.channels.NODE_DRAW_ORDER` |
+    | `engine.sensing.meters.ACCURACY` | `constants.meters.KIND_ACCURACY` |
+    | `engine.sensing.meters._LAYER` | `constants.meters.METER_SLOT` |
+    | `dataset.clients._BUS_KINDS`, `_ANGLE_KINDS` | `constants.meters.BUS_KINDS`, `ANGLE_KINDS` (members of `MeterKind`) |
+    | `engine.core._CASE` | `constants.grid.IEEE_CASES` |
+    | `generation.nygrid.solver._NO_LIMIT` | `constants.grid.NO_LIMIT` |
+    | `dataset.base._BATCH_SCALARS`, `models.data._IDS` | `constants.records.ID_FIELDS` |
+    | `models.data._SCAN`, `_TEMPORAL`, `_CLEAN`, `_BENIGN`, `_PMU_I` | `constants.records.SCAN_FIELDS`, `TEMPORAL_FIELDS`, `CLEAN_FIELDS`, `BENIGN_FIELDS`, `CURRENT_FIELDS` |
+    | `dataset.base._CLEAN_LAYERS` | `constants.records.CLEAN_FIELDS` |
+    | `dataset.base._BENIGN_LAYERS`, `_CURRENT_LAYERS` | `schema.BENIGN_PATH`, `CURRENT_PATH` |
+    | `dataset.base._PREV_FIELDS` | `constants.records.PREV_SOURCE_FIELD` |
+    | `models.data._PREV` | `constants.records.COMMON_PREV_FIELDS` |
+    | `dataset.base._UNIT_KIND` | `constants.records.UNIT_KIND` |
+    | `dataset.export._INT_KEYS`, `_FLOW_COLUMNS` | `constants.records.INT_FIELDS`, `FLOW_COLUMNS` |
+    | `registry._SHA256`, `_ALIASES`, `_REPO`, `_DATA_TAG_PREFIX` | `constants.releases.SHA256`, `ALIASES`, `REPO`, `DATA_TAG_PREFIX` (the pinned release is `PINNED_RELEASE`) |
+    | `generation.nygrid.io._POOL_ARRAYS` | `constants.newyork.POOL_ARRAYS` |
+    | `generation.nygrid.fixes._HVDC` | `constants.newyork.HVDC_LINKS` (a tuple) |
+    | `generation.nygrid.case.NEEDED`, `PASSED_OVER` | `constants.newyork.CASE_FIELDS_NEEDED`, `CASE_FIELDS_PASSED_OVER` |
+    | `generation.nygrid.inputs.INTERFACES` | `constants.newyork.INTERFACE_NAMES` |
+    | `generation.nygrid.interfaces.NYISO_INTERFACES` | `constants.newyork.INTERFACE_BRANCHES` |
+    | `generation.nygrid.inputs.NYGRID_ZIP`, `TERRITORIES` | `constants.newyork.NYGRID_ZIP_URL`, `TERRITORIES_URL` |
+    | `generation.nygrid.inputs.GEOJSON`, `LOCATIONS` | `constants.newyork.TERRITORIES_FILE`, `BUS_LOCATIONS_FILE` |
+    | `generation.nygrid.inputs._ZONE_NAME`, `_FUEL_PRICE`, `_NUCLEAR_COLS` | `constants.newyork.ZONE_NAME`, `FUEL_PRICE`, `NUCLEAR_COLS` |
+    | `generation.nygrid.load_sources._EIA`, `_IAC`, `_OEDI`, `_GAZETTEER` | `constants.newyork.EIA_861_URL`, `IAC_URL`, `OEDI_URL`, `GAZETTEER_URL` |
+    | `generation.nygrid.load_sources._STOCK` | `constants.newyork.STOCK_KEY_PREFIX` (a key prefix in the OEDI bucket, not a whole address) |
+    | `generation.nygrid.dispatch._AREA_PRICE` | `constants.newyork.AREA_PRICE` |
+    | `generation.nygrid.dispatch._NIAGARA`, `_ST_LAWRENCE` | `constants.newyork.NIAGARA_BUS`, `ST_LAWRENCE_BUS` |
+    | `generation.nygrid.dispatch._NIAGARA_CAP`, `_ST_LAWRENCE_CAP` | `constants.newyork.NIAGARA_CAP_MW`, `ST_LAWRENCE_CAP_MW` |
+    | `generation.nygrid.dispatch._NUCLEAR_COST`, `_HYDRO_COST` | `constants.newyork.NUCLEAR_COST_USD_PER_MWH`, `HYDRO_COST_USD_PER_MWH` |
+    | `generation.nygrid.source.ATTACKED_FRAC` | removed: the default of `NewYorkSettings.attacked_frac` |
+    | `engine.attacks.minimize._BLAS`, `_BLAS_LOCK`, `_BLAS_HELD`, `_BLAS_USERS`, `generation.design._STATE` | lower case, being state and not constants: `_blas_pools`, `_blas_lock`, `_blas_held`, `_blas_users`, `_worker_state` |
+
 - **One writer owns a timeline file, one record is an episode, and the layers of indirection around
   them are removed (breaking for the internal names below; no behaviour and no stored byte changed: the
   five whole-file digests are unchanged, and an IEEE timeline is byte for byte the file the previous

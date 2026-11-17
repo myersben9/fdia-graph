@@ -26,9 +26,11 @@ from urllib.request import Request, urlopen
 
 import numpy as np
 
-from .engine.core import _CASE  # bus-count -> pandapower builder; single source of supported systems
+from .constants.files import EXPORT_COLUMNS
+from .constants.grid import IEEE_CASES  # bus-count -> pandapower builder; single source of supported systems
+from .constants.time import LOAD_JITTER_RHO
 from .models.choices import Iso
-from .models.config import EXPORT_COLUMNS, IsoExport, ProfileFetch
+from .models.config import IsoExport, ProfileFetch
 from .models.inputs import CsvSpec, DateSpan, LoadValues, ProfileSource, SupportedSystem
 
 
@@ -51,9 +53,6 @@ if TYPE_CHECKING:
 K_DEFAULT = 0.1
 SIGMA_DEFAULT = 0.03
 CLIP_DEFAULT = (0.7, 1.3)
-# AR(1) coefficient for load jitter: ~0.98 evolves smoothly minute-to-minute (~0.5%/min change vs ~4% white
-# noise) at the same stationary bus-to-bus spread.
-JITTER_RHO = 0.98
 
 
 def _standardize(loads: np.ndarray) -> np.ndarray:
@@ -94,7 +93,7 @@ class CsvColumn:
 
 class IsoFolder:
     """Every CSV of one operator's load export in a directory, concatenated in time order. The operator
-    fixes the column names (`models.config.EXPORT_COLUMNS`); `IsoExport` refuses an operator without
+    fixes the column names (`constants.files.EXPORT_COLUMNS`); `IsoExport` refuses an operator without
     a known export format when the folder is described, not when it is read."""
 
     def __init__(self, iso: str, directory: str = ".") -> None:
@@ -129,7 +128,7 @@ def _case_buses(key: int) -> np.ndarray:
     """Return (all_buses ordering) for a case — must match between the central jitter build and the worker."""
     import pandapower.networks as pn
 
-    base = getattr(pn, _CASE[key])()
+    base = getattr(pn, IEEE_CASES[key])()
     return np.unique(np.concatenate([base.load["bus"].to_numpy(), base.gen["bus"].to_numpy()]))
 
 
@@ -140,7 +139,7 @@ def _solve_states_chunk(key: int, sf_chunk: np.ndarray) -> list[np.ndarray]:
     import pandapower as pp
     import pandapower.networks as pn
 
-    base = getattr(pn, _CASE[key])()
+    base = getattr(pn, IEEE_CASES[key])()
     pp.runpp(base)  # seed a valid base state
     nodelist = sorted(base.bus.index)  # consistent bus order for the [N,4] rows
     base_load_p = base.load["p_mw"].to_numpy().copy()
@@ -212,7 +211,7 @@ def generate_states(
     """Turn a load-scaling profile into a pool of AC operating states [T, N, 4].
 
     For each timestep t: draw a per-bus scale factor clip(1 + k*S_t + j_t, *clip), with j_t an AR(1) jitter
-    of stationary std sigma and coefficient JITTER_RHO, apply it to the
+    of stationary std sigma and coefficient LOAD_JITTER_RHO, apply it to the
     case's base loads and generator setpoints, solve the AC power flow, and record the clean operating state.
     The recorded injection subtracts res_shunt (SE/BDD excludes the shunt), which is why benign states pass
     BDD. Non-converging timesteps are skipped.
@@ -225,13 +224,13 @@ def generate_states(
     `emit_from_state` consume, in the same column order as node_x and clean. (Before 0.12 the pool was
     [P, Q, V, theta]; generate() still accepts such pools and converts them, see generation.as_v_first.)
     """
-    key = SupportedSystem(system, frozenset(_CASE)).number
+    key = SupportedSystem(system, frozenset(IEEE_CASES)).number
     S = np.asarray(profile, dtype=float).ravel()
     if n is not None:
         S = S[:n]
     # Build the full scale-factor matrix centrally so AR(1) jitter has no discontinuity at chunk boundaries.
     nbus = len(_case_buses(key))
-    SF = _ar1_scale(S, nbus, k, sigma, clip, JITTER_RHO, seed)  # [T, nbus]
+    SF = _ar1_scale(S, nbus, k, sigma, clip, LOAD_JITTER_RHO, seed)  # [T, nbus]
     if workers and workers > 1 and len(S) >= workers:
         import multiprocessing as mp
 

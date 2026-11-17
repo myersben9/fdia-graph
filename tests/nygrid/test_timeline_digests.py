@@ -13,7 +13,7 @@ import h5py
 import pytest
 
 from fdia_graph import schema
-from fdia_graph.models.choices import FAMILY_CODE
+from fdia_graph.constants.families import FAMILY_CODE
 
 from ..digests import check_file
 from .inputs import DAYS_POOL, ROOT, needs_data, needs_territories
@@ -43,11 +43,11 @@ def test_the_days_timeline_is_the_stored_one(source, tmp_path):
 
 @pytest.mark.parametrize("lag", (0, 1))
 def test_a_single_episode_is_the_stored_one(source, tmp_path, lag):
-    from fdia_graph.generation.nygrid.pool import SOLVED
+    from fdia_graph.constants.newyork import SolveKind
     from fdia_graph.generation.nygrid.source import SingleEpisodeSource
 
     pool = source.pool
-    solved = pool.solve_kind == SOLVED
+    solved = pool.solve_kind == SolveKind.SOLVED
     # the first onset whose window, and the frame its lagged twin starts from, are all solved
     onset = next(t for t in range(40, len(solved) - 40) if solved[t - 1 : t + 20].all())
     out = tmp_path / f"episode_lag{lag}.h5"

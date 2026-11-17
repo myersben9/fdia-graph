@@ -37,8 +37,8 @@ from fdia_analysis.models.scores import (
     PerBusMetrics,
     PerBusScores,
 )
+from fdia_graph.constants.families import BENIGN_CODE
 from fdia_graph.errors import ConfigError, NoBenignRecords
-from fdia_graph.models.choices import BENIGN_CODE
 
 if TYPE_CHECKING:
     from fdia_graph.dataset import FdiaGraph
@@ -126,7 +126,7 @@ class LocalizerBase:
         record, benign included; its macro_f1 (per-bus F1 averaged over the active buses) is the
         papers' headline number, and reads 0.0 when the dataset holds no attacked bus at all.
         """
-        from fdia_graph.models.choices import FAMILIES
+        from fdia_graph.constants.families import FAMILIES
 
         d = self._pull(ds, extra=["family", "y"]) if scores is None else ds.export(["family", "y"])
         s = self._score(d, ds) if scores is None else scores
@@ -158,7 +158,7 @@ class LocalizerBase:
                   records included) or "benign" (benign records only); with buses="active" and
                   fr_over="benign" the `all` block's means equal `score()["all"]`'s macro F1, DR and FR
         """
-        from fdia_graph.models.choices import FAMILIES
+        from fdia_graph.constants.families import FAMILIES
 
         fr_over = PerBusReport(buses, fr_over).fr_over
         d = self._pull(ds, extra=["family", "y"]) if scores is None else ds.export(["family", "y"])

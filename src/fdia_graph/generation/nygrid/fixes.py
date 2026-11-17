@@ -8,6 +8,7 @@ from dataclasses import replace
 
 import numpy as np
 
+from fdia_graph.constants.newyork import HVDC_LINKS
 from fdia_graph.generation.nygrid.case import Case
 
 
@@ -29,15 +30,11 @@ def externals_at_base(case: Case, base: Case) -> Case:
     return replace(case, pd=pd, qd=qd, unit_p=unit_p)
 
 
-# updateOpCond.m L407-412: the four HVDC links of the reduced case, as from bus, to bus and limit (MW).
-_HVDC = [(21, 80, 530.0), (124, 79, 660.0), (125, 81, 660.0), (125, 81, 660.0)]
-
-
 def hvdc_links(case: Case) -> Case:
     """Add NYgrid's HVDC links (Cross Sound and 1385, Neptune, HTP, VFT) as DC lines, removing the AC
     branch 81-125 they replace (updateOpCond.m L413)."""
     pos = _pos(case)
-    lim = np.array([m for *_, m in _HVDC])
+    lim = np.array([m for *_, m in HVDC_LINKS])
     ends = {(pos[81], pos[125]), (pos[125], pos[81])}
     keep = np.array([(f, t) not in ends for f, t in zip(case.f.tolist(), case.t.tolist())])
     return replace(
@@ -50,8 +47,8 @@ def hvdc_links(case: Case) -> Case:
         tap=case.tap[keep],
         shift=case.shift[keep],
         rating=case.rating[keep],
-        dc_f=np.array([pos[a] for a, *_ in _HVDC]),
-        dc_t=np.array([pos[b] for _, b, _ in _HVDC]),
+        dc_f=np.array([pos[a] for a, *_ in HVDC_LINKS]),
+        dc_t=np.array([pos[b] for _, b, _ in HVDC_LINKS]),
         dc_pmin=-lim,
         dc_pmax=lim,
     )

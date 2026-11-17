@@ -7,17 +7,17 @@ import numpy as np
 import pytest
 from scipy.stats import chi2
 
+from fdia_graph.constants.meters import MeterKind
+from fdia_graph.constants.newyork import SolveKind
 from fdia_graph.engine.attacks.attacker import ABSORB_CAP, Attacker, natural_steps, wrap_angles
 from fdia_graph.engine.attacks.ramp import Ramp
 from fdia_graph.engine.sensing.measure import Measurement
-from fdia_graph.engine.sensing.meters import IA, VA, P
 from fdia_graph.engine.sensing.noise import NoiseModel
 from fdia_graph.generation.nygrid.case import nygrid_case
 from fdia_graph.generation.nygrid.config import Settings, rng
 from fdia_graph.generation.nygrid.io import read_pool
 from fdia_graph.generation.nygrid.network import Network
 from fdia_graph.generation.nygrid.ownership import assign_clients
-from fdia_graph.generation.nygrid.pool import SOLVED
 
 from .inputs import POOL_V1, TERRITORIES, needs_data, needs_pool_v1
 
@@ -43,7 +43,7 @@ def setup(pool):
     plan = plan_meters(net, own)
     meas = Measurement(net, plan)
     att = Attacker(net, meas)
-    sol = np.flatnonzero(pool.solve_kind == SOLVED)
+    sol = np.flatnonzero(pool.solve_kind == SolveKind.SOLVED)
     w = max(np.split(sol, np.flatnonzero(np.diff(sol) != 1) + 1), key=len)[:LENGTH]
     vm, va = pool.vm[w].copy(), pool.va[w].copy()
     n = len(vm[0])
@@ -65,7 +65,7 @@ def _wls_j(meas, noise, free_cols, n, z, vm0, va0, iters=40):
     inconsistent one leaves it far larger. Gauss-Newton from the true state, the slack angle fixed."""
     vmx, va_x = vm0.copy(), va0.copy()
     w_inv = 1.0 / noise.sigmas(z) ** 2
-    angle = np.isin(meas.plan.kind, (VA, IA))
+    angle = np.isin(meas.plan.kind, (MeterKind.VA, MeterKind.IA))
 
     def resid(vmx, va_x):  # angle readings wrap at +-180 degrees, so their residuals are wrapped too
         r = z - meas.h(vmx, va_x)
@@ -156,7 +156,7 @@ def test_ramp_is_global_stealthy_and_within_natural(setup):
     load = np.stack([att.bus_load(vm[k], va[k]) for k in range(LENGTH)])
     natural = np.abs(np.diff(load, axis=0)).max(axis=0)
     for bus in ep.buses:
-        row = np.flatnonzero((plan.kind == P) & (plan.bus == bus))[0]
+        row = np.flatnonzero((plan.kind == MeterKind.P) & (plan.bus == bus))[0]
         assert (np.abs(np.diff(ep.a[:, row])) <= natural[bus] + 1e-6).all()
     # the ramp clears the noise floor on at least one channel at its peak
     peak = int(np.argmax(np.abs(ep.a).sum(axis=1)))
@@ -171,7 +171,7 @@ def test_ramp_is_global_stealthy_and_within_natural(setup):
 
 def test_natural_steps_by_hour(setup, pool):
     att = setup[0]
-    solved = pool.solve_kind == SOLVED
+    solved = pool.solve_kind == SolveKind.SOLVED
     steps = natural_steps(pool.time, pool.p, solved)
     assert steps.shape == (24, pool.p.shape[1]) and (steps >= 0).all()
     # one bus and hour against the percentile taken by hand
@@ -183,7 +183,7 @@ def test_natural_steps_by_hour(setup, pool):
 
 def test_angle_changes_wrap(setup):
     att, own, plan, meas, noise, (_, vm, va), *_ = setup
-    angle = np.flatnonzero(np.isin(plan.kind, (VA, IA)))
+    angle = np.flatnonzero(np.isin(plan.kind, (MeterKind.VA, MeterKind.IA)))
     d = np.zeros(len(plan.kind))
     d[angle] = 359.99  # a reading that crossed +-180 by 0.01 degree
     w = wrap_angles(d, plan.kind)

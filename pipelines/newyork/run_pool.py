@@ -33,7 +33,8 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from fdia_graph.engine.attacks.attacker import HYDRO_RAMP_PER_MIN, IMPORT_RAMP_MW_PER_MIN
+from fdia_graph.constants.newyork import HYDRO_RAMP_PER_MIN, IMPORT_RAMP_MW_PER_MIN, SolveKind
+from fdia_graph.constants.time import FRAME_MINUTES
 from fdia_graph.generation.nygrid.case import nygrid_case
 from fdia_graph.generation.nygrid.config import Settings, rng
 from fdia_graph.generation.nygrid.dispatch import hourly_dispatch
@@ -41,13 +42,12 @@ from fdia_graph.generation.nygrid.inputs import fetch_nyiso, read_nygrid
 from fdia_graph.generation.nygrid.io import read_pool, write_pool
 from fdia_graph.generation.nygrid.loads import LoadModel, LoadSeries
 from fdia_graph.generation.nygrid.ownership import assign_clients
-from fdia_graph.generation.nygrid.pool import SOLVED, Pool, PoolBuilder
+from fdia_graph.generation.nygrid.pool import Pool, PoolBuilder
 from fdia_graph.generation.nygrid.solver import AcSolver
 
 ROOT = Path.cwd()
 DATA = ROOT / "data" / "NYgrid" / "Data"
 TERR = ROOT / "data" / "territories"
-FRAME_MIN = 5.0
 SEAM_TOL_MW = 0.5  # a seam is merged once every thermal unit is within this of the stored dispatch
 HELD = ("Nuclear", "Hydro", "Import")  # follow NYgrid's hourly output (N39)
 EXTRAS = ("slack_mw", "cost", "ramp_bound", "q_fallback", "anchor_dev")
@@ -69,7 +69,7 @@ def unit_ramps(case) -> np.ndarray:
     r = np.asarray(case.ramp, float).copy()
     r = np.where((case.fuel == "Hydro") & np.isnan(r), HYDRO_RAMP_PER_MIN * case.pmax, r)
     r = np.where((case.fuel == "Import") & np.isnan(r), IMPORT_RAMP_MW_PER_MIN, r)
-    r = np.where(case.fuel == "Nuclear", 0.0, r) * FRAME_MIN
+    r = np.where(case.fuel == "Nuclear", 0.0, r) * FRAME_MINUTES
     return np.where(np.isnan(r), np.inf, r)
 
 
@@ -181,7 +181,7 @@ def main():
             )
             if k == 0:
                 pool = results[k][0]
-                for f in np.flatnonzero(pool.solve_kind == SOLVED)[:3]:
+                for f in np.flatnonzero(pool.solve_kind == SolveKind.SOLVED)[:3]:
                     log(
                         f"  frame {pool.time[f]}: V {pool.vm[f].min():.4f}-{pool.vm[f].max():.4f}, cost {extra['cost'][f]:.0f} $/h, "
                         f"ramp-held {extra['ramp_bound'][f]:.3f}, reference bus residual {extra['slack_mw'][f]:.2e} MW"
@@ -299,7 +299,7 @@ def main():
     assert np.allclose(back.unit_p, full.unit_p, equal_nan=True)
     assert (back.time == full.time.astype("datetime64[s]")).all()
 
-    ok = full.solve_kind == SOLVED
+    ok = full.solve_kind == SolveKind.SOLVED
     slack = np.abs(np.concatenate([e["slack_mw"] for e in extras]))[ok]
     cost = np.concatenate([e["cost"] for e in extras])
     held_share = np.concatenate([e["ramp_bound"] for e in extras])[ok]

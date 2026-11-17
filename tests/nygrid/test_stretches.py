@@ -118,9 +118,9 @@ def test_a_failed_run_leaves_no_file_and_keeps_the_one_that_was_there(grid, tmp_
 
 @pytest.mark.parametrize("lag", [0, 3])
 def test_a_single_episode_is_its_lagged_windows_design_on_the_true_scans(grid, tmp_path, lag):
+    from fdia_graph.constants.families import FAMILY_CODE
     from fdia_graph.generation.nygrid.config import Settings, rng
     from fdia_graph.generation.nygrid.source import SingleEpisodeSource
-    from fdia_graph.models.choices import FAMILY_CODE
 
     pool, _, families, _ = grid
     onset, lo, hi, L = 500 + lag, 480, 540, LENGTHS["At"]

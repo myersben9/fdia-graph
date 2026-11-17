@@ -5,8 +5,9 @@ import dataclasses
 
 import pytest
 
+from fdia_graph.constants.newyork import FILE_AREA, NY_AREA, REGIONS, ZONES
 from fdia_graph.errors import DataConditionError
-from fdia_graph.generation.nygrid.case import FILE_AREA, NY_AREA, REGIONS, ZONES, Case
+from fdia_graph.generation.nygrid.case import Case
 
 TINY = """function mpc = tiny
 % a three-bus case
@@ -91,18 +92,13 @@ def test_the_zone_column_is_the_load_zone(tmp_path):
 
 def test_each_zone_code_is_a_region_with_its_area(tmp_path):
     assert FILE_AREA == 1 and NY_AREA == 2
-    assert [(r.code, r.name, r.area) for r in REGIONS] == [
-        (12, "New England", 1),
-        (13, "Ontario", 4),
-        (14, "MISO", 5),
-        (15, "PJM", 6),
-    ]
+    assert REGIONS == ((12, "New England", 1), (13, "Ontario", 4), (14, "MISO", 5), (15, "PJM", 6))
     for code, letter in enumerate(ZONES, 1):  # a NYISO load zone: its letter, New York's area
         case = read(tmp_path, edited(ZONE_TWO, f"345\t{code}\t"))
         assert (case.zone[1], case.area[1], case.is_ny[1]) == (letter, NY_AREA, True)
-    for region in REGIONS:  # a neighbor: no load zone, its own area
-        case = read(tmp_path, edited(ZONE_TWO, f"345\t{region.code}\t"))
-        assert (case.zone[1], case.area[1], case.is_ny[1]) == ("", region.area, False)
+    for code, _, area in REGIONS:  # a neighbor: no load zone, its own area
+        case = read(tmp_path, edited(ZONE_TWO, f"345\t{code}\t"))
+        assert (case.zone[1], case.area[1], case.is_ny[1]) == ("", area, False)
 
 
 # Hand edits that must read to the same case: (what it is, the canonical text, the text in its place).

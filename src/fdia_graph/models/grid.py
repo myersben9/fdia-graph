@@ -4,76 +4,9 @@ built with. Nothing here changes from one scan to the next."""
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, NamedTuple, Optional, Union
+from typing import NamedTuple, Optional
 
 import numpy as np
-
-if TYPE_CHECKING:
-    import torch
-
-# One column of a measurement array, a view with no copy: numpy, or torch for a record bundle.
-Column = Union[np.ndarray, "torch.Tensor"]
-
-
-class NodeColumns(NamedTuple):
-    """The four columns of `node_x`, `node_m` and `clean`, in the order every shard, stream and
-    pool stores them. `NodeColumns.of(a)` gives named views of the last axis of any such array;
-    `NODE` (a `NodeIndex`, the same fields as column indices) is for code that indexes."""
-
-    v: Column  # |V|, voltage magnitude (pu)
-    p_inj: Column  # P_inj, active injection (MW, or pu on baseMVA)
-    q_inj: Column  # Q_inj, reactive injection (MVAr, or pu)
-    theta: Column  # voltage angle (deg, or rad)
-
-    @classmethod
-    def of(cls, a: Column) -> NodeColumns:
-        return cls(a[..., 0], a[..., 1], a[..., 2], a[..., 3])
-
-
-class NodeIndex(NamedTuple):
-    """Where each `NodeColumns` field sits on the last axis: `node_x[..., NODE.theta]`."""
-
-    v: int
-    p_inj: int
-    q_inj: int
-    theta: int
-
-
-class EdgeColumns(NamedTuple):
-    """The two columns of `edge_x`, `edge_m`, `edge_clean` and `edge_clean_full`."""
-
-    p_from: Column  # P_from, active flow leaving the from end (MW, or pu)
-    q_from: Column  # Q_from, reactive flow leaving the from end (MVAr, or pu)
-
-    @classmethod
-    def of(cls, a: Column) -> EdgeColumns:
-        return cls(a[..., 0], a[..., 1])
-
-
-class EdgeIndex(NamedTuple):
-    """Where each `EdgeColumns` field sits on the last axis."""
-
-    p_from: int
-    q_from: int
-
-
-class CurrentIndex(NamedTuple):
-    """Where the four columns of `pmu_i` and `pmu_i_m` sit on the last axis: the branch-current
-    phasor a PMU reads at each end of a branch [WU26 eqs. 19-20], the real and imaginary part, per
-    unit on the base current. At the from end the current leaving the from bus into the branch
-    (`Yf V`), at the to end the current leaving the to bus into the branch (`Yt V`); a column is
-    metered only where a PMU sits at that end. A New York file holds magnitude and angle (degrees) in
-    the same four places and says so (`schema.Attr.CURRENT_FORM`); these names are the IEEE files'."""
-
-    re_from: int
-    im_from: int
-    re_to: int
-    im_to: int
-
-
-NODE = NodeIndex(0, 1, 2, 3)  # column indices: node_x[..., NODE.theta]
-EDGE = EdgeIndex(0, 1)
-CURRENT = CurrentIndex(0, 1, 2, 3)  # pmu_i[..., CURRENT.re_to]
 
 
 class BranchModel(NamedTuple):

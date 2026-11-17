@@ -12,8 +12,9 @@ if TYPE_CHECKING:
 import h5py
 import numpy as np
 
+from ..constants.channels import NodeChannel
 from ..formulas.network import branch_admittances, branch_flows, complex_voltages
-from ..models.grid import NODE, Admittances, BranchModel
+from ..models.grid import Admittances, BranchModel
 from .base import (
     DatasetBase,
     _torch,
@@ -72,8 +73,8 @@ class AdmittanceMixin(DatasetBase):
             return None
         # Only |V| and theta enter the flow; the same physics primitive the generator emits with.
         V = complex_voltages(
-            self._clean_np[:, :, NODE.v].astype(np.float64),
-            self._clean_np[:, :, NODE.theta].astype(np.float64),
+            self._clean_np[:, :, NodeChannel.V].astype(np.float64),
+            self._clean_np[:, :, NodeChannel.THETA].astype(np.float64),
         )
         Sf = branch_flows(
             V, self.yf_np, self.edge_index_np[0], self.baseMVA

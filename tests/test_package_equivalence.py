@@ -11,18 +11,19 @@ import pytest
 def test_jitter_draws_in_the_per_channel_order():
     """`_jitter_in_order` takes one vector draw that equals the per-channel draws it replaced: row
     by row, and within a row in the given column order, only where the mask is set."""
-    from fdia_graph.engine.measurement import _NODE_DRAW_ORDER, MeasurementMixin
+    from fdia_graph.constants.channels import NODE_DRAW_ORDER
+    from fdia_graph.engine.measurement import MeasurementMixin
 
     rng = np.random.default_rng(3)
     mask = (rng.random((12, 4)) < 0.6).astype(np.uint8)
     mask[:, 2] = mask[:, 1]  # P and Q are metered together
     sig = rng.random((12, 4)) + 0.1
     gen = SimpleNamespace(_jitter=np.random.default_rng(7))
-    got = MeasurementMixin._jitter_in_order(gen, mask, sig, _NODE_DRAW_ORDER)  # type: ignore[arg-type]
+    got = MeasurementMixin._jitter_in_order(gen, mask, sig, NODE_DRAW_ORDER)  # type: ignore[arg-type]
     ref = np.random.default_rng(7)
     want = np.zeros((12, 4))
     for b in range(12):
-        for c in _NODE_DRAW_ORDER:
+        for c in NODE_DRAW_ORDER:
             if mask[b, c]:
                 want[b, c] = ref.normal(0, sig[b, c])
     np.testing.assert_array_equal(got, want)
@@ -62,8 +63,9 @@ def test_temporal_layers_equal_the_per_frame_kernels(tmp_path):
     frame, the first frame (its own previous) and the frames across a block boundary included."""
     h5py = pytest.importorskip("h5py")
     from fdia_graph import schema
-    from fdia_graph.formulas.temporal import SWING_WINDOW, recent_change_scale, swing_zscore, temporal_delta
+    from fdia_graph.formulas.temporal import recent_change_scale, swing_zscore, temporal_delta
     from fdia_graph.generation.write import TimelineWriter
+    from fdia_graph.schema import SWING_WINDOW_SCANS
 
     rng = np.random.default_rng(5)
     T, N = 23, 6
@@ -74,7 +76,7 @@ def test_temporal_layers_equal_the_per_frame_kernels(tmp_path):
         f.create_dataset(schema.SWING, (T, N, 2), np.float32)
         TimelineWriter.write_temporal_layers(f, block=5)  # boundaries at frames 5, 10, 15, 20
         got_d, got_s = f[schema.TEMPORAL_DELTA][()], f[schema.SWING][()]
-    scale = recent_change_scale(nx.astype(np.float64), SWING_WINDOW, N)  # the writer runs it in float64
+    scale = recent_change_scale(nx.astype(np.float64), SWING_WINDOW_SCANS, N)  # the writer runs it in float64
     every = np.ones(N, bool)
     for t in range(T):
         before = nx[t] if t == 0 else nx[t - 1]

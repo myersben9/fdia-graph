@@ -14,14 +14,10 @@ if TYPE_CHECKING:
 import numpy as np
 
 from .. import schema
+from ..constants.channels import NodeChannel, PolarCurrentChannel
+from ..constants.records import ID_FIELDS, UNIT_KIND
 from ..models.data import BatchBundle, RecordBundle
-from ..models.grid import NODE
-from .base import (
-    _BATCH_SCALARS,
-    _UNIT_KIND,
-    DatasetBase,
-    _torch,
-)
+from .base import DatasetBase, _torch
 
 if TYPE_CHECKING:
     # a record is read from the preloaded arrays or from the file's data group, indexed the same way
@@ -40,12 +36,13 @@ class RecordsMixin(DatasetBase):
         b = self.baseMVA
         a = np.array(arr, dtype=np.float32, copy=True)
         if kind == "current":
-            if self.current_form == schema.CURRENT_POLAR:  # magnitude, angle per end: columns 1 and 3
-                a[..., 1::2] = np.deg2rad(a[..., 1::2])
+            if self.current_form == schema.CURRENT_POLAR:  # magnitude, angle per end
+                angles = [PolarCurrentChannel.ANGLE_FROM, PolarCurrentChannel.ANGLE_TO]
+                a[..., angles] = np.deg2rad(a[..., angles])
         elif kind == "node":
-            a[..., NODE.p_inj] /= b
-            a[..., NODE.q_inj] /= b  # P_inj, Q_inj  MW/MVAr -> p.u.
-            a[..., NODE.theta] = np.deg2rad(a[..., NODE.theta])  # theta  deg -> rad
+            a[..., NodeChannel.P_INJ] /= b
+            a[..., NodeChannel.Q_INJ] /= b  # P_inj, Q_inj  MW/MVAr -> p.u.
+            a[..., NodeChannel.THETA] = np.deg2rad(a[..., NodeChannel.THETA])  # theta  deg -> rad
         else:
             a /= b  # branch flows / temporal delta: power -> p.u.
         return a
@@ -75,7 +72,7 @@ class RecordsMixin(DatasetBase):
         torch = _torch()
         for k, path in self._frame_layers().items():
             a = self._mem[k][pos] if self._mem is not None else self._h()[path][int(self.idx[pos])]
-            a = self._to_units(a, _UNIT_KIND[k]) if k in _UNIT_KIND else a  # a mask has no unit
+            a = self._to_units(a, UNIT_KIND[k]) if k in UNIT_KIND else a  # a mask has no unit
             item[k] = torch.as_tensor(np.asarray(a), dtype=torch.float32)
 
     def _base_item(self, d: RecordSource, j: int) -> dict[str, Any]:
@@ -150,13 +147,13 @@ class RecordsMixin(DatasetBase):
         dimension, the static graph rides along once, and scalar metadata becomes one long tensor.
         (PyG has its own loader.)"""
         torch = _torch()
-        once = ("edge_index", "edge_attr", *_BATCH_SCALARS)  # every other field of a batch is stacked
+        once = ("edge_index", "edge_attr", *ID_FIELDS)  # every other field of a batch is stacked
         stacked = [k for k in BatchBundle._order if k not in once and k in batch[0]]
         out = {k: torch.stack([b[k] for b in batch]) for k in stacked}
         out["edge_index"] = batch[0]["edge_index"]  # same topology for every sample
         if "edge_attr" in batch[0]:  # absent on older no-physics shards
             out["edge_attr"] = batch[0]["edge_attr"]
-        for k in _BATCH_SCALARS:
+        for k in ID_FIELDS:
             out[k] = torch.as_tensor([b[k] for b in batch], dtype=torch.long)  # [B] per record
         return BatchBundle(**out)
 

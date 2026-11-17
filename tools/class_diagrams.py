@@ -90,7 +90,7 @@ COLLAPSE = {
 MAX_METHODS = 8  # methods listed per class before "... and n more"
 # FdiaGraph itself: every class takes one, the edge says nothing
 NOISE_MODULES = {f"{GENERATION}/dataset/__init__"}
-NOISE_CLASSES = {"NodeColumns", "EdgeColumns"}  # the column-index tuples, likewise
+NOISE_CLASSES = {"NodeChannel", "EdgeChannel", "CurrentChannel"}  # the column enums, likewise
 # collaborators a class takes by duck typing, so no import names them: (other class, edge label)
 EXTRA = {
     "GatedPrior": [("LocalizerBase", "gate")],
@@ -228,7 +228,7 @@ def class_diagram(group: str, mods: dict[str, ast.Module], idx: dict[str, str]) 
 
 # read by every module, so their edges are said once in the caption instead of drawn; and the public
 # API imports everything, which is not a dependency worth a line each.
-FOUNDATION = {"models", "formulas", "schema", "errors"}
+FOUNDATION = {"models", "formulas", "constants", "schema", "errors"}
 OMIT = set(PACKAGES)  # each package's own `__init__.py`
 # the caption of each toolkit's box, and the node label of each top-level module or package
 TOOLKIT = {

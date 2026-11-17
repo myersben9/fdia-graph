@@ -27,8 +27,8 @@ from fdia_analysis.models.choices import Features
 from fdia_analysis.models.config import LearnedConfig, LocalizerConfig, TrainerConfig
 from fdia_analysis.models.scores import GridScores
 from fdia_analysis.models.training import OptimConfig
+from fdia_graph.constants.families import BENIGN_CODE
 from fdia_graph.errors import NoAttackedRecords, NotFitted
-from fdia_graph.models.choices import BENIGN_CODE
 
 from .base import LocalizerBase
 
@@ -245,7 +245,7 @@ class LearnedLocalizer(LocalizerBase):
     def score_grid(self, ds: FdiaGraph) -> GridScores:
         """Record-level detection at `grid_tau` (from `tune_grid_threshold`): the benign false-alarm
         rate and the detection rate, over every attacked record and per family."""
-        from fdia_graph.models.choices import FAMILIES
+        from fdia_graph.constants.families import FAMILIES
 
         tau = getattr(self, "grid_tau", None)
         if tau is None:

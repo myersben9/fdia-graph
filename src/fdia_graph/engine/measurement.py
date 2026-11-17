@@ -6,21 +6,16 @@ from typing import TYPE_CHECKING, Optional
 
 import numpy as np
 
+from ..constants.channels import NODE_DRAW_ORDER, CurrentChannel, EdgeChannel, NodeChannel
+from ..constants.meters import POWER_NOISE_FLOOR_MW
+from ..constants.streams import JITTER_STREAM
 from ..formulas.network import branch_currents, branch_flows, complex_voltages
-from ..formulas.noise import POWER_NOISE_FLOOR_MW, biased_current, current_sigma, jitter_sigma
+from ..formulas.noise import biased_current, current_sigma, jitter_sigma
 from ..models.frames import Scan
-from ..models.grid import CURRENT, EDGE, NODE
 from .base import GridBase
-
-# the jitter stream's key beside (seed, t): one stream per timeline frame, apart from every other draw
-JITTER_STREAM = 0x4A17
 
 if TYPE_CHECKING:
     pass
-
-
-# the order of a bus's node draws: |V|, the angle, then P and Q
-_NODE_DRAW_ORDER = (NODE.v, NODE.theta, NODE.p_inj, NODE.q_inj)
 
 
 class MeasurementMixin(GridBase):
@@ -47,18 +42,17 @@ class MeasurementMixin(GridBase):
         pmu = np.isin(buses, list(plan.pmu))
         volt = pmu | np.isin(buses, list(plan.vbus))
         nm = np.zeros((C, 4), np.uint8)
-        nm[volt, NODE.v] = 1
+        nm[volt, NodeChannel.V] = 1
         # a SCADA voltmeter cannot read an angle; the v0.8.3 plan wrote one at every voltmeter bus
-        nm[volt, NODE.theta] = pmu[volt] | (not plan.angle_at_pmu_only)
-        nm[
-            np.isin(buses, list(plan.inj)) | np.isin(buses, list(self.zero_inj)), NODE.p_inj : NODE.q_inj + 1
-        ] = 1
+        nm[volt, NodeChannel.THETA] = pmu[volt] | (not plan.angle_at_pmu_only)
+        injection = np.isin(buses, list(plan.inj)) | np.isin(buses, list(self.zero_inj))
+        nm[injection, NodeChannel.P_INJ : NodeChannel.Q_INJ + 1] = 1
         em = np.zeros((self.E, 2), np.uint8)
         em[np.asarray(plan.flow, bool)] = 1
         return nm, em
 
     def current_mask(self) -> Optional[np.ndarray]:
-        """The PMU branch-current channels [E, 4] (`CURRENT` columns), 1 where a PMU sits at that end
+        """The PMU branch-current channels [E, 4] (`CurrentChannel` columns), 1 where a PMU sits at that end
         of an in-service branch [WU26 eqs. 19-20]; None when the meter plan has no currents."""
         plan = self.meters
         if not plan.pmu_currents:
@@ -68,16 +62,16 @@ class MeasurementMixin(GridBase):
         live = np.ones(self.E, bool) if self.branch.status is None else np.asarray(self.branch.status) > 0
         cm = np.zeros((self.E, 4), np.uint8)
         from_end, to_end = pmu[self.ei[0]] & live, pmu[self.ei[1]] & live
-        cm[from_end, CURRENT.re_from] = cm[from_end, CURRENT.im_from] = 1
-        cm[to_end, CURRENT.re_to] = cm[to_end, CURRENT.im_to] = 1
+        cm[from_end, CurrentChannel.RE_FROM] = cm[from_end, CurrentChannel.IM_FROM] = 1
+        cm[to_end, CurrentChannel.RE_TO] = cm[to_end, CurrentChannel.IM_TO] = 1
         return cm
 
     def emit_from_state(self, X: np.ndarray) -> Scan:
         # Emit a measurement graph DIRECTLY from a stored state X (no re-solve): exact 0-error flows before
         # meter noise. X columns = [|V|, Pinj, Qinj, angle], the one column order used everywhere.
-        C, bias = self.C, self.bias
+        C, bias, N = self.C, self.bias, NodeChannel
         self._jitter = self._jitter_stream()
-        V, Pi, Qi, TH = (X[..., i] for i in NODE)  # numpy views of the four columns, no copy
+        V, Pi, Qi, TH = (X[..., i] for i in NodeChannel)  # numpy views of the four columns, no copy
         # The complex bus-voltage phasors in ppc ordering, then the exact from-end flows in MW and MVAr:
         # one physics primitive (formulas.network) shared with the loader and the estimator.
         Vc = np.zeros(self._n_ppc_buses, complex)
@@ -90,25 +84,22 @@ class MeasurementMixin(GridBase):
         sig, sig_f = jitter_sigma(X, np.stack([Sf.real, Sf.imag], axis=1), self.SDj, POWER_NOISE_FLOOR_MW)
         nm, em = self.meter_masks()
         # node readings: within a bus the draws go |V|, angle, P, Q (the released files' order)
-        jit = self._jitter_in_order(nm, sig, _NODE_DRAW_ORDER)
+        jit = self._jitter_in_order(nm, sig, NODE_DRAW_ORDER)
         on = nm.astype(bool)
         nx = np.zeros((C, 4), np.float32)
-        nx[:, NODE.v] = np.where(on[:, NODE.v], V + bias.v + jit[:, NODE.v], 0.0)
-        nx[:, NODE.theta] = np.where(on[:, NODE.theta], TH + np.degrees(bias.va) + jit[:, NODE.theta], 0.0)
+        nx[:, N.V] = np.where(on[:, N.V], V + bias.v + jit[:, N.V], 0.0)
+        nx[:, N.THETA] = np.where(on[:, N.THETA], TH + np.degrees(bias.va) + jit[:, N.THETA], 0.0)
         # Injection/zero-injection buses emit P/Q: relative bias + jitter (+small floor so ~0 injection
         # still gets a nonzero std).
-        nx[:, NODE.p_inj] = np.where(on[:, NODE.p_inj], Pi * (1.0 + bias.pi) + jit[:, NODE.p_inj], 0.0)
-        nx[:, NODE.q_inj] = np.where(on[:, NODE.q_inj], Qi * (1.0 + bias.qi) + jit[:, NODE.q_inj], 0.0)
+        nx[:, N.P_INJ] = np.where(on[:, N.P_INJ], Pi * (1.0 + bias.pi) + jit[:, N.P_INJ], 0.0)
+        nx[:, N.Q_INJ] = np.where(on[:, N.Q_INJ], Qi * (1.0 + bias.qi) + jit[:, N.Q_INJ], 0.0)
         # Edge buffers: cols [P_from, Q_from], zero where no flow meter; relative bias + jitter on P and Q.
-        jit_f = self._jitter_in_order(em, sig_f, (EDGE.p_from, EDGE.q_from))
+        P, Q = EdgeChannel.P_FROM, EdgeChannel.Q_FROM
+        jit_f = self._jitter_in_order(em, sig_f, (P, Q))
         fon = em.astype(bool)
         ex = np.zeros((self.E, 2), np.float32)
-        ex[:, EDGE.p_from] = np.where(
-            fon[:, EDGE.p_from], Sf.real * (1.0 + bias.pf) + jit_f[:, EDGE.p_from], 0.0
-        )
-        ex[:, EDGE.q_from] = np.where(
-            fon[:, EDGE.q_from], Sf.imag * (1.0 + bias.qf) + jit_f[:, EDGE.q_from], 0.0
-        )
+        ex[:, P] = np.where(fon[:, P], Sf.real * (1.0 + bias.pf) + jit_f[:, P], 0.0)
+        ex[:, Q] = np.where(fon[:, Q], Sf.imag * (1.0 + bias.qf) + jit_f[:, Q], 0.0)
         cm = self.current_mask()
         if cm is None:  # the v0.8.3 meter model: no currents, and no draw after the flows
             return Scan(nx, nm, ex, em)
@@ -124,7 +115,7 @@ class MeasurementMixin(GridBase):
         bias = self.bias.i
         assert bias is not None, "a hybrid-meter generator draws the current biases at construction"
         biased = biased_current(true, bias)
-        jit = self._jitter_in_order(cm, sig, tuple(CURRENT))
+        jit = self._jitter_in_order(cm, sig, tuple(CurrentChannel))
         return np.where(cm.astype(bool), biased + jit, 0.0).astype(np.float32)
 
     def _jitter_in_order(self, mask: np.ndarray, sig: np.ndarray, order: tuple[int, ...]) -> np.ndarray:
@@ -156,11 +147,13 @@ class MeasurementMixin(GridBase):
         stack of states [T, N, 4] (`clean_flows_from_states` masks it to the metered branches)."""
         X = np.asarray(X, float)
         Vc = np.zeros((len(X), self._n_ppc_buses), complex)
-        Vc[:, self._ppc_row[np.arange(X.shape[1])]] = complex_voltages(X[:, :, NODE.v], X[:, :, NODE.theta])
+        Vc[:, self._ppc_row[np.arange(X.shape[1])]] = complex_voltages(
+            X[:, :, NodeChannel.V], X[:, :, NodeChannel.THETA]
+        )
         return branch_flows(Vc, self._Yf, self._from_bus_ppc, self._base_mva)
 
     def currents_from_states(self, X: np.ndarray) -> np.ndarray:
-        """The exact PMU branch-current channels [T, E, 4] (`CURRENT` columns, per unit) of a stack of
+        """The exact PMU branch-current channels [T, E, 4] (`CurrentChannel` columns, per unit) of a stack of
         states [T, N, 4], zero where no PMU reads that end (the batched, noiseless sibling of
         `_emit_currents`); all zero when the meter plan has no currents."""
         X = np.asarray(X, float)
@@ -168,5 +161,7 @@ class MeasurementMixin(GridBase):
         if cm is None:
             return np.zeros((len(X), self.E, 4))
         Vc = np.zeros((len(X), self._n_ppc_buses), complex)
-        Vc[:, self._ppc_row[np.arange(X.shape[1])]] = complex_voltages(X[:, :, NODE.v], X[:, :, NODE.theta])
+        Vc[:, self._ppc_row[np.arange(X.shape[1])]] = complex_voltages(
+            X[:, :, NodeChannel.V], X[:, :, NodeChannel.THETA]
+        )
         return branch_currents(Vc, self._Yf, self._Yt) * cm

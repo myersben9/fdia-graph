@@ -7,8 +7,8 @@ from __future__ import annotations
 
 import numpy as np
 
+from ..constants.channels import NodeChannel
 from ..formulas.attacks import bus_load, element_loads, generator_output
-from ..models.grid import NODE
 from .base import GridBase
 
 
@@ -26,7 +26,7 @@ class PhysicsMixin(GridBase):
         injection plus its generators' reactive output (`scan_reactive_generation`), split over the
         bus's load elements by base reactive share (`formulas.attacks.element_loads`)."""
         return element_loads(
-            Xt[:, NODE.q_inj] + self.scan_reactive_generation(Xt), self.load_bus, self.load_q0
+            Xt[:, NodeChannel.Q_INJ] + self.scan_reactive_generation(Xt), self.load_bus, self.load_q0
         )
 
     def scan_reactive_generation(self, Xt: np.ndarray) -> np.ndarray:

@@ -12,12 +12,9 @@ from typing import Optional
 
 import numpy as np
 
-from ...models.choices import FAMILY_CODE
 from ...models.frames import AttackDesign, Frame, FrameKnobs
 from .false_state import FalseStateMixin
 
-RAMP_FAMILY = FAMILY_CODE["At"]
-AM_FAMILY = FAMILY_CODE["Am"]  # the overload attack (overload.py), multi-snapshot
 STEP_HALVINGS = (
     6  # times a ramp frame's step with no local power-flow solution is halved (its step is sub-floor)
 )

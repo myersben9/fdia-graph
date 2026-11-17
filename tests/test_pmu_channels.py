@@ -6,9 +6,10 @@ import h5py
 import numpy as np
 import pytest
 
+from fdia_graph.constants.channels import CurrentChannel, NodeChannel
+from fdia_graph.constants.meters import PMU_CURRENT_CLASS
 from fdia_graph.formulas.attacks import tampered_devices
-from fdia_graph.formulas.noise import PMU_CURRENT_CLASS, current_sigma
-from fdia_graph.models.grid import CURRENT, NODE
+from fdia_graph.formulas.noise import current_sigma
 
 pytest.importorskip("pandapower")
 
@@ -32,8 +33,10 @@ def test_a_scada_voltmeter_reads_no_angle_under_the_hybrid_model(gens):
     nm, _ = g.meter_masks()
     pmu = np.zeros(g.C, bool)
     pmu[sorted(g.meters.pmu)] = True
-    assert (nm[:, NODE.theta].astype(bool) == pmu).all()  # the angle is a PMU channel
-    assert (nm[:, NODE.v].astype(bool) >= pmu).all() and nm[:, NODE.v].sum() > pmu.sum()  # SCADA reads |V|
+    assert (nm[:, NodeChannel.THETA].astype(bool) == pmu).all()  # the angle is a PMU channel
+    assert (nm[:, NodeChannel.V].astype(bool) >= pmu).all() and nm[
+        :, NodeChannel.V
+    ].sum() > pmu.sum()  # SCADA reads |V|
     assert g.current_mask() is not None
 
 
@@ -42,8 +45,8 @@ def test_the_current_mask_follows_the_pmus(gens):
     cm = g.current_mask()
     pmu = np.zeros(g.C, bool)
     pmu[sorted(g.meters.pmu)] = True
-    assert (cm[:, CURRENT.re_from].astype(bool) == pmu[g.ei[0]]).all()
-    assert (cm[:, CURRENT.im_to].astype(bool) == pmu[g.ei[1]]).all()
+    assert (cm[:, CurrentChannel.RE_FROM].astype(bool) == pmu[g.ei[0]]).all()
+    assert (cm[:, CurrentChannel.IM_TO].astype(bool) == pmu[g.ei[1]]).all()
 
 
 def test_emitted_currents_sit_within_their_accuracy_class(gens, pool):
@@ -63,10 +66,10 @@ def test_the_exact_currents_carry_the_exact_flows(gens, pool):
     X = pool[:3]
     cur = g.currents_from_states(X)
     flows = g.clean_flows_from_states(X)  # [T, E, 2] MW/MVAr, unmetered zeroed
-    both = (g.current_mask()[:, CURRENT.re_from] > 0) & (flows[0, :, 0] != 0)
-    th = np.deg2rad(X[:, :, NODE.theta])
-    Vf = (X[:, :, NODE.v] * np.exp(1j * th))[:, g.ei[0]]
-    S = Vf * np.conj(cur[..., CURRENT.re_from] + 1j * cur[..., CURRENT.im_from]) * g._base_mva
+    both = (g.current_mask()[:, CurrentChannel.RE_FROM] > 0) & (flows[0, :, 0] != 0)
+    th = np.deg2rad(X[:, :, NodeChannel.THETA])
+    Vf = (X[:, :, NodeChannel.V] * np.exp(1j * th))[:, g.ei[0]]
+    S = Vf * np.conj(cur[..., CurrentChannel.RE_FROM] + 1j * cur[..., CurrentChannel.IM_FROM]) * g._base_mva
     assert both.any()
     np.testing.assert_allclose(S.real[:, both], flows[:, both, 0], atol=1e-4)
     np.testing.assert_allclose(S.imag[:, both], flows[:, both, 1], atol=1e-4)
@@ -78,7 +81,7 @@ def test_a_false_state_writes_its_currents(gens, pool):
     g = gens
     Xt = np.asarray(pool[5], float)
     Xa = Xt.copy()
-    Xa[3, NODE.theta] += 0.05
+    Xa[3, NodeChannel.THETA] += 0.05
     scan = g.emit_from_state(Xt)
     a = g._current_attack(Xa, Xt)
     ix, tamper = g._currents_with_attack(scan, Xa, Xt)
@@ -94,8 +97,8 @@ def test_a_tampered_current_counts_in_its_ends_pmu():
     node = np.zeros((N, 4), bool)
     edge = np.zeros((2, 2), bool)
     cur = np.zeros((2, 4), bool)
-    cur[0, CURRENT.re_to] = True  # the to end of branch 0 is bus 1
-    cur[1, CURRENT.im_from] = True  # the from end of branch 1 is bus 1 as well
+    cur[0, CurrentChannel.RE_TO] = True  # the to end of branch 0 is bus 1
+    cur[1, CurrentChannel.IM_FROM] = True  # the from end of branch 1 is bus 1 as well
     pmu = np.array([False, True, False, False])
     assert tampered_devices(node, edge, pmu, ei[0], cur, ei[1]).tolist() == [N + 1]
 
@@ -189,7 +192,8 @@ def test_the_previous_frame_carries_its_currents(pmu_files):
 def test_a_current_bias_scales_with_the_end_phasor():
     """Review fix: the systematic error of a current channel is its relative bias times |I_end| (the
     C37.118 scale of `current_sigma`), so the Re channel of I = 1j still carries it."""
-    from fdia_graph.formulas.noise import CURRENT_FLOOR_PU, biased_current
+    from fdia_graph.constants.meters import CURRENT_FLOOR_PU
+    from fdia_graph.formulas.noise import biased_current
 
     true = np.array([[0.0, 1.0, 0.0, 0.0]])  # I_from = 1j pu, no PMU current at the to end
     bias = np.array([[0.004, -0.002, 0.003, 0.001]])

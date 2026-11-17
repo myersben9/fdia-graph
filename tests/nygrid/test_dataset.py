@@ -10,7 +10,8 @@ import numpy as np
 import pytest
 
 from fdia_graph import schema
-from fdia_graph.models.choices import FAMILY_CODE, SPLITS
+from fdia_graph.constants.families import FAMILY_CODE
+from fdia_graph.models.choices import Split
 from tests.helpers import ATTR_KEYS, CURRENT_LAYERS
 
 from .conftest import LENGTHS, UNSOLVED, T
@@ -252,7 +253,7 @@ def test_operator_and_split_views(written):
     assert op.z.shape == (T, len(plan.kind)) and op.labels.shape == (T, len(source.own.bus_client))
     mine = np.flatnonzero(plan.owner == 0)
     sizes = []
-    for code, split in enumerate(SPLITS):
+    for code, split in enumerate(Split.values()):
         v = ds.client(ds.clients[0], split)
         assert np.array_equal(v.frames, np.flatnonzero(source._split == code))
         assert np.array_equal(v.z, stored["z"].astype(np.float32)[v.frames][:, mine], equal_nan=True)
@@ -267,10 +268,10 @@ def test_temporal_wraps_angle_changes(written):
     from fdia_graph.dataset.clients import ClientView
 
     ds, source, _ = written
-    from fdia_graph.engine.sensing.meters import KINDS as kinds
+    from fdia_graph.constants.meters import MeterKind
 
     plan = source.meas.plan
-    angle = np.isin(plan.kind, [kinds.index("va"), kinds.index("ia")])
+    angle = np.isin(plan.kind, [MeterKind.VA, MeterKind.IA])
     z = np.zeros((3, len(plan.kind)))
     z[:, angle] = [[179.5], [-179.5], [179.0]]  # crosses +-180 twice
     z[:, ~angle] = [[1.0], [3.0], [2.0]]

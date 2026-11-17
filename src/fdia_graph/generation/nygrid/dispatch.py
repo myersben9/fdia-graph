@@ -6,23 +6,10 @@ from dataclasses import dataclass, replace
 
 import numpy as np
 
+from fdia_graph.constants import newyork
 from fdia_graph.generation.nygrid.case import Case
 from fdia_graph.generation.nygrid.fixes import externals_at_base
-from fdia_graph.generation.nygrid.inputs import EXT_PRICES, FUELS, INTERFACES, NygridHour
-
-_NIAGARA, _ST_LAWRENCE = 55, 48  # hydro buses with their own rule (updateOpCond.m L143-152)
-_NIAGARA_CAP, _ST_LAWRENCE_CAP = 2460.0, 856.0
-# updateOpCond.m L485-491 draws nuclear costs 1 + 2 rand and hydro costs 10 rand ($/MWh) after rng("default")
-# every hour, so they are fixed numbers: MATLAB's default stream is Mersenne Twister seeded 5489, the first
-# 16 draws of numpy's RandomState(5489), in the unit order of the case file.
-_NUCLEAR_COST = (2.6294, 2.8116, 1.2540, 2.8268, 2.2647, 1.1951)
-_HYDRO_COST = (2.7850, 5.4688, 9.5751, 9.6489, 1.5761, 9.7059, 9.5717, 4.8538, 8.0028, 1.4189)
-_AREA_PRICE = {
-    1: "NPX",
-    4: "O H",
-    5: "PJM",
-    6: "PJM",
-}  # external areas and the proxy bus pricing them (L497-500)
+from fdia_graph.generation.nygrid.inputs import NygridHour
 
 
 @dataclass(frozen=True)
@@ -45,23 +32,23 @@ def _unit_cost(case: Case, h: NygridHour) -> np.ndarray:
     cost = np.zeros(len(case.fuel))
     th = ~np.isin(case.fuel, ("Nuclear", "Hydro", "Import"))
     cost[th] = h.thermal_cost
-    cost[case.fuel == "Nuclear"] = _NUCLEAR_COST
-    cost[case.fuel == "Hydro"] = _HYDRO_COST
-    lbmp: dict[str, float] = dict(zip(EXT_PRICES, h.ext_lbmp))
+    cost[case.fuel == "Nuclear"] = newyork.NUCLEAR_COST_USD_PER_MWH
+    cost[case.fuel == "Hydro"] = newyork.HYDRO_COST_USD_PER_MWH
+    lbmp: dict[str, float] = dict(zip(newyork.EXT_PRICES, h.ext_lbmp))
     imp = np.flatnonzero(case.fuel == "Import")
     for k in imp[:-1]:
-        cost[k] = lbmp[_AREA_PRICE[int(case.area[case.unit_bus[k]])]]
+        cost[k] = lbmp[newyork.AREA_PRICE[int(case.area[case.unit_bus[k]])]]
     cost[imp[-1]] = lbmp["H Q"]
     return cost
 
 
 def _iface(h: NygridHour, *names: str) -> float:
-    return float(sum(h.iface_flow[INTERFACES.index(n)] for n in names))
+    return float(sum(h.iface_flow[newyork.INTERFACE_NAMES.index(n)] for n in names))
 
 
 def _hour(case: Case, base: Case, h: NygridHour, hold_externals: bool = True) -> Case:
     """updateOpCond.m L60-381 for one hour on the full 140-bus case, then the external fix."""
-    fuel = dict(zip(FUELS, h.fuel_mw))
+    fuel = dict(zip(newyork.FUELS, h.fuel_mw))
     kind = case.fuel
     bus_id = case.bus_id[case.unit_bus]
     p = np.zeros(len(kind))
@@ -70,12 +57,12 @@ def _hour(case: Case, base: Case, h: NygridHour, hold_externals: bool = True) ->
     p[nuc] = h.nuclear_mw
 
     hyd = np.flatnonzero(kind == "Hydro")
-    small_cap = case.pmax[hyd].sum() - _NIAGARA_CAP - _ST_LAWRENCE_CAP
+    small_cap = case.pmax[hyd].sum() - newyork.NIAGARA_CAP_MW - newyork.ST_LAWRENCE_CAP_MW
     for i in hyd:
-        if bus_id[i] == _NIAGARA:
-            p[i] = 0.8 * fuel["Hydro"] - h.stl_cf * _ST_LAWRENCE_CAP
-        elif bus_id[i] == _ST_LAWRENCE:
-            p[i] = h.stl_cf * _ST_LAWRENCE_CAP
+        if bus_id[i] == newyork.NIAGARA_BUS:
+            p[i] = 0.8 * fuel["Hydro"] - h.stl_cf * newyork.ST_LAWRENCE_CAP_MW
+        elif bus_id[i] == newyork.ST_LAWRENCE_BUS:
+            p[i] = h.stl_cf * newyork.ST_LAWRENCE_CAP_MW
         else:
             p[i] = 0.2 * fuel["Hydro"] * case.pmax[i] / small_cap
 

@@ -54,7 +54,7 @@ OLD_FAMILIES = {"Aq", "Ad", "As", "Ar", "At", "Al", "Am"}
 
 def family_names(ds) -> set[str]:
     """The attack families present in a loaded view."""
-    from fdia_graph.models.choices import FAMILIES
+    from fdia_graph.constants.families import FAMILIES
 
     return {FAMILIES[int(f)] for f in np.unique(ds.export(["family"])["family"])} - {"benign"}
 

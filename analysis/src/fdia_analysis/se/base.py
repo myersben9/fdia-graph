@@ -41,9 +41,10 @@ from fdia_analysis.models.data import TrueState
 from fdia_analysis.models.grid import PseudoVoltages
 from fdia_analysis.models.inputs import ShapedArray
 from fdia_analysis.models.scores import ErrorPair, EstimatorScores
+from fdia_graph.constants.channels import EdgeChannel, NodeChannel
+from fdia_graph.constants.meters import PMU_CURRENT_CLASS
 from fdia_graph.errors import MissingCapability, NoBenignRecords, SlackMismatch, VaryingReference
-from fdia_graph.formulas.noise import PMU_CURRENT_CLASS, accuracy_class_sigma, current_sigma
-from fdia_graph.models.grid import EDGE, NODE, EdgeColumns, NodeColumns
+from fdia_graph.formulas.noise import accuracy_class_sigma, current_sigma
 
 if TYPE_CHECKING:
     import torch
@@ -164,7 +165,9 @@ class SEBase:
         masks = ds.export(["node_m", "edge_m"])  # numpy, so the estimator does not need torch
         nm = masks["node_m"][0].astype(bool)
         em = masks["edge_m"][0].astype(bool)
-        self.mask = np.concatenate([*NodeColumns.of(nm), *EdgeColumns.of(em)])
+        flows = em[:, [EdgeChannel.P_FROM, EdgeChannel.Q_FROM]]
+        # column by column: V of every bus, then P, Q and theta, then P_from of every branch, then Q_from
+        self.mask = np.concatenate([nm.ravel(order="F"), flows.ravel(order="F")])
         if self.pmu_pseudo:
             self._build_pseudo(ds, nm, np.asarray(Yt.todense()), ppc["branch"])
         self.m = int(self.mask.sum())
@@ -178,12 +181,12 @@ class SEBase:
         inv[self._lut] = np.arange(N)
         f_bus, t_bus = inv[branch[:, 0].real.astype(np.int64)], inv[branch[:, 1].real.astype(np.int64)]
         cm = ds.export(["pmu_i_m"])["pmu_i_m"][0]
-        pmu = nm[:, NODE.theta].astype(bool)  # a hybrid-meter file reads angles at the PMUs only
+        pmu = nm[:, NodeChannel.THETA].astype(bool)  # a hybrid-meter file reads angles at the PMUs only
         Yf, Yt = self._Yf_np[:, self._lut], Yt_ppc[:, self._lut]
         self._links = pmu_pseudo_links(pmu, cm, f_bus, t_bus, Yf, Yt)
         reached = np.zeros(N, bool)
         reached[self._links.far] = True
-        self._pseudo_v = np.where(reached & ~nm[:, NODE.v].astype(bool))[0]
+        self._pseudo_v = np.where(reached & ~nm[:, NodeChannel.V].astype(bool))[0]
         self._pseudo_th = np.where(reached & ~pmu)[0]
         self.mask[self._pseudo_v] = True  # the |V| block of the measurement vector
         self.mask[3 * N + self._pseudo_th] = True  # the angle block
@@ -193,13 +196,13 @@ class SEBase:
     def _pseudo_of(self, node_x: np.ndarray, pmu_i: np.ndarray) -> PseudoVoltages:
         """The eq. (3) pseudo phasors of a batch of scans, their noise propagated from the PMU accuracy
         class (|V| and angle absolute, the currents `PMU_CURRENT_CLASS` of the reading)."""
-        from fdia_graph.formulas.noise import ACCURACY_CLASS
+        from fdia_graph.constants.meters import ACCURACY_CLASS
 
         return pmu_pseudo_voltages(
             self._links,
             self.N,
-            node_x[:, :, NODE.v],
-            np.deg2rad(node_x[:, :, NODE.theta]),
+            node_x[:, :, NodeChannel.V],
+            np.deg2rad(node_x[:, :, NodeChannel.THETA]),
             pmu_i,
             ACCURACY_CLASS["v"],
             ACCURACY_CLASS["va"],
@@ -280,20 +283,24 @@ class SEBase:
             # the values alone: the solve reads no variance (the measured calibration's sigma of the
             # pseudo slots comes from `_pseudo_of` on the calibration scans, once, in `fit`)
             V_f = pmu_pseudo_phasors(
-                self._links, self.N, node_x[:, :, NODE.v], np.deg2rad(node_x[:, :, NODE.theta]), pmu_i
+                self._links,
+                self.N,
+                node_x[:, :, NodeChannel.V],
+                np.deg2rad(node_x[:, :, NodeChannel.THETA]),
+                pmu_i,
             )
             node_x = np.array(node_x, np.float64)
-            node_x[:, self._pseudo_v, NODE.v] = np.abs(V_f[:, self._pseudo_v])
-            node_x[:, self._pseudo_th, NODE.theta] = np.rad2deg(np.angle(V_f[:, self._pseudo_th]))
+            node_x[:, self._pseudo_v, NodeChannel.V] = np.abs(V_f[:, self._pseudo_v])
+            node_x[:, self._pseudo_th, NodeChannel.THETA] = np.rad2deg(np.angle(V_f[:, self._pseudo_th]))
         b = self.baseMVA
         z = np.concatenate(
             [
-                node_x[:, :, NODE.v],
-                node_x[:, :, NODE.p_inj] / b,
-                node_x[:, :, NODE.q_inj] / b,
-                np.deg2rad(node_x[:, :, NODE.theta]),
-                edge_x[:, :, EDGE.p_from] / b,
-                edge_x[:, :, EDGE.q_from] / b,
+                node_x[:, :, NodeChannel.V],
+                node_x[:, :, NodeChannel.P_INJ] / b,
+                node_x[:, :, NodeChannel.Q_INJ] / b,
+                np.deg2rad(node_x[:, :, NodeChannel.THETA]),
+                edge_x[:, :, EdgeChannel.P_FROM] / b,
+                edge_x[:, :, EdgeChannel.Q_FROM] / b,
             ],
             axis=1,
         )
@@ -301,9 +308,11 @@ class SEBase:
 
     def _truth_of(self, clean: np.ndarray) -> TrueState:
         # clean [n,N,4] = [V, P, Q, theta] physical -> true 2N-1 state + slack angle reference
-        x = np.concatenate([np.deg2rad(clean[:, self.keep, NODE.theta]), clean[:, :, NODE.v]], axis=1)
+        x = np.concatenate(
+            [np.deg2rad(clean[:, self.keep, NodeChannel.THETA]), clean[:, :, NodeChannel.V]], axis=1
+        )
         return TrueState(
-            x.astype(np.float64), np.deg2rad(clean[:, self.slack, NODE.theta]).astype(np.float64)
+            x.astype(np.float64), np.deg2rad(clean[:, self.slack, NodeChannel.THETA]).astype(np.float64)
         )
 
     # ---- fitting ----------------------------------------------------------------------------
@@ -368,7 +377,7 @@ class SEBase:
 
     def _class_sigma(self, mean_abs: np.ndarray) -> np.ndarray:
         """The accuracy-class sigma of every metered slot [m], in the estimator's units (pu, rad)."""
-        from fdia_graph.formulas.noise import ACCURACY_CLASS, POWER_NOISE_FLOOR_MW
+        from fdia_graph.constants.meters import ACCURACY_CLASS, POWER_NOISE_FLOOR_MW
 
         N, E = self.N, self.E
         order = [
@@ -561,7 +570,7 @@ class SEBase:
         """Per-family angle (deg) and voltage (pu) MAE vs the clean truth, plus the geometric
         mean over families ('geo', the paper's table cell). Pass `xhat` (a previous `estimate(ds)`)
         to score without re-solving, e.g. from a cache; it must be in record order of `ds`."""
-        from fdia_graph.models.choices import FAMILIES
+        from fdia_graph.constants.families import FAMILIES
 
         require_physical(ds)
         est = self.estimate(ds, chunk=chunk) if xhat is None else xhat

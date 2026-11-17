@@ -23,31 +23,28 @@ from pathlib import Path
 import numpy as np
 import scipy.io
 
-from fdia_graph.errors import DataConditionError
-from fdia_graph.generation.nygrid.case import (
-    CASE_FILE,
+from fdia_graph.constants.grid import BusType
+from fdia_graph.constants.newyork import (
     FILE_AREA,
     HQ_BUS,
     NY_AREA,
-    PQ,
-    PV,
-    REF,
+    NYGRID_COMMIT,
     REGIONS,
     ZONE_LEGEND,
     ZONES,
-    Case,
 )
-from fdia_graph.generation.nygrid.inputs import NYGRID_COMMIT
+from fdia_graph.errors import DataConditionError
+from fdia_graph.generation.nygrid.case import CASE_FILE, Case
 from fdia_graph.generation.nygrid.tables import read_rows
 
 # NYgrid's NPCC case has two New York areas, 2 upstate and 3 downstate. The case file does not tell them apart:
-# every New York bus is `NY_AREA` in a `Case`, and a neighbor's bus keeps its NPCC area number (`Region.area`).
+# every New York bus is `NY_AREA` in a `Case`, and a neighbor's bus keeps its NPCC area number (the area in `REGIONS`).
 NPCC_NY_AREAS = (2, 3)
 WIDTH = 97  # of a line of the file's header and of the comment above a matrix, before its `% `
 ONE_AREA = textwrap.fill(
     f"One area, on purpose: NYgrid's NPCC case has six areas, and this file has one, so the bus area column "
     f"is {FILE_AREA} on every row. Where a bus is, is its zone (the bus zone column): {ZONE_LEGEND}. The "
-    f"neighboring regions are the zone codes {REGIONS[0].code} to {REGIONS[-1].code}. The package reads a "
+    f"neighboring regions are the zone codes {REGIONS[0][0]} to {REGIONS[-1][0]}. The package reads a "
     f"bus's region from the zone column, not from the area column.",
     WIDTH,
 )
@@ -65,7 +62,7 @@ To change the grid, edit rows in place, or add and delete whole rows (a new bus 
 row in every field that has one row per bus or per unit). Keep one row and one string per line.
 An indexed assignment such as mpc.bus(1, 3) = 500; and a field the package does not know are
 refused, because the reader would pass over them without a word. A bus area other than {FILE_AREA} and a
-zone outside 1 to {REGIONS[-1].code} are refused as well. A branch with status 0 is left out. The package does
+zone outside 1 to {REGIONS[-1][0]} are refused as well. A branch with status 0 is left out. The package does
 not use gen mBase or branch rateB, rateC, angmin and angmax.
 
 Derived from NYgrid (https://github.com/AndersonEnergyLab-Cornell/NYgrid, MIT License), commit
@@ -104,7 +101,7 @@ def read_npcc(path: str | Path) -> Case:
     pos = {b: i for i, b in enumerate(bus_id.tolist())}
     npcc_area = bus[:, 6].astype(int)
     is_ny = np.isin(npcc_area, NPCC_NY_AREAS)
-    strangers = sorted(set(npcc_area[~is_ny].tolist()) - {region.area for region in REGIONS})
+    strangers = sorted(set(npcc_area[~is_ny].tolist()) - {area for _, _, area in REGIONS})
     if strangers:
         raise DataConditionError(f"{path}: area {strangers[0]} is not New York's or a neighbor's (REGIONS)")
     area = np.where(is_ny, NY_AREA, npcc_area)
@@ -161,7 +158,18 @@ def read_npcc(path: str | Path) -> Case:
 
 # modifyMPC.m: bus type changes, the three PJM-IESO lines it deletes, the tie ratings it sets
 # (RATE_A to RATE_C, MVA) and the two lines it adds for the E-G corridor.
-_TYPES = {39: PV, 77: PV, 45: PV, 62: PV, 72: PQ, 53: PQ, 54: PQ, 68: PQ, 78: PQ, 74: REF}
+_TYPES = {
+    39: BusType.PV,
+    77: BusType.PV,
+    45: BusType.PV,
+    62: BusType.PV,
+    72: BusType.PQ,
+    53: BusType.PQ,
+    54: BusType.PQ,
+    68: BusType.PQ,
+    78: BusType.PQ,
+    74: BusType.REF,
+}
 _DELETED = [(84, 116), (87, 115), (90, 114)]
 _RATINGS = {
     (66, 134): 315,
@@ -302,7 +310,7 @@ def split_zone_j(case: Case) -> Case:
     unit_bus = case.unit_bus.copy()
     unit_bus[at82[0 : 2 * n : 2]] = b81
     bus_type = case.bus_type.copy()
-    bus_type[b81] = PV
+    bus_type[b81] = BusType.PV
     return replace(case, unit_bus=unit_bus, bus_type=bus_type)
 
 
@@ -363,7 +371,7 @@ def write_case(case: Case, path: str | Path, title: str) -> None:
         raise DataConditionError(f"{path}: a case file is a MATLAB function, so {path.stem!r} cannot name it")
     if not (case.is_ny == (case.zone != "")).all():
         raise DataConditionError(f"{path}: a bus must be in New York exactly when it has a load zone")
-    code = {region.area: region.code for region in REGIONS}
+    code = {area: code for code, _, area in REGIONS}
     if not np.isin(case.area[~case.is_ny], list(code)).all():
         raise DataConditionError(f"{path}: a bus outside New York must have the area of a neighbor (REGIONS)")
     n, m, g, d = len(case.bus_id), len(case.f), len(case.unit_bus), len(case.dc_f)

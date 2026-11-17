@@ -5,10 +5,6 @@ from __future__ import annotations
 
 import numpy as np
 
-# Scans of history the swing scale summarizes: the catch rate of the rate-of-change feature
-# plateaus near 60 scans, and the slow ramp At stays near the benign floor at every window.
-SWING_WINDOW = 60
-
 
 def wrap_degrees(d: np.ndarray) -> np.ndarray:
     """A difference of two angle readings, degrees, wrapped to (-180, 180]: readings either side of

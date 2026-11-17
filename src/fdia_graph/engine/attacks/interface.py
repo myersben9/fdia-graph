@@ -33,15 +33,13 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
+from fdia_graph.constants.meters import MeterKind
 from fdia_graph.engine.attacks.attacker import Attacker
 from fdia_graph.engine.attacks.family import Window
 from fdia_graph.engine.attacks.opf import OpfFdia, _OpfModel, _Prepared, _Window
-from fdia_graph.engine.sensing.meters import KINDS
 from fdia_graph.errors import ConfigError
 from fdia_graph.generation.nygrid.interfaces import Interface
 from fdia_graph.models.plan import Episode
-
-KV, KPF, KQF = KINDS.index("v"), KINDS.index("pf"), KINDS.index("qf")
 
 
 @dataclass
@@ -293,12 +291,12 @@ class InterfaceFdia(OpfFdia):
                     pq = flow(b, end)
                     if pq is None:
                         continue
-                    for kind, ex in ((KPF, pq[0]), (KQF, pq[1])):
+                    for kind, ex in ((MeterKind.PF, pq[0]), (MeterKind.QF, pq[1])):
                         j = np.flatnonzero((plan.kind == kind) & (plan.branch == b) & (plan.end == end))
                         if len(j):
                             terms.append((int(j[0]), ex))
             for b in inside:
-                j = np.flatnonzero((plan.kind == KV) & (plan.bus == b))
+                j = np.flatnonzero((plan.kind == MeterKind.V) & (plan.bus == b))
                 if len(j):
                     terms.append((int(j[0]), m.vm[b]))
             ctx.objective_meters = [j for j, _ in terms]

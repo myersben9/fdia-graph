@@ -13,6 +13,7 @@ from typing import Optional
 
 import numpy as np
 
+from ...constants.families import AT_CODE
 from ...formulas.attacks import ramp_profile
 from ...models.frames import (
     AmOverloadDesign,
@@ -23,7 +24,6 @@ from ...models.frames import (
     RampDesign,
 )
 from .overload import OverloadMixin
-from .stealthy import RAMP_FAMILY
 
 ONSET_DRAWS = 40  # designs an At episode tries for one with a stealthy state on every frame
 
@@ -51,7 +51,7 @@ class EpisodeDesignMixin(OverloadMixin):
         """The targets the case offers the ramp: At needs a load off every generator bus (checked
         against the request by `models.inputs.AdmissibleTargets`; the overload Am's targets are the
         rated, metered lines of each window, decided per episode)."""
-        return {RAMP_FAMILY: len(self.stealthy_pos)}
+        return {AT_CODE: len(self.stealthy_pos)}
 
     def ramp_step(self, design: RampDesign, i: int, rate: float) -> AttackDesign:
         """The design of the ramp's frame i: its load set scaled by the profile's deviation there,

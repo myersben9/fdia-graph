@@ -101,8 +101,10 @@ The kinds, most frequent first.
     - Nothing is allocated per Newton iteration.
     - Estimate the size at IEEE-300 over 72,000 frames; `python tools/bench.py --check` gates the
       timings.
-12. **The readability contract.** Channel indices come from `NODE`/`EDGE`/`CURRENT`, file paths and
-    attributes from `schema`, each formula exists once, and there are no positional tuples.
+12. **The readability contract.** Channel indices come from `NodeChannel`, `EdgeChannel` and
+    `CurrentChannel` (`constants.channels`), file paths and attributes from `schema`, every other
+    constant from its module of `constants/` (a knob is a field of a settings model), each formula
+    exists once, and there are no positional tuples.
 13. **Extras.** A new import of scipy, torch or pandapower is declared in the matching extra, guarded
     with an install message, and kept off the `import fdia_graph` path.
 14. **Prose.** Read every added paragraph once for grammar, empty code fences and the docs' tone.
