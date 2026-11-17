@@ -18,7 +18,7 @@ from pathlib import Path
 
 import numpy as np
 
-from fdia_graph.generation.nygrid.source import NewYorkSource, SingleEpisodeSource
+from fdia_graph.generation.newyork import NewYorkSource, SingleEpisodeSource
 from fdia_graph.models.config import NewYorkRelease
 
 # The four study onsets (pool clock) and why each was picked, from the Am headroom survey on SPR/DUN-SOUTH

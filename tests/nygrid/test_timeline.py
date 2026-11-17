@@ -11,13 +11,12 @@ from fdia_graph import schema
 from fdia_graph.constants.families import FAMILIES, FAMILY_CODE
 from fdia_graph.constants.newyork import SolveKind
 from fdia_graph.constants.time import WEEK_SECONDS
+from fdia_graph.data.config import Settings, rng
+from fdia_graph.data.pool import Pool, peak_ratings, read_pool
 from fdia_graph.dataset.clients import Dataset
 from fdia_graph.engine.attacks.attacker import Attacker
 from fdia_graph.engine.attacks.ramp import Ramp
-from fdia_graph.generation.nygrid.config import Settings, rng
-from fdia_graph.generation.nygrid.io import read_pool
-from fdia_graph.generation.nygrid.pool import Pool, peak_ratings
-from fdia_graph.generation.nygrid.source import NewYorkSource
+from fdia_graph.generation.newyork import NewYorkSource
 from fdia_graph.generation.plan import place_episodes, split_weeks
 from fdia_graph.models.config import NewYorkSettings
 from fdia_graph.sensing.measure import Measurement

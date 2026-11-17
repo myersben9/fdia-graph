@@ -6,8 +6,8 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from fdia_graph.generation.nygrid.dispatch import hourly_dispatch
-from fdia_graph.generation.nygrid.inputs import read_nygrid
+from fdia_graph.data.dispatch import hourly_dispatch
+from fdia_graph.data.inputs import read_nygrid
 from fdia_graph.systems.case import nygrid_case
 
 from .inputs import DATA, ROOT, TERRITORIES, needs_data
@@ -55,7 +55,7 @@ def test_dispatch_matches_matlab(case, hours):
 
 @pytest.mark.skipif(not REF.exists(), reason="MATLAB reference dumps missing")
 def test_projection_matches_matlab(case, hours):
-    from fdia_graph.generation.nygrid.solver import AcSolver
+    from fdia_graph.data.solver import AcSolver
 
     picked = [next(h for h in hours if str(h.time).startswith(t)) for t in TAGS.values()]
     d = hourly_dispatch(case, picked)
@@ -77,7 +77,7 @@ YEAR = ROOT / "results" / "nygrid.ac_year.csv"  # the MATLAB recipe over 2019, o
 def test_projection_matches_matlab_year(case, hours):
     import pandas as pd
 
-    from fdia_graph.generation.nygrid.solver import AcSolver
+    from fdia_graph.data.solver import AcSolver
 
     year = pd.read_csv(YEAR).set_index("ts")
     tags = [
@@ -105,10 +105,9 @@ def test_projection_matches_matlab_year(case, hours):
 
 def test_pool(case, hours, tmp_path):
     from fdia_graph.constants.newyork import SolveKind
-    from fdia_graph.generation.nygrid.io import read_pool, write_pool
-    from fdia_graph.generation.nygrid.loads import LoadSeries
-    from fdia_graph.generation.nygrid.pool import PoolBuilder
-    from fdia_graph.generation.nygrid.solver import AcSolver
+    from fdia_graph.data.loads import LoadSeries
+    from fdia_graph.data.pool import PoolBuilder, read_pool, write_pool
+    from fdia_graph.data.solver import AcSolver
 
     d = hourly_dispatch(case, hours[:2])
     renew = np.array([h.renew_mw for h in hours[:2]])
@@ -167,7 +166,7 @@ def test_pool(case, hours, tmp_path):
     assert np.array_equal(back.unit_p, pool.unit_p, equal_nan=True)
 
     # N8: the case file's ratings stay, every other branch gets its peak flow over the solved frames (N47).
-    from fdia_graph.generation.nygrid.pool import peak_ratings
+    from fdia_graph.data.pool import peak_ratings
 
     filled = peak_ratings(case, pool)
     pf, qf, pt, qt = solver.network.flows(pool.vm[:3], pool.va[:3])
@@ -182,9 +181,9 @@ def test_pool_compensation(case, hours):
     generator buses regulated to 1.035 p.u., New York held in 0.95 to 1.05 p.u. by switched banks. The release's
     solver has no bank at all."""
     from fdia_graph.constants.newyork import SolveKind
-    from fdia_graph.generation.nygrid.loads import LoadSeries
-    from fdia_graph.generation.nygrid.pool import PoolBuilder
-    from fdia_graph.generation.nygrid.solver import AcSolver, Compensation
+    from fdia_graph.data.loads import LoadSeries
+    from fdia_graph.data.pool import PoolBuilder
+    from fdia_graph.data.solver import AcSolver, Compensation
 
     # the units NYgrid leaves at its placeholder of plus or minus 9999 MVAr get the power-factor limits on Pmax
     loose = (np.abs(case.qmax) >= 9999) | (np.abs(case.qmin) >= 9999)
@@ -241,9 +240,9 @@ def test_load_profiles(case):
     import json
 
     from fdia_graph.constants.newyork import ZONES
-    from fdia_graph.generation.nygrid.config import Settings, rng
-    from fdia_graph.generation.nygrid.inputs import ZoneLoad, fetch_nyiso
-    from fdia_graph.generation.nygrid.loads import LoadModel
+    from fdia_graph.data.config import Settings, rng
+    from fdia_graph.data.inputs import ZoneLoad, fetch_nyiso
+    from fdia_graph.data.loads import LoadModel
     from fdia_graph.systems.ownership import assign_clients
 
     own = assign_clients(

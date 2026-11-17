@@ -25,7 +25,7 @@ GOLDEN = Path(__file__).parent / "golden"
 @pytest.fixture(scope="module")
 def source():
     pytest.importorskip("pyomo")
-    from fdia_graph.generation.nygrid.source import NewYorkSource
+    from fdia_graph.generation.newyork import NewYorkSource
     from fdia_graph.models.config import NewYorkRelease
 
     release = NewYorkRelease(families=("Am", "At"), workers=1, survey=0, root=ROOT)
@@ -44,7 +44,7 @@ def test_the_days_timeline_is_the_stored_one(source, tmp_path):
 @pytest.mark.parametrize("lag", (0, 1))
 def test_a_single_episode_is_the_stored_one(source, tmp_path, lag):
     from fdia_graph.constants.newyork import SolveKind
-    from fdia_graph.generation.nygrid.source import SingleEpisodeSource
+    from fdia_graph.generation.newyork import SingleEpisodeSource
 
     pool = source.pool
     solved = pool.solve_kind == SolveKind.SOLVED

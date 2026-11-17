@@ -5,7 +5,7 @@ splits, then split by split place the episodes, design them and walk the frames 
 finish the file. Those steps are written here once, on a generator over the grid, the pool and the
 designer of the attack families. A subclass builds them and says what its files record:
 `generation.ieee.IeeeSource` (an IEEE case, random meters, the search-based families) and
-`generation.nygrid.source.NewYorkSource` (the New York grid, owned meters, the families that design
+`generation.newyork.NewYorkSource` (the New York grid, owned meters, the families that design
 an attack vector, splits of whole weeks). docs/guides/generation.md has the step-by-step table.
 """
 

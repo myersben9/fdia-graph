@@ -94,8 +94,8 @@ def _digest(a: np.ndarray) -> dict:
 @pytest.mark.parametrize("overshoot", (0.0, 175.0))
 def test_interface_attack_design(overshoot):
     """The Am design on one onset (frame 48220, 2019-06-17), at the limit and 175 MW past it."""
-    from fdia_graph.generation.nygrid.config import Settings, rng
-    from fdia_graph.generation.nygrid.source import NewYorkSource
+    from fdia_graph.data.config import Settings, rng
+    from fdia_graph.generation.newyork import NewYorkSource
     from fdia_graph.models.config import NewYorkRelease
 
     release = NewYorkRelease(families=("Am",), interfaces=("SPR/DUN-SOUTH",), workers=1, survey=0, root=ROOT)

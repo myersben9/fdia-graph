@@ -19,9 +19,9 @@ from typing import Any
 import numpy as np
 
 from fdia_graph.constants.meters import MeterKind
+from fdia_graph.data.ipopt import ipopt
 from fdia_graph.engine.attacks.attacker import Attacker
 from fdia_graph.engine.attacks.family import AttackFamily
-from fdia_graph.engine.solvers import ipopt
 from fdia_graph.errors import ConfigError
 
 SUPPORT_BUDGET = 32  # candidate supports tried per search

@@ -12,7 +12,7 @@ import sys
 import pytest
 
 PACKAGES = (
-    "fdia_graph.generation.nygrid",
+    "fdia_graph.data",
     "fdia_graph.sensing",
     "fdia_graph.systems",
 )
@@ -38,7 +38,7 @@ def test_the_release_source_refuses_what_it_does_not_build(families, interfaces,
     """Before it reads a file: a family other than Am and At, or Am with no interface to attack."""
     pytest.importorskip("pandapower")
     from fdia_graph.errors import ConfigError
-    from fdia_graph.generation.nygrid.source import NewYorkSource
+    from fdia_graph.generation.newyork import NewYorkSource
     from fdia_graph.models.config import NewYorkRelease
 
     with pytest.raises(ConfigError, match=says):
@@ -49,7 +49,7 @@ def test_reading_a_dataset_needs_neither_pandapower_nor_pyomo():
     """Runs without the [ny] extra too: there above all, reading a dataset must not need it."""
     pytest.importorskip("h5py")  # the dataset reader's own dependency
     code = (
-        "import sys, fdia_graph.generation.nygrid, fdia_graph.dataset.clients; "
+        "import sys, fdia_graph.data, fdia_graph.generation, fdia_graph.dataset.clients; "
         "print(sorted(m for m in ('pandapower', 'pyomo') if m in sys.modules))"
     )
     out = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, check=True).stdout

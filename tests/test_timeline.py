@@ -340,8 +340,8 @@ def test_a_producing_static_generator_bus_injects():
 def test_reactive_load_adds_back_the_generators_output():
     """At a load bus with a generator the stored Q injection is load minus generator output, so the
     reactive load adds it back; the local solve with unchanged loads reproduces the scan."""
+    from fdia_graph.data.ieee_pool import _case_buses, _solve_states_chunk
     from fdia_graph.engine.core import FdiaGenerator
-    from fdia_graph.profiles import _case_buses, _solve_states_chunk
 
     g = FdiaGenerator(14, seed=5)
     X = _solve_states_chunk(14, np.full((1, len(_case_buses(14))), 1.1))[0]

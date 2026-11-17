@@ -62,10 +62,10 @@ PAGES = {
         "formulas": "docs/reference/FORMULAS.md",
         "systems": "docs/concepts/test_systems.md",
         "sensing": "docs/concepts/flow.md",
+        "data": "docs/concepts/flow.md",
         "engine": "docs/guides/generation.md",
         "engine/attacks": "docs/guides/generation.md",
         "generation": "docs/guides/generation.md",
-        "generation/nygrid": "docs/concepts/new_york_grid.md",
     },
     ANALYSIS: {
         "": "analysis/README.md",
@@ -128,6 +128,8 @@ CONSTANT_HOMES = ("constants/", "schema.py")
 # model, which `constants/` cannot import; "private", a detail of the one function beside it;
 # "environment" and "path", read from the environment or from where the file is installed.
 EXEMPT: dict[str, dict[str, str]] = {
+    "data/ieee_pool.py": {"K_DEFAULT": "knob", "SIGMA_DEFAULT": "knob", "CLIP_DEFAULT": "knob"},
+    "data/profiles.py": {"_FEEDS": "instances"},
     "dataset/base.py": {"CAPABILITIES": "functions"},
     "engine/attacks/area.py": {"AREA_HOPS": "knob", "AREA_SIZE_PENALTY": "knob"},
     "engine/attacks/attacker.py": {"ABSORB_CAP": "knob"},
@@ -136,7 +138,7 @@ EXEMPT: dict[str, dict[str, str]] = {
     "engine/attacks/overload.py": {"AM_LINE_TRIES": "knob"},
     "engine/attacks/stealthy.py": {"STEP_HALVINGS": "knob"},
     "systems/case.py": {"CASE_FILE": "path", "STATEMENT": "private", "QUOTED": "private"},
-    "generation/nygrid/source.py": {
+    "generation/newyork.py": {
         "HIT_STRATUM": "knob",
         "SURVEY_CHUNK": "private",
         "AM_RISE": "knob",
@@ -148,12 +150,6 @@ EXEMPT: dict[str, dict[str, str]] = {
     "generation/write.py": {"_BATCH": "private"},
     "models/config.py": {"_FLAT": "private", "_TOP": "private"},
     "models/inputs.py": {"_FAMILY_WORDS": "private"},
-    "profiles.py": {
-        "K_DEFAULT": "knob",
-        "SIGMA_DEFAULT": "knob",
-        "CLIP_DEFAULT": "knob",
-        "_FEEDS": "instances",
-    },
     "registry.py": {"CACHE_DIR": "environment", "_RELEASE": "environment", "_LOCAL_JSON": "environment"},
 }
 # The same for the analysis toolkit, which has no home of constants yet: the names it has today, each "not

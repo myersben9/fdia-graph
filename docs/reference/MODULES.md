@@ -41,6 +41,17 @@ What every folder of the repository holds, then what every Python file does, in 
 | `constants.releases` | The data releases: where the built-in datasets are published, which release is pinned, and the sha256 of every asset of the releases the registry verifies. |
 | `constants.streams` | The keys of the random streams a timeline draws from. Each stream is seeded with the timeline's seed, a key below and a position, so a draw of one kind never shifts a draw of another. The keys are arbitrary and fixed: a different key gives a different file. |
 | `constants.time` | Time: the calendar, the New York frame, and how a load profile is correlated from scan to scan. |
+| `data` | Where the load data and the operating points come from, for every test system. |
+| `data.config` | Build settings and the one place random generators are made. |
+| `data.dispatch` | Hourly unit dispatch, NYgrid's allocation of the NYISO fuel mix to the fixed unit list. |
+| `data.ieee_pool` | The pool of an IEEE case: one AC operating state per step of a load profile. |
+| `data.inputs` | Historical inputs: NYgrid's hourly 2019 tables and NYISO's 5-minute zonal load, and `fetch_inputs`, which downloads everything the build reads at its pinned version. |
+| `data.ipopt` | The optimization solver every OPF of the New York grid runs on, found and checked in one place. |
+| `data.load_sources` | Where the bottom-up load profiles come from ([LI21]), each downloaded once into a cache: the NREL ResStock and ComStock county profiles, each utility's EIA-861 sector sales, the census county centroids and the IAC industrial plants, with the clock rules the plants run on. `LoadModel` (`loads.py`) builds the bus profiles from these. |
+| `data.loads` | Per-bus load profiles by the bottom-up method of [LI21], scaled to the real zone load. |
+| `data.pool` | The pool: one AC operating state per 5-minute frame, from a ramp-constrained real-time dispatch, and the pool file of the build, HDF5. A timeline is written by the writer every grid uses (`fdia_graph.generation.write`) and read through `fdia_graph.dataset`. |
+| `data.profiles` | Load profiles: a real load time series as a load-scaling vector, read from a file or fetched from an operator's feed. |
+| `data.solver` | AC solutions of a Case: the hourly projection (an AC-OPF in Pyomo, solved by Ipopt) and the power flows between hours (pandapower). |
 | `dataset` | FdiaGraph: a PyTorch-ready dataset over one HDF5 file, a timeline (one row per frame in time order, `kind="timeline"`). |
 | `dataset.base` | The loader's shared state and the constants its concerns read. |
 | `dataset.clients` | The timeline as federated clients: each utility sees only its own meters, buses and labels. |
@@ -69,7 +80,6 @@ What every folder of the repository holds, then what every Python file does, in 
 | `engine.core` | The dataset generation engine: attack simulation and realistic meter readings on an IEEE case. |
 | `engine.measurement` | Measurement emission: the generator's meter readings of a stored state, as a file's layers. |
 | `engine.physics` | A scan's load and generation, read from its stored state. |
-| `engine.solvers` | The optimization solver every nygrid OPF runs on, found and checked in one place. |
 | `errors` | Every error the package raises on purpose, defined in this one module. |
 | `formulas` | The mathematics of the generation toolkit as named, pure functions: numpy in, numpy out, no files, no dataset objects, no torch. Each function carries its equation and a source key from docs/reference/REFERENCES.md; docs/reference/FORMULAS.md is the catalogue. Import a formula from its module (`formulas.network`, `formulas.noise`, `formulas.attacks`, `formulas.temporal`, `formulas.trust`). The formulas of estimation, localization, federated training and trust selection are the analysis toolkit's (`fdia_analysis.formulas`). |
 | `formulas.attacks` | Attack shapes defined by the dataset [DAT26] that are pure functions of their parameters. |
@@ -81,17 +91,7 @@ What every folder of the repository holds, then what every Python file does, in 
 | `generation.design` | The design stage of a timeline: every placed episode of a split gets its design before the split is walked, from its family (`engine.attacks.family.EpisodeFamily.designed`). |
 | `generation.emit` | The emit stage of a timeline: every frame in time order, benign or under its episode's design. |
 | `generation.ieee` | An IEEE case as the source of a timeline: its pool of operating points and what its files record. |
-| `generation.nygrid` | The New York system: NYgrid's NPCC-140 case made solvable in AC, its reduced network, the 2019 loads by bus, the hourly dispatch and the five-minute pool of AC operating states, and the timeline written from them. |
-| `generation.nygrid.config` | Build settings and the one place random generators are made. |
-| `generation.nygrid.dispatch` | Hourly unit dispatch, NYgrid's allocation of the NYISO fuel mix to the fixed unit list. |
-| `generation.nygrid.inputs` | Historical inputs: NYgrid's hourly 2019 tables and NYISO's 5-minute zonal load, and `fetch_inputs`, which downloads everything the build reads at its pinned version. |
-| `generation.nygrid.interfaces` | NYISO's internal transmission interfaces on the reduced case, with their real 2019 hourly limits and flows. |
-| `generation.nygrid.io` | The pool file of the build, HDF5. A timeline is written by the writer every grid uses (`fdia_graph.generation.write`) and read through `fdia_graph.dataset`. |
-| `generation.nygrid.load_sources` | Where the bottom-up load profiles come from ([LI21]), each downloaded once into a cache: the NREL ResStock and ComStock county profiles, each utility's EIA-861 sector sales, the census county centroids and the IAC industrial plants, with the clock rules the plants run on. `LoadModel` (`loads.py`) builds the bus profiles from these. |
-| `generation.nygrid.loads` | Per-bus load profiles by the bottom-up method of [LI21], scaled to the real zone load. |
-| `generation.nygrid.pool` | The pool: one AC operating state per 5-minute frame, from a ramp-constrained real-time dispatch. |
-| `generation.nygrid.solver` | AC solutions of a Case: the hourly projection (an AC-OPF in Pyomo, solved by Ipopt) and the power flows between hours (pandapower). |
-| `generation.nygrid.source` | The New York grid as the source of a timeline: the year of pool states and its steps of the one path. |
+| `generation.newyork` | The New York grid as the source of a timeline: the year of pool states and its steps of the one path. |
 | `generation.plan` | The plan stage of a timeline: where its splits are cut and where each split's episodes go. |
 | `generation.source` | The one source of a timeline: a grid, its pool of operating points, and the path that generates it. |
 | `generation.write` | The one writer of a timeline file, for every grid: `TimelineWriter` owns the open HDF5 file. |
@@ -107,7 +107,6 @@ What every folder of the repository holds, then what every Python file does, in 
 | `models.inputs` | What the formulas and the parsers accept, one model each, checked when built (`models.validation`). |
 | `models.plan` | The records of a timeline's plan and design stages: a placed episode (`Slot`), a split and its frames (`SplitSpan`), a placed episode on its way through the design stage (`Planned`), the attack as it is written (`Episode`, `EpisodeRecord`), what the placement asked for and got (`Placement`), and what a design worker rebuilds its generator from (`GeneratorSpec`). |
 | `models.validation` | The one place inputs are checked (CONTRIBUTING.md, "an input is checked in one place"). |
-| `profiles` | Load profiles and operating states: the front of the pipeline. |
 | `ratings` | Branch thermal ratings for the overload attack of [WU26] (eqs. 24-25), stored with the package. |
 | `registry` | The dataset registry: the built-in (downloadable) datasets and the locally generated ones. |
 | `schema` | The file protocol: every group, dataset and attribute name an fdia-graph HDF5 file carries, defined once. The writer (`generation`) and the readers (`dataset`) agree through these names; `tools/readability.py` refuses a path-shaped literal ("data/...", "graph/...") in any other module. Field names (`node_x`, `clean`, ...) stay as words in the code; `FIELD_PATH` maps them to paths. |
@@ -118,6 +117,7 @@ What every folder of the repository holds, then what every Python file does, in 
 | `systems` | The test systems: a grid as a `Case` with its `Network`, whichever grid it is. |
 | `systems.case` | The grid as one frozen record of arrays, read from a MATPOWER case file or from a pandapower net. |
 | `systems.fixes` | Two variants of a case, applied when one is asked for: the external areas held at the base load, and NYgrid's HVDC links in place of the AC branch 81-125. The changes every build has (zone J's split, the 765 kV line) are in the case file itself (`case.py` reads it). |
+| `systems.interfaces` | NYISO's internal transmission interfaces on the reduced case, with their real 2019 hourly limits and flows. |
 | `systems.network` | Admittances of a Case, built once, and the AC quantities they give for any state, from the SDK's network formulas (`formulas.network`). |
 | `systems.ownership` | Federated clients: each NY bus belongs to the electric utility whose service territory holds it. |
 | `systems.pandapower_types` | The pandapower objects the package reads, as types. |
@@ -214,7 +214,7 @@ What every folder of the repository holds, then what every Python file does, in 
 | `tests/nygrid/test_release_source.py` | The release source's attacker sensitivities stay with the attacker: a timeline built with `v_margin` records the case's true voltage limits, while the attacker designs against the widened ones. Needs the public inputs and the whole 2019 pool (inputs.py). |
 | `tests/nygrid/test_scenario.py` | The hourly operating points against NYgrid's own MATLAB output: the inputs, the dispatch, the AC projection and the pool, and the bottom-up load profiles with their within-hour calibration. |
 | `tests/nygrid/test_sensing.py` | The New York meter plan and its readings: the fewest PMUs on small graphs, the plan, the measurement Jacobian against finite differences, observability and the meter noise. |
-| `tests/nygrid/test_solvers.py` | The checked Ipopt every nygrid OPF runs on: a solver that is missing, or found but unable to start, raises `SolverUnavailable` with the fix, instead of reading as an infeasible model downstream. |
+| `tests/nygrid/test_solvers.py` | The checked Ipopt every OPF of the New York grid runs on: a solver that is missing, or found but unable to start, raises `SolverUnavailable` with the fix, instead of reading as an infeasible model downstream. |
 | `tests/nygrid/test_stretches.py` | The New York source on a synthetic pool, with no NYgrid data and no solver: the frames written in stretches as the weekly splits are planned are the frames written in one pass, one source generates the same file twice, a single episode is the design of its (lagged) window on the true scans, and a failed run leaves no file. |
 | `tests/nygrid/test_tables.py` | The input tables are read whole and closed: no ResourceWarning, a byte-order mark dropped (no data needed). |
 | `tests/nygrid/test_timeline.py` | The New York timeline: splits cut whole and disjoint, episodes placed at random within their split and only at allowed onsets, and every frame a noisy benign scan plus its attack with labels that match the meters tampered. |
@@ -297,7 +297,7 @@ What every folder of the repository holds, then what every Python file does, in 
 | file | what it does |
 |---|---|
 | `pipelines/newyork/build_single_episodes.py` | The single-episode files for studying one attack by hand: one Am on an interface per file, over the whole day it falls in (288 five-minute scans), nothing else attacked. Each file is a normal timeline (`fdia_graph.dataset.clients.Dataset` reads it): the scans with the attack, the same noisy scans without it, the true states and the labels. Each is generated by the path every timeline takes (`TimelineSource.generate`), over the release's grid with that one episode (`SingleEpisodeSource`). |
-| `pipelines/newyork/build_timeline.py` | Build the release timeline from a pool: the release's source (`NewYorkSource.production` in `fdia_graph.generation.nygrid.source`), generated by the path every timeline takes (`TimelineSource.generate`). |
+| `pipelines/newyork/build_timeline.py` | Build the release timeline from a pool: the release's source (`NewYorkSource.production` in `fdia_graph.generation.newyork`), generated by the path every timeline takes (`TimelineSource.generate`). |
 | `pipelines/newyork/make_case.py` | The recipe of the New York case file: `case_nygrid.m` made again from NYgrid's `Data/` folder. |
 | `pipelines/newyork/run_pool.py` | Build the pool of operating points for a time window as NYISO's real-time dispatch, in chunks run in parallel. |
 

@@ -19,11 +19,11 @@ Building the pool:
 
 | Test system | Solve | Code |
 |---|---|---|
-| IEEE cases | one power flow per step, in pandapower | `generate_states` in `profiles.py` |
-| New York | one OPF per frame, in Pyomo with Ipopt | `AcSolver.dispatch` in `generation/nygrid/solver.py` |
+| IEEE cases | one power flow per step, in pandapower | `generate_states` in `data/ieee_pool.py` |
+| New York | one OPF per frame, in Pyomo with Ipopt | `AcSolver.dispatch` in `data/solver.py` |
 | New York | then one power flow at the OPF's outputs, in pandapower | `AcSolver.power_flow` |
 
-`PoolBuilder` (`generation/nygrid/pool.py`) runs the New York solves in time order. First,
+`PoolBuilder` (`data/pool.py`) runs the New York solves in time order. First,
 `AcSolver.project` solves one OPF per hour: the AC point closest to the source model's hourly
 outputs. The nuclear, hydro and external units follow these hourly points. Then each frame is
 dispatched. A thermal unit's output may differ from its output in the frame before by at most
@@ -39,7 +39,7 @@ attacks solve again, and only on a small area of the grid.
 | `At` on New York | the same local solve | `Attacker.false_state` in `engine/attacks/attacker.py` |
 | `Am` on New York | a local OPF, in Pyomo with Ipopt | `OpfFdia` in `engine/attacks/opf.py` |
 
-`engine/solvers.py` has one function, `ipopt`. Every OPF gets its solver from it. It finds
+`data/ipopt.py` has one function, `ipopt`. Every OPF gets its solver from it. It finds
 Ipopt, checks that it starts, and raises `SolverUnavailable` with the fix when it does not.
 
 `Case.from_ieee` also solves the base power flow of an IEEE case once, in pandapower.
@@ -61,7 +61,7 @@ conda install -c conda-forge ipopt
 Check that the package finds it:
 
 ```python
-from fdia_graph.engine.solvers import ipopt
+from fdia_graph.data.ipopt import ipopt
 
 print(ipopt().version())
 ```

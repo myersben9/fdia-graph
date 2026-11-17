@@ -19,7 +19,7 @@ AM, AT = FAMILY_CODE["Am"], FAMILY_CODE["At"]
 
 def _generate(grid, path, am=None, at=None, **settings):
     """The synthetic timeline with the families' options `am` and `at` (`bias_family`): (source, file facts)."""
-    from fdia_graph.generation.nygrid.source import NewYorkSource
+    from fdia_graph.generation.newyork import NewYorkSource
     from fdia_graph.models.config import NewYorkSettings
 
     pool, att, _, own = grid
@@ -97,7 +97,7 @@ def test_a_surveyed_family_is_placed_only_on_survey_hits_and_never_moves(grid, t
 
 def test_a_pool_frame_reads_the_same_in_a_timeline_and_in_a_single_episode_file(grid, tmp_path):
     """A frame's jitter is keyed by its pool frame, wherever the file starts."""
-    from fdia_graph.generation.nygrid.source import SingleEpisodeSource
+    from fdia_graph.generation.newyork import SingleEpisodeSource
 
     source, _ = _generate(grid, tmp_path / "timeline.h5")
     files = {}

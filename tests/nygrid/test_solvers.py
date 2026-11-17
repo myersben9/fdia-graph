@@ -1,4 +1,4 @@
-"""The checked Ipopt every nygrid OPF runs on: a solver that is missing, or found but unable to start, raises
+"""The checked Ipopt every OPF of the New York grid runs on: a solver that is missing, or found but unable to start, raises
 `SolverUnavailable` with the fix, instead of reading as an infeasible model downstream."""
 
 from __future__ import annotations
@@ -27,18 +27,18 @@ class _FakeSolver:
     ("found", "starts"), [(False, False), (True, False)], ids=["missing", "does-not-start"]
 )
 def test_unusable_ipopt_raises_with_the_fix(monkeypatch, found, starts):
-    from fdia_graph.engine import solvers
+    from fdia_graph.data.ipopt import ipopt
 
     monkeypatch.setattr(pe, "SolverFactory", lambda *a, **k: _FakeSolver(found, starts))
     with pytest.raises(SolverUnavailable, match="conda install -c conda-forge ipopt"):
-        solvers.ipopt(tol=1e-8)
+        ipopt(tol=1e-8)
 
 
 def test_working_ipopt_takes_the_options(monkeypatch):
-    from fdia_graph.engine import solvers
+    from fdia_graph.data.ipopt import ipopt
 
     monkeypatch.setattr(pe, "SolverFactory", lambda *a, **k: _FakeSolver(True, True))
-    assert solvers.ipopt(tol=1e-8, max_iter=300).options == {"tol": 1e-8, "max_iter": 300}
+    assert ipopt(tol=1e-8, max_iter=300).options == {"tol": 1e-8, "max_iter": 300}
 
 
 def test_solver_unavailable_is_not_a_data_condition():
@@ -50,11 +50,11 @@ def test_solver_unavailable_is_not_a_data_condition():
 
 def test_ipopt_that_prints_no_version_raises(monkeypatch):
     """Pyomo reads a program that printed nothing as version (0, 0, 0, 0): it did not really start."""
-    from fdia_graph.engine import solvers
+    from fdia_graph.data.ipopt import ipopt
 
     monkeypatch.setattr(pe, "SolverFactory", lambda *a, **k: _FakeSolver(True, True, (0, 0, 0, 0)))
     with pytest.raises(SolverUnavailable):
-        solvers.ipopt()
+        ipopt()
 
 
 def test_the_dll_folder_is_added_as_a_whole_path_entry(monkeypatch, tmp_path):
@@ -62,12 +62,12 @@ def test_the_dll_folder_is_added_as_a_whole_path_entry(monkeypatch, tmp_path):
     import os
     import sys
 
-    from fdia_graph.engine import solvers
+    from fdia_graph.data.ipopt import ipopt
 
     lib = tmp_path / "Library" / "bin"
     lib.mkdir(parents=True)
     monkeypatch.setattr(sys, "prefix", str(tmp_path))
     monkeypatch.setenv("PATH", str(lib) + "-extra")
     monkeypatch.setattr(pe, "SolverFactory", lambda *a, **k: _FakeSolver(True, True))
-    solvers.ipopt()
+    ipopt()
     assert os.environ["PATH"].split(os.pathsep)[0] == str(lib)

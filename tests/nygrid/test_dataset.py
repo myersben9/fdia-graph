@@ -25,7 +25,7 @@ def written(grid, tmp_path_factory):
     frame); under an episode the scan is that float32 reading plus its row of the attack vector."""
     from fdia_graph.constants.streams import JITTER_STREAM
     from fdia_graph.dataset.clients import Dataset
-    from fdia_graph.generation.nygrid.source import NewYorkSource
+    from fdia_graph.generation.newyork import NewYorkSource
     from fdia_graph.models.config import NewYorkSettings
 
     pool, att, families, own = grid
@@ -159,7 +159,7 @@ def test_the_settings_and_their_hash_identify_the_file(written):
     hand, whose record has no attacked share (and its file no `target_attacked_frac`)."""
     import json
 
-    from fdia_graph.generation.nygrid.source import NewYorkSource, SingleEpisodeSource
+    from fdia_graph.generation.newyork import NewYorkSource, SingleEpisodeSource
     from fdia_graph.models.config import NewYorkRelease
 
     ds, source, _ = written

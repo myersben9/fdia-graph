@@ -14,7 +14,7 @@ from pandapower.converter.pypower import from_ppc
 
 from fdia_graph.constants.grid import NO_LIMIT, BusType
 from fdia_graph.constants.newyork import HQ_BUS
-from fdia_graph.engine.solvers import ipopt
+from fdia_graph.data.ipopt import ipopt
 from fdia_graph.systems.case import Case
 from fdia_graph.systems.network import Network
 

@@ -117,7 +117,7 @@ In pandapower, build the net from the `Case`. `AcSolver` does it, and needs Ipop
 ([Solving](solving.md)):
 
 ```python
-from fdia_graph.generation.nygrid.solver import AcSolver
+from fdia_graph.data.solver import AcSolver
 
 net = AcSolver(case).net    # 140 buses, 271 generators
 ```
@@ -131,6 +131,7 @@ them. `AcSolver` avoids it by giving every branch a placeholder rating.
 | File | Holds |
 |---|---|
 | `fixes.py` | two variants of the New York case, each a copy: `externals_at_base` and `hvdc_links` |
+| `interfaces.py` | `Interface`: a New York transmission interface, its branches with its hourly limit and flow |
 | `ownership.py` | `Ownership`: which utility owns each New York bus |
 | `states.py` | `PoolStates`: solved voltages read frame by frame as the states a timeline walks |
 | `tables.py` | the reader of the CSV input tables |

@@ -1,4 +1,4 @@
-"""The optimization solver every nygrid OPF runs on, found and checked in one place.
+"""The optimization solver every OPF of the New York grid runs on, found and checked in one place.
 
 On Windows, Ipopt needs the DLLs of the environment's `Library/bin` folder on PATH to start. When it cannot
 start, Pyomo reports a failed solve, which a caller would read as "infeasible". `ipopt` therefore puts the

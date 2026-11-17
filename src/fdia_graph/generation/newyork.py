@@ -24,6 +24,8 @@ import numpy as np
 from fdia_graph import schema
 from fdia_graph.constants.families import AM, AT
 from fdia_graph.constants.newyork import BUS_LOCATIONS_FILE, TERRITORIES_FILE, SolveKind
+from fdia_graph.data.config import Settings, rng, stream_key
+from fdia_graph.data.pool import Pool, peak_ratings, read_pool
 from fdia_graph.engine.attacks.attacker import (
     Attacker,
     generator_band,
@@ -37,10 +39,6 @@ from fdia_graph.engine.attacks.ramp import Ramp
 from fdia_graph.engine.core import FdiaGenerator
 from fdia_graph.errors import ConfigError, DataConditionError, NoAdmissibleTarget
 from fdia_graph.generation.design import Designer, Families
-from fdia_graph.generation.nygrid.config import Settings, rng, stream_key
-from fdia_graph.generation.nygrid.interfaces import hourly_interfaces
-from fdia_graph.generation.nygrid.io import read_pool
-from fdia_graph.generation.nygrid.pool import Pool, peak_ratings
 from fdia_graph.generation.plan import STRATUM, split_weeks, week_index
 from fdia_graph.generation.source import OutPath, TimelineSource
 from fdia_graph.models.choices import Split, SplitBy
@@ -51,6 +49,7 @@ from fdia_graph.schema import NEW_YORK_GRAPH_LEGEND, NEW_YORK_TAMPER_RULE, Attr,
 from fdia_graph.sensing.measure import Measurement
 from fdia_graph.sensing.meters import plan_meters
 from fdia_graph.systems.case import Case, nygrid_case
+from fdia_graph.systems.interfaces import hourly_interfaces
 from fdia_graph.systems.network import Network
 from fdia_graph.systems.ownership import Ownership, assign_clients
 from fdia_graph.systems.states import PoolStates

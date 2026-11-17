@@ -22,8 +22,8 @@ from fdia_graph.engine.attacks.attacker import Attacker
 from fdia_graph.engine.attacks.family import Window
 from fdia_graph.engine.attacks.opf import OpfFdia, _OpfModel, _Prepared, _Window
 from fdia_graph.errors import ConfigError
-from fdia_graph.generation.nygrid.interfaces import Interface
 from fdia_graph.models.plan import Episode
+from fdia_graph.systems.interfaces import Interface
 
 
 @dataclass

@@ -35,13 +35,12 @@ import pandas as pd
 
 from fdia_graph.constants.newyork import HYDRO_RAMP_PER_MIN, IMPORT_RAMP_MW_PER_MIN, SolveKind
 from fdia_graph.constants.time import FRAME_MINUTES
-from fdia_graph.generation.nygrid.config import Settings, rng
-from fdia_graph.generation.nygrid.dispatch import hourly_dispatch
-from fdia_graph.generation.nygrid.inputs import fetch_nyiso, read_nygrid
-from fdia_graph.generation.nygrid.io import read_pool, write_pool
-from fdia_graph.generation.nygrid.loads import LoadModel, LoadSeries
-from fdia_graph.generation.nygrid.pool import Pool, PoolBuilder
-from fdia_graph.generation.nygrid.solver import AcSolver
+from fdia_graph.data.config import Settings, rng
+from fdia_graph.data.dispatch import hourly_dispatch
+from fdia_graph.data.inputs import fetch_nyiso, read_nygrid
+from fdia_graph.data.loads import LoadModel, LoadSeries
+from fdia_graph.data.pool import Pool, PoolBuilder, read_pool, write_pool
+from fdia_graph.data.solver import AcSolver
 from fdia_graph.systems.case import nygrid_case
 from fdia_graph.systems.ownership import assign_clients
 

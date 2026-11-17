@@ -6,7 +6,7 @@ table (`order="random"`) or as the timeline (`order="time"`). This module also r
 (`_load_states`): a .npz or .h5 file with key 'X' [T, N, 4], or a directory of X_*.npy files.
 
 The one path that generates a timeline is `TimelineSource.generate` (`generation/source.py`). Its
-subclasses are the grids: `IeeeSource` (`generation/ieee.py`) and `generation/nygrid/source.py`.
+subclasses are the grids: `IeeeSource` (`generation/ieee.py`) and `generation/newyork.py`.
 """
 
 from __future__ import annotations

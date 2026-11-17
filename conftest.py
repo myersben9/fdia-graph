@@ -25,7 +25,7 @@ import pytest  # noqa: E402
 
 from tests.helpers import TIMELINE_KW, TIMELINE_V083, TINY  # noqa: E402
 
-# tests/nygrid needs the [ny] extra (Pyomo, pandas, pandapower, SciPy, matpowercaseframes, imported when fdia_graph.generation.nygrid's
+# tests/nygrid needs the [ny] extra (Pyomo, pandas, pandapower, SciPy, matpowercaseframes, imported when the New York grid's
 # modules load): without it the folder is left out of collection rather than failing on import. With it,
 # each test still skips when the NYgrid checkout or the built pool is missing under NYGRID_ROOT.
 if any(
