@@ -81,7 +81,7 @@ COLLAPSE = {
 }
 MAX_METHODS = 8  # methods listed per class before "... and n more"
 NOISE_MODULES = {"dataset/__init__"}  # FdiaGraph itself: every class takes one, the edge says nothing
-NOISE_CLASSES = {"NodeColumns", "EdgeColumns", "BranchColumns"}  # the column-index tuples, likewise
+NOISE_CLASSES = {"NodeColumns", "EdgeColumns"}  # the column-index tuples, likewise
 # collaborators a class takes by duck typing, so no import names them: (other class, edge label)
 EXTRA = {
     "GatedPrior": [("LocalizerBase", "gate")],

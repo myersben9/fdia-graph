@@ -11,9 +11,8 @@ A document holds a results block where a number or a table belongs:
 `fill` replaces each block's body with what its query renders now; `stale` lists the blocks whose
 body differs, which `tools/results_docs.py --check` turns into a failing gate. A query is a function
 registered under a name with `@query("name")`: it gets the store and the block's arguments
-(strings: the bare words positionally, the `key=value` ones by name) and returns markdown. Three
-are built in: `value` (one cell), `table` (a pivot of one metric by two keys) and `reduction` (the
-percent error reduction of one method over another).
+(strings: the bare words positionally, the `key=value` ones by name) and returns markdown. One is
+built in: `value` (one cell); the repository's own are in `results/queries.py`.
 A block whose body starts on a new line renders a block of markdown, one inline renders inline.
 """
 
@@ -22,10 +21,9 @@ from __future__ import annotations
 import functools
 import re
 import shlex
-from collections.abc import Callable, Mapping
+from collections.abc import Callable
 from typing import Optional
 
-from ..models.errors import NoSuchResult
 from . import render
 from .store import Store
 
@@ -98,11 +96,10 @@ def stale(text: str, store: Store) -> list[str]:
     return [old.group("spec") for old, new in pairs if old.group("body") != new.group("body")]
 
 
-# ---- built-in queries
+# ---- the built-in query
 def _filters(args: dict[str, str]) -> dict[str, object]:
     """The block arguments that select records: the keys and tags, a comma meaning "any of"."""
-    skip = set(_FORMAT) | {"experiment", "rows", "cols", "base", "new", "order"}
-    return {k: v.split(",") if "," in v else v for k, v in args.items() if k not in skip}
+    return {k: v.split(",") if "," in v else v for k, v in args.items() if k not in _FORMAT}
 
 
 def _fmt(args: dict[str, str]) -> tuple[Optional[str], float, bool]:
@@ -114,36 +111,3 @@ def _value(store: Store, experiment: str, **args: str) -> str:
     """One number: the single newest record the arguments select."""
     spec, scale, sd = _fmt(args)
     return render.cell(store.one(experiment, **_filters(args)), spec, scale, sd)
-
-
-@query("table")
-def _table(store: Store, experiment: str, rows: str, cols: str, **args: str) -> str:
-    """A pivot of the selected records: one line per `rows` key, one column per `cols` key, in the
-    order given by `order` ("a,b,c" for the rows) or the store's order."""
-    spec, scale, sd = _fmt(args)
-    grid = render.pivot(store.latest(experiment, **_filters(args)), rows, cols)
-    row_keys = _row_keys(grid, args.get("order"), f"table {experiment} {args}")
-    col_keys = list(dict.fromkeys(c for _, c in grid))
-    body = [[r, *(render.cell(grid.get((r, c)), spec, scale, sd) for c in col_keys)] for r in row_keys]
-    return render.table([rows, *col_keys], body)
-
-
-def _row_keys(grid: Mapping[tuple[str, str], object], order: Optional[str], what: str) -> list[str]:
-    """The rows of a pivot: `order`'s ("a,b,c") or the store's; an empty grid or an ordered row with
-    no record is `NoSuchResult`, so a typo in a block never renders an empty table."""
-    have = list(dict.fromkeys(r for r, _ in grid))
-    keys = order.split(",") if order else have
-    missing = [r for r in keys if r not in have]
-    if not grid or missing:
-        raise NoSuchResult(f"{what}: {'no records' if not grid else f'no rows {missing}'}")
-    return keys
-
-
-@query("reduction")
-def _reduction(store: Store, experiment: str, base: str, new: str, **args: str) -> str:
-    """The percent error reduction of method `new` over method `base` (negative when it is worse),
-    a whole number by default."""
-    keys = _filters(args)
-    b = store.one(experiment, **{**keys, "method": base}).value
-    n = store.one(experiment, **{**keys, "method": new}).value
-    return render.number(100.0 * (1.0 - n / b), args.get("fmt", ".0f"))

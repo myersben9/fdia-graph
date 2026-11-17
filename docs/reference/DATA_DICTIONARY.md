@@ -168,7 +168,7 @@ Every frame of a timeline carries three aligned layers, for node and for edge me
 
 On a hybrid-meter file a SCADA voltmeter reads no angle, so `node_m[:, 3]` is 1 at the PMU buses only,
 and each PMU reads the current phasor of every in-service branch at its bus [WU26, eqs. 19-20]. The
-columns of `pmu_i` are defined in `fdia_graph.models.CurrentColumns` (`re_from`, `im_from`, `re_to`,
+columns of `pmu_i` are defined in `fdia_graph.models.CurrentIndex` (`re_from`, `im_from`, `re_to`,
 `im_to`): the real and imaginary part of `I_from = Y_f V` and `I_to = Y_t V` in per unit on the base
 current, the same on a `units="pu"` or `"physical"` view, zero where no PMU reads that end
 (`pmu_i_m` is 0 there). `pmu_i_benign` is the attack-removed twin and `pmu_i_tamper` marks the

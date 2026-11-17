@@ -101,7 +101,7 @@ The kinds, most frequent first.
     - Nothing is allocated per Newton iteration.
     - Estimate the size at IEEE-300 over 72,000 frames; `python tools/bench.py --check` gates the
       timings.
-12. **The readability contract.** Channel indices come from `NODE`/`EDGE`/`BRANCH`, file paths and
+12. **The readability contract.** Channel indices come from `NODE`/`EDGE`/`CURRENT`, file paths and
     attributes from `schema`, each formula exists once, and there are no positional tuples.
 13. **Extras.** A new import of scipy, torch or pandapower is declared in the matching extra, guarded
     with an install message, and kept off the `import fdia_graph` path.

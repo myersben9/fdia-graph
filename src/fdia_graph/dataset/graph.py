@@ -75,51 +75,6 @@ class GraphMixin(DatasetBase):
     def branch_shift(self) -> torch.Tensor:
         return self._p("edge_shift")  # phase shift, degrees
 
-    @property
-    def edge_status(self) -> torch.Tensor:
-        return self._p("edge_status")  # 1 in service, 0 out (static; see edge_status_per_record)
-
-    @property
-    def edge_is_trafo(self) -> torch.Tensor:
-        return self._p("edge_is_trafo")
-
-    # Static per-bus attributes, pandapower == ppc bus order (verified identity for case14/118/300).
-    @property
-    def bus_type(self) -> torch.Tensor:
-        return self._p("bus_type")  # 1 PQ, 2 PV, 3 reference
-
-    @property
-    def bus_vmin(self) -> torch.Tensor:
-        return self._p("bus_vmin")  # voltage limits, pu
-
-    @property
-    def bus_vmax(self) -> torch.Tensor:
-        return self._p("bus_vmax")
-
-    @property
-    def bus_base_kv(self) -> torch.Tensor:
-        return self._p("bus_base_kv")  # nominal voltage, kV
-
-    @property
-    def bus_is_zero_inj(self) -> torch.Tensor:
-        return self._p("bus_is_zero_inj")  # generator's own zero-injection set
-
-    @property
-    def bus_has_gen(self) -> torch.Tensor:
-        return self._p("bus_has_gen")  # generator or slack on the bus
-
-    @property
-    def bus_base_pd(self) -> torch.Tensor:
-        return self._p("bus_base_pd")  # base-case load, MW
-
-    @property
-    def bus_base_qd(self) -> torch.Tensor:
-        return self._p("bus_base_qd")  # base-case load, MVAr
-
-    @property
-    def bus_attackable(self) -> torch.Tensor:
-        return self._p("bus_attackable")  # carries |p_mw|>0 load (IEEE-300 141/183 rule)
-
     # Shunts are a BUS property, on the Ybus diagonal, so they were not expressible in an edge schema.
     @property
     def bus_shunt_g(self) -> torch.Tensor:

@@ -5,6 +5,23 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- **Code that only its own tests reached is removed (breaking for imports).** These names were used by nothing
+  but their own tests, so they are removed with no alias; released versions keep them. One data-dictionary
+  line, one checklist line and one tool list that named them are updated. No generated file and no number
+  changes.
+  - `registry.latest_release` is removed. `load(release=None)` never called it: it reads the pinned data
+    release, as before.
+  - The dataset accessors `edge_status`, `edge_is_trafo`, `bus_type`, `bus_vmin`, `bus_vmax`, `bus_base_kv`,
+    `bus_is_zero_inj`, `bus_has_gen`, `bus_base_pd`, `bus_base_qd` and `bus_attackable` are removed.
+    `ds.edge_attr`, `ds.edge_attr_np`, the `ds.branch_*` columns and `ds.bus_shunt_g` / `ds.bus_shunt_b` stay.
+  - `models.TimelineKnobs` is removed: `TimelineSettings` holds the same settings and is what
+    `generate_timeline` reads.
+  - `models.BranchColumns`, `models.BranchIndex`, `models.BRANCH` and `models.CurrentColumns` are removed. The
+    column order of `pmu_i` is `models.CurrentIndex` (the constant `CURRENT`).
+  - The validation rules `AllFinite` and `AllPositive` are removed.
+  - The results-block queries `table` and `reduction` are removed; `value` stays, and the repository's tables
+    come from the queries in `results/queries.py`. In a `value` block the arguments `rows`, `cols`, `base`,
+    `new` and `order` are now tag filters like any other name; no block uses them.
 - **The New York case file has one area; the zone column says where a bus is.** `case_nygrid.m` is one system
   for an OPF, with one area: its bus `area` column is 1 on every row. It used to carry
   NYgrid's NPCC area numbers (1 New England, 2 and 3 New York, 4 Ontario, 5 MISO, 6 PJM). Existing files are

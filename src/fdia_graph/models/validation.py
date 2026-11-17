@@ -206,20 +206,6 @@ class NonEmpty(Rule):
         return isinstance(value, Sized) and len(value) > 0
 
 
-class AllFinite(Rule):
-    says = "must be finite everywhere"
-
-    def holds(self, value: object) -> bool:
-        return bool(np.isfinite(np.asarray(value, np.float64)).all())
-
-
-class AllPositive(Rule):
-    says = "must be positive everywhere"
-
-    def holds(self, value: object) -> bool:
-        return bool((np.asarray(value, np.float64) > 0).all())
-
-
 class Parses(Rule):
     """Replaces the value with `parse(value)`; a parser that raises ValueError, TypeError or
     KeyError means the value is not of the form the field takes."""

@@ -43,7 +43,7 @@ def test_an_old_timeline_loads_every_split_and_family(release):
     assert not {"As", "Ar"} & _family_names(held)
     rec = ds[0]
     assert tuple(rec["clean"].shape) == (14, 4) and tuple(rec["edge_clean_full"].shape) == (ds.E, 2)
-    assert ds.edge_attr_np.shape == (ds.E, 8)
+    assert tuple(ds.edge_attr.shape) == (ds.E, 8)
     assert len(ds.episodes.onset) > 0 and ds.windows(8)[0].shape[1] == 8
 
 
@@ -110,7 +110,7 @@ def test_the_series_admittance_is_one_over_the_series_impedance(timeline):
     import fdia_graph as fg
 
     ds = fg.load(timeline)
-    a = ds.edge_attr_np.astype(np.float64)
+    a = ds.edge_attr.numpy().astype(np.float64)
     z = a[:, 0] + 1j * a[:, 1]
     want = np.where(np.abs(z) > 1e-12, 1.0 / np.where(np.abs(z) > 1e-12, z, 1.0), 0.0)
     assert np.allclose(a[:, 4] + 1j * a[:, 5], want, rtol=1e-5, atol=1e-6)

@@ -8,7 +8,6 @@ import numpy as np
 import pytest
 
 import fdia_graph as fg
-from fdia_graph import registry
 from fdia_graph.models import LearnedConfig, RemovalConfig, TrustConfig
 
 # ---- the replay families' benign buffer ------------------------------------------------------------
@@ -84,33 +83,6 @@ def test_read_episodes_reads_the_group(tmp_path):
         assert read_episodes(f, False) is None
     assert e.onset.tolist() == [3, 10] and e.family.tolist() == [1, 4]
     assert [b.tolist() for b in e.buses] == [[5, 7], [2]]
-
-
-# ---- the release lookup ---------------------------------------------------------------------------------
-
-
-def test_latest_release_online_and_offline(monkeypatch):
-    import requests
-
-    class Resp:
-        def raise_for_status(self):
-            pass
-
-        def json(self):
-            return [
-                {"tag_name": "data-v0.9.1"},
-                {"tag_name": "v0.19.0"},
-                {"tag_name": "data-v0.9.2", "draft": True},
-            ]
-
-    monkeypatch.setattr(requests, "get", lambda *a, **k: Resp())
-    assert registry.latest_release() == "v0.9.1"  # newest published data tag; drafts and packages ignored
-
-    def offline(*a, **k):
-        raise requests.ConnectionError("no network")
-
-    monkeypatch.setattr(requests, "get", offline)
-    assert registry.latest_release() == registry._RELEASE
 
 
 # ---- trust, removal, learned localizer ---------------------------------------------------------------------

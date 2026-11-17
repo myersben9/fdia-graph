@@ -243,11 +243,11 @@ def test_reweighted_l1_never_beats_the_search(case):
 def test_new_generation_searches_by_default():
     """New generation holds every At episode on its fewest-tamper support the frame
     knobs default off, so a walk with min_tamper=False holds the region within `hops`."""
-    from fdia_graph.models.config import TimelineKnobs
+    from fdia_graph.models.config import TimelineSettings
     from fdia_graph.models.frames import FrameKnobs, RampDesign
 
     assert FrameKnobs().min_tamper is False
-    assert TimelineKnobs().min_tamper is True
+    assert TimelineSettings().search.min_tamper is True
     assert RampDesign(np.array([0]), 1.0, 1, 0).support is None
 
 
