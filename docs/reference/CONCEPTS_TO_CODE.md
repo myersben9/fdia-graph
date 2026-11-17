@@ -8,9 +8,9 @@ Paths are under `src/fdia_graph/`.
 ![one record: the operating state gives the clean layer and the benign scan; Aq, At, Al and Am re-solve a local false state whose attack vector is added to the benign scan; Ad, As and Ar corrupt readings in place; every path ends in the record](../figures/diagrams/concepts_one_record.png)
 
 Every attack is built in `engine.attacks`, the generator's `AttackMixin`: a local false state
-(`engine.attacks.false_state`) designed per episode by the family's designer (`RampDesigner` for At,
-`OverloadDesigner` for Am, `engine.attacks.episodes`) on a support the search or [WU26]'s row reduction
-chooses (`SearchSupport`, `RrefSupport`); `engine.records.attack_frame` adds the attack vector to the
+(`engine.attacks.false_state`) designed per episode (`ramp_design` for At, `am_overload_design` for
+Am, `engine.attacks.episodes`) on a support the search or [WU26]'s row reduction chooses
+(`MinimizeMixin.min_tamper`, `RrefSupport`); `engine.records.attack_frame` adds the attack vector to the
 benign scan.
 
 ## Modules
@@ -50,8 +50,8 @@ Walkthrough: `../guides/state_estimation.md`. Results: `../analysis/estimation/R
 
 | family | paper | build | code |
 |--------|-------|-------|------|
-| At | `A_t` | slow ramp, 0.2 percent per frame, a local false state per frame | `engine/attacks/episodes.RampDesigner` + `ramp_step` |
-| Am | `A_m` | the overload attack of [WU26]: a line's reported flow driven to its rating over the window, the fewest devices tampered | `engine/attacks/episodes.OverloadDesigner` + `overload.overload_step` |
+| At | `A_t` | slow ramp, 0.2 percent per frame, a local false state per frame | `engine/attacks/episodes.EpisodeDesignMixin.ramp_design` + `EpisodeDesignMixin.ramp_step` |
+| Am | `A_m` | the overload attack of [WU26]: a line's reported flow driven to its rating over the window, the fewest devices tampered | `engine/attacks/episodes.EpisodeDesignMixin.am_overload_design` + `overload.overload_step` |
 
 - At and Am are local false states: the buses around the attack are re-solved with the boundary
   voltages held true, inside the case's voltage limits and the region's generator limits, and the
@@ -65,15 +65,15 @@ Walkthrough: `../guides/state_estimation.md`. Results: `../analysis/estimation/R
   `Al`, and the in-place `Ad`, `As`, `Ar`) are read-only: fdia-graph 0.20 generates them.
 - With `min_tamper=True` an At episode is held on the support that tampers the fewest devices over
   the episode, the objective of [WU26, eq. 12] (`engine/attacks/minimize.MinimizeMixin.min_tamper`,
-  called by `engine/attacks/episodes.RampDesigner`).
+  called by `engine/attacks/episodes.EpisodeDesignMixin.ramp_design`).
 - The At ramp moves in per-frame steps under the noise floor, by design.
 
 ## Temporal feature
 
 | field | meaning | built in |
 |---|---|---|
-| `temporal_delta` | scan-to-scan `[ΔP, ΔQ]` of the observed frames | `generation.write.write_temporal_layers` (`formulas.temporal.temporal_delta`) |
-| `swing` | `temporal_delta` as a z-score of the recent observed change | `generation.write.write_temporal_layers` (`formulas.temporal.swing_zscore`, scale from `recent_change_scale`) |
+| `temporal_delta` | scan-to-scan `[ΔP, ΔQ]` of the observed frames | `generation.write.TimelineWriter.write_temporal_layers` (`formulas.temporal.temporal_delta`) |
+| `swing` | `temporal_delta` as a z-score of the recent observed change | `generation.write.TimelineWriter.write_temporal_layers` (`formulas.temporal.swing_zscore`, scale from `recent_change_scale`) |
 
 Both layers are written after the walk from the observed injections only, so a detector reads
 what an operator sees.

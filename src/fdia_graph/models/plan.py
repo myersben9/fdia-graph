@@ -1,11 +1,11 @@
 """The records of a timeline's plan and design stages: a placed episode (`Slot`), a split and its
-frames (`SplitSpan`), an episode not yet written (`Pending`) or with its design (`Designed`), what is
-placed (`Schedule`) and what the placement asked for and got (`Placement`), and what a design worker
-rebuilds its generator from (`GeneratorSpec`)."""
+frames (`SplitSpan`), a placed episode on its way through the design stage (`Planned`), the attack
+as it is written (`Episode`), what is placed (`Schedule`) and what the placement asked for and got
+(`Placement`), and what a design worker rebuilds its generator from (`GeneratorSpec`)."""
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Generic, Optional, TypeVar, Union
 
 import numpy as np
@@ -67,28 +67,42 @@ class SplitSpan:
 
 
 @dataclass(frozen=True)
-class Pending:
-    """An episode not yet written: its index among the split's placed episodes, where it sits now, and
-    the moves made so far (the count belongs to its episode). The design stage holds the overload
-    episodes still without a design in it; the walk holds every episode it has not emitted yet."""
+class Planned(Generic[Family, Design]):
+    """A placed episode not yet written: where it sits now, the `design` found at that onset (None
+    until it has one; the walk designs the IEEE ramp At itself as it reaches it, since its stealth
+    bound reads the frame written just before its onset), its `index` among the split's placed
+    episodes and the `moves` made so far for want of a feasible design."""
 
-    index: int
-    slot: Slot[int]
-    moves: int
+    slot: Slot[Family]
+    design: Optional[Design] = None
+    index: int = 0
+    moves: int = 0
 
-    def moved_to(self, slot: Slot[int]) -> Pending:
+    def moved_to(self, slot: Slot[Family]) -> Planned[Family, Design]:
         """The same episode after one more move, at `slot`."""
-        return Pending(self.index, slot, self.moves + 1)
+        return replace(self, slot=slot, moves=self.moves + 1)
 
 
 @dataclass(frozen=True)
-class Designed(Generic[Family, Design]):
-    """A placed episode after the design stage: where it sits and the design found at that onset.
-    `design` is None for an episode the walk designs itself as it reaches it (the IEEE ramp At, whose
-    stealth bound reads the frame written just before its onset)."""
+class Episode:
+    """One attack over a window of `length` frames from `onset`: what a New York family designs and
+    what every file's episode table holds a row of. `family` is its name ("Am", "At"). `buses` are the
+    attacked buses (the pretended loads and generators, the localization label).
 
-    slot: Slot[Family]
-    design: Optional[Design]
+    A New York design also carries `clients`, the owners of the tampered meters (one or several: the
+    attacker's local subnetwork may span utilities, G5), `target_branch`, the interface branch Am's
+    area is anchored on (-1 for At), and `a [length, M]`, the attack vector added to each frame's
+    benign scan: h(x_false) - h(x_true) in full, so the operator's one residual test over all meters
+    sees noise (global stealth). The tampered meters, those it moves beyond their noise, come from
+    `Attacker.tampered`. An IEEE episode has no clients and an empty `a`: its frames carry the attack."""
+
+    family: str
+    clients: np.ndarray
+    onset: int
+    length: int
+    buses: np.ndarray
+    target_branch: int
+    a: np.ndarray
 
 
 @dataclass
@@ -101,13 +115,6 @@ class Schedule:
     ramp_rate: float
     am_len: int
     attacked_frac: float
-
-    @classmethod
-    def build(
-        cls, fams: list[int], ramp_len: int, ramp_rate: float, am_len: int, attacked_frac: float
-    ) -> Schedule:
-        """The schedule of the families `fams` (codes) at these lengths, rate and attacked fraction."""
-        return cls(fams, ramp_len, ramp_rate, am_len, attacked_frac)
 
     def length_of(self, fid: int) -> int:
         """The frames an episode of `fid` takes: the ramp length for At, `am_len` for Am."""

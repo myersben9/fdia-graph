@@ -10,7 +10,8 @@ pytest.importorskip("h5py")  # the timeline's source writes HDF5
 
 
 def _family(miss: str | None, solver_errors: int, found: bool):
-    from fdia_graph.engine.attacks.family import AttackFamily, Episode
+    from fdia_graph.engine.attacks.family import AttackFamily
+    from fdia_graph.models.plan import Episode
 
     class Toy(AttackFamily):
         def design(self, window, rng):

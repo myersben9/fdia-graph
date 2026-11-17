@@ -34,7 +34,7 @@ noisy, labelled year. Beside the stages, `se/detect` holds the alarm rules, in t
    `AlarmRule` is a protocol. The overload family is two classes: `OpfFdia` holds the
    support search and the per-scan OPF, and `InterfaceFdia` adds the goal and `design`, as their docstrings say.
 5. One job per file. A file stays short enough to read in one sitting.
-6. Dependencies point one way (below). pandapower lives in `generation/nygrid/solver.py`, h5py in the timeline writer (`generation/write.py`, `generation/emit.py`), `io.py` (the pool file) and `dataset/`, random number
+6. Dependencies point one way (below). pandapower lives in `generation/nygrid/solver.py`, h5py in the timeline writer (`TimelineWriter`, `generation/write.py`), `io.py` (the pool file) and `dataset/`, random number
    creation in `config.py`. Pyomo models are built in `generation/nygrid/solver.py` and in the attack OPFs, and every one gets
    its Ipopt from `solvers.py`, which checks that it runs.
 7. Measurements are one flat vector `z` per frame with a meter table beside it. A client's data is
@@ -75,7 +75,7 @@ src/fdia_graph/
     measure.py          Measurement
     noise.py            NoiseModel
   engine/attacks/
-    family.py           Episode, AttackFamily (design, design_explained), the miss reasons
+    family.py           AttackFamily (design, design_explained), the miss reasons
     attacker.py         Attacker, natural_steps, generator_ramps, generator_band, generator_q_capability, wrap_angles
     opf.py              OpfFdia (the base of the OPF attacks: the support search and the per-scan local AC OPF, N35)
     interface.py        InterfaceFdia (Am against a NYISO interface, N48, N49; overshoot and max_overshoot, N58)
@@ -141,7 +141,7 @@ Frozen dataclasses of arrays, passed between classes.
 | `Pool` | `generation/nygrid/pool.py` | `time [T]`, `vm [T, N]`, `va [T, N]`, `p [T, N]`, `q [T, N]`, `solve_kind [T]` (`SOLVED`, `FAILED`, `NO_HOUR`, `NO_LOAD`; unsolved frames keep their place with NaN state, branch flows are `Network.flows(vm, va)`), `unit_p [T, G]` each unit's real-time dispatch basepoint (N32; None for a pool written before N32) |
 | `Compensation` | `generation/nygrid/solver.py` | reactive support for a sensitivity of the benign dispatch (the release has none): switched shunt banks `shunt_lo`, `shunt_hi [N]` (MVAr at 1 p.u., reactors negative), a generator voltage schedule `v_schedule [N]` (p.u., NaN unregulated) held at `v_weight` k$/h per p.u.^2, the banks' switching cost `shunt_cost` (k$/h per MVAr), unit reactive limits `q_lo`, `q_hi [G]` and the operating band `v_lo`, `v_hi [N]` (NaN keeps the case's limit); `band(case)`, `shunt_buses` |
 | `MeterPlan` | `engine/sensing/meters.py` | one row per meter: `kind` (v, va, p, q, pf, qf, i, ia), `bus`, `branch`, `end`, `owner`, `sigma_rel`, `sigma_abs`, `bias` |
-| `Episode` | `engine/attacks/family.py` | `family`, `clients` (owners of the tampered meters), `onset`, `length`, `buses`, `target_branch`, `a [length, M]` |
+| `Episode` | `models/plan.py` | `family`, `clients` (owners of the tampered meters), `onset`, `length`, `buses`, `target_branch`, `a [length, M]` |
 | `Slot` | `models/plan.py` | one placed episode, the same record on every grid: `onset` (frame), `family` (here the name, "Am" or "At"; the IEEE generator uses the code), `length` |
 
 ## Classes

@@ -5,17 +5,14 @@ blocks in time order; any onset of a split may hold an episode; placements, ramp
 moves of an infeasible ramp all draw from the generator's one random stream, in the order the driver
 reaches them (so each split is placed after the split before it is walked); an overload Am is designed
 before its split is walked and moved when it has no design. The file is the one layout of every
-timeline (`schema`), written through `generation.write`.
+timeline (`schema`), written through `generation.write.TimelineWriter`.
 """
 
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass
-from functools import partial
 from typing import Optional, Union
 
-import h5py
 import numpy as np
 
 from .. import schema
@@ -27,21 +24,13 @@ from ..models.frames import AmOverloadDesign, FrameContext, FrameKnobs, LayerSet
 from ..models.inputs import AdmissibleTargets, GeneratedFamilies
 from ..models.plan import GeneratorSpec, Placement, Schedule, Slot, SplitSpan
 from ..registry import CACHE_DIR, system_id
-from ..schema import Attr
-from . import GRAPH_LEGEND, _base_attrs, _load_states, _static_physics, _write_graph
+from ..schema import Attr, Static
+from . import _load_states
 from .design import AmDesigner, AmEpisode
-from .emit import Walk, clean_slice, walk_split
+from .emit import Walk
 from .plan import split_bounds, split_column
 from .source import OutPath, TimelineSource
-from .write import search_attrs, start_timeline, write_temporal_layers
-
-
-@dataclass(frozen=True)
-class _Planned:
-    """A split after its design stage: the split and its episodes, waiting to be walked."""
-
-    span: SplitSpan
-    episodes: list[AmEpisode]
+from .write import TimelineWriter
 
 
 class IeeeSource(TimelineSource[int, AmOverloadDesign]):
@@ -64,32 +53,20 @@ class IeeeSource(TimelineSource[int, AmOverloadDesign]):
         # one column per family: a family named twice adds nothing
         fams = tuple(dict.fromkeys(GeneratedFamilies(s.families).codes))
         self.am_runs = AM_FAMILY in fams
-        self.g = self._generator()
+        # the walk's generator on the meter plan of the settings; `_check_targets` sets the Am ratings
+        self.g = FdiaGenerator.from_spec(GeneratorSpec(system, seed, s.max_load_mw, s.meters, None))
         self.X = _load_states(system, states)
         self._check_targets(fams)
         self.limits = self.g.operating_limits(self.X)  # what every false state must satisfy [WU26 eqs. 21-23]
         self.knobs = self._knobs()
-        self.schedule = Schedule.build(list(fams), s.ramp.length, s.ramp.rate, s.am_frames, s.attacked_frac)
+        self.schedule = Schedule(list(fams), s.ramp.length, s.ramp.rate, s.am_frames, s.attacked_frac)
         self.attacked_frac = s.attacked_frac
         self.recorded = self._recorded()
         self.bounds: list[tuple[int, int]] = []
-        self._file: Optional[h5py.File] = None
         self._designer: Optional[AmDesigner] = None
-        self._frames: Optional[Walk] = None  # the walk's context and buffers, from `open`
-        self._planned: Optional[_Planned] = None  # the split designed last, waiting for its walk
-
-    def _generator(self) -> FdiaGenerator:
-        """The walk's generator on the meter plan of the settings."""
-        s, m = self.settings, self.settings.meters
-        return FdiaGenerator(
-            self.system,
-            seed=self.seed,
-            max_load_mw=s.max_load_mw,
-            meter_model=m.meter_model,
-            vbus_frac=m.vbus_frac,
-            pmu_frac=m.pmu_frac,
-            flow_frac=m.flow_frac,
-        )
+        self._frames: Optional[Walk] = None  # the walk's context and writer, from `open`
+        # the split designed last and its episodes, waiting for the walk
+        self._planned: Optional[tuple[SplitSpan, list[AmEpisode]]] = None
 
     def _check_targets(self, fams: tuple[int, ...]) -> None:
         """Before any frame is walked: every family has a target on this case, and the overload Am
@@ -105,23 +82,25 @@ class IeeeSource(TimelineSource[int, AmOverloadDesign]):
     def _knobs(self) -> FrameKnobs:
         """The settings every scan shares (`FrameKnobs`): the subnetwork, the operating limits every
         false state must satisfy [WU26 eqs. 21-23], the search, and the overload attack's bounds."""
-        s = self.settings
-        o = s.overload if self.am_runs else None
-        return FrameKnobs(
+        s, o = self.settings, self.settings.overload
+        knobs = FrameKnobs(
             s.search.hops,
             self.limits,
             s.search.min_tamper,
             s.search.min_budget,
             s.ramp.stealth_scale,
-            getattr(o, "load_cap", None),  # the overload attack's cap; none without it
-            getattr(o, "n_lines", 1),  # the lines an overload episode drives
-            getattr(o, "support_method", "search"),  # how its support is chosen
             area_rule=s.search.area_rule,  # how the attacker's area is chosen [WU26] Sec. III-A
         )
+        if not self.am_runs:  # no overload attack: its knobs keep their defaults (no cap, one line)
+            return knobs
+        return knobs._replace(load_cap=o.load_cap, n_lines=o.n_lines, support_method=o.support_method)
 
     def _recorded(self) -> dict[str, object]:
-        """The knobs a file records as attributes."""
-        s, limits = self.settings, self.limits
+        """The knobs a file records as attributes: the walk's, and, only when they apply, those of the
+        fewest-tamper search, of the Am attack (its rating source and margin), the stealth scale of
+        At's search (Am has no stealth bound: an Am-only file records the scale it was given, which
+        nothing used) and, on a hybrid-meter file, its meter model and the legend of its currents."""
+        s, limits, o = self.settings, self.limits, self.settings.overload
         red = s.meters.coverage
         out: dict[str, object] = {
             Attr.TARGET_ATTACKED_FRAC: s.attacked_frac,
@@ -137,9 +116,52 @@ class IeeeSource(TimelineSource[int, AmOverloadDesign]):
             Attr.FLOW_FRAC: red["flow_frac"],
             Attr.JITTER_KEYED: 1,
         }
-        overload = s.overload if self.am_runs else None
-        out.update(search_attrs(s, overload, self.g.current_mask() is not None))
+        if s.search.min_tamper:
+            out.update({Attr.MIN_TAMPER: 1, Attr.MIN_BUDGET: s.search.min_budget})
+        if self.am_runs:
+            out[Attr.AM_ATTACK] = s.am_attack
+            out[Attr.RATING_SOURCE], out[Attr.RATING_MARGIN] = o.rating_source, o.rating_margin
+            out[Attr.LOAD_CAP], out[Attr.N_LINES] = o.load_cap, o.n_lines
+            out[Attr.SUPPORT_METHOD] = o.support_method
+        if s.search.min_tamper or self.am_runs:
+            out[Attr.STEALTH_SCALE] = s.ramp.stealth_scale
+        if self.g.current_mask() is not None:  # a hybrid-meter file, which reads PMU currents
+            out[Attr.METER_MODEL] = s.meters.meter_model
+            out[Attr.CURRENT_FEAT] = "Re_I_from,Im_I_from,Re_I_to,Im_I_to"
+            out[Attr.CURRENT_UNITS] = "pu on the base current"
         return out
+
+    def _topology(self) -> dict[str, object]:
+        """The topology a file records: "base" = intact, "n1_line" = one line out for every frame,
+        with the contingency's size (outage_base_flow_mw) so a file is self-describing."""
+        c = self.g.contingency
+        return {
+            Attr.TOPOLOGY: ("base" if c.line is None else "n1_line"),
+            Attr.OUTAGE_LINE: (-1 if c.line is None else int(c.line)),
+            Attr.OUTAGE_BRANCH_POS: int(c.pos),
+            Attr.OUTAGE_LINE_NAME: c.name,
+            Attr.OUTAGE_FROM_BUS: int(c.from_bus),
+            Attr.OUTAGE_TO_BUS: int(c.to_bus),
+            Attr.OUTAGE_BASE_FLOW_MW: float(c.base_flow_mw),
+        }
+
+    def _graph(self) -> dict[str, Optional[np.ndarray]]:
+        """The static graph a file carries, by `Static` name: the branch model and the bus shunts."""
+        g, br = self.g, self.g.branch
+        return {
+            Static.EDGE_R: br.r,
+            Static.EDGE_X: br.x,
+            Static.EDGE_B: br.b,
+            Static.EDGE_G: br.g,
+            Static.EDGE_GS: g.edge_gs,
+            Static.EDGE_BS: g.edge_bs,
+            Static.EDGE_TAP: br.tap,
+            Static.EDGE_SHIFT: br.shift_deg,
+            Static.EDGE_STATUS: br.status,
+            Static.EDGE_IS_TRAFO: g.edge_is_trafo,
+            Static.BUS_SHUNT_G: g.bus_shunt_g,
+            Static.BUS_SHUNT_B: g.bus_shunt_b,
+        }
 
     def record(self) -> dict[str, object]:
         """The settings of the walk (`TimelineSettings.as_record`)."""
@@ -148,10 +170,14 @@ class IeeeSource(TimelineSource[int, AmOverloadDesign]):
     def _spec(self) -> GeneratorSpec:
         """What a design process rebuilds this generator from."""
         g, s = self.g, self.settings
-        ratings = getattr(g, "_line_ratings", None)
         return GeneratorSpec(
-            self.system, self.seed, s.max_load_mw, s.meters, ratings, getattr(g, "_rating_delta", None)
+            self.system, self.seed, s.max_load_mw, s.meters, g._line_ratings, g._rating_delta
         )
+
+    def _clean(self, a: int, b: int) -> tuple[np.ndarray, np.ndarray]:
+        """The noiseless truth of frames a..b-1: the states as float32 and the exact flows on metered
+        branches (one batched matmul, the engine's physics primitive)."""
+        return self.X[a:b].astype(np.float32), self.g.clean_flows_from_states(self.X[a:b])
 
     @property
     def frames(self) -> int:
@@ -172,9 +198,9 @@ class IeeeSource(TimelineSource[int, AmOverloadDesign]):
         self._designer = AmDesigner(g, self._spec(), self.settings.workers if self.am_runs else 1)
         spec = LayerSet(currents=g.current_mask() is not None)
         # open for the whole walk: frames flush in batches
-        self._file, buf = start_timeline(path, (T, g.C, g.E), partial(clean_slice, g, self.X), spec)
-        _write_graph(self._file, g.ei, _static_physics(g), GRAPH_LEGEND)
-        self._frames = Walk(FrameContext(g, self.X, self.knobs), buf)
+        self._writer = TimelineWriter(path, (T, g.C, g.E), self._clean, spec)
+        self._writer.write_graph(g.ei, self._graph())
+        self._frames = Walk(FrameContext(g, self.X, self.knobs), self._writer)
         self.rec = Placement.empty(list(self.schedule.families))
 
     def cut_splits(self) -> list[SplitSpan]:
@@ -201,31 +227,28 @@ class IeeeSource(TimelineSource[int, AmOverloadDesign]):
         given up. A ramp At is kept without a design: the walk designs it as it reaches it."""
         assert self._designer is not None, "open() starts the design processes"
         episodes = self._designer.design_split(self.X, self.knobs, span, slots, self.rec)
-        self._planned = _Planned(span, episodes)
+        self._planned = (span, episodes)
 
     def walk(self, until: int) -> None:
         """The frames of the split just designed, each a scan of its operating point, benign or under
-        its episode (`generation.emit.walk_split`). The splits are blocks in time order, so the frames
+        its episode (`generation.emit.Walk.walk_split`). The splits are blocks in time order, so the frames
         not yet written before `until` are exactly that split's."""
         assert self._frames is not None and self._planned is not None, "design() comes before walk()"
-        span, episodes = self._planned.span, self._planned.episodes
+        span, episodes = self._planned
         assert until == span.stop, "a block split ends where the next split to plan begins"
-        walk_split(self._frames, self.schedule, span, episodes, self.rec)
+        self._frames.walk_split(self.schedule, span, episodes, self.rec)
 
     def finish(self) -> None:
         """After the walk: the columns, the episodes, the attributes (the recorded knobs and what the
         placement asked for and got) and the temporal features."""
-        f, walk = self._file, self._frames
-        assert f is not None and walk is not None, "open() starts the file"
+        w, frac = self.writer, self.settings.split.fractions
         self.g.scan_key = None
         columns = {schema.SPLIT: split_column(self.bounds, self.frames)}
-        header = _base_attrs(self.g, self.frames, self.seed)
-        self._finish_file(f, walk.buf, columns, header, self.recorded, self.settings.split.fractions)
-        write_temporal_layers(f)
+        header = {**w.header(float(self.g.base.sn_mva), self.seed), **self._topology()}
+        w.finish(columns, header, self.recorded, self.record(), self.rec, frac)
 
     def close(self, finished: bool) -> None:
         """Close the file and stop the design processes."""
-        if self._file is not None:
-            self._file.close()
+        super().close(finished)
         if self._designer is not None:
             self._designer.close(finished)

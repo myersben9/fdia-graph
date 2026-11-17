@@ -134,6 +134,23 @@ def test_a_failed_run_leaves_no_file_and_keeps_the_one_that_was_there(pool, tmp_
         assert not list(tmp_path.glob("*.part"))
 
 
+def test_a_writer_that_cannot_start_leaves_no_open_file(tmp_path):
+    """A failure after the file is opened (here the first batch of noiseless truth) closes the handle
+    before it is raised, so the unfinished file can be written again and removed (Windows removes no
+    open file, and HDF5 truncates none)."""
+    h5py = pytest.importorskip("h5py")
+    from fdia_graph.generation.write import TimelineWriter
+
+    def clean(a, b):
+        raise RuntimeError("no truth")
+
+    part = tmp_path / "t.h5.part"
+    with pytest.raises(RuntimeError, match="no truth"):
+        TimelineWriter(str(part), (4, 3, 2), clean)
+    h5py.File(part, "w").close()
+    os.remove(part)
+
+
 def test_an_ieee_source_generates_once(pool, tmp_path):
     from fdia_graph.errors import ConfigError
     from fdia_graph.generation.ieee import IeeeSource

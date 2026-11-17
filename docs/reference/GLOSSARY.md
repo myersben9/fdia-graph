@@ -9,10 +9,10 @@ the data terms is in [`../guides/generation.md`](../guides/generation.md); citat
 | term | definition | in code |
 |---|---|---|
 | scan | One emission of every meter in the plan from one grid state: readings and masks. | `models.frames.Scan`, `engine.measurement.MeasurementMixin.emit_from_state` |
-| frame | One row of a timeline: the scan at one pool timestep with the attack of its episode applied, or none. | `models.frames.Frame`, `generation.emit.TimelineBuffers.store` |
+| frame | One row of a timeline: the scan at one pool timestep with the attack of its episode applied, or none. | `models.frames.Frame`, `generation.write.TimelineWriter.store` |
 | record | One row as the loader serves it, `ds[i]`: a frame of a timeline. | `dataset/records.py`, `models.data.RecordBundle` |
 | timestep | The index of the pool state a frame was emitted from; on a timeline frame `t` is timestep `t`. | `data/timestep`, `schema.TIMESTEP` |
-| episode | A run of consecutive frames under one attack of one family on one design; episodes never overlap. | `generation.emit._Episode`, `episodes/` group, `data/seq_id` |
+| episode | A run of consecutive frames under one attack of one family on one design; episodes never overlap. | `models.plan.Episode`, `episodes/` group, `data/seq_id` |
 | onset | The first frame of an episode, drawn uniformly among the positions of its split where the episode fits. | `generation.plan.uniform_onset`, `episodes/onset` |
 | pool | The operating-point pool: `[T, N, 4]` converged AC states in <code>&#124;V&#124;</code>, `P_inj`, `Q_inj`, `theta` order, one per minute of the load profile. | `profiles.generate_states`, `generation._load_states`, `pool_ieee{C}.h5` |
 | timeline | One HDF5 file per system: every pool timestep scanned in time order, with attack episodes placed on it; the file format of every data release from v0.8.0. | `timeline.generate_timeline`, `schema.KIND_TIMELINE` |

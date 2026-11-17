@@ -12,7 +12,7 @@ generator and the loader always used.
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from functools import partial
 from typing import TYPE_CHECKING, NamedTuple, Optional, Union
 
@@ -249,6 +249,19 @@ def _backtrack(
     the full step is tried first, so an iteration the plain method accepts is unchanged. Returns the
     accepted voltages and their bus currents Ybus V (the next iteration's mismatch and Jacobian reuse
     them), or None when no fraction of the step helps (the target has no solution near this state)."""
+    for Vtry in _halved_steps(V, I_, step):
+        YV = Yb @ Vtry
+        if _local_mismatch(YV, Vtry, I_, S_target)[1] < norm:
+            return Vtry, YV
+    return None
+
+
+_BACKTRACK_HALVINGS = 8  # step fractions tried per Newton iteration: 1, 1/2, ... 1/128
+
+
+def _halved_steps(V: np.ndarray, I_: np.ndarray, step: np.ndarray) -> Iterator[np.ndarray]:
+    """The voltages after the step on [θ_I, |V|_I], then after each halving of it: the full step
+    first, a fraction that drives a magnitude to zero or below left out."""
     k = len(I_)
     vm0, va0 = np.abs(V[I_]), np.angle(V[I_])
     for _ in range(_BACKTRACK_HALVINGS):
@@ -256,14 +269,8 @@ def _backtrack(
         if np.all(vm > 0):
             Vtry = V.copy()
             Vtry[I_] = vm * np.exp(1j * va)
-            YV = Yb @ Vtry
-            if _local_mismatch(YV, Vtry, I_, S_target)[1] < norm:
-                return Vtry, YV
+            yield Vtry
         step = step / 2
-    return None
-
-
-_BACKTRACK_HALVINGS = 8  # step fractions tried per Newton iteration: 1, 1/2, ... 1/128
 
 
 def _as_real_blocks(A: np.ndarray, B: np.ndarray) -> np.ndarray:
@@ -592,15 +599,8 @@ def _flow_backtrack(
     """The Gauss-Newton step on [θ_I, |V|_I], halved until the residual's largest entry drops below
     `norm` with every magnitude positive: (the voltages, their residual and bus currents, which the
     next iteration starts from), or None when no fraction of it helps."""
-    k = len(I_)
-    vm0, va0 = np.abs(V[I_]), np.angle(V[I_])
-    for _ in range(_BACKTRACK_HALVINGS):
-        vm, va = vm0 + step[k:], va0 + step[:k]
-        if np.all(vm > 0):
-            Vtry = V.copy()
-            Vtry[I_] = vm * np.exp(1j * va)
-            tried = residual(Vtry)
-            if np.max(np.abs(tried[0])) < norm:
-                return Vtry, tried
-        step = step / 2
+    for Vtry in _halved_steps(V, I_, step):
+        tried = residual(Vtry)
+        if np.max(np.abs(tried[0])) < norm:
+            return Vtry, tried
     return None

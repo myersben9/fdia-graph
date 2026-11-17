@@ -54,26 +54,10 @@ def _torch() -> ModuleType:
 
 
 # v0.5.0+ static per-branch physics, bus shunts and per-bus attributes stored under graph/.
-# Per-record tensors collate() stacks into a batch (those the record carries), and the scalars it gathers.
+# The scalars of a record collate() gathers into one long tensor per batch (it stacks every other field
+# of a `BatchBundle` the record carries).
 
 
-_BATCH_STACKED = (
-    "node_x",
-    "node_m",
-    "edge_x",
-    "edge_m",
-    "y",
-    "temporal_delta",
-    "swing",
-    "clean",
-    "edge_clean",
-    "edge_clean_full",
-    "benign",
-    "edge_benign",
-    "pmu_i",
-    "pmu_i_m",
-    "pmu_i_benign",
-)
 _BATCH_SCALARS = ("family", "stealthy", "seq_id", "timestep")
 # Layers stored once per POOL timestep (not per record), resolved through data/timestep.
 
@@ -112,73 +96,30 @@ _UNIT_KIND = {
 }
 
 
-def _has_benign(ds: DatasetBase) -> bool:
-    return ds.has_benign
-
-
-def _has_clean(ds: DatasetBase) -> bool:
-    return ds.has_clean
-
-
-def _physical(ds: DatasetBase) -> bool:
-    return ds.units == "physical"
-
-
-def _time_order(ds: DatasetBase) -> bool:
-    return ds._perm is None
-
-
-def _has_split(ds: DatasetBase) -> bool:
-    return ds.has_split
-
-
-def _has_swing(ds: DatasetBase) -> bool:
-    return ds.has_swing
-
-
-def _has_temporal(ds: DatasetBase) -> bool:
-    return ds.has_temporal
-
-
-def _has_currents(ds: DatasetBase) -> bool:
-    return ds.has_currents
-
-
-def _rectangular_currents(ds: DatasetBase) -> bool:
-    return ds.has_currents and ds.current_form == schema.CURRENT_RECTANGULAR
-
-
-def _consecutive(ds: DatasetBase) -> bool:
-    return not len(ds.idx) or bool(np.all(np.diff(ds.idx) == 1))
-
-
 # What a view may lack that a consumer needs: the test and what the consumer needs, in words.
 CAPABILITIES: dict[str, tuple[Callable[[DatasetBase], bool], str]] = {
-    Capability.BENIGN_LAYER: (_has_benign, "a timeline view with the benign layer"),
-    Capability.CLEAN_LAYER: (
-        _has_clean,
-        'a clean layer (or fit with calibrate="measured")',
-    ),
+    Capability.BENIGN_LAYER: (lambda ds: ds.has_benign, "a timeline view with the benign layer"),
+    Capability.CLEAN_LAYER: (lambda ds: ds.has_clean, 'a clean layer (or fit with calibrate="measured")'),
     Capability.PHYSICAL_UNITS: (
-        _physical,
+        lambda ds: ds.units == "physical",
         "units='physical' datasets (the default): it converts the stored units itself, so a per-unit "
         "view would be converted twice",
     ),
-    Capability.TIME_ORDER: (_time_order, "order='time'; this view is a random permutation"),
+    Capability.TIME_ORDER: (lambda ds: ds._perm is None, "order='time'; this view is a random permutation"),
     Capability.CONSECUTIVE: (
-        _consecutive,
+        lambda ds: not len(ds.idx) or bool(np.all(np.diff(ds.idx) == 1)),
         "consecutive frames; a families= or heldout= view is not, nor is a split of whole weeks that "
         "interleave with the other splits' weeks (a New York file)",
     ),
-    Capability.SPLIT: (_has_split, "a file with the split column"),
-    Capability.SWING: (_has_swing, "a file with the swing layer"),
-    Capability.TEMPORAL: (_has_temporal, "a file with the temporal_delta layer"),
+    Capability.SPLIT: (lambda ds: ds.has_split, "a file with the split column"),
+    Capability.SWING: (lambda ds: ds.has_swing, "a file with the swing layer"),
+    Capability.TEMPORAL: (lambda ds: ds.has_temporal, "a file with the temporal_delta layer"),
     Capability.PMU_CURRENTS: (
-        _has_currents,
+        lambda ds: ds.has_currents,
         'a hybrid-meter timeline (meter_model="hybrid"), which carries PMU currents',
     ),
     Capability.RECTANGULAR_CURRENTS: (
-        _rectangular_currents,
+        lambda ds: ds.has_currents and ds.current_form == schema.CURRENT_RECTANGULAR,
         "PMU currents stored as real and imaginary parts; a New York file stores magnitude and angle "
         "(its current_form attribute), which would be misread",
     ),
@@ -225,6 +166,14 @@ class DatasetBase:
             test, needs = CAPABILITIES[cap]
             if not test(self):
                 raise MissingCapability(f"{by} needs {needs}")
+
+    def _frame_layers(self) -> dict[str, str]:
+        """The layers this file stores per frame beside data/ (record field -> dataset path): the
+        attack-removed scan, and the PMU currents of a hybrid-meter file."""
+        return {
+            **(_BENIGN_LAYERS if self.has_benign else {}),
+            **(_CURRENT_LAYERS if self.has_currents else {}),
+        }
 
     def __len__(self) -> int: ...
 

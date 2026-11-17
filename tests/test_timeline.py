@@ -11,8 +11,8 @@ import pytest
 
 pytest.importorskip("pandapower")
 
+from fdia_graph import schema  # noqa: E402
 from fdia_graph.generation import _load_states  # noqa: E402
-from fdia_graph.generation.write import KIND
 from fdia_graph.models.choices import STEALTHY_FAMILIES
 from fdia_graph.timeline import generate_timeline
 
@@ -34,7 +34,7 @@ def _read(path):
 def test_layout_is_the_documented_one(timeline_file):
     a, attrs = _read(timeline_file)
     T, N, E = attrs["T"], attrs["N"], attrs["E"]
-    assert attrs["kind"] == KIND and attrs["system"] == 14 and T == 1000
+    assert attrs["kind"] == schema.KIND_TIMELINE and attrs["system"] == 14 and T == 1000
     shapes = {
         "data/node_x": (T, N, 4),
         "data/node_m": (T, N, 4),
@@ -403,7 +403,7 @@ def test_temporal_features_read_only_the_observed_frames(timeline_file, tmp_path
     import h5py
 
     from fdia_graph import schema
-    from fdia_graph.generation.write import write_temporal_layers
+    from fdia_graph.generation.write import TimelineWriter
 
     copy = str(tmp_path / "copy.h5")
     shutil.copyfile(timeline_file, copy)
@@ -411,7 +411,7 @@ def test_temporal_features_read_only_the_observed_frames(timeline_file, tmp_path
         stored = f[schema.SWING][:], f[schema.TEMPORAL_DELTA][:]
         for name in (schema.NODE_CLEAN, schema.NODE_BENIGN):
             f[name][...] = f[name][:] * 1.5 + 0.1
-        write_temporal_layers(f)
+        TimelineWriter.write_temporal_layers(f)
         assert np.array_equal(f[schema.SWING][:], stored[0]) and np.array_equal(
             f[schema.TEMPORAL_DELTA][:], stored[1]
         )
@@ -424,7 +424,7 @@ def test_block_scale_matches_the_whole_series_kernel(timeline_file):
 
     from fdia_graph import schema
     from fdia_graph.formulas.temporal import SWING_WINDOW, recent_change_scale
-    from fdia_graph.generation.write import _block_scale
+    from fdia_graph.generation.write import TimelineWriter
 
     with h5py.File(timeline_file, "r") as f:
         nx = f[schema.NODE_X]
@@ -433,7 +433,8 @@ def test_block_scale_matches_the_whole_series_kernel(timeline_file):
         pq[:, :, 1:3] = nx[:, :, 1:3]
         whole = recent_change_scale(pq, SWING_WINDOW, N)
         for block in (7, 250):
-            parts = np.concatenate([_block_scale(nx, a, min(a + block, T)) for a in range(0, T, block)])
+            scale = TimelineWriter._block_scale
+            parts = np.concatenate([scale(nx, a, min(a + block, T)) for a in range(0, T, block)])
             assert np.allclose(parts, whole, rtol=1e-6, atol=1e-9)
 
 

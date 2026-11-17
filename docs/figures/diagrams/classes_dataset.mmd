@@ -77,6 +77,9 @@ classDiagram
     class Requirement {
         <<models>>
     }
+    class Static {
+        <<schema>>
+    }
     class Summary {
         <<models>>
     }
@@ -106,6 +109,7 @@ classDiagram
     FdiaGraph ..> Attr : uses
     FdiaGraph ..> LoadOptions : uses
     FdiaGraph ..> NotATimeline : uses
+    GraphMixin ..> Static : uses
     RecordsMixin ..> BatchBundle : uses
     RecordsMixin ..> RecordBundle : uses
     SequenceMixin ..> EpisodeTable : uses

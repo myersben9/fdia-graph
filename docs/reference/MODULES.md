@@ -41,9 +41,9 @@ What every folder of the repository holds, then what every Python file does, in 
 | `engine.attacks` | Every attack the generator builds, behind one mixin: `AttackMixin`, mixed into FdiaGenerator. |
 | `engine.attacks.area` | The attacker's area: the subnetwork a stealthy attack re-solves, and the boundary it holds true. |
 | `engine.attacks.attacker` | The attacker: the local subnetwork it re-solves, the false state a pretended load implies, and the bounds the grid's own behaviour puts on a pretended change (`natural_steps`, `generator_ramps`, `generator_band`, `generator_q_capability`). |
-| `engine.attacks.episodes` | What one episode attacks: its design, drawn at onset by the family's designer. |
+| `engine.attacks.episodes` | What one episode attacks: its design, drawn at onset (`EpisodeDesignMixin`). |
 | `engine.attacks.false_state` | The local false state of a stealthy attack: the attacker's area re-solved under false loads with the boundary held true, checked against the operating limits, and the attack vector it writes. |
-| `engine.attacks.family` | What one attack occupies on the timeline, and the interface its two families share. |
+| `engine.attacks.family` | The interface the attack families share: a design is one `Episode` (`models.plan`) or a miss. |
 | `engine.attacks.interface` | Am, the overload attack on a NYISO interface (N48, N49, ours): over a window of scans the reported flow across an interface rises to its limit, each scan the reading of one AC false state from `OpfFdia`'s local OPF under every one of its bounds, so the operator's residual test stays quiet. |
 | `engine.attacks.minimize` | The cheapest support of an attack window [WU26 eq. 12]. |
 | `engine.attacks.opf` | The attacker's false states from a local AC optimal power flow (N35): the support search and the per-scan OPF every OPF attack shares. `OpfFdia` is their base class; a subclass adds the goal and `design` (`interface.InterfaceFdia`, the one the release builds). |
@@ -91,7 +91,7 @@ What every folder of the repository holds, then what every Python file does, in 
 | `generation.nygrid.tables` | The CSV tables of the inputs, read whole and closed: the NYgrid checkout's bus, unit and renewable tables and the bus locations. One reader, so no input file is left open (each was a ResourceWarning before). |
 | `generation.plan` | The plan stage of a timeline: where its splits are cut and where each split's episodes go. |
 | `generation.source` | The system a timeline is generated on, and the one path that generates it. |
-| `generation.write` | The write stage of a timeline: its datasets, columns, episodes and attributes in the HDF5 file. |
+| `generation.write` | The one writer of a timeline file, for every grid: `TimelineWriter` owns the open HDF5 file. |
 | `models` | Every data model of the generation toolkit, one module per subject; import a model from its module. |
 | `models.assets` | How files are found: where a dataset comes from, where its bytes are fetched from, and one line of the N-1 candidate list. |
 | `models.base` | Bundle: a typed record that still IS the dict it used to be. |
@@ -102,7 +102,7 @@ What every folder of the repository holds, then what every Python file does, in 
 | `models.frames` | What the generator passes around per scan: a measurement scan, the emitted frame with its labels, the run's attack knobs, the design of an At ramp and of an Am overload episode, and what the fewest-tamper search returns. |
 | `models.grid` | The static description of a system: the per-branch pi model and the admittance matrices built from it, which meters exist, the constant meter bias, and the N-1 contingency a generator was built with. Nothing here changes from one scan to the next. |
 | `models.inputs` | What the formulas and the parsers accept, one model each, checked when built (`models.validation`). |
-| `models.plan` | The records of a timeline's plan and design stages: a placed episode (`Slot`), a split and its frames (`SplitSpan`), an episode not yet written (`Pending`) or with its design (`Designed`), what is placed (`Schedule`) and what the placement asked for and got (`Placement`), and what a design worker rebuilds its generator from (`GeneratorSpec`). |
+| `models.plan` | The records of a timeline's plan and design stages: a placed episode (`Slot`), a split and its frames (`SplitSpan`), a placed episode on its way through the design stage (`Planned`), the attack as it is written (`Episode`), what is placed (`Schedule`) and what the placement asked for and got (`Placement`), and what a design worker rebuilds its generator from (`GeneratorSpec`). |
 | `models.validation` | The one place inputs are checked (CONTRIBUTING.md, "an input is checked in one place"). |
 | `profiles` | Load-profile ingestion + operating-state generation — the FRONT of the pipeline. |
 | `ratings` | Branch thermal ratings for the overload attack of [WU26] (eqs. 24-25), stored with the package. |
@@ -156,7 +156,7 @@ What every folder of the repository holds, then what every Python file does, in 
 | `trust` | Which meters to trust so that stealthy attacks stop being stealthy [WU26], sklearn style. |
 | `trust.base` | The shared machinery of the trusted-meter selectors: the measurement Jacobian at the benign mean (from a WLS estimator of `fdia_analysis.se`), the attack-cost kernel, and the scoring that pins the secured meters and asks the residual test whether the attack shows. |
 | `trust.meter_dqn` | The trusted-meter selection as a Markov decision process solved by a deep Q-network (the learned selection of [WU26]). |
-| `trust.secured` | A copy of a timeline with a set of meters secured: the attacker locked out of them, so on every frame their observed reading is the benign one, and the stored temporal features recomputed from the pinned observed frames (`generation.write.write_temporal_layers`). The estimators and the localizers then read the copy like any timeline, which is how a trusted-meter selection is measured on state estimation and localization rather than on the residual test alone (`TrustSelector.score`). The copy is rewritten in blocks of frames, so a 72,000-frame timeline of any ladder system fits in bounded memory. |
+| `trust.secured` | A copy of a timeline with a set of meters secured: the attacker locked out of them, so on every frame their observed reading is the benign one, and the stored temporal features recomputed from the pinned observed frames (`generation.write.TimelineWriter.write_temporal_layers`). The estimators and the localizers then read the copy like any timeline, which is how a trusted-meter selection is measured on state estimation and localization rather than on the residual test alone (`TrustSelector.score`). The copy is rewritten in blocks of frames, so a 72,000-frame timeline of any ladder system fits in bounded memory. |
 
 ## Tools
 
