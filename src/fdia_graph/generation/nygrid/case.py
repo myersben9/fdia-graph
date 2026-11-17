@@ -23,7 +23,30 @@ if TYPE_CHECKING:
 PQ, PV, REF = 1, 2, 3  # MATPOWER bus types
 HQ_BUS = 48  # updateOpCond.m L367-377: Hydro-Quebec's import is a unit at bus 48, -1100 to 1500 MW
 ZONES = tuple("ABCDEFGHIJK")  # the NYISO load zones; in a case file a bus's zone is 1 for A to 11 for K
-OUTSIDE = len(ZONES) + 1  # the zone number of a bus outside New York
+FILE_AREA = 1  # a case file is one system with one area: its bus `area` column is 1 on every row
+NY_AREA = 2  # `Case.area` of every New York bus
+
+
+@dataclass(frozen=True)
+class Region:
+    """A neighbor of New York: the `code` of its buses in a case file's bus `zone` column, its `name`, and the
+    `area` its buses have in a `Case` (NYgrid's NPCC area number, which the stored files and the code use)."""
+
+    code: int
+    name: str
+    area: int
+
+
+# Where a bus is, is its zone code in the case file: 1 to 11 a NYISO load zone, then one code per neighbor.
+REGIONS = (
+    Region(12, "New England", 1),
+    Region(13, "Ontario", 4),
+    Region(14, "MISO", 5),
+    Region(15, "PJM", 6),
+)
+ZONE_LEGEND = f"1 to {len(ZONES)} for the NYISO load zones {ZONES[0]} to {ZONES[-1]}, " + ", ".join(
+    f"{region.code} for {region.name}" for region in REGIONS
+)
 
 CASE_FILE = Path(__file__).with_name("case_nygrid.m")
 BUS_NAME, GEN_FUEL, DCLINE = "bus_name", "genfuel", "dcline"
@@ -47,7 +70,7 @@ class Case:
     bus_id: np.ndarray
     name: np.ndarray
     zone: np.ndarray  # NYISO load zone letter A..K, "" outside New York
-    area: np.ndarray
+    area: np.ndarray  # `NY_AREA` in New York, the neighbor's `Region.area` outside it
     kv: np.ndarray
     vmin: np.ndarray
     vmax: np.ndarray
@@ -100,11 +123,13 @@ class Case:
     def from_matpower(cls, path: str | Path) -> Case:
         """The `Case` of the MATPOWER case file at `path`, checked (`check`).
 
-        The matrices keep MATPOWER's columns. The bus `zone` column holds the NYISO load zone as a number (1 for A
-        to 11 for K, 12 outside New York), a branch out of service is left out, and a tap ratio of 0 (MATPOWER's
-        mark of a line) is 1. Beyond MATPOWER's own fields the file has `mpc.bus_latlon` (degrees) and
-        `mpc.gen_ramp` (MW/min, NaN where unknown). A statement the reader would pass over without a word (an
-        indexed assignment, a field it does not know) raises `DataConditionError`."""
+        The matrices keep MATPOWER's columns. The bus `zone` column says where each bus is, as a number
+        (`ZONE_LEGEND`): `zone` and `area` of the `Case` both come from it (`NY_AREA` in New York, the neighbor's
+        `Region.area` outside), and the bus `area` column must be `FILE_AREA` on every row. A branch out of service
+        is left out, and a tap ratio of 0 (MATPOWER's mark of a line) is 1. Beyond MATPOWER's own fields the file
+        has `mpc.bus_latlon` (degrees) and `mpc.gen_ramp` (MW/min, NaN where unknown). A statement the reader
+        would pass over without a word (an indexed assignment, a field it does not know) raises
+        `DataConditionError`."""
         from matpowercaseframes import CaseFrames  # here, so that a Case can be used without the [ny] extra
 
         text = Path(path).read_text(encoding="utf-8")
@@ -129,14 +154,14 @@ class Case:
         links = frames.dcline if DCLINE in frames.attributes else None
         col = cls._column
         position = cls._bus_positions(col(bus, "BUS_I"), path)
-        zone = cls._zone_letters(col(bus, "ZONE"), path)
+        zone, area = cls._zones_and_areas(col(bus, "ZONE"), col(bus, "BUS_AREA"), path)
         ratio = col(branch, "TAP")
         return cls(
             base_mva=float(frames.baseMVA),
             bus_id=col(bus, "BUS_I").astype(int),
             name=cls._strings(text, BUS_NAME),
             zone=zone,
-            area=col(bus, "BUS_AREA").astype(int),
+            area=area,
             kv=col(bus, "BASE_KV"),
             vmin=col(bus, "VMIN"),
             vmax=col(bus, "VMAX"),
@@ -255,14 +280,25 @@ class Case:
         return np.array([position[n] for n in numbers.tolist()], dtype=int)
 
     @staticmethod
-    def _zone_letters(codes: np.ndarray, source: str | Path) -> np.ndarray:
-        """The bus `zone` column (1 for A to 11 for K, 12 outside New York) as letters, "" outside."""
-        if not np.isin(codes, np.arange(1, OUTSIDE + 1)).all():
-            legend = (
-                f"1 to {len(ZONES)} for the NYISO zones {ZONES[0]} to {ZONES[-1]}, {OUTSIDE} outside New York"
+    def _zones_and_areas(
+        codes: np.ndarray, file_area: np.ndarray, source: str | Path
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """`(zone, area)` of every bus from the bus `zone` column (`ZONE_LEGEND`): the zone letter, "" outside New
+        York, and the area (`NY_AREA`, or the neighbor's `Region.area`). The file's own `area` column is not where
+        a bus's region is read from, and must be `FILE_AREA` on every row."""
+        if not (file_area == FILE_AREA).all():
+            raise DataConditionError(
+                f"{source}: mpc.bus: the area (BUS_AREA) must be {FILE_AREA} on every row: the case is one "
+                "area, and where a bus is, is read from its zone (ZONE)"
             )
-            raise DataConditionError(f"{source}: mpc.bus: a zone (ZONE) must be a whole number, {legend}")
-        return np.array([*ZONES, ""])[codes.astype(int) - 1]
+        letter = dict(enumerate(ZONES, 1)) | {region.code: "" for region in REGIONS}
+        area = {code: NY_AREA for code in letter} | {region.code: region.area for region in REGIONS}
+        if not np.isin(codes, list(letter)).all():
+            raise DataConditionError(
+                f"{source}: mpc.bus: a zone (ZONE) must be a whole number, {ZONE_LEGEND}"
+            )
+        whole = codes.astype(int).tolist()
+        return np.array([letter[c] for c in whole]), np.array([area[c] for c in whole], dtype=int)
 
 
 def nygrid_case() -> Case:

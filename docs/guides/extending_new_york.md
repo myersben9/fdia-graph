@@ -47,7 +47,8 @@ consequence as attacked less benign, so an operator only has to produce both run
   or add and delete whole rows: `Case.from_matpower` reads the file with matpowercaseframes and refuses a file
   whose parts disagree, naming the file and what is wrong ([the architecture](../concepts/new_york_grid.md) lists
   the checks). A study on another grid passes its own `Case` (`Case.from_matpower` of its own file) wherever the
-  package takes one. A change to the file moves generated numbers, so it comes with the goldens and digests below.
+  package takes one; that file must follow this file's conventions: area 1 on every bus, and the zone codes
+  of the legend in its header (1 to 11 the NYISO load zones, 12 to 15 the neighbors). A change to the file moves generated numbers, so it comes with the goldens and digests below.
 - The golden snapshots (`tests/nygrid/test_golden.py`) pin what the operator, the detection tools and the
   interface attack return on fixed inputs. A change that should not move a number must pass them unchanged; one
   that should must rewrite them (`NYGRID_UPDATE_GOLDEN=1`) and say in the pull request which numbers moved and why.

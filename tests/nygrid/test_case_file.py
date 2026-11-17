@@ -6,7 +6,7 @@ import dataclasses
 import pytest
 
 from fdia_graph.errors import DataConditionError
-from fdia_graph.generation.nygrid.case import Case
+from fdia_graph.generation.nygrid.case import FILE_AREA, NY_AREA, REGIONS, ZONES, Case
 
 TINY = """function mpc = tiny
 % a three-bus case
@@ -15,7 +15,7 @@ mpc.baseMVA = 100;
 mpc.bus = [
 	1	3	0	0	0	0	1	1	0	345	1	1.1	0.9;
 	2	1	50	10	0	0	1	1	0	345	11	1.1	0.9;
-	7	2	0	0	0	0	2	1	0	115	12	1.1	0.9;
+	7	2	0	0	0	0	1	1	0	115	12	1.1	0.9;
 ];
 mpc.gen = [
 	1	0	0	9999	-9999	1	100	1	200	0;
@@ -84,8 +84,25 @@ def test_the_tiny_case(tmp_path):
 
 
 def test_the_zone_column_is_the_load_zone(tmp_path):
-    case = read(tmp_path, TINY)  # zone 1 is A, 11 is K, 12 is a bus outside New York
+    case = read(tmp_path, TINY)  # zone 1 is A, 11 is K, 12 is New England: a bus outside New York
     assert case.zone.tolist() == ["A", "K", ""] and case.is_ny.tolist() == [True, True, False]
+    assert case.area.tolist() == [NY_AREA, NY_AREA, 1]  # derived from the zone, not read from the area column
+
+
+def test_each_zone_code_is_a_region_with_its_area(tmp_path):
+    assert FILE_AREA == 1 and NY_AREA == 2
+    assert [(r.code, r.name, r.area) for r in REGIONS] == [
+        (12, "New England", 1),
+        (13, "Ontario", 4),
+        (14, "MISO", 5),
+        (15, "PJM", 6),
+    ]
+    for code, letter in enumerate(ZONES, 1):  # a NYISO load zone: its letter, New York's area
+        case = read(tmp_path, edited(ZONE_TWO, f"345\t{code}\t"))
+        assert (case.zone[1], case.area[1], case.is_ny[1]) == (letter, NY_AREA, True)
+    for region in REGIONS:  # a neighbor: no load zone, its own area
+        case = read(tmp_path, edited(ZONE_TWO, f"345\t{region.code}\t"))
+        assert (case.zone[1], case.area[1], case.is_ny[1]) == ("", region.area, False)
 
 
 # Hand edits that must read to the same case: (what it is, the canonical text, the text in its place).
@@ -159,9 +176,15 @@ REFUSED = [
         r"mpc\.branch: bus 8 is not a bus",
     ),
     (
-        "a zone number past 12",
+        "an area other than 1",
+        "\t7\t2\t0\t0\t0\t0\t1\t",
+        "\t7\t2\t0\t0\t0\t0\t6\t",
+        r"mpc\.bus: the area \(BUS_AREA\) must be 1 on every row",
+    ),
+    (
+        "a zone number past 15",
         ZONE_TWO,
-        "345\t13\t",
+        "345\t16\t",
         r"mpc\.bus: a zone \(ZONE\) must be a whole number, 1 to 11",
     ),
     ("a zone number that is not whole", ZONE_TWO, "345\t1.5\t", r"mpc\.bus: a zone \(ZONE\) must be"),
