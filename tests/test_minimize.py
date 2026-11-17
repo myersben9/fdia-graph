@@ -9,45 +9,7 @@ import pytest
 from fdia_graph.formulas.attacks import tampered_channels, tampered_devices
 from fdia_graph.formulas.noise import accuracy_sigma, jitter_sigma
 from fdia_graph.models.grid import NODE
-
-WINDOW = 6  # snapshots per test window: a ramp's loads move above their noise by then, still fast
-
-
-@pytest.fixture(scope="module")
-def case():
-    pytest.importorskip("pandapower")
-    from fdia_graph.engine.core import FdiaGenerator
-    from fdia_graph.generation import _load_states
-    from fdia_graph.models.frames import FrameKnobs
-
-    g = FdiaGenerator(14, seed=1)
-    X = _load_states(14, None)
-    k = FrameKnobs(2, g.operating_limits(X), True, 4096)
-    return g, X, k
-
-
-def _windows(case, n, held=True):
-    """n ramp windows accepted on today's region, each with its goal (one design per snapshot) from the
-    ramp's first frame; with `held`, only windows where some support held for the window meets every
-    constraint (the stealth bound rejects most: a reactive flow near zero has a noise floor of 1e-3)."""
-    from fdia_graph.engine.attacks.episodes import probe_frames
-    from fdia_graph.models.frames import LoadGoal
-
-    g, X, k = case
-    rng = np.random.default_rng(3)
-    out = []
-    while len(out) < n:
-        t = int(rng.integers(0, len(X) - WINDOW))
-        d = g.ramp_design(X, t, (WINDOW, 0.002), k._replace(min_tamper=False))
-        if d is None:
-            continue
-        frames = probe_frames(len(X), t, WINDOW)
-        goal = LoadGoal(tuple(g.ramp_step(d, u - t, 0.002) for u in frames))
-        states = [X[u] for u in frames]
-        if held and g.min_tamper(states, goal, k).devices <= 0:
-            continue  # no held support, or nothing moves above noise: nothing for the search to choose
-        out.append((states, goal, d))
-    return out
+from tests.helpers import windows
 
 
 def test_a_window_with_no_held_support_says_so(case):
@@ -55,7 +17,7 @@ def test_a_window_with_no_held_support_says_so(case):
     from fdia_graph.engine.attacks.minimize import _Window
 
     g, _, k = case
-    for states, goal, d in _windows(case, 4, held=False):
+    for states, goal, d in windows(case, 4, held=False):
         result = g.min_tamper(states, goal, k)
         buses = np.unique(g.load_bus[d.targets])
         area = g.local_region(buses, k.hops)
@@ -72,7 +34,7 @@ def test_the_search_equals_brute_force(case):
     from fdia_graph.engine.attacks.minimize import _Window
 
     g, _, k = case
-    for states, goal, d in _windows(case, 3):
+    for states, goal, d in windows(case, 3):
         result = g.min_tamper(states, goal, k)
         buses = np.unique(g.load_bus[d.targets])
         area = g.local_region(buses, k.hops)
@@ -129,8 +91,7 @@ def test_the_emitter_draws_with_the_shared_noise_rule(case):
 def test_the_search_counts_against_the_calibrations_accuracy_sigma(case):
     """accuracy_sigma is the measured calibration's sigma (SEBase._class_sigma through
     accuracy_class_sigma) at one scan's readings, in physical units; it is larger than the jitter."""
-    from fdia_graph.formulas.estimation import accuracy_class_sigma
-    from fdia_graph.formulas.noise import ACCURACY_CLASS
+    from fdia_graph.formulas.noise import ACCURACY_CLASS, accuracy_class_sigma
 
     g, X, _ = case
     x, base = X[0], g._base_mva
@@ -176,70 +137,6 @@ def test_devices_group_channels_by_bus_terminal_and_pmu():
     assert moved.tolist() == [[False, True, False, False]]  # only the change beyond its noise counts
 
 
-def _irls_support(g, states, goal, area, iters=20):
-    """A support from iteratively reweighted l1 on the linearized local AC equations: the area's
-    voltage moves that realize the target buses' load change while penalizing, reweighted, the
-    injection change they cause at every other bus (the tamper proxy)."""
-    from fdia_graph.formulas.network import ac_jacobian
-
-    Xt = states[0]
-    N = g.C
-    lut = g._ppc_row[np.arange(N)]
-    H = ac_jacobian(Xt[:, NODE.v], np.radians(Xt[:, NODE.theta]), g._Ybus, g._Yf, g._Yt, g._ppc_branch, lut)
-    P, Q = H[N * NODE.p_inj : N * (NODE.p_inj + 1)], H[N * NODE.q_inj : N * (NODE.q_inj + 1)]
-    cols = np.r_[area, N + area]  # theta and |V| of the area buses
-    design = goal.designs[0]
-    targets = np.unique(g.load_bus[design.targets])
-    dload = np.zeros(N)
-    np.add.at(
-        dload, g.load_bus[design.targets], g.true_load(Xt)[design.targets] * (np.asarray(design.mult) - 1.0)
-    )
-    A = np.vstack([P[targets][:, cols], Q[targets][:, cols]])
-    rhs = np.r_[dload[targets], np.zeros(len(targets))] / g._base_mva
-    others = [b for b in range(N) if b not in set(targets.tolist())]
-    w = np.ones(len(others))
-    x = np.zeros(len(cols))
-    for _ in range(iters):
-        G = sum(
-            wi * (np.outer(P[b, cols], P[b, cols]) + np.outer(Q[b, cols], Q[b, cols]))
-            for wi, b in zip(w, others)
-        )
-        G = G + 1e-9 * np.eye(len(cols))
-        K = np.block([[G, A.T], [A, np.zeros((len(A), len(A)))]])
-        x = np.linalg.lstsq(K, np.r_[np.zeros(len(cols)), rhs], rcond=None)[0][: len(cols)]
-        change = np.array([np.hypot(P[b, cols] @ x, Q[b, cols] @ x) for b in others])
-        w = 1.0 / (change + 1e-6)
-    move = np.abs(x[: len(area)]) + np.abs(x[len(area) :])
-    S = np.union1d(area[move > 5e-2 * move.max()], targets)
-    S, _ = g._grow_over_zero_injection(S)  # the region's rule, as every candidate follows it
-    return S
-
-
-def test_reweighted_l1_never_beats_the_search(case):
-    """The continuous relaxation proposes a support; under the same constraints it never tampers fewer
-    devices than exhaustive search over the area. The relaxation cannot see the per-snapshot stealth
-    bound, so both sides are costed without it."""
-    from fdia_graph.engine.attacks.minimize import _Window
-
-    g, _, k = case
-    compared = 0
-    for states, goal, d in _windows(case, 3, held=False):
-        buses = np.unique(g.load_bus[d.targets])
-        area = g.local_region(buses, k.hops)
-        window = _Window(g, states, goal, k, stealth_bound=False)
-        costs = [
-            c
-            for S in g._supports([frozenset(int(b) for b in buses)], area)
-            if (c := window.cost(S, None)) is not None
-        ]
-        S = _irls_support(g, states, goal, np.asarray(area))
-        cost = window.cost(S, None)
-        if costs and cost is not None:
-            compared += 1
-            assert cost >= min(costs)
-    assert compared >= 1, "the reweighted-l1 support should be feasible on at least one window"
-
-
 def test_new_generation_searches_by_default():
     """New generation holds every At episode on its fewest-tamper support the frame
     knobs default off, so a walk with min_tamper=False holds the region within `hops`."""
@@ -257,7 +154,7 @@ def test_supports_keep_the_region_rules(case):
     g, _, k = case
     zero = set(int(b) for b in g.zero_inj) - {g.slack_bus}
     edges = g._live_edges()
-    for _, _, d in _windows(case, 2):
+    for _, _, d in windows(case, 2):
         buses = np.unique(g.load_bus[d.targets])
         area = g.local_region(buses, k.hops)
         for S in g._supports([frozenset(int(b) for b in buses)], area):
@@ -294,7 +191,7 @@ def test_the_stealth_bound_covers_the_onset(case):
     from fdia_graph.models.frames import AttackDesign, LoadGoal
 
     g, X, k = case
-    for states, _, d in _windows(case, 1, held=False):
+    for states, _, d in windows(case, 1, held=False):
         area = np.asarray(g.local_region(np.unique(g.load_bus[d.targets]), k.hops))
         jump = LoadGoal(
             tuple(AttackDesign(d.targets, 1.15) for _ in states)
@@ -310,7 +207,7 @@ def test_a_support_within_noise_is_not_an_attack(case):
     from fdia_graph.models.frames import AttackDesign, LoadGoal
 
     g, _, k = case
-    for states, _, d in _windows(case, 1, held=False):
+    for states, _, d in windows(case, 1, held=False):
         area = np.asarray(g.local_region(np.unique(g.load_bus[d.targets]), k.hops))
         still = LoadGoal(tuple(AttackDesign(d.targets, 1.0 + 1e-9) for _ in states))
         assert _Window(g, states, still, k).cost(area, None) is None
@@ -325,7 +222,7 @@ def test_the_onset_is_bounded_against_the_frame_before(case):
     from fdia_graph.models.frames import AttackDesign, LoadGoal
 
     g, _, k = case
-    for states, _, d in _windows(case, 1, held=False):
+    for states, _, d in windows(case, 1, held=False):
         area = np.asarray(g.local_region(np.unique(g.load_bus[d.targets]), k.hops))
         held = LoadGoal(tuple(AttackDesign(d.targets, 1.15) for _ in states))
         Xa = g.goal_state(held, 0, states[0], area, k)

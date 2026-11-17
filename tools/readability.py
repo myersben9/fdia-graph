@@ -1,15 +1,16 @@
-"""Readability measures for src/fdia_graph, the limits below (`LIMITS`),
+"""Readability measures for the two packages (`fdia_graph` and `fdia_analysis`, `sources.PACKAGES`),
+the limits below (`LIMITS`),
 and the file-protocol rule: a dataset path ("data/...", "graph/...", any group of `schema.Group`)
 or a group name used as one (`f.create_group("data")`, `f["attack"]`, `"episodes" in f`) may be
 spelled only in src/fdia_graph/schema.py; every other module goes through `schema`. And the
 validation rule (CONTRIBUTING.md, "an input is checked in one place"): `raise ValueError` / `raise TypeError` and
-`isinstance(...)` only inside `fdia_graph.models`, where the one engine checks every input and the
+`isinstance(...)` only inside a `models` package (`fdia_graph.models`, `fdia_analysis.models`), where the one engine checks every input and the
 parser models read loose input by its type; everywhere else an input is checked or parsed by
 building its model, and a condition only the data reveals raises a named error from `errors`. And
 the typing rule: an annotation says `Any` only where ANY_ALLOWED lists it with the reason the value
 can be anything; every other annotation carries its real type.
 
-    python tools/readability.py --report                 # every function outside a limit, whole package
+    python tools/readability.py --report                 # every function outside a limit, both packages
     python tools/readability.py --check --base origin/main   # gate: functions touched since base must pass
 
 A function is measured on five things: cyclomatic complexity (radon), nesting depth of loops and
@@ -20,6 +21,9 @@ rule and is not measured here.
 
 Exceptions: a function listed in EXCEPTIONS with a one-line reason passes the gate. Adding one
 is a reviewed decision; the reason is the whole point.
+
+A file is named by its package and its path in it (`fdia_graph/schema.py`,
+`fdia_analysis/se/base.py`): in the report, and in the keys of EXCEPTIONS, DEFERRED and ANY_ALLOWED.
 """
 
 from __future__ import annotations
@@ -32,7 +36,9 @@ import sys
 from dataclasses import dataclass
 from typing import Optional
 
-ROOT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "src", "fdia_graph")
+from sources import ANALYSIS, GENERATION, PACKAGES, package_dir
+
+ROOTS = {package: package_dir(package) for package in PACKAGES}  # package name -> its folder
 
 LIMITS = {"complexity": 10, "nesting": 3, "captures": 0, "params": 7, "positional": 0}
 _GROUPS = ("data", "benign", "clean", "graph", "episodes", "attack")  # schema.Group, kept in step by a test
@@ -40,7 +46,7 @@ _GROUPS = ("data", "benign", "clean", "graph", "episodes", "attack")  # schema.G
 # tested with `in`; "benign" and "clean" are also record fields, so only the four that are never
 # fields are checked that way
 _GROUPS_NEVER_FIELDS = ("data", "graph", "episodes", "attack")
-_SCHEMA = os.path.join(ROOT, "schema.py")  # the one module allowed to spell a dataset path
+_SCHEMA = os.path.join(ROOTS[GENERATION], "schema.py")  # the one module allowed to spell a dataset path
 
 # "module.qualname": reason. Keep every entry justified; the report still lists them, marked.
 EXCEPTIONS: dict[str, str] = {}
@@ -60,45 +66,57 @@ _NYGRID_AS_WRITTEN = (  # generation/nygrid/source.py (the timeline source) is c
     "load_sources.py",
     "loads.py",
     "network.py",
+    "ownership.py",
     "pool.py",
     "solver.py",
     "tables.py",
 )
+_AS_WRITTEN = "the New York code, moved in as written; conformed module by module"
 DEFERRED: dict[str, str] = {
-    **{
-        f"generation/nygrid/{module}": "the New York code, moved in as written; conformed module by module"
-        for module in _NYGRID_AS_WRITTEN
-    },
-    "engine/attacks/attacker.py": "the New York code, moved in as written; conformed module by module",
-    "engine/attacks/family.py": "the New York code, moved in as written; conformed module by module",
-    "engine/attacks/opf.py": "the New York code, moved in as written; conformed module by module",
-    "engine/attacks/interface.py": "the New York code, moved in as written; conformed module by module",
-    "engine/attacks/perturbation.py": "the New York code, moved in as written; conformed module by module",
-    "engine/attacks/ramp.py": "the New York code, moved in as written; conformed module by module",
-    "engine/sensing": "the New York code, moved in as written; conformed module by module",
-    "engine/solvers.py": "the New York code, moved in as written; conformed module by module",
-    "se/detect": "the New York code, moved in as written; conformed module by module",
-    "federated/utilities.py": "the New York code, moved in as written; conformed module by module",
-    "dataset/clients.py": "the New York code, moved in as written; conformed module by module",
-    "_lazy.py": "the New York code, moved in as written; conformed module by module",
+    **{f"{GENERATION}/generation/nygrid/{module}": _AS_WRITTEN for module in _NYGRID_AS_WRITTEN},
+    f"{GENERATION}/engine/attacks/attacker.py": _AS_WRITTEN,
+    f"{GENERATION}/engine/attacks/family.py": _AS_WRITTEN,
+    f"{GENERATION}/engine/attacks/opf.py": _AS_WRITTEN,
+    f"{GENERATION}/engine/attacks/interface.py": _AS_WRITTEN,
+    f"{GENERATION}/engine/attacks/perturbation.py": _AS_WRITTEN,
+    f"{GENERATION}/engine/attacks/ramp.py": _AS_WRITTEN,
+    f"{GENERATION}/engine/sensing": _AS_WRITTEN,
+    f"{GENERATION}/engine/solvers.py": _AS_WRITTEN,
+    f"{GENERATION}/dataset/clients.py": _AS_WRITTEN,
+    f"{GENERATION}/_lazy.py": _AS_WRITTEN,
+    f"{ANALYSIS}/se/detect": _AS_WRITTEN,
 }
 
 
+def _rel(path: str) -> str:
+    """A package file as `<package>/<its path in the package>` with forward slashes
+    (`fdia_graph/schema.py`); a path outside both packages (a test's temporary file, another drive on
+    Windows) as given."""
+    full = os.path.abspath(path)
+    for package, root in ROOTS.items():
+        try:
+            inside = os.path.commonpath([os.path.normcase(full), os.path.normcase(root)]) == os.path.normcase(
+                root
+            )
+        except ValueError:  # another drive (Windows): not under the package
+            continue
+        if inside:
+            return f"{package}/{os.path.relpath(full, root)}".replace(os.sep, "/")
+    return path
+
+
 def _deferred(path: str) -> bool:
-    """Whether `path` is, or lies in, a DEFERRED module or subpackage (a path relative to the package)."""
-    try:
-        rel = os.path.relpath(os.path.abspath(path), ROOT)
-    except ValueError:  # another drive (Windows): not under the package
-        return False
-    rel = rel.replace(os.sep, "/")
+    """Whether `path` is, or lies in, a DEFERRED module or subpackage."""
+    rel = _rel(path)
     return any(rel == d or rel.startswith(d + "/") for d in DEFERRED)
 
 
 def _walk():
-    """os.walk over the package, without the DEFERRED subpackages and modules."""
-    for dp, dirs, fs in os.walk(ROOT):
-        dirs[:] = [d for d in dirs if not _deferred(os.path.join(dp, d))]
-        yield dp, dirs, [f for f in fs if not _deferred(os.path.join(dp, f))]
+    """os.walk over the two packages, without the DEFERRED subpackages and modules."""
+    for root in ROOTS.values():
+        for dp, dirs, fs in os.walk(root):
+            dirs[:] = [d for d in dirs if not _deferred(os.path.join(dp, d))]
+            yield dp, dirs, [f for f in fs if not _deferred(os.path.join(dp, f))]
 
 
 _NEST = (ast.For, ast.While, ast.If, ast.With, ast.Try)
@@ -134,7 +152,7 @@ class Measure:
 
     @property
     def key(self) -> str:
-        mod = os.path.splitext(self.file.replace(os.sep, "."))[0]
+        mod = os.path.splitext(self.file)[0].replace("/", ".")
         return f"{mod}.{self.name}"
 
 
@@ -231,15 +249,6 @@ def _measure_function(rel: str, qualname: str, node: ast.AST, cc: dict[tuple[str
     )
 
 
-def _rel(path: str) -> str:
-    """The path relative to the repository, or as given when it lies on another drive (Windows
-    cannot express that relatively, and a CI runner's temp dir sits on D:)."""
-    try:
-        return os.path.relpath(path, ROOT)
-    except ValueError:
-        return path
-
-
 def protocol_literals(path: str) -> list[tuple[str, int, str]]:
     """Path-shaped string literals ("<group>/..." or a lone group name used as a path prefix in an
     f-string) outside the schema module: (file, line, literal). Docstrings are not literals."""
@@ -287,15 +296,15 @@ def _group_used_as_group(n: ast.AST) -> Optional[str]:
     return None
 
 
-_MODELS = os.path.join(ROOT, "models")  # the one package allowed to raise a bare ValueError / TypeError
+# each toolkit's `models` package: the one place of it allowed to raise a bare ValueError / TypeError
+_MODELS = tuple(f"{package}/models/" for package in PACKAGES)
 _BARE = {"ValueError", "TypeError"}
 
 
 def hand_checks(path: str) -> list[tuple[str, int, str]]:
-    """`raise ValueError(...)` / `raise TypeError(...)` / `isinstance(...)` outside `fdia_graph.models`:
+    """`raise ValueError(...)` / `raise TypeError(...)` / `isinstance(...)` outside a `models` package:
     (file, line, "ValueError" | "TypeError" | "isinstance")."""
-    here, models = os.path.normcase(os.path.abspath(path)), os.path.normcase(os.path.abspath(_MODELS))
-    if os.path.commonpath([here, models]) == models:  # inside the package, not a sibling named models_*
+    if _rel(path).startswith(_MODELS):  # inside the package, not a sibling named models_*
         return []
     tree = ast.parse(open(path, encoding="utf8").read())
     raises = [
@@ -319,15 +328,15 @@ _KW = "keyword arguments forwarded unchanged to another signature, each its own 
 _STAGE = "a record's staging dict: tensors and scalar provenance, each key its own type, unpacked into RecordBundle"
 _BUNDLE = "a bundle's fields as a dict: arrays, tensors, scalars and lists, each key its own type"
 ANY_ALLOWED: dict[str, str] = {
-    "__init__.py:__getattr__:return": "a lazily imported public name: any of the package's functions or classes",
-    "generation/__init__.py:generate:**knobs": _KW,
-    "dataset/records.py:RecordsMixin._add_benign:item": _STAGE,
-    "dataset/records.py:RecordsMixin._add_currents:item": _STAGE,
-    "dataset/records.py:RecordsMixin._base_item:return": _STAGE,
-    "dataset/records.py:RecordsMixin._add_optional_layers:item": _STAGE,
-    "dataset/records.py:RecordsMixin.loader:**kw": _KW,
-    "localization/base.py:LocalizerBase.score.out": "the score table's rows: overall, benign and per-family metrics, one row type per key",
-    "models/assets.py:AssetSpec.meta": "a local dataset's JSON metadata, as fg.generate wrote it",
+    f"{GENERATION}/__init__.py:__getattr__:return": "a lazily imported public name: any of the package's functions or classes",
+    f"{GENERATION}/generation/__init__.py:generate:**knobs": _KW,
+    f"{GENERATION}/dataset/records.py:RecordsMixin._add_benign:item": _STAGE,
+    f"{GENERATION}/dataset/records.py:RecordsMixin._add_currents:item": _STAGE,
+    f"{GENERATION}/dataset/records.py:RecordsMixin._base_item:return": _STAGE,
+    f"{GENERATION}/dataset/records.py:RecordsMixin._add_optional_layers:item": _STAGE,
+    f"{GENERATION}/dataset/records.py:RecordsMixin.loader:**kw": _KW,
+    f"{GENERATION}/models/assets.py:AssetSpec.meta": "a local dataset's JSON metadata, as fg.generate wrote it",
+    f"{ANALYSIS}/localization/base.py:LocalizerBase.score.out": "the score table's rows: overall, benign and per-family metrics, one row type per key",
 }
 
 
@@ -382,7 +391,7 @@ def _annotated(tree: ast.AST) -> list[tuple[str, int, ast.AST]]:
 def any_annotations(path: str) -> list[tuple[str, int]]:
     """(key, line) of every annotation in the file that uses `Any`; the key is what ANY_ALLOWED lists."""
     tree = ast.parse(open(path, encoding="utf8").read())
-    rel = _rel(path).replace(os.sep, "/")
+    rel = _rel(path)
     return [(f"{rel}:{place}", line) for place, line, ann in _annotated(tree) if _mentions_any(ann)]
 
 
@@ -459,12 +468,12 @@ def report(ms: list[Measure]) -> int:
         mark = "  [excepted: " + EXCEPTIONS[m.key] + "]" if m.key in EXCEPTIONS else ""
         print(f"  {m.file}:{m.line} {m.name}: " + "; ".join(m.failures()) + mark)
     lits = protocol_literals_all()
-    print(f"{len(lits)} dataset-path literals outside {os.path.relpath(_SCHEMA, ROOT)}")
+    print(f"{len(lits)} dataset-path literals outside {_rel(_SCHEMA)}")
     for rel, line, lit in lits:
         print(f"  {rel}:{line} {lit!r}")
     hands = hand_checks_all()
     print(
-        f"{len(hands)} hand-written ValueError/TypeError raises or isinstance calls outside fdia_graph.models"
+        f"{len(hands)} hand-written ValueError/TypeError raises or isinstance calls outside the models packages"
     )
     for rel, line, name in hands:
         print(f"  {rel}:{line} {_what(name)}")
@@ -478,12 +487,12 @@ def report(ms: list[Measure]) -> int:
 
 
 def _changed_lines(base: str) -> dict[str, set[int]]:
-    """Lines added or modified since `base`, per file under src/fdia_graph, from `git diff -U0`."""
+    """Lines added or modified since `base`, per file of the two packages, from `git diff -U0`."""
     top = subprocess.run(
         ["git", "rev-parse", "--show-toplevel"], capture_output=True, text=True, check=True
     ).stdout.strip()
     diff = subprocess.run(
-        ["git", "diff", "-U0", f"{base}...HEAD", "--", "src/fdia_graph"],
+        ["git", "diff", "-U0", f"{base}...HEAD", "--", *PACKAGES.values()],
         capture_output=True,
         text=True,
         encoding="utf-8",  # docstrings carry equation symbols; the Windows default codepage cannot decode them
@@ -541,7 +550,7 @@ def check(base: str) -> int:
     ]
     if hands:
         print("hand-written input checks added by this change (declare the rule or the parse on a model")
-        print("in fdia_graph.models, or raise a named error from fdia_graph.errors):")
+        print("in the toolkit's models package, or raise a named error from fdia_graph.errors):")
         for rel, line, name in hands:
             print(f"  {rel}:{line} {_what(name)}")
         return 1

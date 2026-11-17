@@ -1,12 +1,12 @@
-# State estimation with `fdia_graph.se`
+# State estimation with `fdia_analysis.se`
 
 Given a scan of noisy, possibly attacked measurements, estimate the true bus voltages and angles.
 Every timeline ships a noiseless `clean` layer, so the estimate is scored against exact ground truth.
 
 ```python
 import fdia_graph as fg
-from fdia_graph.models import PriorConfig
-from fdia_graph.se import WLS, AdaptiveWeighting, SubspacePrior
+from fdia_analysis.models import PriorConfig
+from fdia_analysis.se import WLS, AdaptiveWeighting, SubspacePrior
 
 train = fg.load("ieee14", split="train")
 test = fg.load("ieee14", split="test")
@@ -18,7 +18,7 @@ rep = est.score(test)  # per-family angle/voltage MAE vs the clean truth
 
 ![SEBase shared by every estimator: the measurement function, the chord Jacobian, meter weights from benign residuals, the chord-Newton loop; each estimator changes one thing: WLS nothing, AdaptiveWeighting Huber weights, ResidualRemoval dropping large residuals, SubspacePrior a low-rank basis, JacobianWeighting weights from the unexplained residual, GatedPrior a localizer gating the weights](../../figures/diagrams/se_estimators.png)
 
-| needs | `pip install "fdia-graph[se]"`, a timeline (data release v0.8.3), `units="physical"` |
+| needs | `pip install "fdia-analysis[se]"`, a timeline (data release v0.8.3), `units="physical"` |
 |---|---|
 | walkthrough | [`../../guides/state_estimation.md`](../../guides/state_estimation.md) |
 | state | 2N-1: every voltage magnitude, every non-slack angle; slack angle fixed to one reference angle, `theta_ref`, taken from the training split at fit time (the case's reference angle on the released pools) |

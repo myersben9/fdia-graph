@@ -16,8 +16,8 @@ number the design decisions.
 Each box is a subpackage, one stage, and each stage reads what the one before it wrote. `grid` turns NYgrid's case into
 the network and the clients; `scenario` solves the year of true operating points (the slow step, built once into the
 pool); `sensing` places the meters; `attacks` designs each attack on a window of true states; `timeline` writes the
-noisy, labelled year. Beside the stages, `se/detect` holds the alarm rules. Each package's `__init__.py` opens with what
-its stage does.
+noisy, labelled year. Beside the stages, `se/detect` holds the alarm rules, in the analysis toolkit
+(`fdia_analysis.se.detect`). Each package's `__init__.py` opens with what its stage does.
 
 ## Principles
 
@@ -25,7 +25,7 @@ its stage does.
    settings, or a shared record's arrays, after it is built: a variant is a copy (`with_overshoot`,
    `with_voltage_margin`).
 2. Each package's `__init__.py` lists its public names (`__all__`), imported on first use, so reading a dataset never
-   loads pandapower or Pyomo. A name outside `__all__` is internal and may change; a public name that is renamed is a
+   loads pandapower or Pyomo (`se.detect` imports its two names directly: they need only numpy). A name outside `__all__` is internal and may change; a public name that is renamed is a
    changelog entry, with no alias kept.
 3. A class owns state, cached work, or a shared interface. A plain function is stateless math. Data records are
    frozen dataclasses of numpy arrays.
@@ -55,6 +55,7 @@ src/fdia_graph/
     tables.py           read_rows (the input CSV tables, read whole and closed)
     case.py             Case (from_matpower, check), nygrid_case, ZONES, REGIONS (Region), FILE_AREA, NY_AREA, HQ_BUS
     network.py          Network
+    ownership.py        Ownership, assign_clients (the utility that owns each bus)
     case_nygrid.m       the New York grid, one MATPOWER case file (140 buses, 227 branches, 271 units)
     fixes.py            externals_at_base, hvdc_links
     interfaces.py       Interface, hourly_interfaces, NYISO_INTERFACES (N48)
@@ -79,14 +80,13 @@ src/fdia_graph/
     opf.py              OpfFdia (the base of the OPF attacks: the support search and the per-scan local AC OPF, N35)
     interface.py        InterfaceFdia (Am against a NYISO interface, N48, N49; overshoot and max_overshoot, N58)
     ramp.py             Ramp
-  se/detect/
-    __init__.py         what the stage does, and its public names
-    rules.py            AlarmRule (protocol), PersistenceRule (k of the last n past a fitted threshold, N79)
-  federated/
-    utilities.py        Ownership, assign_clients
   dataset/
     clients.py          Dataset, ClientView
   _lazy.py            attach: the public names of a package, imported on first use
+analysis/src/fdia_analysis/
+  se/detect/
+    __init__.py         what the stage does, and its public names
+    rules.py            AlarmRule (protocol), PersistenceRule (k of the last n past a fitted threshold, N79)
 pipelines/newyork/
   build_timeline.py    the release timeline from a pool (--fetch downloads the inputs)
   make_case.py         the recipe of the case file and its writer: case_nygrid.m made again from NYgrid's Data/ folder
@@ -98,10 +98,12 @@ results/
 tests/nygrid/
   inputs.py      where the tests find their inputs, and which tests each input lets run
   test_{grid,scenario,sensing,attacks,timeline,dataset}.py
-  test_{solvers,misses,tables,configs,detect,public}.py   checks that need no data
-  test_golden.py, golden/   snapshots of the persistence rule and the interface attack
+  test_{solvers,misses,tables,configs,public}.py   checks that need no data
+  test_golden.py, golden/   snapshots of the interface attack
   data/matlab_ref/     operating points from dump_hours.m that the Python port must match
   data/days/           the pool's frames of two days, which the timeline digests build on (README inside)
+analysis/tests/
+  test_detect.py       the alarm rules, the snapshot of the persistence rule (golden/) and the alarm-rule example (no data)
 ```
 
 `tools/`, `results/` and `tests/data/` follow the fdia_graph_sdk layout, so the move into the SDK
@@ -133,7 +135,7 @@ Frozen dataclasses of arrays, passed between classes.
 | record | file | fields |
 |---|---|---|
 | `Case` | `generation/nygrid/case.py` | `base_mva`, buses (`bus_id`, `zone`, `area`, `kv`, `vmin`, `vmax`, `lat`, `lon`, `is_ny`), branches (`f`, `t`, `r`, `x`, `b`, `tap`, `shift`, `rating`), units (`bus`, `fuel`, `pmin`, `pmax`, `qmin`, `qmax`, `ramp` MW/min, NaN where unknown), HVDC links (`f`, `t`, `pmin`, `pmax`), base state |
-| `Ownership` | `federated/utilities.py` | `names [K]` (the 7 utilities), `bus_client [N]` (-1 for external buses), `tie_lines [L]` |
+| `Ownership` | `generation/nygrid/ownership.py` | `names [K]` (the 7 utilities), `bus_client [N]` (-1 for external buses), `tie_lines [L]` |
 | `LoadSeries` | `generation/nygrid/loads.py` | `time [T]`, `p [T, N]`, `q [T, N]` |
 | `NygridHour` | `generation/nygrid/inputs.py` | one hour of NYgrid inputs: `time`, `fuel_mw [7]`, `iface_flow`, `iface_pos`, `iface_neg [17]`, `nuclear_mw [6]`, `stl_cf`, `thermal_mw [227]`, NYgrid's bus split `ny_pd`, `ny_qd [N]`, netted renewables `renew_mw [N]`, the thermal units' linear cost `thermal_cost [227]` ($/MWh, weekly fuel price times heat rate, allocateGen.m 'lm'), the proxy-bus LBMPs `ext_lbmp [4]` (NPX, O H, PJM, H Q) |
 | `Dispatch` | `generation/nygrid/dispatch.py` | `hour [H]`, `unit_p [H, G]`, `unit_on [H, G]`, `hvdc_p [H, D]`, the bus loads they balance `pd`, `qd [H, N]`, and NYgrid's generation cost `unit_cost [H, G]` ($/MWh: thermal from `thermal_cost`, nuclear and hydro at NYgrid's fixed draws, external units at their area's proxy LBMP) |
@@ -199,7 +201,7 @@ Stateless steps, each called once in the build.
 | `peak_ratings(case, pool, factor=1.0)` | `generation/nygrid/pool.py` | `Case`, `Pool` | `Case` with each unrated branch at `factor` times its peak apparent flow over the solved frames (N8; 1.0 by N47) |
 | `write_pool(path, pool)`, `read_pool(path)` | `io.py` | `Pool` | `pool.h5`: `time` (int64 seconds, NYISO local clock), `vm`, `va`, `p`, `q`, `solve_kind`, `unit_p` (when present) |
 | `plan_meters(net, own, rng, vbus_frac=0.6)` | `engine/sensing/meters.py` | `Network`, `Ownership`, a generator | `MeterPlan`: P, Q at every NY bus, P, Q flow at every branch end on a NY bus, \|V\| at a random 60% of NY buses, PMUs (voltage and branch-current phasors) at the smallest set that sees every NY bus (N7), each meter owned by its bus's client, accuracy class and drawn bias per meter |
-| `assign_clients(case, territories, locations)` | `federated/utilities.py` | `Case`, territory polygons, path to `data/territories/ny_bus_locations.csv` (substation location or zone-chosen utility per NY bus) | `Ownership`, one client per utility |
+| `assign_clients(case, territories, locations)` | `generation/nygrid/ownership.py` | `Case`, territory polygons, path to `data/territories/ny_bus_locations.csv` (substation location or zone-chosen utility per NY bus) | `Ownership`, one client per utility |
 | `read_nygrid(data_dir, year)` | `generation/nygrid/inputs.py` | NYgrid `Data/` | `NygridHour` list |
 | `fetch_nyiso(year)` | `generation/nygrid/inputs.py` | NYISO pal archive | `ZoneLoad` |
 | `hourly_dispatch(case, hours, hold_externals=True)` | `generation/nygrid/dispatch.py` | | `Dispatch`; `hold_externals=False` keeps NYgrid's own external scaling (the AC ablation) |
@@ -245,7 +247,7 @@ Unsolved pool frames keep their place with NaN state and readings and no labels.
 | G2 | the case file (zone J's split and the 765 kV line are in it; `pipelines/newyork/make_case.py` is how), `generation/nygrid/fixes.py` (the variants) |
 | G3 | the case file (the unit list, `mpc.gen` with `mpc.genfuel` and `mpc.gen_ramp`) |
 | G4 | the case file (the tie ratings, `mpc.branch`), `peak_ratings` in `generation/nygrid/pool.py` |
-| G5 | `federated/utilities.py`, `data/territories/ny_bus_locations.csv` |
+| G5 | `generation/nygrid/ownership.py`, `data/territories/ny_bus_locations.csv` |
 | P1 | `generation/nygrid/inputs.py` |
 | P2 | `generation/nygrid/loads.py` |
 | P3 | `generation/nygrid/dispatch.py` |

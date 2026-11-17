@@ -7,7 +7,7 @@ renders them from (a results block).
 
 Timings are per record for the estimators (fit excluded) and per frame for timeline generation,
 in milliseconds, on the tiny IEEE-14 timeline the test suite builds (1000 frames, At and Am,
-20-frame episodes, the settings of tests/conftest.TIMELINE_KW). They are for spotting a regression on one machine, not for comparing
+20-frame episodes, the settings of tests/helpers.TIMELINE_KW). They are for spotting a regression on one machine, not for comparing
 machines: every run carries the CPU and the torch state (its provenance note) for that reason, and
 the fixture recipe (a tag, its hash) so a new recipe starts a new baseline.
 """
@@ -28,14 +28,14 @@ os.environ["FDIA_GRAPH_CACHE"] = _CACHE
 atexit.register(shutil.rmtree, _CACHE, ignore_errors=True)
 
 import numpy as np
+from sources import ROOT, import_this_checkout
 
-import fdia_graph as fg
+import_this_checkout()
+sys.path.insert(0, ROOT)
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, os.path.join(ROOT, "tests"))
-from conftest import TIMELINE_KW  # noqa: E402  the test suite's tiny timeline, one definition
-
-from fdia_graph.models import HuberConfig, PriorConfig
+import fdia_graph as fg  # noqa: E402
+from fdia_analysis.models import HuberConfig, PriorConfig  # noqa: E402
+from tests.helpers import TIMELINE_KW  # noqa: E402  the test suite's tiny timeline, one definition
 
 SLOW_FACTOR = 3.0
 # the fixture recipe a row was measured on: rows of another recipe time other frames and meters, so
@@ -45,7 +45,7 @@ RECIPE_TAG = hashlib.sha256(RECIPE.encode()).hexdigest()[:8]  # a tag value carr
 
 
 def _timings() -> dict[str, float]:
-    from fdia_graph.se import WLS, AdaptiveWeighting, SubspacePrior
+    from fdia_analysis.se import WLS, AdaptiveWeighting, SubspacePrior
 
     out: dict[str, float] = {}
     path = os.path.join(_CACHE, "tiny.h5")
@@ -81,7 +81,7 @@ def _machine() -> str:
 def _last_run(machine: str) -> dict[str, float]:
     """The timings of the most recent stored run on `machine` with this fixture recipe; empty when
     there is none, since runs from different machines or recipes are not comparable."""
-    from fdia_graph.results import Store
+    from fdia_analysis.results import Store
 
     store = Store(os.path.join(ROOT, "results"))
     runs = sorted(
@@ -95,7 +95,7 @@ def _last_run(machine: str) -> dict[str, float]:
 
 
 def main(check: bool) -> int:
-    from fdia_graph.results import Run, Store
+    from fdia_analysis.results import Run, Store
 
     t = _timings()
     machine = _machine()

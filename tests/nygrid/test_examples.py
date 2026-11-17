@@ -11,7 +11,7 @@ import pytest
 EXAMPLES = Path(__file__).resolve().parents[2] / "examples" / "nygrid"
 
 
-@pytest.mark.parametrize("name", ["custom_alarm_rule", "custom_attack_family"])
+@pytest.mark.parametrize("name", ["custom_attack_family"])
 def test_example_runs(name, capsys):
     runpy.run_path(str(EXAMPLES / f"{name}.py"), run_name="__main__")
     assert capsys.readouterr().out.strip()  # it printed its result

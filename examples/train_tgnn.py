@@ -14,8 +14,15 @@ reads. Runs on GPU if available.
 """
 from __future__ import annotations
 
-import argparse, json, os, numpy as np, torch, torch.nn as nn, torch.nn.functional as F
+import argparse
+import json
 from typing import Dict, Optional, Tuple
+
+import numpy as np
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
 import fdia_graph as fg
 from fdia_graph import FAMILIES
 

@@ -5,6 +5,87 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- **Two toolkits in one repository (breaking for the imports of the analysis packages).** The package was
+  generation and analysis in one; it is now two distributions that live side by side here. `fdia-graph`
+  (the package `fdia_graph`, under `src/`) generates a timeline and loads it. `fdia-analysis` (the package
+  `fdia_analysis`, under `analysis/`, with its own `pyproject.toml`, tests and README) is what is measured
+  on a timeline. The analysis toolkit depends on the generation toolkit (it reads the files through
+  `fdia_graph.dataset` and uses its formulas and records); nothing in `fdia_graph` imports `fdia_analysis`,
+  which `tests/test_toolkit_boundary.py` checks in the source and by generating and loading a timeline in an
+  interpreter where `fdia_analysis` cannot be imported. No generated file changes (the timeline digests of
+  the IEEE cases and of New York are the same, the settings hash stored in a file included) and no result
+  number changes (no results block of the docs changed). No alias is kept for a moved name.
+  - What a caller sees, in short. The imports of the analysis packages change from `fdia_graph.*` to
+    `fdia_analysis.*` (`from fdia_graph.se import WLS` becomes `from fdia_analysis.se import WLS`). The `se`
+    and `federated` extras move to `fdia-analysis` (`pip install "fdia-graph[se]"` becomes
+    `pip install "fdia-analysis[se]"`). The two toolkits share one version and are released together:
+    `fdia-analysis` X.Y.Z requires exactly `fdia-graph==X.Y.Z`, so upgrading one upgrades the other.
+  - What moved, package by package: `fdia_graph.se` is `fdia_analysis.se` (with `fdia_analysis.se.detect`),
+    `fdia_graph.localization` is `fdia_analysis.localization`, `fdia_graph.federated` is
+    `fdia_analysis.federated`, `fdia_graph.trust` is `fdia_analysis.trust`, and `fdia_graph.results` (the
+    results store's code) is `fdia_analysis.results`. Their classes and functions keep their names and
+    behaviour: `from fdia_analysis.se import WLS`, `from fdia_analysis.localization import SwingThreshold`.
+  - What stays in `fdia_graph`: `fg.load`, `fg.generate`, `FdiaGraph`, the profiles, the registry and the
+    download, the file protocol (`schema`), `generation` (the New York grid included), `engine`, `dataset`,
+    `ratings`, `errors` (every named error, the ones the analysis packages raise too), and the models and
+    formulas the generator or the loader use. `import fdia_graph as fg` and everything under `fg.` are
+    unchanged.
+  - The models only the analysis packages use are in `fdia_analysis.models`. The settings (from
+    `models.config`): `SolveConfig`, `FitOptions`, `HuberConfig`, `RemovalConfig`, `PriorConfig`,
+    `JacobianWeightingConfig`, `GateConfig`, `LocalizerConfig`, `LearnedConfig`, `TrainerConfig`,
+    `PerBusReport`, `TrustConfig`, `DqnConfig`, `FederatedSettings`, with the field types `Fraction`, `Share`,
+    `Norm` and `Tolerance`. The fixed sets (from `models.choices`): `Calibrate`, `Reweight`, `Features`,
+    `FrOver`, `Buses`, `Kcl`, `Reduce`. What the analysis formulas accept (from `models.inputs`):
+    `ShapedArray`, `SubBatch`, `EdgeList`, `ClientCount`, `ClientGraph`, `Halo`, `AssignmentSpec`,
+    `PartitionOnGrid`, `ClientUpdates`, `MomentParts`, `FeatureBlock`, `Affinity`, `StateBlocks`,
+    `LabelGrids`, `TauSearch`, `RankedLabels`, `Aggregation`, and the rule `IntegerDtype` (from
+    `models.validation`, now beside the models that declare it in `fdia_analysis.models.inputs`). The score tables (all of `models.scores`): `ErrorPair`, `EstimatorScores`,
+    `OverallMetrics`, `BenignMetrics`, `FamilyMetrics`, `LocalizerScores`, `PerBusMetrics`, `PerBusScores`,
+    `GridScores`, `TrustScores`, `JacobianOutputs`. And `TrueState` (from `models.data`), `PseudoLinks` and
+    `PseudoVoltages` (from `models.grid`), `Partition` and `RoundLog` (all of `models.federated`),
+    `OptimConfig` (all of `models.training`), and the results store's records (all of `models.results`:
+    `Record`, `Provenance`, `RunRecords`, `Metric`, `METRICS`, `Better`, `Leaf`, `KEYS`, `leaves`,
+    `as_values`). Each is in the module of the same name (`fdia_analysis.models.config`, and so on).
+    `fdia_graph.models.PUBLIC` names the loader's bundles and `fdia_analysis.models.PUBLIC` the score tables.
+  - The formulas only the analysis packages use are in `fdia_analysis.formulas`. Whole modules:
+    `formulas.estimation` (`normal_matrix`, `wls_step`, `wls_step_batched`, `weighted_objective`,
+    `residual_covariance_diag`, `critical_measurements`, `floored_covariance`, `normalized_residual`,
+    `huber_weights`, `whitened_svd_basis`, `gate_weights`, `pmu_pseudo_links`, `pmu_pseudo_phasors`,
+    `pmu_pseudo_voltages`), `formulas.linalg` (`guarded_inverse`, `condition_number`,
+    `batched_normal_matrices`), `formulas.metrics` (`perbus_counts`, `perbus_counts_at`,
+    `perbus_f1_from_counts`, `tau_from_counts`, `perbus_rates`, `micro_prf`, `sample_f1`, `strict_accuracy`,
+    `average_precision`), `formulas.projection` (`bus_incidence`, `weighted_pseudoinverse`, `leverage`,
+    `weak_directions`, `explained_unexplained`, `direction_coefficients`, `weak_move`, `meters_to_buses`,
+    `meter_positions`) and `formulas.federated` (`Moments`, `channel_moments`, `pool_moments`, `fedavg`,
+    `attackable_affinity`, `interior_boundary`, `cut_edge_count`, `hop_distance`, `halo_nodes`,
+    `block_diagonal_basis`). Parts of modules: the estimator's measurement function and its Jacobian,
+    `ac_measurement` and `ac_jacobian`, left `formulas.network` for the new
+    `fdia_analysis.formulas.measurement`; `attack_subspace`, `sparse_basis`, `attack_cost` and
+    `greedy_trusted_meters` left `formulas.trust` for `fdia_analysis.formulas.trust`, which builds on the
+    `rref` that stays in `fdia_graph.formulas.trust` beside `sparsest_rows` (the attack generator uses both);
+    that module's tolerance is now the public `TOL`.
+  - Three names moved inside `fdia_graph`, to where the generation code that uses them is.
+    `accuracy_class_sigma` is in `formulas.noise` (it was in `formulas.estimation`; the meter noise model
+    uses it). `Ownership` and `assign_clients`, which utility owns which New York bus, are in
+    `generation.nygrid.ownership` (the module was `federated.utilities`). `config_hash`, the hash of the
+    settings a timeline stores (`settings_hash`), is in `schema` (it was in `results.run`, which now imports
+    it); the hash of a given settings record is the same.
+  - Install: `pip install fdia-graph` for the loader, with `[torch]`, `[pyg]`, `[generate]`, `[iso]`, `[ny]`
+    and `[all]` as before; `pip install fdia-analysis` for the analysis toolkit, which installs `fdia-graph`,
+    with the extras `[se]` (pandapower, scipy), `[torch]`, `[federated]` (torch, scikit-learn) and `[all]`.
+    The `[se]` and `[federated]` extras of `fdia-graph` are gone, and its `[all]` no longer brings
+    scikit-learn; the install hints in the analysis toolkit's error messages name `fdia-analysis`.
+  - In the repository: each toolkit has its tests (`tests/`, `analysis/tests/`), which share the tiny generated
+    timeline through the fixtures of the root `conftest.py` and the helpers of `tests/helpers.py`; `pytest` at
+    the root runs both on this checkout's source.
+    `tools/prereview.py` is still the one command for every gate, now over both packages (`tools/sources.py`
+    names them once for every tool), the file map and the data dictionary list both, the module diagram
+    draws both with every arrow between them pointing from analysis to generation, and `tools/layout.py`
+    resolves a cited name in the toolkit it says (`fdia_analysis.se.base`) or, with none said, in either.
+    CI installs both and tests both; `publish.yml` (which runs on a version tag only) builds both
+    distributions and uploads both, since they share the tag's version (`tests/test_versions.py`, and
+    `tools/release.py` before it tags).
+
 - **One path generates a timeline, for the IEEE cases and for the New York grid (breaking for the New York
   build's callers).** `TimelineSource.generate(out)` (`generation/source.py`) makes every timeline in the same
   order: start the file, prepare, cut the splits, then split by split place the episodes (`generation/plan.py`),

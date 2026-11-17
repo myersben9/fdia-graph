@@ -1,7 +1,8 @@
 """The one-file timeline writer: its layout, its episodes and the At and Am frames.
 
 One tiny IEEE-14 timeline is generated once per session (1000 frames, At and the overload Am,
-20-frame episodes, the search capped as in conftest.TIMELINE_KW), and read here with h5py against
+20-frame episodes, the search capped at 16 supports: the fixture `timeline_file` of the root
+conftest.py), and read here with h5py against
 the layout the module docstring promises."""
 
 import h5py
@@ -15,21 +16,10 @@ from fdia_graph.generation.write import KIND
 from fdia_graph.models.choices import STEALTHY_FAMILIES
 from fdia_graph.timeline import generate_timeline
 
-SEED = 2  # puts At and Am in every split of the 1000-frame fixture
-
 
 @pytest.fixture(scope="session")
 def pool():
     return _load_states(14, None)[:1000]
-
-
-@pytest.fixture(scope="session")
-def timeline(tmp_path_factory, pool):
-    """At and the overload Am, 1000 frames, 20-frame episodes, the search capped at 16 supports."""
-    out = tmp_path_factory.mktemp("timeline") / "all.h5"
-    return generate_timeline(
-        14, states=pool, seed=SEED, ramp_len=20, min_tamper=False, min_budget=16, out=str(out)
-    )
 
 
 def _read(path):
@@ -41,8 +31,8 @@ def _read(path):
         return arrays, dict(f.attrs)
 
 
-def test_layout_is_the_documented_one(timeline):
-    a, attrs = _read(timeline)
+def test_layout_is_the_documented_one(timeline_file):
+    a, attrs = _read(timeline_file)
     T, N, E = attrs["T"], attrs["N"], attrs["E"]
     assert attrs["kind"] == KIND and attrs["system"] == 14 and T == 1000
     shapes = {
@@ -74,8 +64,8 @@ def test_layout_is_the_documented_one(timeline):
     assert attrs["fallback_benign"] >= 0 and attrs["n_episodes"] == K
 
 
-def test_every_family_appears_and_frames_are_balanced(timeline):
-    a, _ = _read(timeline)
+def test_every_family_appears_and_frames_are_balanced(timeline_file):
+    a, _ = _read(timeline_file)
     fam = a["data/family"]
     present = set(np.unique(fam).tolist())
     assert present == {0, 5, 7}
@@ -85,8 +75,8 @@ def test_every_family_appears_and_frames_are_balanced(timeline):
     assert abs((fam > 0).mean() - 0.5) < 0.15
 
 
-def test_episodes_index_the_frames(timeline):
-    a, _ = _read(timeline)
+def test_episodes_index_the_frames(timeline_file):
+    a, _ = _read(timeline_file)
     fam, seq, y = a["data/family"], a["data/seq_id"], a["data/y"]
     onset, length, efam = a["episodes/onset"], a["episodes/length"], a["episodes/family"]
     ptr, idx = a["episodes/bus_ptr"], a["episodes/bus_idx"]
@@ -101,10 +91,10 @@ def test_episodes_index_the_frames(timeline):
     assert set(np.unique(efam).tolist()) <= {5, 7}
 
 
-def test_episodes_are_placed_at_random_without_overlap(timeline):
+def test_episodes_are_placed_at_random_without_overlap(timeline_file):
     """No episode overlaps another or crosses a split, the attacked fraction lands on the target, and
     the onsets spread over the whole timeline (no scheduler decides where an episode goes)."""
-    a, attrs = _read(timeline)
+    a, attrs = _read(timeline_file)
     onset, length = a["episodes/onset"], a["episodes/length"]
     order = np.argsort(onset)
     assert (onset[order][1:] >= (onset + length)[order][:-1]).all()
@@ -120,8 +110,8 @@ def test_episodes_are_placed_at_random_without_overlap(timeline):
     assert thirds.min() > 0.2, thirds
 
 
-def test_split_is_chronological_and_never_cuts_an_episode(timeline):
-    a, _ = _read(timeline)
+def test_split_is_chronological_and_never_cuts_an_episode(timeline_file):
+    a, _ = _read(timeline_file)
     split, onset, length = a["data/split"], a["episodes/onset"], a["episodes/length"]
     assert (np.diff(split) >= 0).all() and set(np.unique(split).tolist()) == {0, 1, 2}
     for o, n in zip(onset, length):
@@ -129,8 +119,8 @@ def test_split_is_chronological_and_never_cuts_an_episode(timeline):
     assert abs((split == 0).mean() - 0.6) < 0.1
 
 
-def test_layers_and_tamper_masks_agree(timeline):
-    a, _ = _read(timeline)
+def test_layers_and_tamper_masks_agree(timeline_file):
+    a, _ = _read(timeline_file)
     fam = a["data/family"]
     nx, bn, cl, nm = a["data/node_x"], a["benign/node_benign"], a["clean/node_clean"], a["data/node_m"]
     nt, et = a["attack/node_tamper"], a["attack/edge_tamper"]
@@ -156,38 +146,13 @@ def test_layers_and_tamper_masks_agree(timeline):
     assert (a["data/stealthy"] == np.isin(fam, sorted(STEALTHY_FAMILIES))).all()
 
 
-def test_stealthy_families_pass_the_residual_test(timeline):
-    # [WU26 eqs. 13-20]
-    """Every stealthy frame is an exact local AC state plus the true scan's own meter noise: a WLS
-    residual test at the 1% benign alarm level flags a stealthy frame no more often than it flags
-    that frame's own benign twin (a noisy stretch of true states raises both alike)."""
-    pytest.importorskip("torch")
-    from fdia_graph.dataset import FdiaGraph
-    from fdia_graph.se import WLS
-
-    train, test = FdiaGraph(timeline, split="train"), FdiaGraph(timeline, split="test", order="time")
-    est = WLS().fit(train)
-    d = test.export(["node_x", "edge_x", "family", "benign", "edge_benign"])
-
-    def alarm(nx, ex):
-        z = est._z_of(nx, ex)
-        return np.abs(est._nres(est._solve(z), z)).max(axis=1)
-
-    r, twin = alarm(d["node_x"], d["edge_x"]), alarm(d["benign"], d["edge_benign"])
-    level = np.quantile(r[d["family"] == 0], 0.99)
-    for fid in (5, 7):
-        rows = d["family"] == fid
-        if rows.sum() >= 10:
-            assert (r[rows] > level).mean() <= (twin[rows] > level).mean() + 0.05, fid
-
-
-def test_a_stealthy_frame_is_the_benign_scan_plus_its_attack_vector(timeline):
+def test_a_stealthy_frame_is_the_benign_scan_plus_its_attack_vector(timeline_file):
     """observed - benign on an At frame equals h(x_false) - h(x_true) of the false state rebuilt
     from the frame's own labels (targets, magnitudes, the clean state), on every tampered channel,
     and is zero elsewhere: no second noise draw enters."""
     from fdia_graph.engine import FdiaGenerator
 
-    a, attrs = _read(timeline)
+    a, attrs = _read(timeline_file)
     red = {k: float(attrs[k]) for k in ("vbus_frac", "pmu_frac", "flow_frac")}  # the file's meter plan
     g = FdiaGenerator(int(attrs["system"]), seed=int(attrs["seed"]), **red)
     pos = {int(b): i for i, b in enumerate(g.load_bus)}
@@ -307,8 +272,8 @@ def test_operating_limits_are_the_case_limits_widened_to_the_pool():
     assert within_limits(bad, X0, gen, none, lim, outside)
 
 
-def test_the_fixture_records_its_limits(timeline):
-    _, attrs = _read(timeline)
+def test_the_fixture_records_its_limits(timeline_file):
+    _, attrs = _read(timeline_file)
     # an episode with no feasible design moves to another onset instead of falling back (the
     # split-first generation), and no frame of a built episode falls back here
     assert attrs["fallback_benign"] == 0 and attrs["max_load_mw"] == 2000.0
@@ -347,18 +312,6 @@ def test_empty_episode_lengths_are_refused(tmp_path, pool):
         generate_timeline(14, states=pool[:20], out=str(tmp_path / "x.h5"), hops=0)
 
 
-def test_score_bundles_accept_the_seventh_family():
-    """`SEBase.score` and `LocalizerBase.score` build their bundles from `FAMILIES`, so both carry
-    an `Am` slot once a scored view holds Am frames."""
-    from fdia_graph.models import ErrorPair, EstimatorScores, FamilyMetrics, LocalizerScores, OverallMetrics
-
-    se = EstimatorScores(geo=ErrorPair(1.0, 0.1), Am=ErrorPair(2.0, 0.2))
-    assert list(se) == ["Am", "geo"] and se["Am"].angle_mae_deg == 2.0
-    fam = FamilyMetrics(1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0)
-    loc = LocalizerScores(all=OverallMetrics(1.0, 1.0, 0.0, 1.0), Am=fam)
-    assert list(loc) == ["all", "Am"] and loc.Am is fam
-
-
 def test_a_producing_static_generator_bus_injects():
     """IEEE-89 buses 1, 65, 69, 79 are fed by a static generator alone: injection buses, metered
     as such, never zero-injection junctions; IEEE-200's static generators all produce 0 MW, so their
@@ -392,12 +345,12 @@ def test_reactive_load_adds_back_the_generators_output():
     assert np.allclose(Xa, X, atol=1e-5)
 
 
-def test_stealthy_families_never_target_a_generator_bus(timeline):
+def test_stealthy_families_never_target_a_generator_bus(timeline_file):
     """The ramp skips every load on a generator bus, zero-MW condensers included [BOY22] (an
     overload Am's labels are its support's free-injection buses, generators among them)."""
     import pandapower.networks as pn
 
-    a, _ = _read(timeline)
+    a, _ = _read(timeline_file)
     gen = np.zeros(a["data/y"].shape[1], bool)
     gen[pn.case14().gen.bus.values] = True
     fam, y = a["data/family"], a["data/y"].astype(bool)
@@ -442,7 +395,7 @@ def test_the_single_snapshot_families_are_read_only(tmp_path, pool):
             generate_timeline(14, states=pool[:20], families=old, out=str(tmp_path / "x.h5"))
 
 
-def test_temporal_features_read_only_the_observed_frames(timeline, tmp_path):
+def test_temporal_features_read_only_the_observed_frames(timeline_file, tmp_path):
     """delta and swing are functions of the observed node_x alone: rewriting the clean and benign
     layers and recomputing leaves both unchanged, and the stored layers equal a recomputation."""
     import shutil
@@ -453,7 +406,7 @@ def test_temporal_features_read_only_the_observed_frames(timeline, tmp_path):
     from fdia_graph.generation.write import write_temporal_layers
 
     copy = str(tmp_path / "copy.h5")
-    shutil.copyfile(timeline, copy)
+    shutil.copyfile(timeline_file, copy)
     with h5py.File(copy, "r+") as f:
         stored = f[schema.SWING][:], f[schema.TEMPORAL_DELTA][:]
         for name in (schema.NODE_CLEAN, schema.NODE_BENIGN):
@@ -464,7 +417,7 @@ def test_temporal_features_read_only_the_observed_frames(timeline, tmp_path):
         )
 
 
-def test_block_scale_matches_the_whole_series_kernel(timeline):
+def test_block_scale_matches_the_whole_series_kernel(timeline_file):
     """The bounded-memory scale equals the kernel over the whole observed series, for blocks shorter
     than the window and longer than it."""
     import h5py
@@ -473,7 +426,7 @@ def test_block_scale_matches_the_whole_series_kernel(timeline):
     from fdia_graph.formulas.temporal import SWING_WINDOW, recent_change_scale
     from fdia_graph.generation.write import _block_scale
 
-    with h5py.File(timeline, "r") as f:
+    with h5py.File(timeline_file, "r") as f:
         nx = f[schema.NODE_X]
         T, N = nx.shape[0], nx.shape[1]
         pq = np.zeros((T, N, 4))
@@ -518,13 +471,13 @@ def test_the_settings_take_a_model_or_flat_keywords():
     assert "workers" not in nested.as_record()  # the file does not depend on it
 
 
-def test_the_file_records_its_settings(timeline):
+def test_the_file_records_its_settings(timeline_file):
     """A timeline carries the settings it was walked with, as JSON, and their hash."""
     import json
 
-    from fdia_graph.results.run import config_hash
+    from fdia_graph.schema import config_hash
 
-    with h5py.File(timeline, "r") as f:
+    with h5py.File(timeline_file, "r") as f:
         record = json.loads(f.attrs["settings"])
         assert f.attrs["settings_hash"] == config_hash(record)
         assert (

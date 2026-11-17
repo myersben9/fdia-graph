@@ -190,13 +190,6 @@ class Dims(Rule):
         return np.asarray(value).ndim == self.ndim
 
 
-class IntegerDtype(Rule):
-    says = "must hold integers"
-
-    def holds(self, value: object) -> bool:
-        return np.issubdtype(np.asarray(value).dtype, np.integer)
-
-
 class NonEmpty(Rule):
     says = "must not be empty"
 

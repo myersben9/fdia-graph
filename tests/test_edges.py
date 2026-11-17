@@ -1,22 +1,11 @@
 """The public edges: wrong arguments fail early with a message naming what is allowed, and the
 filters mean what the docs say. The other test files prove the happy path; this file is the rest."""
 
-import os
-
 import numpy as np
 import pytest
 
 import fdia_graph as fg
 from fdia_graph.dataset import family_ids
-from fdia_graph.models import (
-    GateConfig,
-    HuberConfig,
-    JacobianWeightingConfig,
-    LocalizerConfig,
-    PriorConfig,
-    RemovalConfig,
-    SolveConfig,
-)
 from fdia_graph.models.choices import FAMILIES
 
 # ---- registry and loading -------------------------------------------------------------------------
@@ -79,8 +68,7 @@ def test_family_filter_and_heldout_protocol(timeline):
     """On an old release that carries them, the older families select by name or code, and the unseen-attack
     protocol (As and Ar held out of train and val) selects as documented."""
     from fdia_graph.dataset import FdiaGraph
-
-    from .test_old_releases import TIMELINE_V083
+    from tests.helpers import TIMELINE_V083
 
     by_name = FdiaGraph(TIMELINE_V083, families=["Aq"])
     by_code = FdiaGraph(TIMELINE_V083, families=[1])
@@ -160,76 +148,3 @@ def test_windows_labels_and_bounds():
     for W, stride in ((4.5, 1), (4, 1.5), (True, 1)):
         with pytest.raises(ValueError, match="WindowSpec.(W|stride) must be an integer"):
             WindowSpec(12, W, stride, "any")
-
-
-# ---- estimators and localizers ---------------------------------------------------------------------------
-
-
-def test_estimator_constructor_checks():
-    from fdia_graph.se import (
-        WLS,
-        AdaptiveWeighting,
-        GatedPrior,
-        JacobianWeighting,
-        ResidualRemoval,
-        SubspacePrior,
-    )
-
-    with pytest.raises(ValueError, match="SolveConfig.npass must be >= 1"):
-        WLS(solve=SolveConfig(npass=0))
-    with pytest.raises(ValueError, match="c must be"):
-        AdaptiveWeighting(huber=HuberConfig(c=0.0))
-    with pytest.raises(ValueError, match="threshold"):
-        ResidualRemoval(removal=RemovalConfig(threshold=0.0))
-    with pytest.raises(ValueError, match="rank_frac"):
-        SubspacePrior(prior=PriorConfig(rank_frac=1.5))
-    with pytest.raises(ValueError, match="reweight"):
-        SubspacePrior(prior=PriorConfig(reweight="bogus"))
-    with pytest.raises(ValueError, match="reweight"):
-        JacobianWeighting(weighting=JacobianWeightingConfig(reweight="bogus"))
-    with pytest.raises(ValueError, match="gate"):
-        GatedPrior(GateConfig())
-    with pytest.raises(ValueError, match="gate_factor"):
-        GatedPrior(GateConfig(gate="oracle", gate_factor=2.0))
-
-
-def test_estimator_fit_and_score_input_checks(timeline, splits):
-    from fdia_graph.se import WLS
-
-    with pytest.raises(ValueError, match="units='physical'"):
-        WLS().fit(fg.load(timeline, split="train", units="pu"))
-    with pytest.raises(ValueError, match="benign records"):
-        WLS().fit(fg.load(timeline, split="train", families=["At"]))
-    est = WLS().fit(splits["train"])
-    with pytest.raises(ValueError, match="xhat must be"):
-        est.score(splits["test"], xhat=np.zeros((3, est.SD)))
-
-
-def test_localizer_input_checks(timeline, splits):
-    from fdia_graph.localization import SwingThreshold
-
-    with pytest.raises(ValueError, match="fa_target"):
-        SwingThreshold(localizer=LocalizerConfig(fa_target=1.5))
-    with pytest.raises(ValueError, match="benign records"):
-        SwingThreshold().fit(fg.load(timeline, split="train", families=["At"]))
-    loc = SwingThreshold().fit(splits["train"])
-    with pytest.raises(ValueError, match="scores must be"):
-        loc.score(splits["test"], scores=np.zeros((2, 2)))
-
-
-# ---- opt-in: the real IEEE-118 timeline --------------------------------------------------------------------
-
-
-@pytest.mark.skipif(
-    not os.environ.get("FDIA_SLOW"), reason="set FDIA_SLOW=1: downloads the 317 MB IEEE-118 timeline"
-)
-def test_ieee118_estimator_sanity():
-    """WLS on the published IEEE-118 timeline: the benign angle error is a fraction of a degree and
-    every class scores finite. A loose bound, so a data or solver regression shows without pinning
-    the paper's numbers here (docs/analysis/estimation/README.md holds those)."""
-    from fdia_graph.se import WLS
-
-    train, test = fg.load("ieee118", split="train"), fg.load("ieee118", split="test")
-    s = WLS().fit(train).score(test)
-    assert s.benign is not None and 0 < s.benign.angle_mae_deg < 0.5
-    assert all(np.isfinite(v.angle_mae_deg) and np.isfinite(v.voltage_mae_pu) for v in s.values())

@@ -1,11 +1,11 @@
-# Localization with `fdia_graph.localization`
+# Localization with `fdia_analysis.localization`
 
 Which buses are under attack, per scan.
 
 ```python
 import fdia_graph as fg
-from fdia_graph.localization import SwingThreshold, DeltaThreshold, ResidualLocalizer, BusCNN, BusMLP
-from fdia_graph.models import LocalizerConfig
+from fdia_analysis.localization import SwingThreshold, DeltaThreshold, ResidualLocalizer, BusCNN, BusMLP
+from fdia_analysis.models import LocalizerConfig
 
 train = fg.load("ieee14", split="train")
 test = fg.load("ieee14", split="test")
@@ -31,7 +31,7 @@ rep = loc.score(test)  # per-family metrics + benign false alarms
 |---|---|---|
 | `SwingThreshold` | The dataset's windowed swing feature: each scan's injection change as a z-score of the bus's typical recent change | numpy only |
 | `DeltaThreshold` | The raw one-scan change scaled by the bus's benign RMS. Same signal without the windowing, so the gap shows what windowing buys | numpy only |
-| `ResidualLocalizer` | Largest normalized residual from a state-estimation solve (any `fdia_graph.se` estimator, default `WLS`), aggregated to each bus's own meters and incident flows. Textbook bad-data identification | `[se]` extra |
+| `ResidualLocalizer` | Largest normalized residual from a state-estimation solve (any `fdia_analysis.se` estimator, default `WLS`), aggregated to each bus's own meters and incident flows. Textbook bad-data identification | `[se]` extra |
 | `BusMLP` | The papers' lightweight arm: one 4x128 MLP applied to every bus's own 14-dim vector (readings, meter mask, partial KCL residual, delta, swing). 52k parameters | `[torch]` extra |
 | `BusCNN` | The papers' best localizer: a 1-D convolution across the bus axis over the same 14-dim vector, 4 layers of 128 channels, kernel 3. No graph read. 154k parameters | `[torch]` extra |
 
@@ -121,7 +121,7 @@ episodes are long and so carry many of the scored frames.
 
 ## Feature ablation
 
-`fdia_graph.se.JacobianFeatures` transforms the measurement change through the estimator's Jacobian
+`fdia_analysis.se.JacobianFeatures` transforms the measurement change through the estimator's Jacobian
 (implied state move `H⁺Δz`, explained and unexplained parts and their ratio, sensitivity, leverage,
 weak-direction energy) and aggregates it to buses. The change is taken against the previous frame's
 estimate, and the estimator is calibrated from measurements only (`calibrate="measured"`), so every

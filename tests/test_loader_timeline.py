@@ -9,7 +9,6 @@ pytest.importorskip("pandapower")
 pytest.importorskip("torch")
 
 import fdia_graph as fg  # noqa: E402
-from fdia_graph.models import LocalizerConfig
 
 
 def test_generate_rejects_a_bad_frame_cap(tmp_path):
@@ -137,18 +136,6 @@ def test_per_bus_windows_come_from_the_view_itself(timeline):
     assert np.array_equal(Xb[0], ds.export(["node_x"])["node_x"][:8, 0])
     Xf, yf = ds.windows(8, stride=4, label="frame", per_bus=True)
     assert yf.shape == (Xf.shape[0], 8)
-
-
-def test_estimator_and_localizer_score_a_timeline_with_am(timeline):
-    from fdia_graph.localization import SwingThreshold
-    from fdia_graph.se import WLS
-
-    train, test = fg.load(timeline, split="train"), fg.load(timeline, split="test")
-    assert 7 in set(test.export(["family"])["family"].tolist())
-    se = WLS().fit(train).score(test)
-    assert se.Am is not None and se["Am"].angle_mae_deg > 0 and list(se)[-1] == "geo"
-    loc = SwingThreshold(localizer=LocalizerConfig(fa_target=0.01)).fit(train).score(test)
-    assert loc.Am is not None and 0 <= loc["Am"].detection_rate <= 1
 
 
 def test_windows_view_equals_the_copy(timeline):

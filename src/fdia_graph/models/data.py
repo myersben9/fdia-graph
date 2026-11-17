@@ -142,11 +142,3 @@ class Summary(Bundle):
     E: int  # branches
     n: int  # records in this view
     families: dict[str, int]  # record count per family name present
-
-
-@dataclass(frozen=True, eq=False)
-class TrueState(Bundle):
-    """The per-record truth an estimator is scored against."""
-
-    x: np.ndarray  # [n, 2N-1] the true state: non-slack angles (rad), then every voltage magnitude (pu)
-    thsl: np.ndarray  # [n] the slack angle reference per record (rad)

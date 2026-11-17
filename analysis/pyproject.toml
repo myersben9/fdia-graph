@@ -1,0 +1,48 @@
+[build-system]
+requires = ["setuptools>=77", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "fdia-analysis"
+version = "0.21.0"
+description = "State estimation, attack localization, federated training and trusted-meter selection on fdia-graph timelines."
+readme = "README.md"
+requires-python = ">=3.9"
+license = "MIT"
+# name-only entry fills the legacy Author field (some indexers read only that);
+# the name+email entry fills Author-email per PEP 621
+authors = [
+  { name = "Benjamin Myers" },
+  { name = "Benjamin Myers", email = "benjamin.myers.465@my.csun.edu" },
+]
+keywords = ["power-systems", "false-data-injection", "FDIA", "state-estimation", "localization", "federated-learning", "smart-grid"]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Intended Audience :: Science/Research",
+  "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+dependencies = [
+  # the generation toolkit (the timeline files, their loader, the formulas and records), at this
+  # distribution's own version: the two are released together (tests/test_versions.py)
+  "fdia-graph==0.21.0",
+  "numpy>=1.21",
+  "h5py>=3.6",
+]
+
+[project.optional-dependencies]
+torch = ["torch>=1.12"]  # the learned localizers and the meter DQN; faster per-record inverses in fdia_analysis.se
+se = ["pandapower>=2.10", "pandas>=1.3", "scipy>=1.8"]  # fdia_analysis.se; add [torch] for faster per-record inverses
+federated = ["torch>=1.12", "scikit-learn>=1.3"]  # fdia_analysis.federated: FedAvg localizers and the spectral partition
+all = ["torch>=1.12", "pandapower>=2.10", "pandas>=1.3", "scipy>=1.8", "scikit-learn>=1.3"]
+test = ["pytest>=7", "pytest-xdist>=3"]  # the tests build fdia-graph's tiny timeline, so they also need fdia-graph[generate]
+
+[project.urls]
+Homepage = "https://github.com/myersben9/fdia-graph"
+Repository = "https://github.com/myersben9/fdia-graph"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+# pytest, the type check, the formatter and the linter are configured once, in the root
+# pyproject.toml, and run over both toolkits from the repository root (`pytest analysis/tests`,
+# tools/prereview.py).

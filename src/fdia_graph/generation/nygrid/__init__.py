@@ -6,7 +6,7 @@ It is one of the two grids a timeline is generated on, beside the IEEE cases: `N
 takes (`NewYorkSource.production` builds the source of a release from a pool, `SingleEpisodeSource` the one of a
 single episode), and `PoolBuilder` builds the pool from the inputs `fetch_inputs` downloads. The
 attack families it uses live in `fdia_graph.engine.attacks`, the meters in `fdia_graph.engine.sensing`, the
-alarm rules in `fdia_graph.se.detect` and the utility clients in `fdia_graph.federated.utilities`. Every public
+alarm rules in `fdia_analysis.se.detect` and the utility clients in `fdia_graph.generation.nygrid.ownership`. Every public
 name below loads on first use, so reading a timeline needs neither pandapower nor Pyomo.
 """
 
@@ -19,7 +19,6 @@ from fdia_graph._lazy import attach
 if TYPE_CHECKING:  # the names below, with their real signatures for type checkers
     from fdia_graph.dataset.clients import ClientView, Dataset
     from fdia_graph.engine.solvers import ipopt
-    from fdia_graph.federated.utilities import Ownership, assign_clients
     from fdia_graph.generation.nygrid.case import ZONES, Case, nygrid_case
     from fdia_graph.generation.nygrid.config import Settings, rng
     from fdia_graph.generation.nygrid.dispatch import Dispatch, hourly_dispatch
@@ -41,6 +40,7 @@ if TYPE_CHECKING:  # the names below, with their real signatures for type checke
     )
     from fdia_graph.generation.nygrid.loads import LoadModel, LoadSeries
     from fdia_graph.generation.nygrid.network import Network
+    from fdia_graph.generation.nygrid.ownership import Ownership, assign_clients
     from fdia_graph.generation.nygrid.pool import (
         FAILED,
         NO_HOUR,
@@ -72,7 +72,7 @@ _PUBLIC = {
     "NewYorkSource": "fdia_graph.generation.nygrid.source",
     "Network": "fdia_graph.generation.nygrid.network",
     "NygridHour": "fdia_graph.generation.nygrid.inputs",
-    "Ownership": "fdia_graph.federated.utilities",
+    "Ownership": "fdia_graph.generation.nygrid.ownership",
     "Pool": "fdia_graph.generation.nygrid.pool",
     "PoolBuilder": "fdia_graph.generation.nygrid.pool",
     "SOLVED": "fdia_graph.generation.nygrid.pool",
@@ -82,7 +82,7 @@ _PUBLIC = {
     "TimelineWriter": "fdia_graph.generation.nygrid.io",
     "ZONES": "fdia_graph.generation.nygrid.case",
     "ZoneLoad": "fdia_graph.generation.nygrid.inputs",
-    "assign_clients": "fdia_graph.federated.utilities",
+    "assign_clients": "fdia_graph.generation.nygrid.ownership",
     "externals_at_base": "fdia_graph.generation.nygrid.fixes",
     "fetch_inputs": "fdia_graph.generation.nygrid.inputs",
     "fetch_nyiso": "fdia_graph.generation.nygrid.inputs",

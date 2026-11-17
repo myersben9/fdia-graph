@@ -1,6 +1,6 @@
 # The results store
 
-Every measured number the docs show comes from here, through `fdia_graph.results`.
+Every measured number the docs show comes from here, through `fdia_analysis.results`.
 
 | file | holds |
 |---|---|
@@ -8,14 +8,14 @@ Every measured number the docs show comes from here, through `fdia_graph.results
 | `runs.csv` | one row per run: SDK version, git commit and dirty flag, data release, seed, settings hash, platform, a note |
 | `queries.py` | the queries the docs' results blocks name |
 
-The code is the package `fdia_graph.results`:
+The code is the package `fdia_analysis.results`:
 
 | file | holds |
 |---|---|
-| `src/fdia_graph/results/run.py` | `Run`: open a run, add values, and the run writes them with their provenance when it closes |
-| `src/fdia_graph/results/store.py` | `Store`: one tidy CSV per experiment plus the table of runs, read and written |
-| `src/fdia_graph/results/render.py` | records to what a reader sees: a formatted cell, a markdown table, a pivot, a figure's CSV sidecar |
-| `src/fdia_graph/results/docs.py` | the results blocks of the docs, filled and checked from the store |
+| `analysis/src/fdia_analysis/results/run.py` | `Run`: open a run, add values, and the run writes them with their provenance when it closes |
+| `analysis/src/fdia_analysis/results/store.py` | `Store`: one tidy CSV per experiment plus the table of runs, read and written |
+| `analysis/src/fdia_analysis/results/render.py` | records to what a reader sees: a formatted cell, a markdown table, a pivot, a figure's CSV sidecar |
+| `analysis/src/fdia_analysis/results/docs.py` | the results blocks of the docs, filled and checked from the store |
 
 ## Writing results
 
@@ -23,14 +23,14 @@ A harness opens a run and adds values; the run writes them with its provenance w
 failed run writes nothing.
 
 ```python
-from fdia_graph.results import Run
+from fdia_analysis.results import Run
 
 with Run("se.estimators", system="ieee14", settings=hp, data_release="v0.9.0", seed=1) as run:
     run.add_tree(est.score(test), method="wls", levels=("family",))  # family -> metric -> value
     run.add("seconds", t, method="wls")
 ```
 
-A metric must be registered in `fdia_graph.models.results.METRICS` (unit, which direction is
+A metric must be registered in `fdia_analysis.models.results.METRICS` (unit, which direction is
 better, display format); a record with an unknown metric, a non-finite value or a malformed tag is
 refused. Re-running a run id replaces that run's rows; other runs stay, and a query's `latest`
 takes the newest run per measurement.
@@ -51,4 +51,4 @@ gate and a CI step) fails when a block differs from what the store renders; `--l
 decimals and percentages typed outside a block, which is only a report, since settings such as a
 noise level are legitimate numbers. Released CHANGELOG sections are history and stay as written;
 an Unreleased entry points at the experiment it measured. The figures under `docs/analysis/` were drawn from the store by the studies' report scripts, which are not
-part of this repository; `fdia_graph.results.figure_data` writes a figure's CSV sidecar from the same records.
+part of this repository; `fdia_analysis.results.figure_data` writes a figure's CSV sidecar from the same records.

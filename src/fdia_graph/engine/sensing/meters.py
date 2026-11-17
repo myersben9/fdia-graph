@@ -6,7 +6,6 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from fdia_graph.federated.utilities import Ownership
 from fdia_graph.formulas.noise import (
     ACCURACY_CLASS,
     CURRENT_FLOOR_PU,
@@ -15,6 +14,7 @@ from fdia_graph.formulas.noise import (
     POWER_NOISE_FLOOR_MW,
 )
 from fdia_graph.generation.nygrid.network import Network
+from fdia_graph.generation.nygrid.ownership import Ownership
 
 V, VA, P, Q, PF, QF, I, IA = range(8)  # meter kinds, the `kind` codes
 KINDS = ("v", "va", "p", "q", "pf", "qf", "i", "ia")
