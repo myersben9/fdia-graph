@@ -1926,7 +1926,7 @@ v0.8.3 meters. This version reads every release and generates the multi-snapshot
 <tr>
 <td>jitter <code>j_t</code></td>
 <td>per-bus AR(1), <code>j_t = 0.98 j_{t-1} + sqrt(1 - 0.98^2) * 0.03 * eps</code>, stationary std 0.03</td>
-<td><code>JITTER_RHO</code>, <code>SIGMA_DEFAULT</code></td>
+<td><code>LOAD_JITTER_RHO</code> (<code>constants.time</code>), <code>SIGMA_DEFAULT</code></td>
 </tr>
 <tr>
 <td>what is scaled</td>
@@ -2576,7 +2576,7 @@ any program using <code>multiprocessing</code> must. An Am-only IEEE-14 timeline
 </tr>
 <tr>
 <td>scale</td>
-<td>std of the observed scan-to-scan absolute change over the last <code>SWING_WINDOW = 60</code> changes before <code>t</code>, plus <code>1e-3</code>; <code>1e-3</code> alone with fewer than three changes (<code>recent_change_scale</code>)</td>
+<td>std of the observed scan-to-scan absolute change over the last <code>SWING_WINDOW_SCANS = 60</code> changes before <code>t</code>, plus <code>1e-3</code>; <code>1e-3</code> alone with fewer than three changes (<code>recent_change_scale</code>)</td>
 </tr>
 </tbody>
 </table>
@@ -2841,7 +2841,8 @@ their hash (<code>settings_hash</code>).</p>
 <li>Run once more with <code>MERGE=1</code> to combine the fragments into <code>manifest.json</code>.</li>
 <li>Upload with <code>python tools/upload_assets.py vX.Y.Z notes.md &lt;files&gt;</code>; it creates the <code>data-vX.Y.Z</code>
    tag and never replaces an asset already on the release.</li>
-<li>Add the release's sha256 values to <code>registry._SHA256</code>, then bump <code>registry._RELEASE</code> last.</li>
+<li>Add the release's sha256 values to <code>constants.releases.SHA256</code>, then bump
+   <code>constants.releases.PINNED_RELEASE</code> (the default of <code>registry._RELEASE</code>) last.</li>
 </ol>
 
 

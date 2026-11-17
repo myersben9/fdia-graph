@@ -1833,6 +1833,54 @@
 <td>fdia-graph — load &amp; generate ML-only dangerous FDIA localization datasets (realistic measurement graphs).</td>
 </tr>
 <tr>
+<td><code>constants</code></td>
+<td>The toolkit's constants, one module per subject: facts only, each with its unit and its source.</td>
+</tr>
+<tr>
+<td><code>constants.channels</code></td>
+<td>The column of each quantity on the last axis of a measurement array: <code>node_x[..., NodeChannel.P_INJ]</code>.</td>
+</tr>
+<tr>
+<td><code>constants.families</code></td>
+<td>The attack families: the code a file's <code>data/family</code> column carries for each, and the named subsets.</td>
+</tr>
+<tr>
+<td><code>constants.files</code></td>
+<td>The names and layouts of the files around a timeline: the unfinished file, the index of local datasets, and an operator's load export. A timeline file's own names are in <code>schema.py</code>.</td>
+</tr>
+<tr>
+<td><code>constants.grid</code></td>
+<td>The power systems: the IEEE cases the toolkit builds, the bus types and the "no limit" ratings.</td>
+</tr>
+<tr>
+<td><code>constants.meters</code></td>
+<td>The meters: their kinds, their accuracy classes and noise floors, and where each kind's reading sits in a timeline file.</td>
+</tr>
+<tr>
+<td><code>constants.newyork</code></td>
+<td>The New York grid: NYISO's zones and neighbors, the fields of the case file, the pinned inputs and their addresses, NYgrid's dispatch numbers, the fitted load model and the operating rules.</td>
+</tr>
+<tr>
+<td><code>constants.numerics</code></td>
+<td>The fixed numerical tolerances and finite-difference steps of the algorithms.</td>
+</tr>
+<tr>
+<td><code>constants.records</code></td>
+<td>The fields of a record, by group: the names a record, a batch and an export carry, in their order.</td>
+</tr>
+<tr>
+<td><code>constants.releases</code></td>
+<td>The data releases: where the built-in datasets are published, which release is pinned, and the sha256 of every asset of the releases the registry verifies.</td>
+</tr>
+<tr>
+<td><code>constants.streams</code></td>
+<td>The keys of the random streams a timeline draws from. Each stream is seeded with the timeline's seed, a key below and a position, so a draw of one kind never shifts a draw of another. The keys are arbitrary and fixed: a different key gives a different file.</td>
+</tr>
+<tr>
+<td><code>constants.time</code></td>
+<td>Time: the calendar, the New York frame, and how a load profile is correlated from scan to scan.</td>
+</tr>
+<tr>
 <td><code>dataset</code></td>
 <td>FdiaGraph: a PyTorch-ready dataset over one HDF5 file, a timeline (one row per frame in time order, <code>kind="timeline"</code>).</td>
 </tr>
@@ -2359,6 +2407,10 @@
 <td>Write the class and module diagrams of the two toolkits (<code>fdia_graph</code> and <code>fdia_analysis</code>) from their source, as Mermaid sources under docs/figures/diagrams/, so the pictures in docs/reference/CLASS_MAP.md never drift from the code.</td>
 </tr>
 <tr>
+<td><code>tools/count_lines.py</code></td>
+<td>Count the lines of the two toolkits: all lines, code lines (no docstring, comment or blank line), and the code inside and outside the homes of constants (<code>constants/</code> and <code>schema.py</code>).</td>
+</tr>
+<tr>
 <td><code>tools/layout.py</code></td>
 <td>The repository's layout rules, and the file map they keep current (docs/reference/MODULES.md).</td>
 </tr>
@@ -2535,7 +2587,7 @@
 </tr>
 <tr>
 <td><code>tests/test_models_package.py</code></td>
-<td>Every data model of a toolkit lives in its <code>models</code> package: they are defined nowhere else, each is imported from the module that defines it, and the package's own modules depend on nothing but numpy, the standard library and the named errors (<code>fdia_graph.errors</code>). The checks are functions of the package (tests/helpers.py), so the analysis toolkit holds its own <code>fdia_analysis.models</code> to them (analysis/tests/test_models_package.py).</td>
+<td>Every data model of a toolkit lives in its <code>models</code> package: they are defined nowhere else, each is imported from the module that defines it, and the package's own modules depend on nothing but numpy, the standard library, the named errors (<code>fdia_graph.errors</code>) and the constants (<code>fdia_graph.constants</code>, which imports nothing of the package). The checks are functions of the package (tests/helpers.py), so the analysis toolkit holds its own <code>fdia_analysis.models</code> to them (analysis/tests/test_models_package.py).</td>
 </tr>
 <tr>
 <td><code>tests/test_namespace.py</code></td>
@@ -2612,6 +2664,10 @@
 <tr>
 <td><code>tests/test_toolkit_boundary.py</code></td>
 <td>The dependency between the two toolkits points one way: the analysis toolkit <code>fdia_analysis</code> builds on the generation toolkit <code>fdia_graph</code>, and <code>fdia_graph</code> never imports it. Checked in the source (no import, no module name in a lazy table) and by running: a fresh interpreter in which <code>fdia_analysis</code> is blocked (so the check is the same whether or not it is installed) loads every module of <code>fdia_graph</code>, generates a timeline and reads it back.</td>
+</tr>
+<tr>
+<td><code>tests/test_tools.py</code></td>
+<td>Two repository tools on small samples: the constants rule of <code>tools/layout.py</code> on a temporary tree, and <code>tools/count_lines.py</code> on a file whose lines are easy to miscount.</td>
 </tr>
 <tr>
 <td><code>tests/test_trust_formulas.py</code></td>

@@ -1697,17 +1697,17 @@ the data terms is in <a href="../../guides/generation/"><code>../guides/generati
 <tr>
 <td>split</td>
 <td>The chronological train, val and test partition (0, 1, 2), cut before any episode is placed, so every episode lies inside one split.</td>
-<td><code>generation.plan.split_bounds</code>, <code>data/split</code>, <code>models.choices.SPLITS</code>, <code>schema.SPLIT_CODE</code></td>
+<td><code>generation.plan.split_bounds</code>, <code>data/split</code>, <code>models.choices.Split</code>, <code>schema.SPLIT_CODE</code></td>
 </tr>
 <tr>
 <td>family</td>
 <td>The attack type of a frame: 0 benign, 1 <code>Aq</code>, 2 <code>Ad</code>, 3 <code>As</code>, 4 <code>Ar</code>, 5 <code>At</code>, 6 <code>Al</code>, 7 <code>Am</code>.</td>
-<td><code>models.choices.FAMILIES</code>, <code>models.choices.FAMILY_CODE</code>, <code>data/family</code></td>
+<td><code>constants.families.FAMILIES</code>, <code>constants.families.FAMILY_CODE</code>, <code>data/family</code></td>
 </tr>
 <tr>
 <td>stealthy</td>
 <td>1 for the families built as local false states (<code>Aq</code>, <code>At</code>, <code>Al</code>, <code>Am</code>), which pass the residual test.</td>
-<td><code>models.choices.STEALTHY_FAMILIES</code>, <code>data/stealthy</code></td>
+<td><code>constants.families.STEALTHY_FAMILIES</code>, <code>data/stealthy</code></td>
 </tr>
 <tr>
 <td>support</td>
@@ -1757,7 +1757,7 @@ the data terms is in <a href="../../guides/generation/"><code>../guides/generati
 <tr>
 <td>paper noise</td>
 <td>[WU26]'s case-study noise, 0.03 pu on SCADA and 0.01 pu on PMU channels, in the stored units; the threshold of <code>Am</code>'s tamper count (D8, D11).</td>
-<td><code>formulas.noise.WU26_NOISE</code>, <code>paper_sigma</code></td>
+<td><code>constants.meters.WU26_NOISE</code>, <code>formulas.noise.paper_sigma</code></td>
 </tr>
 <tr>
 <td>tamper cost</td>
@@ -1813,8 +1813,8 @@ the data terms is in <a href="../../guides/generation/"><code>../guides/generati
 </tr>
 <tr>
 <td>swing</td>
-<td><code>temporal_delta</code> divided by the bus's recent-change scale, the std of its observed changes over the last <code>SWING_WINDOW = 60</code> frames [FED26].</td>
-<td><code>formulas.temporal.swing_zscore</code>, <code>recent_change_scale</code>, <code>data/swing</code></td>
+<td><code>temporal_delta</code> divided by the bus's recent-change scale, the std of its observed changes over the last <code>SWING_WINDOW_SCANS = 60</code> frames [FED26].</td>
+<td><code>schema.SWING_WINDOW_SCANS</code>, <code>formulas.temporal.swing_zscore</code>, <code>recent_change_scale</code>, <code>data/swing</code></td>
 </tr>
 <tr>
 <td>KCL residual</td>

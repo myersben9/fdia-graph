@@ -1813,8 +1813,10 @@ A kind of finding that keeps coming up becomes a checklist item or a mechanical 
   timings.</li>
 </ul>
 </li>
-<li><strong>The readability contract.</strong> Channel indices come from <code>NODE</code>/<code>EDGE</code>/<code>CURRENT</code>, file paths and
-    attributes from <code>schema</code>, each formula exists once, and there are no positional tuples.</li>
+<li><strong>The readability contract.</strong> Channel indices come from <code>NodeChannel</code>, <code>EdgeChannel</code> and
+    <code>CurrentChannel</code> (<code>constants.channels</code>), file paths and attributes from <code>schema</code>, every other
+    constant from its module of <code>constants/</code> (a knob is a field of a settings model), each formula
+    exists once, and there are no positional tuples.</li>
 <li><strong>Extras.</strong> A new import of scipy, torch or pandapower is declared in the matching extra, guarded
     with an install message, and kept off the <code>import fdia_graph</code> path.</li>
 <li><strong>Prose.</strong> Read every added paragraph once for grammar, empty code fences and the docs' tone.</li>

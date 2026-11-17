@@ -1731,6 +1731,11 @@ checks a docs change locally.</p>
 <td><code>python tools/layout.py</code> writes the file map; <code>--check</code> in the pre-review and CI</td>
 </tr>
 <tr>
+<td>a constant has one home</td>
+<td>a value nothing in a run changes (a physical or regulatory fact, a column position, a code, a pinned input, a fitted number) is defined once in the generation toolkit's <code>constants/</code> package, with its unit and source, or in <code>schema.py</code> when it is part of the file protocol; a value a user tunes is a field of a settings model in <code>models/config.py</code>; a module-level UPPER_CASE name anywhere else in <code>fdia_graph</code> is listed in <code>EXEMPT</code> in <code>tools/layout.py</code> with its reason, and <code>fdia_analysis</code> may add none to the ones <code>EXEMPT_ANALYSIS</code> lists</td>
+<td><code>python tools/layout.py --check</code></td>
+</tr>
+<tr>
 <td>speed is tracked</td>
 <td>per-record timings against the last row from this machine, 3x tolerance</td>
 <td><code>python tools/bench.py --check</code> before a release, <code>python tools/bench.py</code> after</td>

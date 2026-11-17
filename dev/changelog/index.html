@@ -1721,11 +1721,257 @@
 the public API, the generated files and the numbers are the same as the previous release.</p>
 <h2 id="unreleased">Unreleased<a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
 <ul>
-<li><strong>One writer owns a timeline file, one record is an episode, and the layers of indirection around
+<li><strong>Constants have one home: the <code>fdia_graph.constants</code> package (breaking for the names below; no
+  behaviour and no stored byte changed: the five whole-file digests are unchanged, and an IEEE timeline
+  is byte for byte the file the previous code writes).</strong> <code>fg.load</code>, <code>fg.generate</code>, <code>fg.FAMILIES</code> and
+  <code>fg.STEALTHY_FAMILIES</code> are used as before.</li>
+<li><strong><code>.node()</code> / <code>.edge()</code> are removed</strong> from a record, a batch and a split; write
+    <code>rec.node_x[..., NodeChannel.THETA]</code> (<code>from fdia_graph.constants.channels import NodeChannel</code>).</li>
+<li><strong><code>fdia_graph.constants</code></strong>, one module per subject, each constant with its unit and source:
+    <code>channels</code>, <code>families</code>, <code>meters</code>, <code>grid</code>, <code>time</code>, <code>streams</code>, <code>numerics</code>, <code>records</code>, <code>files</code>,
+    <code>releases</code> and <code>newyork</code>. The modules import nothing from the rest of the toolkit. The
+    module-level constants of 37 modules moved there or to <code>schema.py</code>; a name is imported from its
+    module of <code>constants</code>, no longer from the module that held it.</li>
+<li><strong>Columns are enums.</strong> <code>constants.channels.NodeChannel</code> (<code>V</code>, <code>P_INJ</code>, <code>Q_INJ</code>, <code>THETA</code>),
+    <code>EdgeChannel</code> (<code>P_FROM</code>, <code>Q_FROM</code>, and <code>P_TO</code>, <code>Q_TO</code> in a file with both branch ends),
+    <code>CurrentChannel</code> (<code>RE_FROM</code>, <code>IM_FROM</code>, <code>RE_TO</code>, <code>IM_TO</code>) and <code>PolarCurrentChannel</code> (a New York
+    file's magnitude and angle) index the last axis of an array: <code>node_x[..., NodeChannel.P_INJ]</code>.
+    They replace <code>models.grid.NODE</code>, <code>EDGE</code>, <code>CURRENT</code>, <code>NodeColumns</code>, <code>EdgeColumns</code>, <code>NodeIndex</code>,
+    <code>EdgeIndex</code> and <code>CurrentIndex</code>.</li>
+<li><strong>Codes are enums.</strong> <code>constants.meters.MeterKind</code> replaces the meter-kind numbers <code>V</code>, <code>VA</code>, <code>P</code>,
+    <code>Q</code>, <code>PF</code>, <code>QF</code>, <code>I</code>, <code>IA</code> and the tuple <code>KINDS</code> of <code>engine.sensing.meters</code>, <code>KV</code>, <code>KPF</code>, <code>KQF</code> of
+    <code>engine.attacks.interface</code> and <code>P_KIND</code>, <code>Q_KIND</code> of <code>engine.attacks.opf</code>; <code>constants.grid.BusType</code>
+    replaces <code>PQ</code>, <code>PV</code>, <code>REF</code> of <code>generation.nygrid.case</code>; <code>constants.newyork.SolveKind</code> replaces
+    <code>SOLVED</code>, <code>FAILED</code>, <code>NO_HOUR</code>, <code>NO_LOAD</code> of <code>generation.nygrid.pool</code>.</li>
+<li><strong><code>schema.py</code></strong> also holds the legends a file carries (<code>NODE_FEAT_LEGEND</code>, <code>FLOW_NAMES</code>,
+    <code>CURRENT_FEAT_LEGEND</code>, <code>IEEE_TAMPER_RULE</code>, <code>GRAPH_LEGEND</code> and the New York ones) and the window of
+    the swing feature. The shapes and types of the datasets are tables of the one class that creates
+    them: <code>TimelineWriter.FRAME_LAYERS</code>, <code>CURRENT_LAYERS</code>, <code>TEMPORAL_LAYERS</code>, <code>EPISODE_COLUMNS</code>,
+    <code>MIN_COLUMNS</code>, <code>AM_COLUMNS</code>, <code>CHUNK_ROWS</code> and <code>FLOW_WIDTH</code> (before: <code>_LAYERS</code>, <code>_CURRENT_LAYERS</code>,
+    <code>_TEMPORAL</code>, <code>_EPISODE_COLUMNS</code>, <code>_MIN_COLUMNS</code>, <code>_AM_COLUMNS</code>, <code>_CHUNK_ROWS</code> and <code>_FLOW</code> of
+    <code>generation.write</code>).</li>
+<li><strong><code>REGIONS</code></strong> (the neighbors of New York) is plain data, <code>(zone code, name, area)</code> per neighbor; the
+    <code>Region</code> record of <code>generation.nygrid.case</code> is removed.</li>
+<li><strong><code>tools/layout.py</code></strong> refuses a module-level UPPER_CASE name of <code>fdia_graph</code> outside <code>constants/</code>
+    and <code>schema.py</code> (one assigned under an <code>if</code> or a <code>try</code> as well) unless its <code>EXEMPT</code> table lists it
+    with the reason (the knobs that have no settings model yet, among them), and refuses a new one in
+    <code>fdia_analysis</code> (<code>EXEMPT_ANALYSIS</code> lists the ones it has). <strong><code>tools/count_lines.py</code></strong> prints each
+    toolkit's lines, code lines, and the code inside and outside the homes of constants.</li>
+<li>
+<p><strong>Every renamed name.</strong> A name not listed kept its name and moved to the module of <code>constants</code>
+    for its subject (<code>FAMILIES</code>, <code>FAMILY_CODE</code>, <code>BENIGN_CODE</code>, <code>STEALTHY_FAMILIES</code> and
+    <code>GENERATED_FAMILIES</code> of <code>models.choices</code> are in <code>constants.families</code>; <code>ACCURACY_CLASS</code>,
+    <code>JITTER_FRAC</code>, <code>WU26_NOISE</code> and the noise floors of <code>formulas.noise</code> in <code>constants.meters</code>).</p>
+<table>
+<thead>
+<tr>
+<th>Before</th>
+<th>Now</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>engine.attacks.stealthy.RAMP_FAMILY</code>, <code>AM_FAMILY</code></td>
+<td><code>constants.families.AT_CODE</code>, <code>AM_CODE</code></td>
+</tr>
+<tr>
+<td><code>models.choices.HELDOUT_FAMILIES</code>, <code>dataset.base._HELDOUT_TRAIN_EXCLUDE</code></td>
+<td><code>constants.families.HELDOUT_CODES</code> (the codes; the tuple of names is removed)</td>
+</tr>
+<tr>
+<td><code>models.choices.SPLITS</code></td>
+<td>removed: <code>Split.values()</code>, <code>len(Split)</code></td>
+</tr>
+<tr>
+<td><code>models.inputs.FAMILY_WORDS</code></td>
+<td>private to <code>models.inputs</code> (<code>_FAMILY_WORDS</code>)</td>
+</tr>
+<tr>
+<td><code>formulas.trust.TOL</code></td>
+<td><code>constants.numerics.ZERO_TOL</code></td>
+</tr>
+<tr>
+<td><code>engine.attacks.rref.ZERO</code></td>
+<td><code>constants.numerics.RELATIVE_ZERO</code></td>
+</tr>
+<tr>
+<td><code>engine.attacks.rref.V_STEP</code>, <code>THETA_STEP</code></td>
+<td><code>constants.numerics.JACOBIAN_V_STEP</code>, <code>JACOBIAN_THETA_STEP</code></td>
+</tr>
+<tr>
+<td><code>formulas.network._BACKTRACK_HALVINGS</code></td>
+<td><code>constants.numerics.BACKTRACK_HALVINGS</code></td>
+</tr>
+<tr>
+<td><code>engine.attacks.opf.MIN_BUDGET</code></td>
+<td><code>engine.attacks.opf.SUPPORT_BUDGET</code> (not the <code>min_budget</code> of <code>SearchSettings</code>)</td>
+</tr>
+<tr>
+<td><code>generation.plan.WEEK</code></td>
+<td><code>constants.time.WEEK_SECONDS</code></td>
+</tr>
+<tr>
+<td><code>generation.nygrid.load_sources.HOURS</code>, <code>QUARTERS</code></td>
+<td><code>constants.time.HOURS_PER_YEAR</code>, <code>QUARTERS_PER_YEAR</code></td>
+</tr>
+<tr>
+<td><code>generation.nygrid.loads.FRAME_MIN</code></td>
+<td><code>constants.time.FRAME_MINUTES</code></td>
+</tr>
+<tr>
+<td><code>generation.nygrid.pool._HALF_HOUR</code></td>
+<td><code>constants.time.HALF_HOUR</code></td>
+</tr>
+<tr>
+<td><code>profiles.JITTER_RHO</code></td>
+<td><code>constants.time.LOAD_JITTER_RHO</code></td>
+</tr>
+<tr>
+<td><code>formulas.temporal.SWING_WINDOW</code></td>
+<td><code>schema.SWING_WINDOW_SCANS</code></td>
+</tr>
+<tr>
+<td><code>generation.write.TAMPER_RULE</code></td>
+<td><code>schema.IEEE_TAMPER_RULE</code></td>
+</tr>
+<tr>
+<td><code>generation.nygrid.source.TAMPER_RULE</code>, <code>NY_GRAPH_LEGEND</code></td>
+<td><code>schema.NEW_YORK_TAMPER_RULE</code>, <code>NEW_YORK_GRAPH_LEGEND</code></td>
+</tr>
+<tr>
+<td><code>engine.measurement._NODE_DRAW_ORDER</code></td>
+<td><code>constants.channels.NODE_DRAW_ORDER</code></td>
+</tr>
+<tr>
+<td><code>engine.sensing.meters.ACCURACY</code></td>
+<td><code>constants.meters.KIND_ACCURACY</code></td>
+</tr>
+<tr>
+<td><code>engine.sensing.meters._LAYER</code></td>
+<td><code>constants.meters.METER_SLOT</code></td>
+</tr>
+<tr>
+<td><code>dataset.clients._BUS_KINDS</code>, <code>_ANGLE_KINDS</code></td>
+<td><code>constants.meters.BUS_KINDS</code>, <code>ANGLE_KINDS</code> (members of <code>MeterKind</code>)</td>
+</tr>
+<tr>
+<td><code>engine.core._CASE</code></td>
+<td><code>constants.grid.IEEE_CASES</code></td>
+</tr>
+<tr>
+<td><code>generation.nygrid.solver._NO_LIMIT</code></td>
+<td><code>constants.grid.NO_LIMIT</code></td>
+</tr>
+<tr>
+<td><code>dataset.base._BATCH_SCALARS</code>, <code>models.data._IDS</code></td>
+<td><code>constants.records.ID_FIELDS</code></td>
+</tr>
+<tr>
+<td><code>models.data._SCAN</code>, <code>_TEMPORAL</code>, <code>_CLEAN</code>, <code>_BENIGN</code>, <code>_PMU_I</code></td>
+<td><code>constants.records.SCAN_FIELDS</code>, <code>TEMPORAL_FIELDS</code>, <code>CLEAN_FIELDS</code>, <code>BENIGN_FIELDS</code>, <code>CURRENT_FIELDS</code></td>
+</tr>
+<tr>
+<td><code>dataset.base._CLEAN_LAYERS</code></td>
+<td><code>constants.records.CLEAN_FIELDS</code></td>
+</tr>
+<tr>
+<td><code>dataset.base._BENIGN_LAYERS</code>, <code>_CURRENT_LAYERS</code></td>
+<td><code>schema.BENIGN_PATH</code>, <code>CURRENT_PATH</code></td>
+</tr>
+<tr>
+<td><code>dataset.base._PREV_FIELDS</code></td>
+<td><code>constants.records.PREV_SOURCE_FIELD</code></td>
+</tr>
+<tr>
+<td><code>models.data._PREV</code></td>
+<td><code>constants.records.COMMON_PREV_FIELDS</code></td>
+</tr>
+<tr>
+<td><code>dataset.base._UNIT_KIND</code></td>
+<td><code>constants.records.UNIT_KIND</code></td>
+</tr>
+<tr>
+<td><code>dataset.export._INT_KEYS</code>, <code>_FLOW_COLUMNS</code></td>
+<td><code>constants.records.INT_FIELDS</code>, <code>FLOW_COLUMNS</code></td>
+</tr>
+<tr>
+<td><code>registry._SHA256</code>, <code>_ALIASES</code>, <code>_REPO</code>, <code>_DATA_TAG_PREFIX</code></td>
+<td><code>constants.releases.SHA256</code>, <code>ALIASES</code>, <code>REPO</code>, <code>DATA_TAG_PREFIX</code> (the pinned release is <code>PINNED_RELEASE</code>)</td>
+</tr>
+<tr>
+<td><code>generation.nygrid.io._POOL_ARRAYS</code></td>
+<td><code>constants.newyork.POOL_ARRAYS</code></td>
+</tr>
+<tr>
+<td><code>generation.nygrid.fixes._HVDC</code></td>
+<td><code>constants.newyork.HVDC_LINKS</code> (a tuple)</td>
+</tr>
+<tr>
+<td><code>generation.nygrid.case.NEEDED</code>, <code>PASSED_OVER</code></td>
+<td><code>constants.newyork.CASE_FIELDS_NEEDED</code>, <code>CASE_FIELDS_PASSED_OVER</code></td>
+</tr>
+<tr>
+<td><code>generation.nygrid.inputs.INTERFACES</code></td>
+<td><code>constants.newyork.INTERFACE_NAMES</code></td>
+</tr>
+<tr>
+<td><code>generation.nygrid.interfaces.NYISO_INTERFACES</code></td>
+<td><code>constants.newyork.INTERFACE_BRANCHES</code></td>
+</tr>
+<tr>
+<td><code>generation.nygrid.inputs.NYGRID_ZIP</code>, <code>TERRITORIES</code></td>
+<td><code>constants.newyork.NYGRID_ZIP_URL</code>, <code>TERRITORIES_URL</code></td>
+</tr>
+<tr>
+<td><code>generation.nygrid.inputs.GEOJSON</code>, <code>LOCATIONS</code></td>
+<td><code>constants.newyork.TERRITORIES_FILE</code>, <code>BUS_LOCATIONS_FILE</code></td>
+</tr>
+<tr>
+<td><code>generation.nygrid.inputs._ZONE_NAME</code>, <code>_FUEL_PRICE</code>, <code>_NUCLEAR_COLS</code></td>
+<td><code>constants.newyork.ZONE_NAME</code>, <code>FUEL_PRICE</code>, <code>NUCLEAR_COLS</code></td>
+</tr>
+<tr>
+<td><code>generation.nygrid.load_sources._EIA</code>, <code>_IAC</code>, <code>_OEDI</code>, <code>_GAZETTEER</code></td>
+<td><code>constants.newyork.EIA_861_URL</code>, <code>IAC_URL</code>, <code>OEDI_URL</code>, <code>GAZETTEER_URL</code></td>
+</tr>
+<tr>
+<td><code>generation.nygrid.load_sources._STOCK</code></td>
+<td><code>constants.newyork.STOCK_KEY_PREFIX</code> (a key prefix in the OEDI bucket, not a whole address)</td>
+</tr>
+<tr>
+<td><code>generation.nygrid.dispatch._AREA_PRICE</code></td>
+<td><code>constants.newyork.AREA_PRICE</code></td>
+</tr>
+<tr>
+<td><code>generation.nygrid.dispatch._NIAGARA</code>, <code>_ST_LAWRENCE</code></td>
+<td><code>constants.newyork.NIAGARA_BUS</code>, <code>ST_LAWRENCE_BUS</code></td>
+</tr>
+<tr>
+<td><code>generation.nygrid.dispatch._NIAGARA_CAP</code>, <code>_ST_LAWRENCE_CAP</code></td>
+<td><code>constants.newyork.NIAGARA_CAP_MW</code>, <code>ST_LAWRENCE_CAP_MW</code></td>
+</tr>
+<tr>
+<td><code>generation.nygrid.dispatch._NUCLEAR_COST</code>, <code>_HYDRO_COST</code></td>
+<td><code>constants.newyork.NUCLEAR_COST_USD_PER_MWH</code>, <code>HYDRO_COST_USD_PER_MWH</code></td>
+</tr>
+<tr>
+<td><code>generation.nygrid.source.ATTACKED_FRAC</code></td>
+<td>removed: the default of <code>NewYorkSettings.attacked_frac</code></td>
+</tr>
+<tr>
+<td><code>engine.attacks.minimize._BLAS</code>, <code>_BLAS_LOCK</code>, <code>_BLAS_HELD</code>, <code>_BLAS_USERS</code>, <code>generation.design._STATE</code></td>
+<td>lower case, being state and not constants: <code>_blas_pools</code>, <code>_blas_lock</code>, <code>_blas_held</code>, <code>_blas_users</code>, <code>_worker_state</code></td>
+</tr>
+</tbody>
+</table>
+</li>
+<li>
+<p><strong>One writer owns a timeline file, one record is an episode, and the layers of indirection around
   them are removed (breaking for the internal names below; no behaviour and no stored byte changed: the
   five whole-file digests are unchanged, and an IEEE timeline is byte for byte the file the previous
   code writes).</strong> <code>fg.generate</code>, <code>fg.load</code>, <code>generate_timeline</code>,
-  <code>TimelineSource.generate</code>, <code>IeeeSource</code>, <code>NewYorkSource</code> and <code>SingleEpisodeSource</code> are called as before.</li>
+  <code>TimelineSource.generate</code>, <code>IeeeSource</code>, <code>NewYorkSource</code> and <code>SingleEpisodeSource</code> are called as before.</p>
+</li>
 <li><strong><code>generation.write.TimelineWriter</code></strong> is the open file of a timeline for both grids and the only
     place a timeline file is written: <code>TimelineWriter(path, dims, clean, spec)</code>, <code>write_graph</code>, <code>header</code>,
     <code>store</code>, <code>flush</code>, <code>add_episode</code>, <code>finish</code> (the masks, the columns, the episodes, the attributes and,

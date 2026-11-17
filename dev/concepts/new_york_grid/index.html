@@ -1792,12 +1792,12 @@ noisy, labelled year. Beside the stages, <code>se/detect</code> holds the alarm 
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    config.py           Settings, rng()
 <a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    io.py               read_pool, write_pool (the pool file)
 <a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    tables.py           read_rows (the input CSV tables, read whole and closed)
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    case.py             Case (from_matpower, check), nygrid_case, ZONES, REGIONS (Region), FILE_AREA, NY_AREA, HQ_BUS
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    case.py             Case (from_matpower, check), nygrid_case
 <a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    network.py          Network
 <a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    ownership.py        Ownership, assign_clients (the utility that owns each bus)
 <a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>    case_nygrid.m       the New York grid, one MATPOWER case file (140 buses, 227 branches, 271 units)
 <a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>    fixes.py            externals_at_base, hvdc_links
-<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>    interfaces.py       Interface, hourly_interfaces, NYISO_INTERFACES (N48)
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>    interfaces.py       Interface, hourly_interfaces (N48)
 <a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>    ny_bus_locations.csv each NY bus located on the territories (N12)
 <a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>    inputs.py           ZoneLoad, NygridHour, read_nygrid, fetch_nyiso, download_once, fetch_inputs (every input at its pinned version)
 <a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>    loads.py            LoadSeries, LoadModel (the bus profiles, with their within-hour terms)
@@ -1902,7 +1902,7 @@ copies them as they are.</p>
 <tr>
 <td><code>Pool</code></td>
 <td><code>generation/nygrid/pool.py</code></td>
-<td><code>time [T]</code>, <code>vm [T, N]</code>, <code>va [T, N]</code>, <code>p [T, N]</code>, <code>q [T, N]</code>, <code>solve_kind [T]</code> (<code>SOLVED</code>, <code>FAILED</code>, <code>NO_HOUR</code>, <code>NO_LOAD</code>; unsolved frames keep their place with NaN state, branch flows are <code>Network.flows(vm, va)</code>), <code>unit_p [T, G]</code> each unit's real-time dispatch basepoint (N32; None for a pool written before N32)</td>
+<td><code>time [T]</code>, <code>vm [T, N]</code>, <code>va [T, N]</code>, <code>p [T, N]</code>, <code>q [T, N]</code>, <code>solve_kind [T]</code> (a <code>SolveKind</code> of <code>constants/newyork.py</code>: <code>SOLVED</code>, <code>FAILED</code>, <code>NO_HOUR</code>, <code>NO_LOAD</code>; unsolved frames keep their place with NaN state, branch flows are <code>Network.flows(vm, va)</code>), <code>unit_p [T, G]</code> each unit's real-time dispatch basepoint (N32; None for a pool written before N32)</td>
 </tr>
 <tr>
 <td><code>Compensation</code></td>
@@ -2026,7 +2026,7 @@ copies them as they are.</p>
 <h2 id="the-case-file">The case file<a class="headerlink" href="#the-case-file" title="Permanent link">&para;</a></h2>
 <p>The New York grid is one MATPOWER case file, <code>src/fdia_graph/generation/nygrid/case_nygrid.m</code>, shipped with the package the way the IEEE test cases ship with pandapower. <code>nygrid_case()</code> reads it, and every build, test and pipeline starts from that <code>Case</code>. A change to the grid is an edit to the file: no code patches the case on the way in.</p>
 <p><code>Case.from_matpower(path)</code> reads the file with matpowercaseframes, the reader pandapower uses for <code>.m</code> files, and takes every column by MATPOWER's own name (<code>BUS_I</code>, <code>PD</code>, <code>RATE_A</code>, <code>TAP</code>). Standard MATPOWER fields carry everything they can: the bus <code>zone</code> column says where each bus is, as a number (the table below), <code>mpc.bus_name</code> the bus names and <code>mpc.genfuel</code> the unit fuels. Two numeric fields are ours: <code>mpc.bus_latlon</code> (latitude and longitude in degrees) and <code>mpc.gen_ramp</code> (MW per minute, <code>NaN</code> where the source gives none). A branch with status 0 is left out, and a tap ratio of 0, MATPOWER's mark of a line, is 1.</p>
-<p>The case file is one system, so it has one area: the bus <code>area</code> column is 1 on every row (<code>FILE_AREA</code>), and a file with another number there is refused. The region of a bus is its zone code. The reader, the recipe's writer and the legend in the file follow one table of the codes, their names and the area each gives, in <code>generation/nygrid/case.py</code> (<code>ZONES</code> and <code>REGIONS</code>). <code>generation/nygrid/dispatch.py</code> still tells the neighbors apart by the area numbers of <code>Case.area</code>.</p>
+<p>The case file is one system, so it has one area: the bus <code>area</code> column is 1 on every row (<code>FILE_AREA</code>), and a file with another number there is refused. The region of a bus is its zone code. The reader, the recipe's writer and the legend in the file follow one table of the codes, their names and the area each gives, in <code>constants/newyork.py</code> (<code>ZONES</code> and <code>REGIONS</code>). <code>generation/nygrid/dispatch.py</code> still tells the neighbors apart by the area numbers of <code>Case.area</code>.</p>
 <table>
 <thead>
 <tr>
@@ -2337,7 +2337,7 @@ carries no <code>target_attacked_frac</code>.</p>
 (<code>generation/nygrid/case_nygrid.m</code>). The line ratings are in the file because the case file does not give
 them all: the release rates a branch the case leaves unrated at its peak flow over the pool (N8), so
 <code>graph/edge_rating</code> is the ratings the attacks were designed against. Also not in the file: each meter's
-accuracy class (the table <code>ACCURACY</code> of <code>engine/sensing/meters.py</code>) and its bias (drawn from the seed), and
+accuracy class (the table <code>KIND_ACCURACY</code> of <code>constants/meters.py</code>) and its bias (drawn from the seed), and
 each meter's owner (the owner of its bus).</p>
 <p><code>z - z_benign</code> is the attack. Unsolved pool frames keep their place with NaN state and readings and no labels.</p>
 <h2 id="blocks-to-files">Blocks to files<a class="headerlink" href="#blocks-to-files" title="Permanent link">&para;</a></h2>

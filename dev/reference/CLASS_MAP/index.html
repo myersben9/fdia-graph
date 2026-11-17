@@ -1736,11 +1736,11 @@ type or a collaborator it builds), and a box marked with another package's name 
 lives there.</p>
 <h2 id="modules">Modules<a class="headerlink" href="#modules" title="Permanent link">&para;</a></h2>
 <p>Which module imports which, in one picture with a box per toolkit: every arrow between the boxes
-runs from the analysis toolkit to the generation toolkit, never back. Four foundations are read by
+runs from the analysis toolkit to the generation toolkit, never back. Five foundations are read by
 nearly every module and are left out so the real dependencies show: each toolkit's <code>models/</code> (the
 returned records and the settings; the one validation engine is <code>fdia_graph.models.validation</code>) and
-<code>formulas/</code> (the equations), and the generation toolkit's <code>schema.py</code> (the file protocol) and
-<code>errors.py</code> (the named errors). Each package's own <code>__init__.py</code> (for <code>fdia_graph</code>, the <code>fg.*</code>
+<code>formulas/</code> (the equations), and the generation toolkit's <code>constants/</code> (the facts, each with its unit
+and source), <code>schema.py</code> (the file protocol) and <code>errors.py</code> (the named errors). Each package's own <code>__init__.py</code> (for <code>fdia_graph</code>, the <code>fg.*</code>
 public API, which imports everything) is left out for the same reason.</p>
 <p><img alt="Module diagram in two boxes. The analysis toolkit, fdia_analysis: federated over localization and se; localization over se; trust over se; results beside them. The generation toolkit, fdia_graph: generation over engine, profiles, timeline, download and registry; engine over generation, ratings and registry; dataset over generation; timeline over generation; profiles over engine; download over registry. Between the boxes every arrow points from analysis to generation: federated, localization, se and trust read dataset; trust reads generation and registry" src="../../figures/diagrams/modules.png" /></p>
 <h2 id="the-dataset">The dataset<a class="headerlink" href="#the-dataset" title="Permanent link">&para;</a></h2>

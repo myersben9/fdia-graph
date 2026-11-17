@@ -1693,7 +1693,11 @@ names them all. The one-line summary of every file of the repository is
 </tr>
 <tr>
 <td><code>schema.py</code></td>
-<td>the file protocol: every HDF5 group, dataset and attribute name, defined once</td>
+<td>the file protocol: every HDF5 group, dataset and attribute name, the legends a file carries and the window of the swing feature, defined once (the shapes and types of the datasets are tables of <code>TimelineWriter</code>, the one class that creates them)</td>
+</tr>
+<tr>
+<td><code>constants/</code></td>
+<td>every other constant, one module per subject, each with its unit and source: <code>channels.py</code> (the column of each quantity in a measurement array, as enums: <code>node_x[..., NodeChannel.P_INJ]</code>), <code>families.py</code> (the attack families and their codes), <code>meters.py</code> (the meter kinds, accuracy classes and noise floors), <code>fdia_graph/constants/grid.py</code> (the IEEE cases, the bus types, the "no limit" ratings), <code>time.py</code>, <code>streams.py</code> (the keys of the random streams), <code>numerics.py</code> (fixed tolerances), <code>fdia_graph/constants/records.py</code> (the fields of a record, by group), <code>files.py</code>, <code>releases.py</code> (the pinned data release and its sha256 values) and <code>newyork.py</code> (NYISO's zones, the pinned inputs, NYgrid's dispatch numbers, the fitted load model). The modules import nothing from the rest of the toolkit; a value a user tunes is a field of a settings model instead; <code>tools/layout.py</code> refuses a module-level constant anywhere else</td>
 </tr>
 <tr>
 <td><code>timeline.py</code></td>

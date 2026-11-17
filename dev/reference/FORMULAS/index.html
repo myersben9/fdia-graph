@@ -1879,7 +1879,7 @@ objects); one test checks it on a case small enough to verify by hand.</p>
 </tr>
 <tr>
 <td>PMU current sigma</td>
-<td><code>formulas.noise.current_sigma</code>, <code>PMU_CURRENT_CLASS</code>; <code>paper_current_sigma</code> for Am</td>
+<td><code>formulas.noise.current_sigma</code>, <code>constants.meters.PMU_CURRENT_CLASS</code>; <code>paper_current_sigma</code> for Am</td>
 <td>σ_re = σ_im = rel |I_end| + 1e-5 pu, rel = 0.01/3 (the whole class) or its jitter part; Am: 0.01 pu</td>
 <td>[C37118]; [WU26, case studies]</td>
 <td>the emitter's jitter, the fewest-tamper search (D7, D8)</td>
@@ -1893,7 +1893,7 @@ objects); one test checks it on a case small enough to verify by hand.</p>
 </tr>
 <tr>
 <td>paper noise</td>
-<td><code>formulas.noise.paper_sigma</code>, <code>WU26_NOISE</code>, called by the fewest-tamper search for a flow goal</td>
+<td><code>formulas.noise.paper_sigma</code>, <code>constants.meters.WU26_NOISE</code>, called by the fewest-tamper search for a flow goal</td>
 <td>σ = 0.03 pu × base MVA on P, Q injections and flows, 0.01 pu on a PMU bus's |V| (0.03 on a SCADA voltmeter), degrees(0.01) on the angle</td>
 <td>[WU26, case studies]</td>
 <td>Am (D8)</td>
