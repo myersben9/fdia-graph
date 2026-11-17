@@ -6,9 +6,9 @@ never beaten by."""
 import numpy as np
 import pytest
 
+from fdia_graph.constants.channels import NodeChannel
 from fdia_graph.formulas.attacks import tampered_channels, tampered_devices
 from fdia_graph.formulas.noise import accuracy_sigma, jitter_sigma
-from fdia_graph.models.grid import NODE
 from tests.helpers import windows
 
 
@@ -65,18 +65,18 @@ def test_the_emitter_draws_with_the_shared_noise_rule(case):
     from fdia_graph.formulas.network import branch_flows, complex_voltages
 
     Vc = np.zeros(g._n_ppc_buses, complex)  # the emitter's own float64 flows
-    Vc[g._ppc_row[np.arange(g.C)]] = complex_voltages(X[0][:, NODE.v], X[0][:, NODE.theta])
+    Vc[g._ppc_row[np.arange(g.C)]] = complex_voltages(X[0][:, NodeChannel.V], X[0][:, NodeChannel.THETA])
     Sf = branch_flows(Vc, g._Yf, g._from_bus_ppc, g._base_mva)
     flows = np.stack([Sf.real, Sf.imag], axis=1)
     sig, sig_f = jitter_sigma(X[0], flows, g.SDj, 1e-3)
     expected = []
     for b in range(g.C):
-        if scan.node_m[b, NODE.v]:
-            expected.append(sig[b, NODE.v])
-        if scan.node_m[b, NODE.theta]:  # the hybrid meters: an angle at the PMU buses only
-            expected.append(sig[b, NODE.theta])
-        if scan.node_m[b, NODE.p_inj]:
-            expected += [sig[b, NODE.p_inj], sig[b, NODE.q_inj]]
+        if scan.node_m[b, NodeChannel.V]:
+            expected.append(sig[b, NodeChannel.V])
+        if scan.node_m[b, NodeChannel.THETA]:  # the hybrid meters: an angle at the PMU buses only
+            expected.append(sig[b, NodeChannel.THETA])
+        if scan.node_m[b, NodeChannel.P_INJ]:
+            expected += [sig[b, NodeChannel.P_INJ], sig[b, NodeChannel.Q_INJ]]
     for e in range(g.E):
         if scan.edge_m[e, 0]:
             expected += [sig_f[e, 0], sig_f[e, 1]]
@@ -84,14 +84,15 @@ def test_the_emitter_draws_with_the_shared_noise_rule(case):
     assert drawn[: len(expected)] == pytest.approx(expected, rel=0, abs=0)
     assert len(drawn) == len(expected) + int(scan.i_m.sum())
     # and the rule is the emitter's former one, relative power noise with the floor
-    b = int(np.argmax(np.abs(X[0][:, NODE.p_inj])))
-    assert sig[b, NODE.p_inj] == abs(X[0][b, NODE.p_inj]) * g.SDj["pi"] + 1e-3
+    b = int(np.argmax(np.abs(X[0][:, NodeChannel.P_INJ])))
+    assert sig[b, NodeChannel.P_INJ] == abs(X[0][b, NodeChannel.P_INJ]) * g.SDj["pi"] + 1e-3
 
 
 def test_the_search_counts_against_the_calibrations_accuracy_sigma(case):
     """accuracy_sigma is the measured calibration's sigma (SEBase._class_sigma through
     accuracy_class_sigma) at one scan's readings, in physical units; it is larger than the jitter."""
-    from fdia_graph.formulas.noise import ACCURACY_CLASS, accuracy_class_sigma
+    from fdia_graph.constants.meters import ACCURACY_CLASS
+    from fdia_graph.formulas.noise import accuracy_class_sigma
 
     g, X, _ = case
     x, base = X[0], g._base_mva
@@ -99,18 +100,23 @@ def test_the_search_counts_against_the_calibrations_accuracy_sigma(case):
     sig, sig_f = accuracy_sigma(x, flows, ACCURACY_CLASS, 1e-3)
     # the calibration's rule, in its units (per unit on baseMVA, radians), on the same readings
     pu_p = accuracy_class_sigma(
-        np.abs(x[:, NODE.p_inj]) / base, np.full(g.C, ACCURACY_CLASS["pi"]), np.ones(g.C, bool), 1e-3 / base
+        np.abs(x[:, NodeChannel.P_INJ]) / base,
+        np.full(g.C, ACCURACY_CLASS["pi"]),
+        np.ones(g.C, bool),
+        1e-3 / base,
     )
     va = accuracy_class_sigma(
-        np.abs(np.radians(x[:, NODE.theta])),
+        np.abs(np.radians(x[:, NodeChannel.THETA])),
         np.full(g.C, ACCURACY_CLASS["va"]),
         np.zeros(g.C, bool),
         1e-3 / base,
     )
-    assert np.allclose(sig[:, NODE.p_inj], pu_p * base) and np.allclose(sig[:, NODE.theta], np.degrees(va))
-    assert np.allclose(sig[:, NODE.v], ACCURACY_CLASS["v"])
+    assert np.allclose(sig[:, NodeChannel.P_INJ], pu_p * base) and np.allclose(
+        sig[:, NodeChannel.THETA], np.degrees(va)
+    )
+    assert np.allclose(sig[:, NodeChannel.V], ACCURACY_CLASS["v"])
     # the stored angle is in degrees, the class in radians: the sigma is returned in the scan's units
-    assert np.allclose(sig[:, NODE.theta], np.degrees(ACCURACY_CLASS["va"]))
+    assert np.allclose(sig[:, NodeChannel.THETA], np.degrees(ACCURACY_CLASS["va"]))
     assert np.allclose(sig_f[:, 1], ACCURACY_CLASS["qf"] * np.abs(flows[:, 1]) + 1e-3)
     jit, jit_f = jitter_sigma(x, flows, g.SDj, 1e-3)
     assert (sig >= jit).all() and (sig_f >= jit_f).all()
@@ -119,9 +125,9 @@ def test_the_search_counts_against_the_calibrations_accuracy_sigma(case):
 def test_devices_group_channels_by_bus_terminal_and_pmu():
     node = np.zeros((4, 4), bool)
     edge = np.zeros((3, 2), bool)
-    node[0, NODE.p_inj] = True  # SCADA terminal of bus 0
-    node[1, NODE.v] = True  # a PMU bus: its PMU
-    node[2, NODE.theta] = True  # a voltage meter without PMU: bus 2's SCADA terminal
+    node[0, NodeChannel.P_INJ] = True  # SCADA terminal of bus 0
+    node[1, NodeChannel.V] = True  # a PMU bus: its PMU
+    node[2, NodeChannel.THETA] = True  # a voltage meter without PMU: bus 2's SCADA terminal
     edge[1, 0] = True  # flow metered at the from end, bus 3
     pmu = np.array([False, True, False, False])
     devices = tampered_devices(node, edge, pmu, np.array([0, 3, 2]))

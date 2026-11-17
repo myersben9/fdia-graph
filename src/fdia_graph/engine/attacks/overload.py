@@ -32,11 +32,11 @@ from typing import Optional
 
 import numpy as np
 
+from ...constants.channels import EdgeChannel, NodeChannel
 from ...errors import NoLineRatings
 from ...formulas.attacks import branch_ratings, generator_output
 from ...models.config import OverloadSettings
 from ...models.frames import AmOverloadDesign, FlowGoal, Frame, FrameKnobs
-from ...models.grid import NODE
 from ...ratings import pglib_branches
 from .minimize import MinimizeMixin
 
@@ -108,7 +108,8 @@ class OverloadMixin(MinimizeMixin):
         admittance, so its flow reads zero and no false state can drive it to its rating."""
         flows = self.clean_flows_from_states(np.stack(window))  # [T, E, 2], unmetered zeroed
         rating = self.window_ratings(flows)  # finite per window under "delta"
-        S = np.hypot(flows[..., 0], flows[..., 1]).max(axis=0)  # [E] the window's largest true flow
+        # [E] the window's largest true flow
+        S = np.hypot(flows[..., EdgeChannel.P_FROM], flows[..., EdgeChannel.Q_FROM]).max(axis=0)
         metered = np.asarray(self.meters.flow, bool)
         status = self.branch.status
         live = np.ones(len(rating), bool) if status is None else np.asarray(status) > 0
@@ -195,8 +196,8 @@ class OverloadMixin(MinimizeMixin):
         |P_gen + j Q_gen|; at a load bus the active change against the true load, |dP| / |P_load|."""
         gen = generator_output(Xt, self.load_base, self.gen_base)  # [N, 2] MW, MVAr
         load = self.true_load_by_bus(Xt)
-        dP = Xa[:, NODE.p_inj] - Xt[:, NODE.p_inj]
-        dQ = Xa[:, NODE.q_inj] - Xt[:, NODE.q_inj]
+        dP = Xa[:, NodeChannel.P_INJ] - Xt[:, NodeChannel.P_INJ]
+        dQ = Xa[:, NodeChannel.Q_INJ] - Xt[:, NodeChannel.Q_INJ]
         is_gen = np.isin(buses, self.generator_buses())
         change = np.where(is_gen, np.hypot(dP[buses], dQ[buses]), np.abs(dP[buses]))
         base = np.where(is_gen, np.hypot(gen[buses, 0], gen[buses, 1]), np.abs(load[buses]))

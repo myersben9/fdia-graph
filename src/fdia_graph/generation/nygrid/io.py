@@ -8,9 +8,8 @@ from pathlib import Path
 import h5py
 import numpy as np
 
+from fdia_graph.constants.newyork import POOL_ARRAYS
 from fdia_graph.generation.nygrid.pool import Pool
-
-_POOL_ARRAYS = ("vm", "va", "p", "q", "solve_kind")
 
 
 def write_pool(path: str | Path, pool: Pool) -> None:
@@ -21,7 +20,7 @@ def write_pool(path: str | Path, pool: Pool) -> None:
     with h5py.File(path, "w") as h:
         h.create_dataset("time", data=pool.time.astype("datetime64[s]").astype(np.int64))
         h["time"].attrs["units"] = "seconds since 1970-01-01, NYISO local clock"
-        for name in _POOL_ARRAYS:
+        for name in POOL_ARRAYS:
             h.create_dataset(name, data=getattr(pool, name), compression="gzip", shuffle=True)
         if pool.unit_p is not None:  # each unit's dispatch basepoint (N32), in the case's unit order
             h.create_dataset("unit_p", data=pool.unit_p, compression="gzip", shuffle=True)
@@ -34,5 +33,5 @@ def read_pool(path: str | Path) -> Pool:
         return Pool(
             time=h["time"][:].astype("datetime64[s]"),
             unit_p=unit_p,
-            **{name: h[name][:] for name in _POOL_ARRAYS},
+            **{name: h[name][:] for name in POOL_ARRAYS},
         )

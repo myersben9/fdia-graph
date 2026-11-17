@@ -10,7 +10,8 @@ from typing import Generic, Optional, TypeVar, Union
 
 import numpy as np
 
-from .choices import FAMILY_CODE, SPLITS
+from ..constants.families import FAMILY_CODE
+from .choices import Split
 from .config import MeterSettings
 
 Family = TypeVar(
@@ -35,7 +36,7 @@ class Slot(Generic[Family]):
 
 @dataclass(frozen=True)
 class SplitSpan:
-    """One split of the timeline: its code (0 train, 1 val, 2 test, the row of `SPLITS`) and its
+    """One split of the timeline: its code (0 train, 1 val, 2 test, the row of `Split`) and its
     frames. A split cut as one block in time order is every frame of [start, stop). A split made of
     whole weeks lists its frames in `frames` (in time order), and [start, stop) is then only the stretch
     of the timeline they lie in. Two spans are equal when their code and stretch are."""
@@ -128,7 +129,7 @@ class Schedule:
 
 @dataclass
 class Placement(Generic[Family]):
-    """What the placement asked for and got, per split (rows, `SPLITS`) and family (columns, the
+    """What the placement asked for and got, per split (rows, `Split`) and family (columns, the
     timeline's families): episodes requested, dropped because they would not fit, moved to
     another onset because no design was feasible, and built."""
 
@@ -141,7 +142,7 @@ class Placement(Generic[Family]):
     @classmethod
     def empty(cls, families: list[Family]) -> Placement[Family]:
         """The record of `families` with every count at zero."""
-        shape = (len(SPLITS), len(families))
+        shape = (len(Split), len(families))
         return cls(
             families, np.zeros(shape, int), np.zeros(shape, int), np.zeros(shape, int), np.zeros(shape, int)
         )

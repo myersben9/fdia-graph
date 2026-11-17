@@ -14,6 +14,7 @@ from fdia_graph.engine.attacks.rref import RrefSupport
 
 pytest.importorskip("pandapower")
 
+from fdia_graph.constants.channels import NodeChannel  # noqa: E402
 from fdia_graph.engine.attacks.minimize import _Window  # noqa: E402
 from fdia_graph.errors import ConfigError  # noqa: E402
 from fdia_graph.formulas.trust import sparsest_rows  # noqa: E402
@@ -21,7 +22,6 @@ from fdia_graph.models.config import (
     OverloadSettings,  # noqa: E402
     TrustSchedule,  # noqa: E402
 )
-from fdia_graph.models.grid import NODE  # noqa: E402
 
 from . import case_studies  # noqa: E402
 from .test_trusted_pmus import ORDER, SLOTS, _setup  # noqa: E402
@@ -69,7 +69,9 @@ def _reaches_the_goal(g, window, k, goal, result, trust=None) -> None:
         Xa = g.goal_state(goal, t, window[t], S, k)
         assert Xa is not None, f"no false state at snapshot {t}"
         for b in w.pinned[t]:
-            assert np.array_equal(Xa[b, [NODE.v, NODE.theta]], window[t][b, [NODE.v, NODE.theta]])
+            assert np.array_equal(
+                Xa[b, [NodeChannel.V, NodeChannel.THETA]], window[t][b, [NodeChannel.V, NodeChannel.THETA]]
+            )
     flows = g.clean_flows_from_states(Xa[None])[0, list(goal.lines)]
     ratings = g.line_ratings()[list(goal.lines)]
     assert np.allclose(np.hypot(flows[:, 0], flows[:, 1]), ratings, rtol=1e-6)

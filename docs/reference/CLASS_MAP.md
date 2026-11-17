@@ -15,11 +15,11 @@ lives there.
 ## Modules
 
 Which module imports which, in one picture with a box per toolkit: every arrow between the boxes
-runs from the analysis toolkit to the generation toolkit, never back. Four foundations are read by
+runs from the analysis toolkit to the generation toolkit, never back. Five foundations are read by
 nearly every module and are left out so the real dependencies show: each toolkit's `models/` (the
 returned records and the settings; the one validation engine is `fdia_graph.models.validation`) and
-`formulas/` (the equations), and the generation toolkit's `schema.py` (the file protocol) and
-`errors.py` (the named errors). Each package's own `__init__.py` (for `fdia_graph`, the `fg.*`
+`formulas/` (the equations), and the generation toolkit's `constants/` (the facts, each with its unit
+and source), `schema.py` (the file protocol) and `errors.py` (the named errors). Each package's own `__init__.py` (for `fdia_graph`, the `fg.*`
 public API, which imports everything) is left out for the same reason.
 
 ![Module diagram in two boxes. The analysis toolkit, fdia_analysis: federated over localization and se; localization over se; trust over se; results beside them. The generation toolkit, fdia_graph: generation over engine, profiles, timeline, download and registry; engine over generation, ratings and registry; dataset over generation; timeline over generation; profiles over engine; download over registry. Between the boxes every arrow points from analysis to generation: federated, localization, se and trust read dataset; trust reads generation and registry](../figures/diagrams/modules.png)

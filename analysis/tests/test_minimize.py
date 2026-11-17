@@ -7,7 +7,7 @@ never beaten by."""
 
 import numpy as np
 
-from fdia_graph.models.grid import NODE
+from fdia_graph.constants.channels import NodeChannel
 from tests.helpers import windows
 
 
@@ -20,8 +20,13 @@ def _irls_support(g, states, goal, area, iters=20):
     Xt = states[0]
     N = g.C
     lut = g._ppc_row[np.arange(N)]
-    H = ac_jacobian(Xt[:, NODE.v], np.radians(Xt[:, NODE.theta]), g._Ybus, g._Yf, g._Yt, g._ppc_branch, lut)
-    P, Q = H[N * NODE.p_inj : N * (NODE.p_inj + 1)], H[N * NODE.q_inj : N * (NODE.q_inj + 1)]
+    H = ac_jacobian(
+        Xt[:, NodeChannel.V], np.radians(Xt[:, NodeChannel.THETA]), g._Ybus, g._Yf, g._Yt, g._ppc_branch, lut
+    )
+    P, Q = (
+        H[N * NodeChannel.P_INJ : N * (NodeChannel.P_INJ + 1)],
+        H[N * NodeChannel.Q_INJ : N * (NodeChannel.Q_INJ + 1)],
+    )
     cols = np.r_[area, N + area]  # theta and |V| of the area buses
     design = goal.designs[0]
     targets = np.unique(g.load_bus[design.targets])

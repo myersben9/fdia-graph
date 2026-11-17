@@ -25,10 +25,11 @@ from typing import Optional
 
 import numpy as np
 
+from ...constants.families import AT_CODE
 from ...models.frames import AttackDesign, Frame, FrameKnobs
 from .episodes import EpisodeDesignMixin
 from .overload import OverloadMixin
-from .stealthy import RAMP_FAMILY, StealthyMixin
+from .stealthy import StealthyMixin
 
 
 class AttackMixin(EpisodeDesignMixin, OverloadMixin, StealthyMixin):
@@ -40,5 +41,5 @@ class AttackMixin(EpisodeDesignMixin, OverloadMixin, StealthyMixin):
         """The scan of the attacked `family` on the stored operating point `Xt` ([N, 4] = |V|, P_inj,
         Q_inj, theta): an At ramp frame, `design` naming the scaled loads, the multiplier and the held
         support. None when its local power flow has no solution at any halving of its step."""
-        assert family == RAMP_FAMILY, f"attack_frame builds At frames; family {family} has its own builder"
+        assert family == AT_CODE, f"attack_frame builds At frames; family {family} has its own builder"
         return self._ramp_frame(Xt, design, k)

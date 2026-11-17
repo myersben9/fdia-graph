@@ -8,14 +8,14 @@ import pytest
 pytest.importorskip("pandapower")
 
 from fdia_graph import schema  # noqa: E402
+from fdia_graph.constants.channels import NodeChannel  # noqa: E402
+from fdia_graph.constants.families import GENERATED_FAMILIES  # noqa: E402
 from fdia_graph.engine.core import FdiaGenerator  # noqa: E402
 from fdia_graph.errors import NoLineRatings  # noqa: E402
 from fdia_graph.formulas.attacks import branch_ratings  # noqa: E402
 from fdia_graph.formulas.network import bus_injections, complex_voltages, local_flow_solve  # noqa: E402
 from fdia_graph.generation import _load_states  # noqa: E402
-from fdia_graph.models.choices import GENERATED_FAMILIES  # noqa: E402
 from fdia_graph.models.frames import FrameKnobs  # noqa: E402
-from fdia_graph.models.grid import NODE  # noqa: E402
 from fdia_graph.timeline import generate_timeline  # noqa: E402
 
 
@@ -54,7 +54,7 @@ def test_the_flow_solve_reaches_its_target_and_holds_the_fixed_buses(g, pool):
     Xt = pool[0]
     lut = g._ppc_row[np.arange(g.C)]
     V = np.zeros(g._n_ppc_buses, complex)
-    V[lut] = complex_voltages(Xt[:, NODE.v], Xt[:, NODE.theta])
+    V[lut] = complex_voltages(Xt[:, NodeChannel.V], Xt[:, NodeChannel.THETA])
     Yb, Yf = g._dense_admittances()
     line = 4
     interior = lut[np.array([2, 3, 4, 8])]
@@ -78,7 +78,7 @@ def test_the_flow_solve_takes_the_least_norm_step(g, pool):
     Xt = pool[0]
     lut = g._ppc_row[np.arange(g.C)]
     V = np.zeros(g._n_ppc_buses, complex)
-    V[lut] = complex_voltages(Xt[:, NODE.v], Xt[:, NODE.theta])
+    V[lut] = complex_voltages(Xt[:, NodeChannel.V], Xt[:, NodeChannel.THETA])
     Yb, Yf = g._dense_admittances()
     line, interior = 4, lut[np.array([2, 3, 4, 8])]
     fixed = interior[:2]
@@ -181,22 +181,26 @@ def test_am_reaches_the_rating_on_the_held_support(tmp_path, pool):
 def test_the_paper_noise_is_in_the_stored_units(g):
     """D8: [WU26]'s case-study noise, 0.03 pu on SCADA channels and 0.01 pu on PMU channels, in the
     units a scan stores (MW and MVAr on the case base, |V| in pu, the angle in degrees)."""
-    from fdia_graph.formulas.noise import WU26_NOISE, paper_sigma
+    from fdia_graph.constants.meters import WU26_NOISE
+    from fdia_graph.formulas.noise import paper_sigma
 
     pmu = np.zeros(g.C, bool)
     pmu[[0, 3]] = True
     node, edge = paper_sigma((g.C, 4), (g.E, 2), pmu, g._base_mva)
     assert WU26_NOISE == {"scada": 0.03, "pmu": 0.01}
-    assert np.all(node[:, NODE.p_inj] == 0.03 * g._base_mva) and np.all(edge == 0.03 * g._base_mva)
-    assert node[0, NODE.v] == 0.01 and node[1, NODE.v] == 0.03  # a PMU bus against a SCADA voltmeter
-    assert np.allclose(node[:, NODE.theta], np.degrees(0.01))
+    assert np.all(node[:, NodeChannel.P_INJ] == 0.03 * g._base_mva) and np.all(edge == 0.03 * g._base_mva)
+    assert (
+        node[0, NodeChannel.V] == 0.01 and node[1, NodeChannel.V] == 0.03
+    )  # a PMU bus against a SCADA voltmeter
+    assert np.allclose(node[:, NodeChannel.THETA], np.degrees(0.01))
 
 
 def test_am_counts_against_the_paper_noise_and_at_against_the_rated_accuracy(g, pool):
     """The window of a flow goal (Am) takes [WU26]'s noise a load goal (At) keeps the meters'
     rated accuracy."""
+    from fdia_graph.constants.meters import POWER_NOISE_FLOOR_MW
     from fdia_graph.engine.attacks.minimize import _Window
-    from fdia_graph.formulas.noise import POWER_NOISE_FLOOR_MW, accuracy_sigma
+    from fdia_graph.formulas.noise import accuracy_sigma
     from fdia_graph.models.frames import AttackDesign, LoadGoal
 
     k = _knobs(g, pool, 1.0)
@@ -306,15 +310,15 @@ def test_a_system_without_pglib_ratings_makes_am_on_pool_ratings(tmp_path):
 def test_a_voltmeter_angle_is_not_a_channel_the_attack_is_charged_for(g, pool):
     """A SCADA voltmeter reads |V| only; the angle channel exists only at a PMU bus, so the search's
     masks carry an angle at PMU buses alone."""
+    from fdia_graph.constants.channels import NodeChannel
     from fdia_graph.engine.attacks.minimize import _Window
-    from fdia_graph.models.grid import NODE
 
     window = [pool[u] for u in range(3)]
     line = int(g.eligible_lines(window, 2)[0])
     w = _Window(g, window, g.overload_goal(window, line), FrameKnobs())
     pmu = np.zeros(g.C, bool)
     pmu[sorted(g.meters.pmu)] = True
-    assert not w.node_m[~pmu, NODE.theta].any()
+    assert not w.node_m[~pmu, NodeChannel.THETA].any()
 
 
 def test_the_overload_am_is_not_checked_against_a_target_count(monkeypatch):
@@ -428,7 +432,7 @@ def test_a_generator_at_its_p_limit_keeps_its_q_free(g, pool):
     reached = g.clean_flows_from_states(Xa[None])[0, line]
     assert np.hypot(*reached) == pytest.approx(target, rel=1e-6)
     out = generator_output(Xt, g.load_base, g.gen_base)[b] - (
-        Xa[b, NODE.p_inj : NODE.q_inj + 1] - Xt[b, NODE.p_inj : NODE.q_inj + 1]
+        Xa[b, NodeChannel.P_INJ : NodeChannel.Q_INJ + 1] - Xt[b, NodeChannel.P_INJ : NodeChannel.Q_INJ + 1]
     )
     assert out[0] == pytest.approx(gen[b, 0], abs=1e-6)  # P held at its (shut) limit
     assert abs(out[1] - gen[b, 1]) > 1e-3  # Q moved to meet the goal
@@ -444,7 +448,7 @@ def test_a_generator_label_is_relative_to_its_output(g, pool):
     b = int(S[0])
     gen = generator_output(Xt, g.load_base, g.gen_base)[b]
     d = Xa[b] - Xt[b]
-    want = np.hypot(d[NODE.p_inj], d[NODE.q_inj]) / np.hypot(gen[0], gen[1])
+    want = np.hypot(d[NodeChannel.P_INJ], d[NodeChannel.Q_INJ]) / np.hypot(gen[0], gen[1])
     assert g.pretended_change(Xt, Xa, S)[0] == pytest.approx(want)
 
 
@@ -477,13 +481,13 @@ def test_an_edge_generator_stays_inside_its_limits(g, pool):
     for Xt, S, line, target, edge_gens, free in _edge_cases(g, pool):
         gen = generator_output(Xt, g.load_base, g.gen_base)
         b = edge_gens[0]
-        if abs(free[b, NODE.p_inj] - Xt[b, NODE.p_inj]) < 1e-3:
+        if abs(free[b, NodeChannel.P_INJ] - Xt[b, NodeChannel.P_INJ]) < 1e-3:
             continue  # the unbounded solve leaves this generator's P alone: nothing to test
         p_lo, p_hi = base.p_lo.copy(), base.p_hi.copy()
         p_lo[b] = p_hi[b] = gen[b, 0]
         Xa, _, _ = g.solve_flow_local(Xt, S, line, target, base._replace(p_lo=p_lo, p_hi=p_hi))
         if Xa is not None:
-            out = gen[b, 0] - (Xa[b, NODE.p_inj] - Xt[b, NODE.p_inj])
+            out = gen[b, 0] - (Xa[b, NodeChannel.P_INJ] - Xt[b, NodeChannel.P_INJ])
             assert out == pytest.approx(gen[b, 0], abs=1e-6)
             reached = g.clean_flows_from_states(Xa[None])[0, line]
             assert np.hypot(*reached) == pytest.approx(target, rel=1e-6)
@@ -504,7 +508,7 @@ def test_the_load_cap_bounds_every_load_the_attack_moves(g, pool):
         load = bus_load(Xt, g.load_base, g.gen_base)
         buses = np.setdiff1d(g.touched_buses(S), np.r_[g.generator_buses(), g.slack_bus])
         buses = buses[g.load_base[buses, 0] != 0]
-        change = np.abs(Xa[buses, NODE.p_inj] - Xt[buses, NODE.p_inj])
+        change = np.abs(Xa[buses, NodeChannel.P_INJ] - Xt[buses, NodeChannel.P_INJ])
         assert (change <= 0.05 * np.abs(load[buses]) + 1e-6).all()
         reached = g.clean_flows_from_states(Xa[None])[0, line]
         assert np.hypot(*reached) == pytest.approx(target, rel=1e-6)
@@ -574,17 +578,17 @@ def test_a_voltage_is_held_at_its_limit_while_the_goal_is_met(g, pool):
         free, _, _ = g.solve_flow_local(Xt, S, int(line), target)
         if free is None:
             continue
-        b = int(S[np.argmax(np.abs(free[S, NODE.v] - Xt[S, NODE.v]))])
-        if abs(free[b, NODE.v] - Xt[b, NODE.v]) < 1e-4:
+        b = int(S[np.argmax(np.abs(free[S, NodeChannel.V] - Xt[S, NodeChannel.V]))])
+        if abs(free[b, NodeChannel.V] - Xt[b, NodeChannel.V]) < 1e-4:
             continue  # the goal barely moves any voltage here: nothing to hold
         v_lo, v_hi = np.zeros(g.C), np.full(g.C, 10.0)
-        v_lo[b] = v_hi[b] = Xt[b, NODE.v]  # the allowed range at b is its true magnitude alone
+        v_lo[b] = v_hi[b] = Xt[b, NodeChannel.V]  # the allowed range at b is its true magnitude alone
         Xa, converged, _ = g.solve_flow_local(
             Xt, S, int(line), target, free_box._replace(v_lo=v_lo, v_hi=v_hi)
         )
         if Xa is None:
             continue
-        assert converged and Xa[b, NODE.v] == pytest.approx(Xt[b, NODE.v], abs=1e-9)
+        assert converged and Xa[b, NodeChannel.V] == pytest.approx(Xt[b, NodeChannel.V], abs=1e-9)
         reached = g.clean_flows_from_states(Xa[None])[0, line]
         assert np.hypot(*reached) == pytest.approx(target, rel=1e-6)
         return

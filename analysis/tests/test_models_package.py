@@ -34,8 +34,8 @@ from tests.helpers import (
 # conformed (DEFERRED in tools/readability.py)
 NEW_YORK = ("fdia_analysis.se.detect",)
 GENERATION_MODELS = "fdia_graph.models"  # the one first-party package a model of this toolkit builds on
-# the instances `fdia_graph.models.grid` holds beside its models
-CONSTANTS = {"INTACT", "NODE", "EDGE", "CURRENT"}
+# the instance `fdia_graph.models.grid` holds beside its models
+CONSTANTS = {"INTACT"}
 PACKAGES = (
     models,
     formulas,

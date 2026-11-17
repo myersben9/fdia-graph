@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING, Optional
 
 import numpy as np
 
-from ..models.choices import BENIGN_CODE
+from ..constants.families import BENIGN_CODE
 from ..models.frames import AttackDesign, Frame, FrameKnobs
 
 if TYPE_CHECKING:

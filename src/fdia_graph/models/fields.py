@@ -1,8 +1,8 @@
 """The field groups the data bundles share.
 
-Each group is a frozen dataclass mixin (the only behaviour is `ScanFields.node()` / `edge()`, the
-named column views): every field defaults to `None` so any
-bundle can inherit any combination, and each field's meaning is written here once. A field's
+Each group is a frozen dataclass mixin with no behaviour: every field defaults to `None` so any
+bundle can inherit any combination, and each field's meaning is written here once. The columns of
+a measurement array are named in `constants.channels` (`node_x[..., NodeChannel.THETA]`). A field's
 trailing shape is fixed by the group; the leading axis (none for a record, `B` for a batch, `n`
 for a split, `T` for a stream) belongs to the bundle and is stated in its docstring. A bundle
 names the fields it cannot do without in `_required` and its dict-key order in `_order` (see
@@ -20,8 +20,6 @@ from typing import TYPE_CHECKING, Optional, Union
 
 import numpy as np
 
-from .grid import EdgeColumns, NodeColumns
-
 if TYPE_CHECKING:
     import torch
 
@@ -37,16 +35,6 @@ class ScanFields:
     node_m: Optional[Array] = None  # [..., N, 4] meter mask, 1 metered
     edge_x: Optional[Array] = None  # [..., E, 2] P_from, Q_from
     edge_m: Optional[Array] = None  # [..., E, 2] flow-meter mask
-
-    def node(self) -> NodeColumns:
-        """Named views of `node_x`: `.v`, `.p_inj`, `.q_inj`, `.theta` (no copy)."""
-        assert self.node_x is not None, "node_x is not set"
-        return NodeColumns.of(self.node_x)
-
-    def edge(self) -> EdgeColumns:
-        """Named views of `edge_x`: `.p_from`, `.q_from` (no copy)."""
-        assert self.edge_x is not None, "edge_x is not set"
-        return EdgeColumns.of(self.edge_x)
 
 
 @dataclass(frozen=True, eq=False)
@@ -105,7 +93,7 @@ class GraphFields:
 @dataclass(frozen=True, eq=False)
 class PmuCurrentFields:
     """The PMU branch-current phasors of a hybrid-meter timeline [WU26 eqs. 19-20]:
-    per branch the real and imaginary current at each end (`CURRENT` columns), per unit on the base
+    per branch the real and imaginary current at each end (`CurrentChannel` columns), per unit on the base
     current, zero where no PMU sits at that end. Absent from a v0.8.3-meter file."""
 
     pmu_i: Optional[Array] = None  # [..., E, 4] observed (attacked where attacked), noise kept

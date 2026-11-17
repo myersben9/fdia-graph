@@ -8,6 +8,7 @@ import pytest
 
 pytest.importorskip("pandapower")
 
+from fdia_graph.constants.channels import NodeChannel  # noqa: E402
 from fdia_graph.engine.attacks.area import area_score_total  # noqa: E402
 from fdia_graph.engine.attacks.minimize import _Window  # noqa: E402
 from fdia_graph.engine.core import FdiaGenerator  # noqa: E402
@@ -19,7 +20,6 @@ from fdia_graph.models.config import (  # noqa: E402
     TrustSchedule,
 )
 from fdia_graph.models.frames import FrameKnobs  # noqa: E402
-from fdia_graph.models.grid import NODE  # noqa: E402
 
 from . import case_studies  # noqa: E402
 
@@ -106,7 +106,9 @@ def test_every_attack_the_search_returns_is_valid():
         reached = g.clean_flows_from_states(Xa[None])[0, lines]
         assert np.allclose(np.hypot(reached[:, 0], reached[:, 1]), goal.targets_at(t), atol=1e-6)
         for b in w.pinned[t]:
-            assert np.array_equal(Xa[b, [NODE.v, NODE.theta]], window[t][b, [NODE.v, NODE.theta]])
+            assert np.array_equal(
+                Xa[b, [NodeChannel.V, NodeChannel.THETA]], window[t][b, [NodeChannel.V, NodeChannel.THETA]]
+            )
         node, edge, _, now = w._snapshot(t, free, prev)
         sig_node, sig_edge = w.sigma[t]
         quiet = (~node) & (w.node_m > 0)

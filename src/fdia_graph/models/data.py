@@ -12,6 +12,7 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
+from ..constants.records import COMMON_PREV_FIELDS, CURRENT_FIELDS, ID_FIELDS, LAYER_FIELDS, SCAN_FIELDS
 from .base import Bundle
 from .fields import (
     CleanFields,
@@ -24,14 +25,6 @@ from .fields import (
     StreamLayers,
     TemporalFields,
 )
-
-_SCAN = ("node_x", "node_m", "edge_x", "edge_m")
-_TEMPORAL = ("temporal_delta", "swing")
-_CLEAN = ("clean", "edge_clean", "edge_clean_full")
-_IDS = ("family", "stealthy", "seq_id", "timestep")
-_BENIGN = ("benign", "edge_benign")
-_PREV = ("prev_node_x", "prev_edge_x", "prev_timestep", "prev_swing")
-_PMU_I = ("pmu_i", "pmu_i_m", "pmu_i_benign")
 
 
 @dataclass(frozen=True, eq=False)
@@ -51,8 +44,8 @@ class RecordBundle(
     optional layers the file carries (the benign layer on a timeline file). A dict as well, so
     DataLoaders, `**item` and `item["node_x"]` keep working."""
 
-    _required = ("edge_index", *_SCAN, "y", *_IDS)
-    _order = ("edge_index", *_SCAN, "y", *_IDS, "edge_attr", *_TEMPORAL, *_CLEAN, *_BENIGN, *_PMU_I)
+    _required = ("edge_index", *SCAN_FIELDS, "y", *ID_FIELDS)
+    _order = ("edge_index", *SCAN_FIELDS, "y", *ID_FIELDS, "edge_attr", *LAYER_FIELDS, *CURRENT_FIELDS)
 
 
 @dataclass(frozen=True, eq=False)
@@ -71,8 +64,8 @@ class BatchBundle(
     leading batch axis B, the static graph once (the first record's), scalar metadata as long
     tensors [B]."""
 
-    _required = (*_SCAN, "y")
-    _order = (*_SCAN, "y", *_TEMPORAL, *_CLEAN, *_BENIGN, "edge_index", "edge_attr", *_IDS, *_PMU_I)
+    _required = (*SCAN_FIELDS, "y")
+    _order = (*SCAN_FIELDS, "y", *LAYER_FIELDS, "edge_index", "edge_attr", *ID_FIELDS, *CURRENT_FIELDS)
 
 
 @dataclass(frozen=True, eq=False)
@@ -95,15 +88,13 @@ class ArraysBundle(
     # edge_attr comes with GraphFields; the exports never fill it, so it is None and absent from the dict
     _order = (
         "edge_index",
-        *_SCAN,
+        *SCAN_FIELDS,
         "y",
-        *_TEMPORAL,
-        *_CLEAN,
-        *_BENIGN,
-        *_IDS,
-        *_PREV,
+        *LAYER_FIELDS,
+        *ID_FIELDS,
+        *COMMON_PREV_FIELDS,
         "edge_attr",
-        *_PMU_I,
+        *CURRENT_FIELDS,
         "prev_pmu_i",
     )
 

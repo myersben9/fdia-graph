@@ -15,10 +15,9 @@ from typing import Optional
 
 import numpy as np
 
-from ..engine.attacks.stealthy import AM_FAMILY, RAMP_FAMILY
+from ..constants.families import AM_CODE, AT_CODE, FAMILIES
 from ..engine.records import attack_frame
 from ..errors import NoRoomForEpisode
-from ..models.choices import FAMILIES
 from ..models.frames import AmOverloadDesign, Frame, FrameContext
 from ..models.plan import Episode, Placement, Planned, Schedule, Slot, SplitSpan
 from .plan import REDRAWS, give_up, uniform_onset
@@ -79,10 +78,10 @@ class Walk:
         for i in range(ramp_len):  # placement keeps every episode inside its split
             step = ctx.g.ramp_step(design, i, ramp_rate)
             ctx.g.scan_key = t
-            frame = attack_frame(ctx.g, ctx.X[t], RAMP_FAMILY, step, ctx.knobs)
-            self.store(t, RAMP_FAMILY, frame, sid, buses)
+            frame = attack_frame(ctx.g, ctx.X[t], AT_CODE, step, ctx.knobs)
+            self.store(t, AT_CODE, frame, sid, buses)
             t += 1
-        return self.record_episode(RAMP_FAMILY, onset, t, buses, design.tamper)
+        return self.record_episode(AT_CODE, onset, t, buses, design.tamper)
 
     def overload_episode(self, t: int, length: int, design: AmOverloadDesign) -> int:
         """One `Am` episode as the overload attack of [WU26] on the design the design stage found for its
@@ -95,14 +94,14 @@ class Walk:
         for i in range(length):  # placement keeps every episode inside its split
             ctx.g.scan_key = t
             frame, reached = ctx.g.overload_step(design, ctx.X[t], i, ctx.knobs)
-            self.store(t, AM_FAMILY, frame, sid, buses)
+            self.store(t, AM_CODE, frame, sid, buses)
             if frame is not None:
                 emitted = np.hypot(frame.edge_x[lines, 0], frame.edge_x[lines, 1])
             t += 1
         last = design.goal.targets_at(len(design.goal.targets) - 1)  # the goal at the window's end
         ratings = design.ratings  # one row per target line
         rows = [(b, ratings[j], last[j], float(reached[j]), float(emitted[j])) for j, b in enumerate(lines)]
-        return self.record_episode(AM_FAMILY, onset, t, buses, design.tamper, rows)
+        return self.record_episode(AM_CODE, onset, t, buses, design.tamper, rows)
 
     @staticmethod
     def relocate_later(
@@ -142,7 +141,7 @@ class Walk:
             t = self.benign_run(t, slot.onset)
             if episode.design is not None:  # an overload Am, designed before the walk
                 t = self.overload_episode(slot.onset, slot.length, episode.design)
-                rec.built[span.code, rec.col(AM_FAMILY)] += 1
+                rec.built[span.code, rec.col(AM_CODE)] += 1
                 continue
             nxt = self.ramp_episode(slot.onset, slot.length, plan.ramp_rate)
             if nxt is not None:

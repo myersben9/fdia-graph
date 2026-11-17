@@ -45,9 +45,10 @@ def test_a_v083_timeline_reads_as_pyg():
 @pytest.mark.parametrize("release", ["v0.8.0", "v0.8.1", "v0.8.3"])
 def test_every_timeline_release_resolves_to_its_asset(release):
     from fdia_graph import registry
+    from fdia_graph.constants.releases import SHA256
 
     spec = registry.resolve("ieee14", release=release)
-    assert spec.file == "timeline_ieee14.h5" and spec.sha256 == registry._SHA256[release]["ieee14"]
+    assert spec.file == "timeline_ieee14.h5" and spec.sha256 == SHA256[release]["ieee14"]
 
 
 @pytest.mark.parametrize("release", ["v0.7.1", "v0.7.2"])

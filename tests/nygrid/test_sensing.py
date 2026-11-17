@@ -8,21 +8,10 @@ import pytest
 import scipy.linalg
 import scipy.sparse as sp
 
+from fdia_graph.constants.meters import JITTER_FRAC, KIND_ACCURACY, MeterKind
 from fdia_graph.engine.sensing.measure import Measurement
-from fdia_graph.engine.sensing.meters import (
-    ACCURACY,
-    IA,
-    KINDS,
-    PF,
-    VA,
-    I,
-    P,
-    V,
-    _min_pmus,
-    plan_meters,
-)
+from fdia_graph.engine.sensing.meters import _min_pmus, plan_meters
 from fdia_graph.engine.sensing.noise import NoiseModel
-from fdia_graph.formulas.noise import JITTER_FRAC
 from fdia_graph.generation.nygrid.case import nygrid_case
 from fdia_graph.generation.nygrid.config import Settings, rng
 from fdia_graph.generation.nygrid.network import Network
@@ -62,15 +51,17 @@ def test_min_pmus_small_graphs():
 def test_meter_plan(grid):
     net, own, plan = grid
     case = net.case
-    tab = np.zeros((len(own.names), len(KINDS)), int)
+    tab = np.zeros((len(own.names), len(MeterKind)), int)
     np.add.at(tab, (plan.owner, plan.kind), 1)
-    print({n: dict(zip(KINDS, row.tolist())) for n, row in zip(own.names.tolist(), tab)})
+    print(
+        {n: dict(zip([k.name for k in MeterKind], row.tolist())) for n, row in zip(own.names.tolist(), tab)}
+    )
     ny = np.flatnonzero(own.bus_client >= 0)
     # every meter on a NY bus, owned by that bus's client
     assert (plan.owner >= 0).all() and (plan.owner == own.bus_client[plan.bus]).all()
-    assert sorted(plan.bus[plan.kind == P].tolist()) == ny.tolist()
+    assert sorted(plan.bus[plan.kind == MeterKind.P].tolist()) == ny.tolist()
     # a flow meter at every branch end on a NY bus, at that end's bus, so each side of a tie meters its own end
-    ends = plan.kind == PF
+    ends = plan.kind == MeterKind.PF
     assert (
         plan.bus[ends] == np.where(plan.end[ends] == 0, case.f[plan.branch[ends]], case.t[plan.branch[ends]])
     ).all()
@@ -83,12 +74,12 @@ def test_meter_plan(grid):
     )
     assert len(set(plan.owner[ends][tie].tolist())) > 1
     # PMUs see every NY bus through their own bus or a branch current
-    pmu = plan.bus[plan.kind == VA]
+    pmu = plan.bus[plan.kind == MeterKind.VA]
     seen = np.zeros(len(case.bus_id), bool)
     seen[net.neighbors(pmu, 1)] = True
-    assert seen[ny].all() and np.isin(pmu, plan.bus[plan.kind == V]).all()
-    cur = plan.kind == I
-    assert np.isin(plan.bus[cur], pmu).all() and cur.sum() == (plan.kind == IA).sum()
+    assert seen[ny].all() and np.isin(pmu, plan.bus[plan.kind == MeterKind.V]).all()
+    cur = plan.kind == MeterKind.I
+    assert np.isin(plan.bus[cur], pmu).all() and cur.sum() == (plan.kind == MeterKind.IA).sum()
     # one owner per meter, one row per (kind, bus, branch, end)
     keys = set(zip(plan.kind.tolist(), plan.bus.tolist(), plan.branch.tolist(), plan.end.tolist()))
     assert len(keys) == len(plan.kind)
@@ -119,7 +110,7 @@ def test_observability(grid):
     assert _identifiable(hw, np.r_[ny, n + ny])
     for c, name in enumerate(own.names):
         rows, buses = plan.owner == c, np.flatnonzero(own.bus_client == c)
-        angle = np.isin(plan.kind[rows], [VA, IA]).any()
+        angle = np.isin(plan.kind[rows], [MeterKind.VA, MeterKind.IA]).any()
         free = None if angle else np.r_[np.zeros(len(buses)), np.ones(len(buses))]
         print(
             f"{name}: {rows.sum()} meters, locally observable {_identifiable(hw[rows], np.r_[buses, n + buses], free)}"
@@ -143,8 +134,11 @@ def test_noise(grid):
     )
     assert np.allclose(err.std(0) / jitter, 1.0, atol=0.06)
     # heteroscedastic: a relative meter's class grows with its reading
-    flows = plan.kind == PF
-    assert np.allclose(noise.sigmas(z[0])[flows], ACCURACY[PF][0] * np.abs(z[0, flows]) + ACCURACY[PF][1])
+    flows = plan.kind == MeterKind.PF
+    assert np.allclose(
+        noise.sigmas(z[0])[flows],
+        KIND_ACCURACY[MeterKind.PF][0] * np.abs(z[0, flows]) + KIND_ACCURACY[MeterKind.PF][1],
+    )
     # across meters of one kind, bias and jitter add to the class
     total = (err[0] / noise.sigmas(z[0]))[flows]
     print(f"flow error / class sigma: std {total.std():.2f} over {flows.sum()} meters")

@@ -83,16 +83,16 @@ def test_flow_sensitivities_match_a_resolved_power_flow():
     pytest.importorskip("pandapower")
     from scipy.optimize import fsolve
 
+    from fdia_graph.constants.channels import NodeChannel
     from fdia_graph.engine.core import FdiaGenerator
     from fdia_graph.formulas.network import _dense, flow_sensitivities
     from fdia_graph.generation import _load_states
-    from fdia_graph.models.grid import NODE
 
     g = FdiaGenerator(14, seed=1)
     X = _load_states(14, None)[0]
     lut = g._ppc_row[np.arange(g.C)]
     V0 = np.ones(np.shape(g._Ybus)[0], np.complex128)
-    V0[lut] = complex_voltages(X[:, NODE.v], X[:, NODE.theta])
+    V0[lut] = complex_voltages(X[:, NodeChannel.V], X[:, NodeChannel.THETA])
     Y, F = _dense(g._Ybus), _dense(g._Yf)
     slack = int(lut[g.slack_bus])
     keep = np.flatnonzero(np.arange(len(V0)) != slack)

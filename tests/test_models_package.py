@@ -1,6 +1,7 @@
 """Every data model of a toolkit lives in its `models` package: they are defined nowhere else, each is
 imported from the module that defines it, and the package's own modules depend on nothing but numpy,
-the standard library and the named errors (`fdia_graph.errors`). The
+the standard library, the named errors (`fdia_graph.errors`) and the constants (`fdia_graph.constants`,
+which imports nothing of the package). The
 checks are functions of the package (tests/helpers.py), so the analysis toolkit holds its own `fdia_analysis.models` to
 them (analysis/tests/test_models_package.py)."""
 
@@ -9,6 +10,7 @@ import inspect
 import pytest
 
 import fdia_graph
+import fdia_graph.constants
 import fdia_graph.engine
 import fdia_graph.formulas
 import fdia_graph.generation
@@ -31,7 +33,8 @@ NEW_YORK = (
     "fdia_graph.engine.attacks.family",
     "fdia_graph.engine.sensing",
 )
-ERRORS = "fdia_graph.errors"  # the one first-party module a model may import: the errors it raises
+ERRORS = "fdia_graph.errors"  # a first-party module a model may import: the errors it raises
+CONSTANTS = "fdia_graph.constants"  # and the other: the constants, which import nothing of the package
 
 
 def test_every_public_model_is_defined_in_the_package():
@@ -54,12 +57,22 @@ def test_the_package_exports_no_name_and_the_bundles_a_user_receives_are_in_data
     }
 
 
-def test_package_imports_only_numpy_the_standard_library_and_the_errors():
-    """Models never import a producer, so no import cycle is possible. The one first-party module a
-    model reads is `fdia_graph.errors` (what it raises), which itself imports nothing of the package."""
-    allowed = STANDARD | {ERRORS}
+def test_package_imports_only_numpy_the_standard_library_the_errors_and_the_constants():
+    """Models never import a producer, so no import cycle is possible. The first-party modules a
+    model reads are `fdia_graph.errors` (what it raises) and `fdia_graph.constants`, which themselves
+    import nothing of the package."""
+    allowed = STANDARD | {ERRORS, CONSTANTS}
     for module, imported in runtime_imports(models).items():
         assert imported <= allowed, f"fdia_graph.models.{module} imports {imported - allowed}"
+
+
+def test_the_constants_import_nothing_of_the_package():
+    """A module of `fdia_graph.constants` reads numpy, the standard library and its sibling modules
+    only, so every module of the toolkit may import it and `import fdia_graph` stays light."""
+    allowed = STANDARD | {CONSTANTS}
+    for module, imported in runtime_imports(fdia_graph.constants).items():
+        assert imported <= allowed, f"fdia_graph.constants.{module} imports {imported - allowed}"
+    assert exported_names(fdia_graph.constants) == set()
 
 
 def test_a_relative_import_of_a_producer_is_seen():

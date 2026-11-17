@@ -30,16 +30,13 @@ from typing import Optional, cast
 
 import numpy as np
 
+from ...constants.channels import CurrentChannel, NodeChannel
+from ...constants.numerics import JACOBIAN_THETA_STEP, JACOBIAN_V_STEP, RELATIVE_ZERO
 from ...formulas.network import branch_currents, branch_flows, bus_injections, complex_voltages
 from ...formulas.trust import sparsest_rows
 from ...models.config import TrustSchedule
 from ...models.frames import AttackVector, FlowGoal, FrameKnobs, MinimizerResult
-from ...models.grid import CURRENT, NODE
 from .minimize import MinimizeMixin, _Window
-
-V_STEP = 1e-6  # pu: the finite-difference step of |V| in the attack-area Jacobian
-THETA_STEP = 1e-5  # degrees: the step of the angle
-ZERO = 1e-9  # a Jacobian entry or state change this small relative to the largest is structurally zero
 
 
 class RrefSupport:
@@ -101,7 +98,7 @@ class RrefSupport:
         H, G = self._area_jacobian(window, t, free)
         if not H.size:
             return []
-        tol = ZERO * float(np.abs(H).max())
+        tol = RELATIVE_ZERO * float(np.abs(H).max())
         first: set[int] = set()
         rows = np.zeros((0, H.shape[0]))
         for line in range(G.shape[0]):  # the sparsest attack that moves each target line
@@ -129,9 +126,9 @@ class RrefSupport:
         X = np.asarray(window.states[t], np.float64)
         F = len(free)
         batch = np.repeat(X[None], 1 + 2 * F, axis=0)
-        batch[1 + np.arange(F), free, NODE.v] += V_STEP
-        batch[1 + F + np.arange(F), free, NODE.theta] += THETA_STEP
-        steps = np.r_[np.full(F, V_STEP), np.full(F, THETA_STEP)]
+        batch[1 + np.arange(F), free, NodeChannel.V] += JACOBIAN_V_STEP
+        batch[1 + F + np.arange(F), free, NodeChannel.THETA] += JACOBIAN_THETA_STEP
+        steps = np.r_[np.full(F, JACOBIAN_V_STEP), np.full(F, JACOBIAN_THETA_STEP)]
         z = self._scaled_channels(window, t, batch)
         H = ((z[1:] - z[0]) / steps[:, None]).T
         kept = np.abs(H).max(axis=1) > 0
@@ -146,11 +143,14 @@ class RrefSupport:
         PMU at that end."""
         N, pmu, ei = self.g.C, window.pmu, self.g.ei
         b, c = np.nonzero(window.node_m > 0)
-        at_pmu = np.isin(c, (NODE.v, NODE.theta)) & pmu[b]
+        at_pmu = np.isin(c, (NodeChannel.V, NodeChannel.THETA)) & pmu[b]
         parts = [np.where(at_pmu, N + b, b), ei[0, np.nonzero(window.edge_m > 0)[0]]]
         if window.i_m is not None and window.i_sigma is not None:
             e, ce = np.nonzero(window.i_m > 0)
-            parts.append(N + np.where(np.isin(ce, (CURRENT.re_from, CURRENT.im_from)), ei[0, e], ei[1, e]))
+            parts.append(
+                N
+                + np.where(np.isin(ce, (CurrentChannel.RE_FROM, CurrentChannel.IM_FROM)), ei[0, e], ei[1, e])
+            )
         return np.concatenate(parts).astype(np.int64)
 
     def _scaled_channels(self, window: _Window, t: int, batch: np.ndarray) -> np.ndarray:
@@ -158,10 +158,10 @@ class RrefSupport:
         the metered node channels (an angle only at a PMU), the metered flows, the PMU branch currents."""
         lut = self.g._ppc_row[np.arange(batch.shape[1])]
         Vc = np.zeros((len(batch), self.g._n_ppc_buses), complex)
-        Vc[:, lut] = complex_voltages(batch[:, :, NODE.v], batch[:, :, NODE.theta])
+        Vc[:, lut] = complex_voltages(batch[:, :, NodeChannel.V], batch[:, :, NodeChannel.THETA])
         S = bus_injections(Vc, self.g._Ybus, self.g._base_mva)[:, lut]
         node = batch.copy()
-        node[:, :, NODE.p_inj], node[:, :, NODE.q_inj] = S.real, S.imag
+        node[:, :, NodeChannel.P_INJ], node[:, :, NodeChannel.Q_INJ] = S.real, S.imag
         Sf = branch_flows(Vc, self.g._Yf, self.g._from_bus_ppc, self.g._base_mva)
         edge = np.stack([Sf.real, Sf.imag], axis=2)
         sig_node, sig_edge = window.sigma[t]
@@ -190,7 +190,7 @@ def _moved_lines(G: np.ndarray, c: np.ndarray) -> set[int]:
     """The target lines whose linearized flow the state change c moves."""
     dS = np.abs(G @ c)
     scale = float(np.abs(G).max() * np.abs(c).max()) if G.size and c.size else 0.0
-    return {int(i) for i in np.flatnonzero(dS > ZERO * scale)} if scale > 0 else set()
+    return {int(i) for i in np.flatnonzero(dS > RELATIVE_ZERO * scale)} if scale > 0 else set()
 
 
 def _moved_buses(free: np.ndarray, c: np.ndarray) -> np.ndarray:
@@ -198,5 +198,5 @@ def _moved_buses(free: np.ndarray, c: np.ndarray) -> np.ndarray:
     its angle)."""
     F = len(free)
     size = np.abs(c)
-    moved = (size[:F] > ZERO * size.max()) | (size[F:] > ZERO * size.max())
+    moved = (size[:F] > RELATIVE_ZERO * size.max()) | (size[F:] > RELATIVE_ZERO * size.max())
     return free[moved]

@@ -31,14 +31,15 @@ import h5py
 import numpy as np
 
 from .. import schema
+from ..constants.channels import NodeChannel
+from ..constants.families import HELDOUT_CODES
 from ..errors import NotATimeline
 from ..models.choices import Split
 from ..models.config import LoadOptions
-from ..models.grid import NODE
 from ..schema import SPLIT_CODE as _SPLIT
 from ..schema import STATIC_PHYSICS as _STATIC_PHYSICS
 from ..schema import Attr
-from .base import _HELDOUT_TRAIN_EXCLUDE, family_ids
+from .base import family_ids
 from .export import ExportMixin
 from .graph import GraphMixin
 from .physics import AdmittanceMixin
@@ -63,7 +64,7 @@ def _record_mask(fam: np.ndarray, sp: Optional[np.ndarray], filt: _RecordFilter)
         code = _SPLIT[filt.split]
         keep &= (sp == code) if sp is not None else False  # a file without the column is refused first
         if filt.heldout and filt.split != Split.TEST:  # test keeps As/Ar
-            keep &= ~np.isin(fam, list(_HELDOUT_TRAIN_EXCLUDE))
+            keep &= ~np.isin(fam, list(HELDOUT_CODES))
     if filt.families is not None:
         keep &= np.isin(fam, family_ids(filt.families))
     return np.nonzero(keep)[0]
@@ -130,7 +131,9 @@ class FdiaGraph(GraphMixin, AdmittanceMixin, RecordsMixin, ExportMixin, Sequence
         self.N = int(a[Attr.N])
         self.E = int(a[Attr.E])  # fixed graph size: bus count N, branch count E
         self.baseMVA = float(a.get(Attr.BASEMVA, 100.0))  # p.u. base; v0.4.1+, default 100 MVA
-        self.edge_feat = str(a.get(Attr.EDGE_FEAT, "P_from,Q_from")).split(",")  # the flow layers' columns
+        self.edge_feat = str(a.get(Attr.EDGE_FEAT, schema.EDGE_FEAT_DEFAULT)).split(
+            ","
+        )  # the flow layers' columns
         # how pmu_i holds a current phasor: real and imaginary part unless the file says otherwise
         self.current_form = str(a.get(Attr.CURRENT_FORM, schema.CURRENT_RECTANGULAR))
 
@@ -177,7 +180,7 @@ class FdiaGraph(GraphMixin, AdmittanceMixin, RecordsMixin, ExportMixin, Sequence
             return int(ref[0])
         if self._clean_np is not None and len(self._clean_np) > 1:
             # Tolerance rather than exact zero: a pinned angle can carry float32 round-off.
-            pinned = np.where(self._clean_np[:, :, NODE.theta].std(axis=0) < 1e-6)[0]
+            pinned = np.where(self._clean_np[:, :, NodeChannel.THETA].std(axis=0) < 1e-6)[0]
             if len(pinned) == 1:
                 return int(pinned[0])
         return None

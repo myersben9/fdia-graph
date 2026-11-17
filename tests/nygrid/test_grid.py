@@ -9,19 +9,10 @@ from pathlib import Path
 import numpy as np
 import pytest
 
+from fdia_graph.constants.grid import BusType
+from fdia_graph.constants.newyork import FILE_AREA, HQ_BUS, NY_AREA, REGIONS
 from fdia_graph.errors import DataConditionError
-from fdia_graph.generation.nygrid.case import (
-    CASE_FILE,
-    FILE_AREA,
-    HQ_BUS,
-    NY_AREA,
-    PQ,
-    PV,
-    REF,
-    REGIONS,
-    Case,
-    nygrid_case,
-)
+from fdia_graph.generation.nygrid.case import CASE_FILE, Case, nygrid_case
 from fdia_graph.generation.nygrid.fixes import externals_at_base, hvdc_links
 from fdia_graph.generation.nygrid.network import Network
 from fdia_graph.generation.nygrid.ownership import assign_clients
@@ -63,9 +54,9 @@ def test_the_file_has_one_area(nygrid):
 
     bus = CaseFrames(str(CASE_FILE), allow_any_keys=True, update_index=False).bus
     assert (bus["BUS_AREA"] == FILE_AREA).all()
-    assert set(bus["ZONE"][~nygrid.is_ny].astype(int)) == {region.code for region in REGIONS}
+    assert set(bus["ZONE"][~nygrid.is_ny].astype(int)) == {code for code, _, _ in REGIONS}
     assert (nygrid.area[nygrid.is_ny] == NY_AREA).all()
-    assert set(nygrid.area[~nygrid.is_ny].tolist()) == {region.area for region in REGIONS}
+    assert set(nygrid.area[~nygrid.is_ny].tolist()) == {area for _, _, area in REGIONS}
 
 
 @needs_data
@@ -80,7 +71,7 @@ def test_the_neighbors_are_nygrid_areas(nygrid):
     assert (np.isin(npcc, (2, 3)) == nygrid.is_ny).all()
     assert (nygrid.area != npcc).sum() == 10 and ((nygrid.area != npcc) == (npcc == 3)).all()
     counts = {"New England": (1, 36, 9), "Ontario": (4, 31, 6), "MISO": (5, 10, 6), "PJM": (6, 17, 6)}
-    assert {region.name: region.area for region in REGIONS} == {name: a for name, (a, _, _) in counts.items()}
+    assert {name: area for _, name, area in REGIONS} == {name: a for name, (a, _, _) in counts.items()}
     for number, buses, units in counts.values():
         assert ((npcc == number) == (nygrid.area == number)).all()
         assert ((npcc[nygrid.unit_bus] == number) == (nygrid.area[nygrid.unit_bus] == number)).all()
@@ -90,8 +81,8 @@ def test_the_neighbors_are_nygrid_areas(nygrid):
 def test_case_has_nygrid_modifications(nygrid):
     # modifyMPC.m: the bus types, positive loads, three PJM-IESO lines out, two E-G lines in, ten tie ratings
     pos = {b: i for i, b in enumerate(nygrid.bus_id.tolist())}
-    assert nygrid.bus_type[pos[74]] == REF and nygrid.bus_type[pos[78]] == PQ
-    assert nygrid.bus_type[pos[39]] == PV and nygrid.bus_type[pos[72]] == PQ
+    assert nygrid.bus_type[pos[74]] == BusType.REF and nygrid.bus_type[pos[78]] == BusType.PQ
+    assert nygrid.bus_type[pos[39]] == BusType.PV and nygrid.bus_type[pos[72]] == BusType.PQ
     assert (nygrid.pd >= 0).all()
     assert (nygrid.rating > 0).sum() == 10
     ends = set(zip(nygrid.bus_id[nygrid.f].tolist(), nygrid.bus_id[nygrid.t].tolist()))
@@ -118,7 +109,7 @@ def test_case_has_the_ac_fixes(nygrid):
     pos = {b: i for i, b in enumerate(nygrid.bus_id.tolist())}
     n81, n82 = (nygrid.unit_bus == pos[81]).sum(), (nygrid.unit_bus == pos[82]).sum()
     print(f"zone J units at 81/82: {n81}/{n82}")
-    assert n81 + n82 == 100 and n81 == 50 and nygrid.bus_type[pos[81]] == PV  # zone J is split
+    assert n81 + n82 == 100 and n81 == 50 and nygrid.bus_type[pos[81]] == BusType.PV  # zone J is split
     assert (nygrid.f[-1], nygrid.t[-1]) == (pos[47], pos[43])  # the 765 kV Massena-Marcy line
     assert (nygrid.r[-1], nygrid.x[-1]) == (0.004, 0.0085)
 

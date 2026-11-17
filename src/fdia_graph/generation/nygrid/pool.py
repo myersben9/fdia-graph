@@ -8,22 +8,16 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
+from fdia_graph.constants.newyork import HQ_BUS, SolveKind
+from fdia_graph.constants.time import HALF_HOUR
 from fdia_graph.errors import DataConditionError, NotFitted
-from fdia_graph.generation.nygrid.case import HQ_BUS, Case
+from fdia_graph.generation.nygrid.case import Case
 from fdia_graph.generation.nygrid.network import Network
 
 if TYPE_CHECKING:  # the pool record is read without pandapower, so the solver is only a type here
     from fdia_graph.generation.nygrid.dispatch import Dispatch
     from fdia_graph.generation.nygrid.loads import LoadSeries
     from fdia_graph.generation.nygrid.solver import AcSolver
-
-# solve_kind codes, one per frame
-FAILED = 0  # the dispatch or the power flow did not converge
-SOLVED = 1  # dispatch and AC power flow converged
-NO_HOUR = 2  # the hour the chunk starts from has no AC point (the projection failed), so there is no start
-NO_LOAD = 3  # NYISO has no load for the frame (the spring-forward gap and a data gap), nothing solved
-
-_HALF_HOUR = np.timedelta64(30, "m")
 
 
 @dataclass(frozen=True)
@@ -105,7 +99,7 @@ class PoolBuilder:
 
     def _brackets(self) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         """For every frame, the hour before, the hour after and the weight of the hour after."""
-        mid = (self.dispatch.hour.astype("datetime64[s]") + _HALF_HOUR).astype(np.int64).astype(float)
+        mid = (self.dispatch.hour.astype("datetime64[s]") + HALF_HOUR).astype(np.int64).astype(float)
         x = self.loads.time.astype("datetime64[s]").astype(np.int64).astype(float)
         pos = np.interp(x, mid, np.arange(len(mid)))  # clamps to the first and last hour at the ends
         lo = np.floor(pos).astype(int)
@@ -148,7 +142,7 @@ class PoolBuilder:
         lo, hi, w = self._brackets()
         T, n, g = len(self.loads.time), len(case.bus_id), len(case.unit_bus)
         vm, va, p, q, unit_p = (np.full((T, k), np.nan) for k in (n, n, n, n, g))
-        kind = np.full(T, FAILED, dtype=np.int8)
+        kind = np.full(T, SolveKind.FAILED, dtype=np.int8)
         held, fixed, anchored = self._held, self._fixed, self._anchored
         for h in np.unique(
             np.r_[lo, hi]
@@ -175,10 +169,10 @@ class PoolBuilder:
         for f in range(T):
             pd_f = self.loads.p[f] - ((1 - w[f]) * self.renew[lo[f]] + w[f] * self.renew[hi[f]])
             if np.isnan(pd_f).any() or np.isnan(self.loads.q[f]).any():
-                kind[f] = NO_LOAD
+                kind[f] = SolveKind.NO_LOAD
                 continue
             if prev is None:
-                kind[f] = NO_HOUR
+                kind[f] = SolveKind.NO_HOUR
                 continue
             base_lo, base_hi, sp = self._limits(lo[f], hi[f], w[f])
             p_lo = np.clip(base_lo, prev - self.ramp, prev + self.ramp)
@@ -232,7 +226,7 @@ class PoolBuilder:
             )
             if pf is None:
                 continue
-            kind[f] = SOLVED
+            kind[f] = SolveKind.SOLVED
             vm[f], va[f] = pf["vm"], pf["va"]
             p[f], q[f] = s.network.injections(pf["vm"], pf["va"])
             unit_p[f] = r["unit_p"]
@@ -259,14 +253,14 @@ class PoolBuilder:
         pool, case = self.pool, self.solver.case
         if pool is None:
             raise NotFitted("report() describes the last build: call build() first")
-        ok = pool.solve_kind == SOLVED
+        ok = pool.solve_kind == SolveKind.SOLVED
         kinds = {
             name: int((pool.solve_kind == k).sum())
             for name, k in (
-                ("solved", SOLVED),
-                ("failed", FAILED),
-                ("no_hour", NO_HOUR),
-                ("no_load", NO_LOAD),
+                ("solved", SolveKind.SOLVED),
+                ("failed", SolveKind.FAILED),
+                ("no_hour", SolveKind.NO_HOUR),
+                ("no_load", SolveKind.NO_LOAD),
             )
         }
         slack = np.abs(self.slack_mw[ok])
@@ -275,7 +269,7 @@ class PoolBuilder:
             "frames": len(pool.time),
             **kinds,
             "solved_pct": round(100 * float(ok.mean()), 3),
-            "no_load_times": [str(t) for t in pool.time[pool.solve_kind == NO_LOAD]],
+            "no_load_times": [str(t) for t in pool.time[pool.solve_kind == SolveKind.NO_LOAD]],
             "hours_projected": len(self.hour_points),
             "hours_failed": [
                 str(self.dispatch.hour[h]) for h, r in sorted(self.hour_points.items()) if r is None
@@ -303,7 +297,7 @@ def peak_ratings(case: Case, pool: Pool, factor: float = 1.0, chunk: int = 8760)
     a line's busiest scan of the year sits at its rating). Branches with a public rating keep it.
     Frames are taken in chunks so a full year never holds every flow in memory at once."""
     net = Network(case)
-    solved = np.flatnonzero(pool.solve_kind == SOLVED)
+    solved = np.flatnonzero(pool.solve_kind == SolveKind.SOLVED)
     peak = np.zeros(len(case.f))
     for i in range(0, len(solved), chunk):
         k = solved[i : i + chunk]

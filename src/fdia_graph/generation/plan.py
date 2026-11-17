@@ -20,12 +20,13 @@ from typing import Optional, Union
 
 import numpy as np
 
+from ..constants.families import FAMILIES
+from ..constants.time import WEEK_SECONDS
 from ..errors import NoRoomForEpisode
-from ..models.choices import FAMILIES, SPLITS, family_label
+from ..models.choices import Split, family_label
 from ..models.plan import Family, Placement, Slot, SplitSpan
 
 PLACE_TRIES = 10  # whole-split placements tried before one episode is dropped (the split-first packing rule)
-WEEK = 7 * 86400  # seconds
 STRATUM = 20  # weeks per stratum of `split_weeks`: one 14/3/3 draw at shares of 0.7, 0.15, 0.15
 REDRAWS = 20  # onsets an episode with no feasible design is moved to before it is given up (the split-first redraw rule)
 
@@ -202,7 +203,7 @@ def place_split(
     for f in rec.families:
         if dropped[f]:
             warnings.warn(
-                f"split {SPLITS[span.code]}: placements jammed {PLACE_TRIES} times, {dropped[f]} "
+                f"split {Split.values()[span.code]}: placements jammed {PLACE_TRIES} times, {dropped[f]} "
                 f"{family_label(f)} episode(s) dropped",
                 RuntimeWarning,
                 stacklevel=2,
@@ -233,7 +234,7 @@ def free_onset(rng: np.random.Generator, length: int, others: Sequence[Slot[int]
 def give_up(split: int, fid: int, moves: int) -> None:
     """Warn that an episode found no feasible design after `moves` moves (its shortfall is recorded)."""
     warnings.warn(
-        f"split {SPLITS[split]}: one {FAMILIES[fid]} episode found no feasible design after {moves} moves",
+        f"split {Split.values()[split]}: one {FAMILIES[fid]} episode found no feasible design after {moves} moves",
         RuntimeWarning,
         stacklevel=3,
     )
@@ -251,7 +252,7 @@ def week_index(time: np.ndarray) -> np.ndarray:
     """[T] int: each frame's week counted from the first frame's time (`time` [T] in seconds or datetime64)."""
     t = np.asarray(time)
     t = (t.astype("datetime64[s]") if np.issubdtype(t.dtype, np.datetime64) else t).astype(np.int64)
-    return ((t - t[0]) // WEEK).astype(int)
+    return ((t - t[0]) // WEEK_SECONDS).astype(int)
 
 
 def split_weeks(

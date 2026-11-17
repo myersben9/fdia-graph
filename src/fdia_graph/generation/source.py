@@ -29,12 +29,12 @@ from typing import Generic, Optional, Union
 
 import numpy as np
 
+from ..constants.files import PART
 from ..models.plan import Design, Family, Placement, Slot, SplitSpan
 from .plan import place_split, planned_until
 from .write import TimelineWriter
 
 OutPath = Union[str, "os.PathLike[str]"]  # where a timeline file is written
-PART = ".part"  # the ending of a file still being written: it takes its own name only once it is whole
 
 
 class TimelineSource(ABC, Generic[Family, Design]):

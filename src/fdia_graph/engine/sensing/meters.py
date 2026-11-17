@@ -6,56 +6,16 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from fdia_graph.formulas.noise import (
-    ACCURACY_CLASS,
-    CURRENT_FLOOR_PU,
-    JITTER_FRAC,
-    PMU_CURRENT_CLASS,
-    POWER_NOISE_FLOOR_MW,
-)
+from fdia_graph.constants.channels import TO_END_OFFSET
+from fdia_graph.constants.meters import JITTER_FRAC, KIND_ACCURACY, METER_SLOT, MeterKind
 from fdia_graph.generation.nygrid.network import Network
 from fdia_graph.generation.nygrid.ownership import Ownership
 from fdia_graph.models.frames import MeterLayers
-from fdia_graph.models.grid import NODE
-
-V, VA, P, Q, PF, QF, I, IA = range(8)  # meter kinds, the `kind` codes
-KINDS = ("v", "va", "p", "q", "pf", "qf", "i", "ia")
-
-# Accuracy class of each kind as (relative, absolute) standard deviations, sigma = rel |z| + abs.
-# |V|, angle, injections and flows are the instrument-transformer classes of Asprou et al. (IEEE Trans.
-# Instrum. Meas. 2014): absolute for |V| (p.u.) and the angle, 1.7% of the reading for powers with a
-# 1e-3 MW floor so a near-zero reading still has noise. The PMU branch currents take IEEE C37.118.1's
-# 1% total vector error as three standard deviations of the phasor: 1/300 of |I| on the magnitude and
-# 1/300 rad on the angle, with a 1e-5 p.u. floor. Angles are in degrees, like the state.
-# The numbers are the one table of `formulas.noise` (`ACCURACY_CLASS`, `POWER_NOISE_FLOOR_MW`,
-# `PMU_CURRENT_CLASS`, `CURRENT_FLOOR_PU`), here per meter kind and with the angles in degrees.
-ACCURACY = {
-    V: (0.0, ACCURACY_CLASS["v"]),
-    VA: (0.0, float(np.degrees(ACCURACY_CLASS["va"]))),
-    P: (ACCURACY_CLASS["pi"], POWER_NOISE_FLOOR_MW),
-    Q: (ACCURACY_CLASS["qi"], POWER_NOISE_FLOOR_MW),
-    PF: (ACCURACY_CLASS["pf"], POWER_NOISE_FLOOR_MW),
-    QF: (ACCURACY_CLASS["qf"], POWER_NOISE_FLOOR_MW),
-    I: (PMU_CURRENT_CLASS, CURRENT_FLOOR_PU),
-    IA: (0.0, float(np.degrees(PMU_CURRENT_CLASS))),
-}
-# Where a kind's readings sit in a timeline file: the layer (0 the bus layer, 1 the flow layer, 2 the PMU
-# current layer) and the column. A branch kind's column is its from end's; the to end's is two further.
-_LAYER = {
-    V: (0, NODE.v),
-    VA: (0, NODE.theta),
-    P: (0, NODE.p_inj),
-    Q: (0, NODE.q_inj),
-    PF: (1, 0),
-    QF: (1, 1),
-    I: (2, 0),
-    IA: (2, 1),
-}
 
 
 @dataclass(frozen=True)
 class MeterPlan:
-    """One row per meter [M]: `kind` (a `KINDS` code), `bus` (the bus it sits at), `branch` and `end`
+    """One row per meter [M]: `kind` (a `MeterKind`), `bus` (the bus it sits at), `branch` and `end`
     (0 from, 1 to; -1 for bus meters), `owner` (the client of `bus`), the accuracy class `sigma_rel`,
     `sigma_abs` (sigma = sigma_rel |z| + sigma_abs; on a relative meter `sigma_abs` is its floor) and the
     constant `bias` (a gain error on a relative meter, an offset on an absolute one)."""
@@ -70,10 +30,10 @@ class MeterPlan:
     bias: np.ndarray
 
     def _slots(self) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-        """Where each meter's reading sits in a file's layers: the layer (of `_LAYER`), the row (its bus,
+        """Where each meter's reading sits in a file's layers: the layer (of `METER_SLOT`), the row (its bus,
         or its branch) and the column."""
-        layer = np.array([_LAYER[k][0] for k in self.kind])
-        column = np.array([_LAYER[k][1] for k in self.kind]) + 2 * np.maximum(self.end, 0)
+        layer = np.array([METER_SLOT[k][0] for k in self.kind])
+        column = np.array([METER_SLOT[k][1] for k in self.kind]) + TO_END_OFFSET * np.maximum(self.end, 0)
         return layer, np.where(self.branch >= 0, self.branch, self.bus), column
 
     def scatter(self, z: np.ndarray, buses: int, branches: int) -> MeterLayers:
@@ -104,15 +64,15 @@ class MeterPlan:
         `plan_meters`: kind by kind, the bus meters by bus, the branch meters by branch and then end. So
         `gather` on that file's layers gives the flat vector the file was written from. `edges [2, E]` are
         the branch ends and `bus_client [N]` the owner of each bus. The accuracy class is the table's
-        (`ACCURACY`); the constant `bias` of each meter is not in a file (the generator draws it from its
+        (`KIND_ACCURACY`); the constant `bias` of each meter is not in a file (the generator draws it from its
         seed) and reads NaN."""
         kind, bus, branch, end = [], [], [], []
-        for k in range(len(KINDS)):
-            layer, column = _LAYER[k]
+        for k in MeterKind:
+            layer, column = METER_SLOT[k]
             at_bus = layer == 0
             # row-major, so the meters come by bus, or by branch and then end
             row, e = np.nonzero(
-                masks[layer][:, column : column + 1] if at_bus else masks[layer][:, column::2]
+                masks[layer][:, column : column + 1] if at_bus else masks[layer][:, column::TO_END_OFFSET]
             )
             none = np.full(len(row), -1)
             kind.append(np.full(len(row), k))
@@ -126,8 +86,8 @@ class MeterPlan:
             branch=np.concatenate(branch),
             end=np.concatenate(end),
             owner=bus_client[buses],
-            sigma_rel=np.array([ACCURACY[k][0] for k in kinds]),
-            sigma_abs=np.array([ACCURACY[k][1] for k in kinds]),
+            sigma_rel=np.array([KIND_ACCURACY[k][0] for k in kinds]),
+            sigma_abs=np.array([KIND_ACCURACY[k][1] for k in kinds]),
             bias=np.full(len(kinds), np.nan),
         )
 
@@ -183,16 +143,21 @@ def plan_meters(net: Network, own: Ownership, rng: np.random.Generator, vbus_fra
     pmu_ends = ends[np.isin(ends[:, 2], pmu)]
 
     none = np.empty(0, int)
-    groups = [(V, volt, none, none), (VA, pmu, none, none), (P, ny, none, none), (Q, ny, none, none)]
-    groups += [(k, ends[:, 2], ends[:, 0], ends[:, 1]) for k in (PF, QF)]
-    groups += [(k, pmu_ends[:, 2], pmu_ends[:, 0], pmu_ends[:, 1]) for k in (I, IA)]
+    groups = [
+        (MeterKind.V, volt, none, none),
+        (MeterKind.VA, pmu, none, none),
+        (MeterKind.P, ny, none, none),
+        (MeterKind.Q, ny, none, none),
+    ]
+    groups += [(k, ends[:, 2], ends[:, 0], ends[:, 1]) for k in (MeterKind.PF, MeterKind.QF)]
+    groups += [(k, pmu_ends[:, 2], pmu_ends[:, 0], pmu_ends[:, 1]) for k in (MeterKind.I, MeterKind.IA)]
     kind = np.concatenate([np.full(len(b), k) for k, b, _, _ in groups])
     bus = np.concatenate([b for _, b, _, _ in groups])
     branch = np.concatenate([br if len(br) else np.full(len(b), -1) for _, b, br, _ in groups])
     end = np.concatenate([e if len(e) else np.full(len(b), -1) for _, b, _, e in groups])
 
-    sigma_rel = np.array([ACCURACY[k][0] for k in kind])
-    sigma_abs = np.array([ACCURACY[k][1] for k in kind])
+    sigma_rel = np.array([KIND_ACCURACY[k][0] for k in kind])
+    sigma_abs = np.array([KIND_ACCURACY[k][1] for k in kind])
     scale = np.sqrt(1.0 - JITTER_FRAC**2) * np.where(sigma_rel > 0, sigma_rel, sigma_abs)
     return MeterPlan(
         kind=kind,

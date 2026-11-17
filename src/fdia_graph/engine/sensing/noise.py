@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import numpy as np
 
+from fdia_graph.constants.meters import JITTER_FRAC
 from fdia_graph.engine.sensing.meters import MeterPlan
-from fdia_graph.formulas.noise import JITTER_FRAC, accuracy_class_sigma
+from fdia_graph.formulas.noise import accuracy_class_sigma
 
 
 class NoiseModel:

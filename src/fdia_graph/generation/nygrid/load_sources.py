@@ -15,54 +15,22 @@ from urllib.request import urlopen
 import numpy as np
 import pandas as pd
 
-from fdia_graph.generation.nygrid.inputs import download_once
-
-HOURS = 8760
-QUARTERS = 4 * HOURS  # the native 15-minute rows of the building stock profiles
-
-# EIA-861 utility numbers of the client utilities (Sales_Ult_Cust_2019.xlsx).
-EIA_UTILITY = {
-    "CHGE": 3249,
-    "ConEd": 4226,
-    "LIPA": 11171,
-    "NGRID": 13573,
-    "NYSEG": 13511,
-    "ORU": 14154,
-    "RGE": 16183,
-}
-
-# Floor area of each DOE commercial reference building, ft2 (Deru et al., 2011, the prototypes of [23] in
-# [2]). ComStock reports energy per represented floor area, so one prototype building is that area.
-REFERENCE_FT2 = {
-    "fullservicerestaurant": 5500,
-    "hospital": 241351,
-    "largehotel": 122120,
-    "largeoffice": 498588,
-    "mediumoffice": 53628,
-    "outpatient": 40946,
-    "primaryschool": 73960,
-    "quickservicerestaurant": 2500,
-    "retailstandalone": 24962,
-    "retailstripmall": 22500,
-    "secondaryschool": 210887,
-    "smallhotel": 43200,
-    "smalloffice": 5500,
-    "warehouse": 52045,
-}
-
-_OEDI = "https://oedi-data-lake.s3.amazonaws.com"
-_STOCK = "nrel-pds-building-stock/end-use-load-profiles-for-us-building-stock/2021/{}_amy2018_release_1/timeseries_aggregates/by_county/state=NY/"
-_EIA = "https://www.eia.gov/electricity/data/eia861/archive/zip/f8612019.zip"
-_IAC = "https://itac.university/storage/ITAC_Database.zip"
-_GAZETTEER = (
-    "https://www2.census.gov/geo/docs/maps-data/data/gazetteer/2019_Gazetteer/2019_Gaz_counties_national.zip"
+from fdia_graph.constants.newyork import (
+    EIA_861_URL,
+    EIA_UTILITY,
+    GAZETTEER_URL,
+    IAC_URL,
+    OEDI_URL,
+    STOCK_KEY_PREFIX,
 )
+from fdia_graph.constants.time import HOURS_PER_YEAR, QUARTERS_PER_YEAR
+from fdia_graph.generation.nygrid.inputs import download_once
 
 
 def _list_keys(prefix: str) -> list[str]:
     keys, token = [], ""
     while True:
-        url = f"{_OEDI}/?list-type=2&prefix={prefix}" + (f"&continuation-token={token}" if token else "")
+        url = f"{OEDI_URL}/?list-type=2&prefix={prefix}" + (f"&continuation-token={token}" if token else "")
         with urlopen(url, timeout=120) as r:
             body = r.read().decode()
         keys += [k.split("</Key>")[0] for k in body.split("<Key>")[1:]]
@@ -77,11 +45,11 @@ def _quarter_per_unit(key: str) -> tuple[str, str, str, float, np.ndarray]:
     covers minutes 15 r to 15 (r + 1) of the year and its mean power is four times its kWh."""
     sector = "res" if "resstock" in key else "com"
     size_col = "units_represented" if sector == "res" else "floor_area_represented"
-    df = pd.read_csv(f"{_OEDI}/{key}", usecols=[size_col, "out.electricity.total.energy_consumption"])
+    df = pd.read_csv(f"{OEDI_URL}/{key}", usecols=[size_col, "out.electricity.total.energy_consumption"])
     kwh = df["out.electricity.total.energy_consumption"].to_numpy()
     size = float(df[size_col].iloc[0])
     county, kind = key.rsplit("/", 1)[1][:-4].split("-", 1)
-    return sector, county.upper(), kind, size, 4 * kwh[:QUARTERS] / size
+    return sector, county.upper(), kind, size, 4 * kwh[:QUARTERS_PER_YEAR] / size
 
 
 def _building_stock(cache: Path) -> dict[str, np.ndarray]:
@@ -91,7 +59,10 @@ def _building_stock(cache: Path) -> dict[str, np.ndarray]:
     path = cache / "building_stock_ny_15min.npz"
     if not path.exists():
         keys = [
-            k for s in ("resstock", "comstock") for k in _list_keys(_STOCK.format(s)) if k.endswith(".csv")
+            k
+            for s in ("resstock", "comstock")
+            for k in _list_keys(STOCK_KEY_PREFIX.format(s))
+            if k.endswith(".csv")
         ]
         with ThreadPoolExecutor(8) as pool:
             rows = list(pool.map(_quarter_per_unit, keys))
@@ -109,7 +80,7 @@ def _building_stock(cache: Path) -> dict[str, np.ndarray]:
 def _sector_mix(cache: Path) -> dict[str, np.ndarray]:
     """II-B: each utility's residential, commercial and industrial share of its 2019 MWh sales to ultimate
     customers, bundled (Part A) plus delivery (Part C). Transportation sales count as commercial."""
-    with zipfile.ZipFile(download_once(_EIA, cache / "f8612019.zip")) as z:
+    with zipfile.ZipFile(download_once(EIA_861_URL, cache / "f8612019.zip")) as z:
         s = pd.read_excel(io.BytesIO(z.read("Sales_Ult_Cust_2019.xlsx")), sheet_name="States", header=2)
     s = s[(s.State == "NY") & s.Part.isin(["A", "C"])]
     mwh = s[["Megawatthours", "Megawatthours.1", "Megawatthours.2", "Megawatthours.3"]]
@@ -123,7 +94,7 @@ def _sector_mix(cache: Path) -> dict[str, np.ndarray]:
 
 def _county_centroids(cache: Path) -> dict[str, tuple[float, float]]:
     """NY county internal points (lat, lon) from the 2019 Census gazetteer, keyed by NHGIS code as the OEDI files are."""
-    with zipfile.ZipFile(download_once(_GAZETTEER, cache / "2019_Gaz_counties_national.zip")) as z:
+    with zipfile.ZipFile(download_once(GAZETTEER_URL, cache / "2019_Gaz_counties_national.zip")) as z:
         text = z.read(z.namelist()[0]).decode("latin-1")
     rows = csv.DictReader(io.StringIO(text), delimiter="\t")
     out = {}
@@ -148,16 +119,16 @@ def _plants(cache: Path) -> dict[str, np.ndarray]:
     yearly kW-months over 12. Plants with a load factor above 1 or more than 8760 hours are data errors."""
     path = cache / "iac_plants.npz"
     if not path.exists():
-        with zipfile.ZipFile(download_once(_IAC, cache / "ITAC_Database.zip")) as z:
+        with zipfile.ZipFile(download_once(IAC_URL, cache / "ITAC_Database.zip")) as z:
             a = pd.read_excel(io.BytesIO(z.read(z.namelist()[0])), sheet_name="ASSESS")
         a = a[
             (a.EC_plant_usage > 0)
             & (a.ED_plant_usage > 0)
             & (a.PRODHOURS > 0)
-            & (a.PRODHOURS <= HOURS)
+            & (a.PRODHOURS <= HOURS_PER_YEAR)
             & a.SIC.notna()
         ].copy()
-        a["lf"] = a.EC_plant_usage / (a.ED_plant_usage / 12 * HOURS)
+        a["lf"] = a.EC_plant_usage / (a.ED_plant_usage / 12 * HOURS_PER_YEAR)
         a = a[a.lf <= 1]
         sic_lf = a.groupby("SIC").lf.transform("mean").to_numpy()
         np.savez_compressed(

@@ -15,10 +15,11 @@ from typing import Annotated, Optional, Union, cast
 
 import numpy as np
 
+from ..constants.families import GENERATED_FAMILIES, NEW_YORK_FAMILIES
+from ..constants.files import EXPORT_COLUMNS
+from ..constants.newyork import RELEASE_INTERFACE
 from ..errors import ConfigError
 from .choices import (
-    GENERATED_FAMILIES,
-    NEW_YORK_FAMILIES,
     AmAttack,
     AreaRule,
     Format,
@@ -336,10 +337,6 @@ class ShardRun(Validated):
     frames: Annotated[Optional[int], Integer(), AtLeast(1)] = None
 
 
-# How each operator's downloadable CSV export names its (timestamp, load) columns.
-EXPORT_COLUMNS = {"caiso": ("interval_start_local", "load"), "nyiso": ("Time Stamp", "Load")}
-
-
 @dataclass(frozen=True)
 class IsoExport(Validated):
     """A directory of one operator's load export; the operator must have a known export format."""
@@ -361,7 +358,6 @@ class IsoExport(Validated):
 # ---- the New York grid -------------------------------------------------------------------------------
 SurveyGrid = Annotated[int, Integer(), AtLeast(0)]  # frames between two surveyed onsets; 0: no survey
 FolderPath = Union[str, os.PathLike[str]]
-RELEASE_INTERFACE = "SPR/DUN-SOUTH"  # the NYISO interface the release's Am attacks (N48)
 
 
 @dataclass(frozen=True)

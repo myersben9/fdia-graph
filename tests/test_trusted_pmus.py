@@ -17,6 +17,10 @@ import pytest
 
 pytest.importorskip("pandapower")
 
+from fdia_graph.constants.channels import (
+    CurrentChannel,  # noqa: E402
+    NodeChannel,  # noqa: E402
+)
 from fdia_graph.engine.attacks.minimize import _Window  # noqa: E402
 from fdia_graph.engine.core import FdiaGenerator  # noqa: E402
 from fdia_graph.errors import ConfigError  # noqa: E402
@@ -26,7 +30,6 @@ from fdia_graph.models.config import (
     TrustSchedule,  # noqa: E402
 )
 from fdia_graph.models.frames import FrameKnobs  # noqa: E402
-from fdia_graph.models.grid import CURRENT, NODE  # noqa: E402
 
 from . import case_studies  # noqa: E402
 
@@ -95,7 +98,9 @@ def test_a_trusted_pmu_keeps_its_bus_true_from_its_slot_on():
     for t in (2, 3, 10):
         Xa = g.goal_state(goal, t, window[t], w.support_at(t, S), k)
         assert Xa is not None
-        moved = not np.array_equal(Xa[bus4, [NODE.v, NODE.theta]], window[t][bus4, [NODE.v, NODE.theta]])
+        moved = not np.array_equal(
+            Xa[bus4, [NodeChannel.V, NodeChannel.THETA]], window[t][bus4, [NodeChannel.V, NodeChannel.THETA]]
+        )
         assert moved == (t < 3)
 
 
@@ -119,11 +124,14 @@ def _named(g, window, k, goal, trust, result) -> set[str]:
         assert snap is not None
         node, edge, cur, prev = snap
         for b, c in zip(*np.nonzero(node)):
-            names.add(("PMU " if c in (NODE.v, NODE.theta) and w.pmu[b] else "SCADA ") + str(number[b]))
+            names.add(
+                ("PMU " if c in (NodeChannel.V, NodeChannel.THETA) and w.pmu[b] else "SCADA ")
+                + str(number[b])
+            )
         for e, _c in zip(*np.nonzero(edge)):
             names.add(f"SCADA {number[g.ei[0, e]]}")
         for e, c in zip(*np.nonzero(cur)):  # a PMU's branch current at its end of the branch
-            end = g.ei[0, e] if c in (CURRENT.re_from, CURRENT.im_from) else g.ei[1, e]
+            end = g.ei[0, e] if c in (CurrentChannel.RE_FROM, CurrentChannel.IM_FROM) else g.ei[1, e]
             names.add(f"PMU {number[end]}")
     return names
 

@@ -12,8 +12,8 @@ import numpy as np
 from fdia_analysis.formulas.trust import attack_cost, greedy_trusted_meters
 from fdia_analysis.models.config import TrustConfig
 from fdia_analysis.models.scores import TrustScores
+from fdia_graph.constants.families import BENIGN_CODE
 from fdia_graph.errors import NoBenignRecords
-from fdia_graph.models.choices import BENIGN_CODE
 
 if TYPE_CHECKING:
     from fdia_graph.dataset import FdiaGraph
@@ -78,7 +78,7 @@ class TrustSelector:
         """Residual detection per family with and without the secured meters, on a timeline view
         (the benign layer is what a secured meter reads), at the alarm level `fit` calibrated on
         benign training records; `false_alarm` is the benign rate of this view at that level."""
-        from fdia_graph.models.choices import FAMILIES
+        from fdia_graph.constants.families import FAMILIES
 
         ds.require("physical_units", "benign_layer", by="the secured-meter score")
         d = ds.export(["node_x", "edge_x", "benign", "edge_benign", "family"])

@@ -29,12 +29,14 @@ from __future__ import annotations
 
 import numpy as np
 
+from fdia_graph.constants.grid import BusType
+from fdia_graph.constants.meters import MeterKind
+from fdia_graph.constants.newyork import BASEPOINT_BAND, HYDRO_RAMP_PER_MIN, IMPORT_RAMP_MW_PER_MIN, Q_SHARE
 from fdia_graph.engine.sensing.measure import Measurement
-from fdia_graph.engine.sensing.meters import IA, VA
 from fdia_graph.engine.sensing.noise import NoiseModel
 from fdia_graph.formulas.network import local_flow_solve
 from fdia_graph.formulas.temporal import wrap_degrees
-from fdia_graph.generation.nygrid.case import REF, Case
+from fdia_graph.generation.nygrid.case import Case
 from fdia_graph.generation.nygrid.network import Network
 
 
@@ -57,12 +59,6 @@ def natural_steps(time: np.ndarray, p: np.ndarray, solved: np.ndarray, pct: floa
     return out
 
 
-HYDRO_RAMP_PER_MIN = 0.10  # share of nameplate per minute (USBR, Hydro Model Data Project, 2013, Tables 1-2)
-IMPORT_RAMP_MW_PER_MIN = (
-    300.0 / 15
-)  # NY real-time interchange ramp per interface (ISO-NE CROP.31001, 300 MW per 15 min)
-BASEPOINT_BAND = 0.03  # share of the upper operating limit (NYISO MST Rate Schedule 3-A, 15.3A.1)
-Q_SHARE = 0.312  # |Q| per MW of capability at power factor 0.95 (NYISO Manual 2, 3.6; FERC Order 827)
 ABSORB_CAP = 0.5  # the share of its true load an absorbing load may move by in `Attacker.false_state`
 
 
@@ -108,7 +104,7 @@ def wrap_angles(d: np.ndarray, kind: np.ndarray) -> np.ndarray:
     """A difference of readings `d [..., M]` with each angle reading's (kinds va and ia, degrees) wrapped
     to (-180, 180]; `kind [M]` the meter kinds. The other readings are returned as they are."""
     d = np.array(d, float, copy=True)
-    angle = np.isin(kind, (VA, IA))
+    angle = np.isin(kind, (MeterKind.VA, MeterKind.IA))
     d[..., angle] = wrap_degrees(d[..., angle])
     return d
 
@@ -142,7 +138,7 @@ class Attacker:
         owner = np.full(n, -1)
         owner[plan.bus] = plan.owner
         self.owner = owner
-        self.slack = int(np.flatnonzero(case.bus_type == REF)[0])
+        self.slack = int(np.flatnonzero(case.bus_type == BusType.REF)[0])
         self.gen_bus = np.zeros(n, bool)
         self.gen_bus[case.unit_bus] = True
         self.base_mva = float(case.base_mva)

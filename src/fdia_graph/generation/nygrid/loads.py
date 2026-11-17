@@ -47,12 +47,11 @@ import pandas as pd
 from scipy.signal import lfilter
 from scipy.stats import genpareto
 
-from fdia_graph.generation.nygrid.case import ZONES, Case
+from fdia_graph.constants import newyork
+from fdia_graph.constants.time import FRAME_MINUTES, HOURS_PER_YEAR, QUARTERS_PER_YEAR
+from fdia_graph.generation.nygrid.case import Case
 from fdia_graph.generation.nygrid.inputs import ZoneLoad, _bus_weights
 from fdia_graph.generation.nygrid.load_sources import (
-    HOURS,
-    QUARTERS,
-    REFERENCE_FT2,
     _building_stock,
     _county_centroids,
     _operating_rank,
@@ -62,27 +61,6 @@ from fdia_graph.generation.nygrid.load_sources import (
 )
 from fdia_graph.generation.nygrid.ownership import Ownership
 from fdia_graph.generation.nygrid.tables import read_rows
-
-POWER_FACTOR = 0.98  # NYgrid's load power factor (allocateLoad.m), so P4 still compares with MATLAB
-POOL_COUNTIES = 5  # II-D: the five prototype locations nearest the bus
-SWAP_PAIRS = (100, 100, 50)  # II-D: hour pairs permuted per residential, commercial, industrial pick
-
-# N31 within-hour terms (module docstring). FLUCT_* were fitted on NYISO 2018, zone H left out, and SWITCH_* on
-# NYISO 2019 zone D with the model's mean industrial load there (125.43 MW, its one NYSEG load bus). The two
-# fitting functions were removed after release 0.21.0 (there `_fluctuation_fit` and `_switching_fit` in
-# `fdia_graph/nyfed/scenario/loads.py`); the constants are their results.
-# The residual's own spread is 0.2554 size^-0.516 (R^2 0.61 over the ten zones); FLUCT_C is the AR(1)'s.
-FLUCT_C, FLUCT_BETA, FLUCT_PHI = 0.32547, 0.51590, 0.37889
-SWITCH_RATE = 0.0012584  # pulses per MW of mean industrial load per hour
-SWITCH_U, SWITCH_XI, SWITCH_SCALE, SWITCH_MAX = (
-    0.21958,
-    0.36568,
-    0.058239,
-    2.5035,
-)  # size / mean industrial load
-SWITCH_DUR_MU, SWITCH_DUR_SIGMA = 4.61943, 1.63243  # log minutes
-SWITCH_OFF = 0.51719
-FRAME_MIN = 5.0
 
 
 @dataclass(frozen=True)
@@ -124,7 +102,7 @@ class LoadModel:
         self.proto = np.concatenate([prof[:, 96:], prof[:, -96:]], axis=1)
         self.proto_sector, self.proto_county = stock["sector"], stock["county"]
         com = self.proto_sector == "com"
-        n_ft2 = np.array([REFERENCE_FT2[k] for k in stock["kind"][com]], dtype=float)
+        n_ft2 = np.array([newyork.REFERENCE_FT2[k] for k in stock["kind"][com]], dtype=float)
         self.proto[com] *= n_ft2[:, None]  # one reference building per commercial pick
         self.count = stock["size"].astype(float)  # buildings each prototype stands for in the county
         self.count[com] /= n_ft2
@@ -140,7 +118,7 @@ class LoadModel:
             r = rows.get(int(case.bus_id[b]), {})
             lat, lon = (float(r["lat"]), float(r["lon"])) if r.get("lat") else (case.lat[b], case.lon[b])
             d = np.hypot(cxy[:, 0] - lat, (cxy[:, 1] - lon) * np.cos(np.deg2rad(lat)))
-            self.pool_counties.append([names[k] for k in np.argsort(d)[:POOL_COUNTIES]])
+            self.pool_counties.append([names[k] for k in np.argsort(d)[: newyork.POOL_COUNTIES]])
 
         self.plants = _plants(cache)
         lf = self.plants["sic_lf"]
@@ -160,7 +138,7 @@ class LoadModel:
     ) -> np.ndarray:
         """II-D for residential or commercial load: pick prototype buildings of the bus's five counties,
         in proportion to how many each stands for, each with `pairs` random hour pairs swapped, until the
-        sum peaks at `target_kw`. Returns the 15-minute sum [QUARTERS]."""
+        sum peaks at `target_kw`. Returns the 15-minute sum [QUARTERS_PER_YEAR]."""
         idx = np.flatnonzero((self.proto_sector == sector) & np.isin(self.proto_county, counties))
         protos, prob = self.proto[idx], self.count[idx] / self.count[idx].sum()
         return self._aggregate(target_kw, protos, prob, pairs, rng)
@@ -168,8 +146,8 @@ class LoadModel:
     def _aggregate(self, target_kw, protos, prob, pairs, rng):
         """The loop of Fig. 5 on 15-minute prototypes. The peak is the hourly peak, as [2]'s prototypes
         are hourly, and a swap exchanges two whole hours (four rows each), so the method stays [2]'s."""
-        total = np.zeros(QUARTERS)
-        blocks = protos.reshape(len(protos), HOURS, 4)
+        total = np.zeros(QUARTERS_PER_YEAR)
+        blocks = protos.reshape(len(protos), HOURS_PER_YEAR, 4)
         mean_peak = float(prob @ blocks.mean(axis=2).max(axis=1))
         quarter = np.arange(4)
         while _hourly_peak(total) < target_kw:
@@ -180,18 +158,20 @@ class LoadModel:
             total += np.bincount(picks, minlength=len(protos)) @ protos
             for start in range(0, k, 25_000):
                 who = np.repeat(picks[start : start + 25_000], pairs)
-                a, b = rng.integers(0, HOURS, size=(2, len(who)))
+                a, b = rng.integers(0, HOURS_PER_YEAR, size=(2, len(who)))
                 delta = (blocks[who, b] - blocks[who, a]).ravel()
                 rows_a = (4 * a[:, None] + quarter).ravel()
                 rows_b = (4 * b[:, None] + quarter).ravel()
-                total += np.bincount(rows_a, delta, QUARTERS) - np.bincount(rows_b, delta, QUARTERS)
+                total += np.bincount(rows_a, delta, QUARTERS_PER_YEAR) - np.bincount(
+                    rows_b, delta, QUARTERS_PER_YEAR
+                )
         return total
 
     def _industry(self, target_kw: float, rng: np.random.Generator) -> np.ndarray:
         """II-C2 and II-D for industrial load: any IAC plant smaller than the target, each starting its
         operating days on a random day and with 50 hour pairs swapped, until the sum peaks at the target."""
         pool = np.flatnonzero(self.plant_scale < target_kw)
-        total = np.zeros(HOURS)
+        total = np.zeros(HOURS_PER_YEAR)
         if target_kw <= 0 or len(pool) == 0:
             return total
         mean_peak = float(self.plant_scale[pool].mean())
@@ -213,7 +193,7 @@ class LoadModel:
             k = int(np.argmax(peak >= target_kw)) + 1 if (peak >= target_kw).any() else k
             f, on, lo, scale = f[:k], on[:k], lo[:k], scale[:k]
             total += const[k - 1] + np.repeat(daily[k - 1], 24) * np.tile(self.work, 365)
-            a, b = rng.integers(0, HOURS, size=(2, k, SWAP_PAIRS[2]))
+            a, b = rng.integers(0, HOURS_PER_YEAR, size=(2, k, newyork.SWAP_PAIRS[2]))
             rows = np.arange(k)[:, None]
 
             def value(h):
@@ -222,22 +202,24 @@ class LoadModel:
                 )
 
             delta = (value(b) - value(a)).ravel()
-            total += np.bincount(a.ravel(), delta, HOURS) - np.bincount(b.ravel(), delta, HOURS)
+            total += np.bincount(a.ravel(), delta, HOURS_PER_YEAR) - np.bincount(
+                b.ravel(), delta, HOURS_PER_YEAR
+            )
         return total
 
     def _quarterly(self, peak_mw: np.ndarray, rng: np.random.Generator) -> tuple[np.ndarray, np.ndarray]:
-        """[QUARTERS, B] aggregated kW of every load bus, and of its industrial part alone, 15-minute rows of
+        """[QUARTERS_PER_YEAR, B] aggregated kW of every load bus, and of its industrial part alone, 15-minute rows of
         `year` in EST, for zone peaks `peak_mw [11]`. II-A: a bus's size is its NYgrid share of its zone's
         peak, split by its utility's mix. The hourly plant curves are held flat within each hour."""
-        out = np.zeros((QUARTERS, len(self.load_bus)))
-        ind = np.zeros((QUARTERS, len(self.load_bus)))
+        out = np.zeros((QUARTERS_PER_YEAR, len(self.load_bus)))
+        ind = np.zeros((QUARTERS_PER_YEAR, len(self.load_bus)))
         for j, b in enumerate(self.load_bus):
             size_kw = 1000 * self.weights[b, self.zone_of[j]] * peak_mw[self.zone_of[j]]
             res, com, ind_kw = size_kw * self.mix[j]
             ind[:, j] = np.repeat(self._industry(ind_kw, rng), 4)
             out[:, j] = (
-                self._buildings(res, "res", self.pool_counties[j], SWAP_PAIRS[0], rng)
-                + self._buildings(com, "com", self.pool_counties[j], SWAP_PAIRS[1], rng)
+                self._buildings(res, "res", self.pool_counties[j], newyork.SWAP_PAIRS[0], rng)
+                + self._buildings(com, "com", self.pool_counties[j], newyork.SWAP_PAIRS[1], rng)
                 + ind[:, j]
             )
         return out, ind
@@ -249,7 +231,7 @@ class LoadModel:
         are rescaled so they sum to the zone exactly. Q follows at POWER_FACTOR. External buses keep their
         base load."""
         quarterly, ind = self._quarterly(np.nanmax(zone_load.load, axis=0), rng)
-        zone_sum = np.zeros((QUARTERS, len(ZONES)))
+        zone_sum = np.zeros((QUARTERS_PER_YEAR, len(newyork.ZONES)))
         np.add.at(zone_sum.T, self.zone_of, quarterly.T)
         share = quarterly / zone_sum[:, self.zone_of]
         ind_share = ind / zone_sum[:, self.zone_of]
@@ -260,28 +242,28 @@ class LoadModel:
         )
         est = t.tz_convert("Etc/GMT+5").tz_localize(None)
         x = (est - pd.Timestamp(f"{self.year}-01-01")).total_seconds().to_numpy() / 900
-        mid = np.arange(QUARTERS) + 0.5
+        mid = np.arange(QUARTERS_PER_YEAR) + 0.5
         zone = zone_load.load[:, self.zone_of]
         base = np.stack([np.interp(x, mid, share[:, j]) for j in range(share.shape[1])], 1) * zone
         ind_f = np.stack([np.interp(x, mid, ind_share[:, j]) for j in range(share.shape[1])], 1) * zone
 
         size = np.nanmean(base, axis=0)  # each bus's mean load, MW
-        bus = base * (1 + _ar1(len(x), FLUCT_C * size**-FLUCT_BETA, FLUCT_PHI, rng))
+        bus = base * (1 + _ar1(len(x), newyork.FLUCT_C * size**-newyork.FLUCT_BETA, newyork.FLUCT_PHI, rng))
         bus += _switching(ind_f, rng)
-        total = np.zeros((len(x), len(ZONES)))
+        total = np.zeros((len(x), len(newyork.ZONES)))
         np.add.at(total.T, self.zone_of, bus.T)
         bus *= zone / total[:, self.zone_of]
 
         p = np.tile(np.where(self.case.is_ny, 0.0, self.case.pd), (len(x), 1))
         q = np.tile(np.where(self.case.is_ny, 0.0, self.case.qd), (len(x), 1))
         p[:, self.load_bus] = bus
-        q[:, self.load_bus] = p[:, self.load_bus] * np.tan(np.arccos(POWER_FACTOR))
+        q[:, self.load_bus] = p[:, self.load_bus] * np.tan(np.arccos(newyork.POWER_FACTOR))
         return LoadSeries(time=zone_load.time, p=p, q=q)
 
 
 def _hourly_peak(x: np.ndarray) -> float:
     """The peak of the hourly means of a 15-minute series."""
-    return float(x.reshape(HOURS, 4).mean(axis=1).max())
+    return float(x.reshape(HOURS_PER_YEAR, 4).mean(axis=1).max())
 
 
 def _ar1(n: int, sigma: np.ndarray, phi: float, rng: np.random.Generator) -> np.ndarray:
@@ -300,22 +282,21 @@ def _switching(ind: np.ndarray, rng: np.random.Generator) -> np.ndarray:
     share SWITCH_OFF starting with a drop. Drops are clipped so the industrial load never goes below zero."""
     T, B = ind.shape
     out = np.zeros((T, B))
-    hours = T * FRAME_MIN / 60
+    hours = T * FRAME_MINUTES / 60
     for j in range(B):
         mean = float(np.nanmean(ind[:, j]))
         if not mean > 0:
             continue
-        n = rng.poisson(SWITCH_RATE * mean * hours)
+        n = rng.poisson(newyork.SWITCH_RATE * mean * hours)
         onset = rng.integers(0, T, size=n)
-        size = SWITCH_U + genpareto.rvs(SWITCH_XI, scale=SWITCH_SCALE, size=n, random_state=rng)
-        while (big := size > SWITCH_MAX).any():  # truncate by redrawing, so no mass piles at the maximum
-            size[big] = SWITCH_U + genpareto.rvs(
-                SWITCH_XI, scale=SWITCH_SCALE, size=big.sum(), random_state=rng
-            )
-        length = np.maximum(
-            1, np.round(rng.lognormal(SWITCH_DUR_MU, SWITCH_DUR_SIGMA, size=n) / FRAME_MIN)
-        ).astype(int)
-        sign = np.where(rng.random(n) < SWITCH_OFF, -1.0, 1.0)
+        xi, scale = newyork.SWITCH_XI, newyork.SWITCH_SCALE
+        size = newyork.SWITCH_U + genpareto.rvs(xi, scale=scale, size=n, random_state=rng)
+        # truncate by redrawing, so no mass piles at the maximum
+        while (big := size > newyork.SWITCH_MAX).any():
+            size[big] = newyork.SWITCH_U + genpareto.rvs(xi, scale=scale, size=big.sum(), random_state=rng)
+        minutes = rng.lognormal(newyork.SWITCH_DUR_MU, newyork.SWITCH_DUR_SIGMA, size=n)
+        length = np.maximum(1, np.round(minutes / FRAME_MINUTES)).astype(int)
+        sign = np.where(rng.random(n) < newyork.SWITCH_OFF, -1.0, 1.0)
         delta = np.zeros(T + 1)
         np.add.at(delta, onset, sign * size * mean)
         np.add.at(delta, np.minimum(onset + length, T), -sign * size * mean)

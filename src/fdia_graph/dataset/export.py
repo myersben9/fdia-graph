@@ -14,25 +14,13 @@ import h5py
 import numpy as np
 
 from .. import schema
-from ..models.choices import FAMILIES
+from ..constants.families import FAMILIES
+from ..constants.records import CLEAN_FIELDS, FLOW_COLUMNS, INT_FIELDS, PREV_SOURCE_FIELD, UNIT_KIND
 from ..models.config import ExportRequest
 from ..models.data import ArraysBundle, Summary
 from ..models.inputs import FieldRequest
-from .base import (
-    _BENIGN_LAYERS,
-    _CLEAN_LAYERS,
-    _CURRENT_LAYERS,
-    _PREV_FIELDS,
-    _UNIT_KIND,
-    DatasetBase,
-    _torch,
-)
-
-# the pandas column of each flow in a file's `edge_feat` legend; a flow not named here keeps its legend name
-_FLOW_COLUMNS = {"P_from": "Pflow", "Q_from": "Qflow"}
-_INT_KEYS = frozenset(
-    {"family", "stealthy", "seq_id", "timestep", "prev_timestep", "edge_index"}
-)  # int64 tensors
+from ..schema import BENIGN_PATH, CURRENT_PATH
+from .base import DatasetBase, _torch
 
 
 class ExportMixin(DatasetBase):
@@ -60,7 +48,7 @@ class ExportMixin(DatasetBase):
         # on request only, a timeline's previous frame; its swing and PMU currents only when the file
         # carries them
         needs = {"prev_swing": self.has_swing, "prev_pmu_i": self.has_currents}
-        prev = [k for k in _PREV_FIELDS if needs.get(k, True)]
+        prev = [k for k in PREV_SOURCE_FIELD if needs.get(k, True)]
         offered = known + prev
         return list(FieldRequest(fields, tuple(offered), tuple(known)).fields)
 
@@ -73,9 +61,9 @@ class ExportMixin(DatasetBase):
             + (["clean"] if self._clean_np is not None else [])
             + (["edge_clean"] if self._eclean_np is not None else [])
             + (["edge_clean_full"] if self.has_clean_full else [])
-            + (list(_BENIGN_LAYERS) if self.has_benign else [])
+            + (list(BENIGN_PATH) if self.has_benign else [])
             + ["family", "stealthy", "seq_id", "timestep"]
-            + (list(_CURRENT_LAYERS) if self.has_currents else [])
+            + (list(CURRENT_PATH) if self.has_currents else [])
         )
 
     def _clean_layers(self, want: Sequence[str], ts: np.ndarray) -> dict[str, np.ndarray]:
@@ -138,7 +126,7 @@ class ExportMixin(DatasetBase):
     def _gather(self, want: Sequence[str]) -> dict[str, np.ndarray]:
         """The requested per-record arrays for the kept rows, in file order: one bulk gather per
         field from data/, the benign layers from benign/, the clean layers through the timestep."""
-        derived = set(_CLEAN_LAYERS) | set(_PREV_FIELDS)
+        derived = set(CLEAN_FIELDS) | set(PREV_SOURCE_FIELD)
         # self.idx is sorted-unique by construction, as h5py fancy-indexing requires
         with h5py.File(self.path, "r") as f:
             out = {k: f[schema.FIELD_PATH[k]][self.idx] for k in want if k not in derived}  # [n, ...] arrays
@@ -149,10 +137,10 @@ class ExportMixin(DatasetBase):
         """The layers not stored per kept row: the clean layers through the pool timestep, the
         previous frame's readings through file row - 1."""
         out: dict[str, np.ndarray] = {}
-        clean_want = [k for k in want if k in _CLEAN_LAYERS]
+        clean_want = [k for k in want if k in CLEAN_FIELDS]
         if clean_want:
             out.update(self._clean_layers(clean_want, f[schema.TIMESTEP][self.idx]))
-        prev_want = [k for k in want if k in _PREV_FIELDS]
+        prev_want = [k for k in want if k in PREV_SOURCE_FIELD]
         if prev_want:
             out.update(self._previous_frame(f, prev_want))
         return out
@@ -161,13 +149,13 @@ class ExportMixin(DatasetBase):
         """The readings of the frame emitted just before each kept record (file row - 1, read
         whatever split or family that row belongs to; the first frame stands in for its own)."""
         rows, back = np.unique(np.maximum(self.idx - 1, 0), return_inverse=True)  # h5py needs sorted-unique
-        return {k: f[schema.FIELD_PATH[_PREV_FIELDS[k]]][rows][back] for k in want}
+        return {k: f[schema.FIELD_PATH[PREV_SOURCE_FIELD[k]]][rows][back] for k in want}
 
     def _in_units(self, out: dict[str, np.ndarray]) -> dict[str, np.ndarray]:
         """The returned arrays in self.units: power and angle arrays converted to per unit when asked
         (the angles of polar PMU currents among them), masks, labels and the swing z-score untouched."""
         if self.units == "pu":
-            for k, kind in _UNIT_KIND.items():
+            for k, kind in UNIT_KIND.items():
                 if k in out:
                     out[k] = self._to_units(out[k], kind)
         return out
@@ -178,7 +166,7 @@ class ExportMixin(DatasetBase):
         out = {}
         for k, v in arrays.items():
             t = torch.as_tensor(v)
-            t = t.long() if k in _INT_KEYS else t.float()
+            t = t.long() if k in INT_FIELDS else t.float()
             out[k] = t.to(device) if device else t
         return ArraysBundle.ordered(out)
 
@@ -217,7 +205,7 @@ class ExportMixin(DatasetBase):
         for ci, nm in enumerate(["V", "Pinj", "Qinj", "theta"]):  # node_x[:, :, ci] is [n, N]
             blocks.append(pd.DataFrame(a["node_x"][:, :, ci], columns=[f"{nm}_b{b}" for b in range(N)]))
         for ci, flow in enumerate(self.edge_feat):  # edge_x[:, :, ci] is [n, E]
-            nm = _FLOW_COLUMNS.get(flow, flow)
+            nm = FLOW_COLUMNS.get(flow, flow)
             blocks.append(pd.DataFrame(a["edge_x"][:, :, ci], columns=[f"{nm}_e{e}" for e in range(E)]))
         blocks.append(pd.DataFrame(a["y"].astype(int), columns=[f"attacked_b{b}" for b in range(N)]))
         return pd.concat(blocks, axis=1)

@@ -45,6 +45,16 @@ def test_every_public_path_refuses_a_per_unit_view(timeline, splits, wls):
         TrustedMeters(TrustConfig(k=2)).fit(splits["train"]).score(pu)
 
 
+def test_the_measurement_mask_is_laid_out_column_by_column(splits, wls):
+    """The order of the measurement vector: V of every bus, then P, Q, theta, then P_from of every
+    branch, then Q_from. The columns of the meter masks differ, so a row-by-row layout would fail."""
+    masks = splits["train"].export(["node_m", "edge_m"])
+    nm, em = masks["node_m"][0].astype(bool), masks["edge_m"][0].astype(bool)
+    assert not (nm[:, 0] == nm[:, 3]).all()  # |V| and theta are not metered at the same buses
+    columns = [nm[:, 0], nm[:, 1], nm[:, 2], nm[:, 3], em[:, 0], em[:, 1]]
+    assert wls.mask.tolist() == np.concatenate(columns).tolist()
+
+
 def test_residual_localizer_keeps_a_fitted_estimator(splits, wls):
     from fdia_analysis.localization.methods import ResidualLocalizer
 
@@ -153,7 +163,7 @@ def test_measured_calibration_reads_no_clean_layer(timeline, tmp_path):
 
     from fdia_analysis.se.methods import WLS
     from fdia_graph import schema
-    from fdia_graph.formulas.noise import ACCURACY_CLASS
+    from fdia_graph.constants.meters import ACCURACY_CLASS
 
     a = WLS().fit(fg.load(timeline, split="train"), calibrate="measured")
     copy = str(tmp_path / "scrambled.h5")

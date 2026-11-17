@@ -4,6 +4,7 @@ import pytest
 
 import fdia_graph as fg
 from fdia_graph import registry
+from fdia_graph.constants.releases import BUILTIN, SHA256
 
 
 def test_release_tags_order_and_layout():
@@ -25,14 +26,14 @@ def test_release_tags_order_and_layout():
 def test_resolve_follows_the_release():
     old = registry.resolve("ieee14", release="v0.8.1")
     assert old.file == "timeline_ieee14.h5" and old.release == "data-v0.8.1" and old.system == 14
-    assert old.sha256 == registry._SHA256["v0.8.1"]["ieee14"]
+    assert old.sha256 == SHA256["v0.8.1"]["ieee14"]
     new = registry.resolve(300, release="v0.8.0")
     assert new.file == "timeline_ieee300.h5" and new.release == "data-v0.8.0"  # the tag the assets live under
     assert registry.resolve(300, release="data-v0.8.0").release == "data-v0.8.0"
     assert registry.pool_spec(14, "v0.8.0").release == "data-v0.8.0"
-    assert new.sha256 == registry._SHA256.get("v0.8.0", {}).get("ieee300")
+    assert new.sha256 == SHA256.get("v0.8.0", {}).get("ieee300")
     assert registry.resolve("118").file == registry.dataset_file(118)
-    assert set(registry.BUILTIN) == {f"ieee{C}" for C in (14, 30, 57, 89, 118, 145, 200, 300)}
+    assert set(BUILTIN) == {f"ieee{C}" for C in (14, 30, 57, 89, 118, 145, 200, 300)}
     with pytest.raises(KeyError, match="unknown dataset"):
         registry.resolve("ieee999")
 

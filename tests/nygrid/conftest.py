@@ -39,6 +39,7 @@ def grid():
     """(pool, attacker, families, ownership): the packaged case, three made-up clients, a made-up pool."""
     pytest.importorskip("matpowercaseframes")  # the packaged case file's reader (the [ny] extra)
     pytest.importorskip("scipy")
+    from fdia_graph.constants.newyork import SolveKind
     from fdia_graph.engine.attacks.attacker import Attacker
     from fdia_graph.engine.sensing.measure import Measurement
     from fdia_graph.engine.sensing.meters import plan_meters
@@ -46,7 +47,7 @@ def grid():
     from fdia_graph.generation.nygrid.config import Settings, rng
     from fdia_graph.generation.nygrid.network import Network
     from fdia_graph.generation.nygrid.ownership import Ownership
-    from fdia_graph.generation.nygrid.pool import FAILED, SOLVED, Pool
+    from fdia_graph.generation.nygrid.pool import Pool
 
     case = nygrid_case()
     n = len(case.bus_id)
@@ -56,8 +57,8 @@ def grid():
     meas = Measurement(net, plan_meters(net, own, rng(Settings(), "meters")))
     draw = np.random.default_rng(7)
     vm, va = 1.0 + 0.01 * draw.standard_normal((T, n)), 2.0 * draw.standard_normal((T, n))
-    kind = np.full(T, SOLVED)
-    vm[UNSOLVED], va[UNSOLVED], kind[UNSOLVED] = np.nan, np.nan, FAILED
+    kind = np.full(T, SolveKind.SOLVED)
+    vm[UNSOLVED], va[UNSOLVED], kind[UNSOLVED] = np.nan, np.nan, SolveKind.FAILED
     time = (np.datetime64("2019-01-01T00:00:00") + np.arange(T) * np.timedelta64(1, "h")).astype(
         "datetime64[s]"
     )

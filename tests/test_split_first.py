@@ -12,8 +12,8 @@ import pytest
 
 from fdia_graph import schema
 from fdia_graph import timeline as tl
+from fdia_graph.constants.families import FAMILY_CODE
 from fdia_graph.generation import plan as plan_stage
-from fdia_graph.models.choices import FAMILY_CODE
 from fdia_graph.models.plan import Placement, Planned, Schedule, Slot, SplitSpan
 from fdia_graph.schema import Attr
 

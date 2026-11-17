@@ -12,8 +12,8 @@ import pytest
 pytest.importorskip("pandapower")
 
 from fdia_graph import schema  # noqa: E402
+from fdia_graph.constants.families import STEALTHY_FAMILIES
 from fdia_graph.generation import _load_states  # noqa: E402
-from fdia_graph.models.choices import STEALTHY_FAMILIES
 from fdia_graph.timeline import generate_timeline
 
 
@@ -423,15 +423,16 @@ def test_block_scale_matches_the_whole_series_kernel(timeline_file):
     import h5py
 
     from fdia_graph import schema
-    from fdia_graph.formulas.temporal import SWING_WINDOW, recent_change_scale
+    from fdia_graph.formulas.temporal import recent_change_scale
     from fdia_graph.generation.write import TimelineWriter
+    from fdia_graph.schema import SWING_WINDOW_SCANS
 
     with h5py.File(timeline_file, "r") as f:
         nx = f[schema.NODE_X]
         T, N = nx.shape[0], nx.shape[1]
         pq = np.zeros((T, N, 4))
         pq[:, :, 1:3] = nx[:, :, 1:3]
-        whole = recent_change_scale(pq, SWING_WINDOW, N)
+        whole = recent_change_scale(pq, SWING_WINDOW_SCANS, N)
         for block in (7, 250):
             scale = TimelineWriter._block_scale
             parts = np.concatenate([scale(nx, a, min(a + block, T)) for a in range(0, T, block)])

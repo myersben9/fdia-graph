@@ -12,6 +12,7 @@ import hashlib
 import inspect
 import json
 
+from .constants.records import BENIGN_FIELDS, CURRENT_FIELDS
 from .models.choices import Split
 
 
@@ -44,6 +45,10 @@ TIMESTEP = path(Group.DATA, "timestep")
 SPLIT = path(Group.DATA, "split")
 TEMPORAL_DELTA = path(Group.DATA, "temporal_delta")
 SWING = path(Group.DATA, "swing")
+# Scans of history the scale of `swing` summarizes [FED26]: the catch rate of the rate-of-change feature
+# plateaus near 60 scans. Part of the feature's definition: every released `swing` layer was computed
+# with it, so a different window gives a different file.
+SWING_WINDOW_SCANS = 60
 EDGE_STATUS = path(Group.DATA, "edge_status")  # v0.6.0 shards: per-record branch status
 TIME = path(Group.DATA, "time")  # New York: each frame's time, int64 seconds of NYISO's local clock
 # benign/, clean/, attack/: per-frame layers
@@ -132,6 +137,10 @@ FIELD_PATH = {
     "pmu_i_m": PMU_I_M,
     "pmu_i_benign": PMU_I_BENIGN,
 }
+# the attack-removed layer of a timeline, and the PMU branch-current layers of a hybrid-meter one:
+# record field -> dataset path, one row per frame
+BENIGN_PATH = {k: FIELD_PATH[k] for k in BENIGN_FIELDS}
+CURRENT_PATH = {k: FIELD_PATH[k] for k in CURRENT_FIELDS}
 
 
 class Attr:
@@ -216,6 +225,45 @@ KIND_TIMELINE = "timeline"
 # files, which carry no `Attr.CURRENT_FORM`), or magnitude and angle in degrees (New York).
 CURRENT_RECTANGULAR, CURRENT_POLAR = "rectangular", "polar"
 
+# ---- the legends a file carries: the values of its legend attributes ------------------------------
+# The columns of the bus layers and of the flow layers, in the order of `constants.channels.NodeChannel`
+# and `EdgeChannel`, each with its unit. A file with the from end only names the first two flows.
+NODE_FEAT_LEGEND = "V,P_inj,Q_inj,theta"  # `Attr.NODE_FEAT`
+NODE_UNITS_LEGEND = "V:pu,P_inj:MW,Q_inj:MVAr,theta:deg"  # `Attr.NODE_UNITS`
+FLOW_NAMES = ("P_from", "Q_from", "P_to", "Q_to")  # joined by commas in `Attr.EDGE_FEAT`
+FLOW_UNITS = ("MW", "MVAr", "MW", "MVAr")  # with the names in `Attr.EDGE_UNITS`: "P_from:MW,Q_from:MVAr"
+EDGE_FEAT_DEFAULT = "P_from,Q_from"  # what a file with no `Attr.EDGE_FEAT` holds
+# The columns of pmu_i and their units, by the form of the phasor (`Attr.CURRENT_FEAT`, `Attr.CURRENT_UNITS`).
+CURRENT_FEAT_LEGEND = {
+    CURRENT_RECTANGULAR: "Re_I_from,Im_I_from,Re_I_to,Im_I_to",
+    CURRENT_POLAR: "I_from,angle_from,I_to,angle_to",
+}
+CURRENT_UNITS_LEGEND = {
+    CURRENT_RECTANGULAR: "pu on the base current",
+    CURRENT_POLAR: "I:pu on the base current,angle:deg",
+}
+# What a 1 in the tamper masks means (`Attr.TAMPER` of attack/): in an IEEE file, and in a New York
+# file (where a bus is labelled attacked where a meter at it is 1).
+IEEE_TAMPER_RULE = (
+    "1 where the attacker wrote the meter: the meters the local false state moves for the "
+    "stealthy families, the changed channels for Ad/As/Ar"
+)
+NEW_YORK_TAMPER_RULE = (
+    "1 where the attack moves the meter's reading by more than its accuracy-class standard deviation"
+)
+# The legends of graph/: what its datasets are and the order of their rows, in an IEEE file and in a
+# New York file (whose rows are in the case file's order).
+GRAPH_LEGEND = {
+    Attr.EDGE_FEAT_STATIC: "r,x,b,g,tap,shift,status,is_trafo (per unit, ppc order = lines then trafos)",
+    Attr.BUS_FEAT_STATIC: "shunt_g,shunt_b (MW/MVAr at 1.0 pu, ppc bus order)",
+    Attr.YBUS_RECONSTRUCTIBLE: "yes, see fdia_graph tests: Y = f(edge_r,x,b,g,tap,shift,status)+bus shunts",
+}
+NEW_YORK_GRAPH_LEGEND = {
+    **GRAPH_LEGEND,
+    Attr.EDGE_FEAT_STATIC: "r,x,b,g,tap,shift,status,is_trafo (per unit, the case file's branch order)",
+    Attr.BUS_FEAT_STATIC: "shunt_g,shunt_b (MW/MVAr at 1.0 pu, the case file's bus order)",
+}
+
 
 def config_hash(settings: object) -> str:
     """A stable hash of settings (the value of `Attr.SETTINGS_HASH`, and of a result's provenance):
@@ -226,5 +274,6 @@ def config_hash(settings: object) -> str:
     return hashlib.sha256(blob.encode()).hexdigest()[:12]
 
 
-# The partition codes stored in data/split.
+# The partition codes stored in data/split: a split's position in `Split` (0, 1, 2), which is also its
+# row in the per-split attributes, for the IEEE timelines and the New York ones alike.
 SPLIT_CODE: dict[str, int] = {Split.TRAIN: 0, Split.VAL: 1, Split.TEST: 2}

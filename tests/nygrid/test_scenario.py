@@ -104,9 +104,10 @@ def test_projection_matches_matlab_year(case, hours):
 
 
 def test_pool(case, hours, tmp_path):
+    from fdia_graph.constants.newyork import SolveKind
     from fdia_graph.generation.nygrid.io import read_pool, write_pool
     from fdia_graph.generation.nygrid.loads import LoadSeries
-    from fdia_graph.generation.nygrid.pool import NO_LOAD, SOLVED, PoolBuilder
+    from fdia_graph.generation.nygrid.pool import PoolBuilder
     from fdia_graph.generation.nygrid.solver import AcSolver
 
     d = hourly_dispatch(case, hours[:2])
@@ -123,7 +124,12 @@ def test_pool(case, hours, tmp_path):
     b = PoolBuilder(solver, LoadSeries(time=time, p=p, q=q), d, renew, ramp)
     pool = b.build()
     print(b.report())
-    assert pool.solve_kind.tolist() == [SOLVED, SOLVED, SOLVED, NO_LOAD]
+    assert pool.solve_kind.tolist() == [
+        SolveKind.SOLVED,
+        SolveKind.SOLVED,
+        SolveKind.SOLVED,
+        SolveKind.NO_LOAD,
+    ]
     assert np.isnan(pool.vm[3]).all() and np.isnan(pool.unit_p[3]).all()
 
     # N32, N39: each thermal unit's basepoint moves within its ramp of the previous frame's (the first from the
@@ -148,7 +154,7 @@ def test_pool(case, hours, tmp_path):
     # A build from the last state continues the dispatch: its first frame stays within the ramps.
     b2 = PoolBuilder(solver, LoadSeries(time=time[2:3], p=p[2:3], q=q[2:3]), d, renew, ramp)
     more = b2.build(start=b.final)
-    assert more.solve_kind[0] == SOLVED
+    assert more.solve_kind[0] == SolveKind.SOLVED
     assert np.allclose(b.final[0], pool.unit_p[2])
     assert (np.abs(more.unit_p[0] - pool.unit_p[2])[thermal] <= ramp[thermal] + 1e-3).all()
     pi, qi = solver.network.injections(pool.vm[:3], pool.va[:3])
@@ -175,8 +181,9 @@ def test_pool_compensation(case, hours):
     """The shunt and reactive-limit sensitivity: units within 0.85 lagging and 0.95 leading power factor, New York's
     generator buses regulated to 1.035 p.u., New York held in 0.95 to 1.05 p.u. by switched banks. The release's
     solver has no bank at all."""
+    from fdia_graph.constants.newyork import SolveKind
     from fdia_graph.generation.nygrid.loads import LoadSeries
-    from fdia_graph.generation.nygrid.pool import SOLVED, PoolBuilder
+    from fdia_graph.generation.nygrid.pool import PoolBuilder
     from fdia_graph.generation.nygrid.solver import AcSolver, Compensation
 
     # the units NYgrid leaves at its placeholder of plus or minus 9999 MVAr get the power-factor limits on Pmax
@@ -212,7 +219,7 @@ def test_pool_compensation(case, hours):
     b = PoolBuilder(solver, LoadSeries(time=time, p=p, q=q), d, renew, ramp)
     pool = b.build()
     print(b.report(), np.round(b.shunt_q[:, np.abs(b.shunt_q).max(axis=0) > 1], 1))
-    assert (pool.solve_kind == SOLVED).all() and not b.q_fallback.any()
+    assert (pool.solve_kind == SolveKind.SOLVED).all() and not b.q_fallback.any()
     vm = pool.vm[:, ny]
     assert vm.min() >= 0.95 - 1e-4 and vm.max() <= 1.05 + 1e-4  # the band, where the release sits at 1.10
     sched = pool.vm[:, ny & gen]
@@ -233,7 +240,7 @@ LOADS = ROOT / "data" / "loads"
 def test_load_profiles(case):
     import json
 
-    from fdia_graph.generation.nygrid.case import ZONES
+    from fdia_graph.constants.newyork import ZONES
     from fdia_graph.generation.nygrid.config import Settings, rng
     from fdia_graph.generation.nygrid.inputs import ZoneLoad, fetch_nyiso
     from fdia_graph.generation.nygrid.loads import LoadModel

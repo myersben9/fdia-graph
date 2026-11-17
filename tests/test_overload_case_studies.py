@@ -12,12 +12,15 @@ import pytest
 
 pytest.importorskip("pandapower")
 
+from fdia_graph.constants.channels import (
+    CurrentChannel,  # noqa: E402
+    NodeChannel,  # noqa: E402
+)
 from fdia_graph.engine.attacks.minimize import _Window  # noqa: E402
 from fdia_graph.engine.core import FdiaGenerator  # noqa: E402
 from fdia_graph.generation import _load_states  # noqa: E402
 from fdia_graph.models.config import OverloadSettings  # noqa: E402
 from fdia_graph.models.frames import FrameKnobs  # noqa: E402
-from fdia_graph.models.grid import CURRENT, NODE  # noqa: E402
 
 from . import case_studies  # noqa: E402
 
@@ -63,16 +66,19 @@ def _devices(g, window, k, goal, support) -> tuple[set[str], float]:
     for t in range(len(window)):
         node, edge, cur, prev = w._snapshot(t, support, prev)
         mag = np.abs(np.asarray(prev.node, float)).copy()
-        mag[:, [NODE.p_inj, NODE.q_inj]] /= g._base_mva
-        mag[:, NODE.theta] = np.deg2rad(mag[:, NODE.theta])
+        mag[:, [NodeChannel.P_INJ, NodeChannel.Q_INJ]] /= g._base_mva
+        mag[:, NodeChannel.THETA] = np.deg2rad(mag[:, NodeChannel.THETA])
         for b, c in zip(*np.nonzero(node)):
-            names.add(("PMU " if c in (NODE.v, NODE.theta) and w.pmu[b] else "SCADA ") + str(number[b]))
+            names.add(
+                ("PMU " if c in (NodeChannel.V, NodeChannel.THETA) and w.pmu[b] else "SCADA ")
+                + str(number[b])
+            )
             worst = max(worst, float(mag[b, c]))
         for e, c in zip(*np.nonzero(edge)):
             names.add(f"SCADA {number[g.ei[0, e]]}")
             worst = max(worst, abs(float(prev.edge[e, c])) / g._base_mva)
         for e, c in zip(*np.nonzero(cur)) if cur is not None else ():
-            end = g.ei[0, e] if c in (CURRENT.re_from, CURRENT.im_from) else g.ei[1, e]
+            end = g.ei[0, e] if c in (CurrentChannel.RE_FROM, CurrentChannel.IM_FROM) else g.ei[1, e]
             names.add(f"PMU {number[end]}")
             worst = max(worst, abs(float(prev.current[e, c])))
     return names, worst

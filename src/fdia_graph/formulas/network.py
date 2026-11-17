@@ -24,6 +24,7 @@ if TYPE_CHECKING:
     # Ybus, Yf, Yt: pandapower's makeYbus builds them sparse; a dense matrix works the same
     Admittance = Union[np.ndarray, spmatrix]
 
+from ..constants.numerics import BACKTRACK_HALVINGS
 from ..models.grid import Admittances, BranchModel
 
 
@@ -142,7 +143,7 @@ def branch_flows(V: np.ndarray, Yf: Admittance, from_bus: np.ndarray, base_mva: 
 def branch_currents(V: np.ndarray, Yf: Admittance, Yt: Admittance) -> np.ndarray:
     """The branch-current phasors at both ends of every branch [WU26 eqs. 19-20], the channels a PMU
     reads: I_f = Yf V (leaving the from bus into the branch) and I_t = Yt V (leaving the to bus),
-    in the `CURRENT` column order.
+    in the `CurrentChannel` column order.
 
     V       : [n] one complex voltage vector (per unit, ppc order), or [T, n] a stack of them
     Yf, Yt  : [E, n] from- and to-end branch admittances (dense or scipy sparse)
@@ -256,15 +257,12 @@ def _backtrack(
     return None
 
 
-_BACKTRACK_HALVINGS = 8  # step fractions tried per Newton iteration: 1, 1/2, ... 1/128
-
-
 def _halved_steps(V: np.ndarray, I_: np.ndarray, step: np.ndarray) -> Iterator[np.ndarray]:
     """The voltages after the step on [θ_I, |V|_I], then after each halving of it: the full step
     first, a fraction that drives a magnitude to zero or below left out."""
     k = len(I_)
     vm0, va0 = np.abs(V[I_]), np.angle(V[I_])
-    for _ in range(_BACKTRACK_HALVINGS):
+    for _ in range(BACKTRACK_HALVINGS):
         vm, va = vm0 + step[k:], va0 + step[:k]
         if np.all(vm > 0):
             Vtry = V.copy()
@@ -321,7 +319,7 @@ def local_ac_solve(
     interior: np.ndarray,
     S_target: np.ndarray,
     iters: int = 50,
-    tol: float = 1e-9,
+    tol: float = 1e-9,  # pu: the mismatch the Newton iteration stops at (not the zero test `ZERO_TOL`)
 ) -> Optional[np.ndarray]:
     """The false state of a local attacker [WU26]: the interior bus voltages that give the target
     injections there, with every other bus voltage held at its true value.
@@ -522,7 +520,7 @@ def local_flow_solve(
     S_fixed: np.ndarray,
     target: Union[float, np.ndarray],
     iters: int = 50,
-    tol: float = 1e-9,
+    tol: float = 1e-9,  # pu: the mismatch the Newton iteration stops at (not the zero test `ZERO_TOL`)
     vm_fixed: Optional[tuple[np.ndarray, np.ndarray]] = None,
     hold: Optional[np.ndarray] = None,
     blocks: Optional[_FlowBlocks] = None,

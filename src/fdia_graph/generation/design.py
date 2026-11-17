@@ -24,22 +24,21 @@ from typing import Generic, Optional, TypeVar, cast
 
 import numpy as np
 
-from ..engine.attacks.stealthy import AM_FAMILY
+from ..constants.families import AM_CODE
+from ..constants.streams import DESIGN_STREAM, RELOCATE_STREAM
 from ..engine.core import FdiaGenerator
 from ..errors import NoRoomForEpisode
 from ..models.frames import AmOverloadDesign, FrameKnobs
 from ..models.plan import GeneratorSpec, Placement, Planned, Slot, SplitSpan
 from .plan import REDRAWS, free_onset, give_up
 
-DESIGN_STREAM = 0xA3D5  # the key of the Am design draws, beside the jitter's (engine.measurement)
-RELOCATE_STREAM = 0xA3D6  # the key of the onsets an infeasible Am moves to
 Setup = TypeVar("Setup")  # what a design process is started from (picklable)
 State = TypeVar("State")  # what it makes from that once, and designs with
 Task = TypeVar("Task")  # what one design reads (a grid's own record)
 Found = TypeVar("Found")  # what one design returns
 
 
-_STATE: list[object] = []  # what this worker process designs with, made once when the process starts
+_worker_state: list[object] = []  # what this worker process designs with, made once when the process starts
 
 
 class DesignPool(Generic[Setup, State]):
@@ -63,12 +62,12 @@ class DesignPool(Generic[Setup, State]):
     @staticmethod
     def _start_worker(start: Callable[[Setup], State], setup: Setup) -> None:
         """Run in a worker process as it starts: keep what `start` makes for the designs to come."""
-        _STATE[:] = [start(setup)]
+        _worker_state[:] = [start(setup)]
 
     @staticmethod
     def _design_in_worker(design: Callable[[State, Task], Found], task: Task) -> Found:
         """One design in a worker process, with what the process made at its start."""
-        return design(cast(State, _STATE[0]), task)
+        return design(cast(State, _worker_state[0]), task)
 
     def map(self, design: Callable[[State, Task], Found], tasks: Iterable[Task]) -> Iterator[Found]:
         """`design(state, task)` of every task, in the order of `tasks`, each as soon as it and those
@@ -146,8 +145,8 @@ class AmDesigner(DesignPool[_WorkerSetup, FdiaGenerator]):
         parallel, the failures of a round moved in slot order (so the moves do not depend on the
         workers) and designed again in the next. A ramp At comes back with no design: the walk designs
         it as it reaches it."""
-        others = [s for s in slots if s.family != AM_FAMILY]
-        todo: list[AmEpisode] = [Planned(s, index=i) for i, s in enumerate(slots) if s.family == AM_FAMILY]
+        others = [s for s in slots if s.family != AM_CODE]
+        todo: list[AmEpisode] = [Planned(s, index=i) for i, s in enumerate(slots) if s.family == AM_CODE]
         done: dict[int, AmEpisode] = {}
         while todo:
             failed = self._round(X, knobs, span.code, todo, done)
@@ -199,9 +198,9 @@ class AmDesigner(DesignPool[_WorkerSetup, FdiaGenerator]):
             )
             onset = self._new_onset(p, taken, span) if p.moves < REDRAWS else None
             if onset is None:
-                give_up(span.code, AM_FAMILY, p.moves)
+                give_up(span.code, AM_CODE, p.moves)
                 continue
-            rec.redraws[span.code, rec.col(AM_FAMILY)] += 1
+            rec.redraws[span.code, rec.col(AM_CODE)] += 1
             moved.append(p.moved_to(p.slot.at(onset)))
         return moved
 

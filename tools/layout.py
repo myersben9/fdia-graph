@@ -24,6 +24,14 @@ Each rule is a kind of drift that once made the tree hard to read (CONTRIBUTING.
 - **repository map**: every folder at the root of the tree and every folder directly under `docs/` has its role in `REPO` or
   `DOCS`, and every folder named there exists, so a new place for files cannot appear without saying what it
   holds. The map is the first section of the file map.
+- **constants**: a module-level UPPER_CASE name of the generation toolkit is assigned in one of the
+  homes of constants, the `constants/` package (facts, one module per subject) or `schema.py` (the file
+  protocol), so a number or a string is not left where it happened to be first needed. An assignment
+  under a module-level `if` or `try` counts; a class body is not read (an enum's members, a class's own
+  table), and a `TypeVar` is no constant. A name that stays in its module is listed in `EXEMPT` with the
+  reason; a knob (a value a user may tune) belongs in a settings model of `models/config.py`, and is
+  exempt only until it has one. The analysis toolkit has no home of constants yet: the names it has
+  today are listed in `EXEMPT_ANALYSIS`, and a new one is refused.
 """
 
 from __future__ import annotations
@@ -35,6 +43,7 @@ import re
 import subprocess
 import sys
 from collections import defaultdict
+from collections.abc import Callable
 from dataclasses import dataclass
 
 from sources import ANALYSIS, GENERATION, PACKAGES, ROOT, TESTS
@@ -48,6 +57,7 @@ PAGES = {
         "": "docs/ROADMAP.md",
         "dataset": "docs/ROADMAP.md",
         "models": "docs/ROADMAP.md",
+        "constants": "docs/ROADMAP.md",
         "ratings": "docs/ROADMAP.md",
         "formulas": "docs/reference/FORMULAS.md",
         "engine": "docs/guides/generation.md",
@@ -108,6 +118,71 @@ SECTIONS = (
     ("The results store's queries", "results"),
 )
 OTHER = "Other files"
+# The homes of constants, under the generation toolkit's package.
+CONSTANT_HOMES = ("constants/", "schema.py")
+# Module-level UPPER_CASE names that stay outside the homes: file under the package -> {name: reason}.
+# The reasons: "knob", a tunable value with no settings model yet (a count of tries, a default, a share);
+# "functions" and "instances", a table of the module's own functions or objects; "model", one value of a
+# model, which `constants/` cannot import; "private", a detail of the one function beside it;
+# "environment" and "path", read from the environment or from where the file is installed.
+EXEMPT: dict[str, dict[str, str]] = {
+    "dataset/base.py": {"CAPABILITIES": "functions"},
+    "engine/attacks/area.py": {"AREA_HOPS": "knob", "AREA_SIZE_PENALTY": "knob"},
+    "engine/attacks/attacker.py": {"ABSORB_CAP": "knob"},
+    "engine/attacks/episodes.py": {"ONSET_DRAWS": "knob"},
+    "engine/attacks/opf.py": {"SUPPORT_BUDGET": "knob"},
+    "engine/attacks/overload.py": {"AM_LINE_TRIES": "knob"},
+    "engine/attacks/stealthy.py": {"STEP_HALVINGS": "knob"},
+    "generation/nygrid/case.py": {"CASE_FILE": "path", "STATEMENT": "private", "QUOTED": "private"},
+    "generation/nygrid/source.py": {
+        "HIT_STRATUM": "knob",
+        "SURVEY_CHUNK": "private",
+        "LOG_EVERY": "private",
+        "AM_RISE": "knob",
+        "AT_LENGTH": "knob",
+        "RELEASE_LENGTH": "knob",
+        "LAYERS": "model",
+    },
+    "generation/plan.py": {"PLACE_TRIES": "knob", "STRATUM": "knob", "REDRAWS": "knob"},
+    "generation/write.py": {"_BATCH": "private"},
+    "models/config.py": {"_FLAT": "private", "_TOP": "private"},
+    "models/grid.py": {"INTACT": "model"},
+    "models/inputs.py": {"_FAMILY_WORDS": "private"},
+    "profiles.py": {
+        "K_DEFAULT": "knob",
+        "SIGMA_DEFAULT": "knob",
+        "CLIP_DEFAULT": "knob",
+        "_FEEDS": "instances",
+    },
+    "registry.py": {"CACHE_DIR": "environment", "_RELEASE": "environment", "_LOCAL_JSON": "environment"},
+}
+# The same for the analysis toolkit, which has no home of constants yet: the names it has today, each "not
+# yet moved". The table only shrinks: a new module-level constant there is refused.
+_WAITING = "not yet moved"
+EXEMPT_ANALYSIS: dict[str, dict[str, str]] = {
+    "localization/base.py": {"_FIELD_CAPABILITY": _WAITING},
+    "localization/learned.py": {"N_FEAT": _WAITING, "FEATURE_SETS": _WAITING},
+    "models/results.py": {"METRICS": _WAITING, "_SLUG": _WAITING, "_TAG": _WAITING, "KEYS": _WAITING},
+    "results/docs.py": {
+        "QUERIES": _WAITING,
+        "BLOCK": _WAITING,
+        "_FORMAT": _WAITING,
+        "_OPEN": _WAITING,
+        "_CLOSE": _WAITING,
+        "_INLINE_CODE": _WAITING,
+        "_FENCE": _WAITING,
+    },
+    "results/render.py": {"_FIELDS": _WAITING},
+    "results/store.py": {
+        "_RECORD_COLS": _WAITING,
+        "_VALUE_COLS": _WAITING,
+        "_RUN_COLS": _WAITING,
+        "_KEY_FIELDS": _WAITING,
+    },
+    "se/base.py": {"_CASE_FN": _WAITING, "_PSEUDO_NEEDS": _WAITING},
+    "se/jacobian.py": {"BUS_FEATURE_NAMES": _WAITING, "GLOBAL_FEATURE_NAMES": _WAITING},
+    "trust/secured.py": {"BLOCK": _WAITING},
+}
 BEGIN, END = "<!-- file-map: generated by tools/layout.py -->", "<!-- /file-map -->"
 HISTORY = ("CHANGELOG.md",)  # history: its entries may cite what a later change removed
 SHORT_ENDING = 2  # `reduce` and `reduced`, `load` and `loads`: endings this short read as the same word
@@ -466,11 +541,76 @@ def cited(files: list[str]) -> list[Problem]:
     return out
 
 
+# ---- constants -------------------------------------------------------------------------------------
+
+_CONSTANT_NAME = re.compile(r"_?[A-Z][A-Z0-9_]*")
+
+
+def _assigned(node: ast.stmt) -> list[tuple[str, int]]:
+    """The names a module-level statement assigns, each with its line: a tuple's names each, and the
+    names assigned under an `if` or a `try`. A `TypeVar` is no constant."""
+    if isinstance(node, (ast.If, ast.Try)):
+        inner = node.body + node.orelse + getattr(node, "finalbody", [])
+        inner += [s for handler in getattr(node, "handlers", []) for s in handler.body]
+        return [found for s in inner for found in _assigned(s)]
+    value = getattr(node, "value", None)
+    func = value.func if isinstance(value, ast.Call) else None
+    if getattr(func, "id", getattr(func, "attr", "")) == "TypeVar":
+        return []
+    if isinstance(node, ast.AnnAssign):
+        targets: list[ast.expr] = [node.target]
+    elif isinstance(node, ast.Assign):
+        targets = [e for t in node.targets for e in (t.elts if isinstance(t, ast.Tuple) else [t])]
+    else:
+        targets = []
+    return [(t.id, node.lineno) for t in targets if isinstance(t, ast.Name)]
+
+
+def module_constants(source: str) -> dict[str, int]:
+    """The module-level UPPER_CASE names the Python `source` assigns, each with its line."""
+    found = [pair for node in ast.parse(source).body for pair in _assigned(node)]
+    return {name: line for name, line in found if _CONSTANT_NAME.fullmatch(name)}
+
+
+def stray_constants(
+    package: str, exempt: dict[str, dict[str, str]], files: list[str], read: Callable[[str], str] = _read
+) -> list[Problem]:
+    """Every module-level UPPER_CASE name of the package at folder `package` is in a home of constants or
+    in `exempt`, and `exempt` names only what is still there. `read` gives the text of a file of `files`."""
+    out = []
+    found: dict[str, dict[str, int]] = {}
+    for f in files:
+        inside = f[len(package) + 1 :]
+        if f.startswith(package + "/") and f.endswith(".py") and not inside.startswith(CONSTANT_HOMES):
+            found[inside] = module_constants(read(f))
+            out += [
+                Problem(
+                    "constants", f"{f}:{line}", f"{name} belongs in constants/ (a knob in a settings model)"
+                )
+                for name, line in found[inside].items()
+                if name not in exempt.get(inside, {})
+            ]
+    out += [
+        Problem("constants", f"{package}/{inside}", f"exempt is {name}, which the file does not assign")
+        for inside, names in exempt.items()
+        for name in names
+        if name not in found.get(inside, {})
+    ]
+    return out
+
+
+def constants(files: list[str]) -> list[Problem]:
+    """The constants rule over both toolkits, each with its own table of exemptions."""
+    tables = ((PACKAGES[GENERATION], EXEMPT), (PACKAGES[ANALYSIS], EXEMPT_ANALYSIS))
+    return [p for package, exempt in tables for p in stray_constants(package, exempt, files)]
+
+
 # ---- the gate --------------------------------------------------------------------------------------
 
 
 def check(files: list[str]) -> list[Problem]:
     problems = names(files) + docstrings(files) + pages(files) + cited(files) + repository(files)
+    problems += constants(files)
     current = _read(MAP) if os.path.exists(os.path.join(ROOT, MAP)) else ""
     if current != rendered_map(files):
         problems.append(Problem("file map", MAP, "is stale: run python tools/layout.py"))

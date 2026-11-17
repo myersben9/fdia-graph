@@ -14,8 +14,7 @@ import json
 import os
 from typing import Optional
 
-_HERE = os.path.dirname(os.path.abspath(__file__))
-PGLIB_SYSTEMS = (14, 118, 300)  # the cases with ratings; the overload attack is refused elsewhere
+from fdia_graph.constants.grid import PGLIB_SYSTEMS
 
 
 def pglib_branches(system: int) -> Optional[list[tuple[int, int, float]]]:
@@ -23,6 +22,7 @@ def pglib_branches(system: int) -> Optional[list[tuple[int, int, float]]]:
     package holds no ratings for it."""
     if system not in PGLIB_SYSTEMS:
         return None
-    with open(os.path.join(_HERE, f"pglib_case{system}_ieee.json"), encoding="utf-8") as fh:
+    here = os.path.dirname(os.path.abspath(__file__))
+    with open(os.path.join(here, f"pglib_case{system}_ieee.json"), encoding="utf-8") as fh:
         rows = json.load(fh)["branches"]
     return [(int(f), int(t), float(r)) for f, t, r in rows]

@@ -36,13 +36,13 @@ from typing import Any
 
 import numpy as np
 
+from fdia_graph.constants.meters import MeterKind
 from fdia_graph.engine.attacks.attacker import Attacker
 from fdia_graph.engine.attacks.family import AttackFamily
 from fdia_graph.engine.solvers import ipopt
 from fdia_graph.errors import ConfigError
 
-P_KIND, Q_KIND = 2, 3  # nygrid.sensing.meters.KINDS "p", "q": the injection meters a pretended change moves
-MIN_BUDGET = 32  # candidate supports tried per search
+SUPPORT_BUDGET = 32  # candidate supports tried per search
 
 
 @dataclass
@@ -122,7 +122,7 @@ class OpfFdia(AttackFamily):
         gen_v_tol: float | None = None,
         hops: int = 3,
         load_cap: float = 0.1,
-        budget: int = MIN_BUDGET,
+        budget: int = SUPPORT_BUDGET,
         step_bound: np.ndarray | None = None,
         frame_hour: np.ndarray | None = None,
         family: str = "Am",
@@ -210,7 +210,7 @@ class OpfFdia(AttackFamily):
         outside = sorted({int(j) for b in rows for j in np.flatnonzero(att.ybus[b])} - inside)
         plan = att.meas.plan
         meter = {}
-        for kind, comp in ((P_KIND, 0), (Q_KIND, 1)):
+        for kind, comp in ((MeterKind.P, 0), (MeterKind.Q, 1)):
             for b in free.tolist():
                 j = np.flatnonzero((plan.kind == kind) & (plan.bus == b))
                 meter[(b, comp)] = int(j[0]) if len(j) else -1

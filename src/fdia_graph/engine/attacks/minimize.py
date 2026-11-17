@@ -31,20 +31,14 @@ from typing import TYPE_CHECKING, NamedTuple, Optional, Union, cast
 
 import numpy as np
 
+from ...constants.channels import NodeChannel
+from ...constants.meters import PMU_CURRENT_CLASS, POWER_NOISE_FLOOR_MW
 from ...formulas.attacks import generator_output, tampered_channels, tampered_devices, within_limits
 from ...formulas.network import _row_block, complex_voltages
-from ...formulas.noise import (
-    PMU_CURRENT_CLASS,
-    POWER_NOISE_FLOOR_MW,
-    accuracy_sigma,
-    current_sigma,
-    paper_current_sigma,
-    paper_sigma,
-)
+from ...formulas.noise import accuracy_sigma, current_sigma, paper_current_sigma, paper_sigma
 from ...models.choices import CostUnit, SupportMethod
 from ...models.config import TrustSchedule
 from ...models.frames import AttackVector, FlowGoal, FrameKnobs, LoadGoal, MinimizerResult
-from ...models.grid import NODE
 from ...models.inputs import TrustablePmus
 from .false_state import FalseStateMixin
 
@@ -59,12 +53,12 @@ _Channels = tuple[np.ndarray, np.ndarray, Optional[np.ndarray]]
 Goal = Union[LoadGoal, FlowGoal]  # what a window must realize: the loads of At, the flow of Am
 
 
-_BLAS: list[Optional[ThreadpoolController]] = []  # the process's BLAS pools, found on the first search
+_blas_pools: list[Optional[ThreadpoolController]] = []  # the process's BLAS pools, found on the first search
 # BLAS limits are process-wide, so concurrent searches share one limit: the first to enter sets it,
 # the last to leave restores the caller's setting
-_BLAS_LOCK = threading.Lock()
-_BLAS_HELD: list[contextlib.AbstractContextManager[object]] = []  # the active limit, while any search runs
-_BLAS_USERS = [0]  # searches currently inside the limit
+_blas_lock = threading.Lock()
+_blas_held: list[contextlib.AbstractContextManager[object]] = []  # the active limit, while any search runs
+_blas_users = [0]  # searches currently inside the limit
 
 
 @contextlib.contextmanager
@@ -73,27 +67,27 @@ def _one_blas_thread() -> Iterator[None]:
     leaves: the search's products are small, so on a many-core machine starting BLAS threads costs
     more than the arithmetic. Without threadpoolctl (the `generate` extra installs it) the search runs
     on whatever BLAS is set to."""
-    with _BLAS_LOCK:
-        if not _BLAS:
+    with _blas_lock:
+        if not _blas_pools:
             try:
                 from threadpoolctl import ThreadpoolController
 
-                _BLAS.append(ThreadpoolController())
+                _blas_pools.append(ThreadpoolController())
             except ImportError:
-                _BLAS.append(None)
-        controller = _BLAS[0]
-        if controller is not None and _BLAS_USERS[0] == 0:
+                _blas_pools.append(None)
+        controller = _blas_pools[0]
+        if controller is not None and _blas_users[0] == 0:
             held = controller.limit(limits=1, user_api="blas")
             held.__enter__()
-            _BLAS_HELD.append(held)
-        _BLAS_USERS[0] += 1
+            _blas_held.append(held)
+        _blas_users[0] += 1
     try:
         yield
     finally:
-        with _BLAS_LOCK:
-            _BLAS_USERS[0] -= 1
-            if _BLAS_USERS[0] == 0 and _BLAS_HELD:
-                _BLAS_HELD.pop().__exit__(None, None, None)
+        with _blas_lock:
+            _blas_users[0] -= 1
+            if _blas_users[0] == 0 and _blas_held:
+                _blas_held.pop().__exit__(None, None, None)
 
 
 class MinimizeMixin(FalseStateMixin):
@@ -333,7 +327,7 @@ class _Window:
         self.pmu[sorted(g.meters.pmu)] = True
         # a bus angle is a PMU channel: a SCADA voltmeter reads |V| only
         self.node_m = self.node_m.copy()
-        self.node_m[~self.pmu, NODE.theta] = 0
+        self.node_m[~self.pmu, NodeChannel.THETA] = 0
         self.flows = g.clean_flows_from_states(np.stack(states))  # [T, E, 2], unmetered zeroed
         # the PMU branch-current channels [WU26 eqs. 19-20]: their mask and noise scale (None without)
         self.i_m = g.current_mask()
@@ -481,7 +475,7 @@ class _Window:
         g = self.g
         lut = g._ppc_row[np.arange(g.C)]
         V = np.zeros(g._n_ppc_buses, complex)
-        V[lut] = complex_voltages(Xa[:, NODE.v], Xa[:, NODE.theta])
+        V[lut] = complex_voltages(Xa[:, NodeChannel.V], Xa[:, NodeChannel.THETA])
         (Yf, f_cols), (Yt, t_cols) = near.yf, near.yt
         If = Yf @ V[f_cols]
         Sf = V[near.from_ppc] * np.conj(If) * g._base_mva

@@ -17,8 +17,10 @@ from typing import Annotated, ClassVar, Optional, Union, cast
 
 import numpy as np
 
+from ..constants.families import FAMILIES, FAMILY_CODE, GENERATED_FAMILIES
+from ..constants.releases import FIRST_RELEASE
 from ..errors import NoAdmissibleTarget
-from .choices import FAMILIES, FAMILY_CODE, GENERATED_FAMILIES, Capability
+from .choices import Capability
 from .validation import AsArray, AsTuple, AtLeast, Dims, Integer, NonEmpty, Parses, Required, Validated
 
 
@@ -34,6 +36,12 @@ def _family_code(f: object) -> int:
 def family_codes(families: Sequence[Union[str, int]]) -> tuple[int, ...]:
     """Family names or integer codes, as codes."""
     return tuple(_family_code(f) for f in families)
+
+
+# what a selection that `family_codes` cannot read is told
+_FAMILY_WORDS = (
+    f"must name families; unknown family in it (known: {sorted(FAMILY_CODE)} or codes {sorted(FAMILIES)})"
+)
 
 
 def system_number(system: Union[str, int]) -> int:
@@ -62,16 +70,11 @@ def iso_date(d: object) -> _dt.date:
     return _dt.date.fromisoformat(d.strip()[:10])
 
 
-FAMILY_WORDS = (
-    f"must name families; unknown family in it (known: {sorted(FAMILY_CODE)} or codes {sorted(FAMILIES)})"
-)
-
-
 @dataclass(frozen=True)
 class FamilySelection(Validated):
     """A selection of attack families by name or code."""
 
-    families: Annotated[Sequence[Union[str, int]], Parses(family_codes, FAMILY_WORDS)]
+    families: Annotated[Sequence[Union[str, int]], Parses(family_codes, _FAMILY_WORDS)]
 
     @property
     def codes(self) -> tuple[int, ...]:
@@ -199,7 +202,7 @@ class AdmissibleTargets(Validated):
 
     error: ClassVar[type[ValueError]] = NoAdmissibleTarget
 
-    families: Annotated[Sequence[Union[str, int]], Parses(family_codes, FAMILY_WORDS)]
+    families: Annotated[Sequence[Union[str, int]], Parses(family_codes, _FAMILY_WORDS)]
     targets: dict[int, int]
 
     def invariants(self) -> Iterable[tuple[bool, str]]:
@@ -231,9 +234,6 @@ class SupportedSystem(SystemRef):
             self.number in self.supported,
             f"unknown system {self.number}; supported: {sorted(self.supported)}",
         )
-
-
-FIRST_RELEASE = (0, 8, 0)  # the first data release of timelines, the only layout the package reads
 
 
 @dataclass(frozen=True)

@@ -80,7 +80,7 @@ v0.8.3 meters. This version reads every release and generates the multi-snapshot
 | window | 2024-01-01 to 2024-03-16 | the v0.7.1 pool build (a release script kept outside the repository; `WINDOW`) |
 | resampling | time-interpolated to a 1-minute grid, then standardized to zero mean and unit variance | `profiles.fetch_profile(resample_min=1)` |
 | per-bus scale | `clip(1 + k * S_t + j_t, 0.7, 1.3)`, `k = 0.1` | `profiles._ar1_scale`, `K_DEFAULT`, `CLIP_DEFAULT` |
-| jitter `j_t` | per-bus AR(1), `j_t = 0.98 j_{t-1} + sqrt(1 - 0.98^2) * 0.03 * eps`, stationary std 0.03 | `JITTER_RHO`, `SIGMA_DEFAULT` |
+| jitter `j_t` | per-bus AR(1), `j_t = 0.98 j_{t-1} + sqrt(1 - 0.98^2) * 0.03 * eps`, stationary std 0.03 | `LOAD_JITTER_RHO` (`constants.time`), `SIGMA_DEFAULT` |
 | what is scaled | every load's P and Q and every generator's P at the bus, by the same factor | `profiles._solve_states_chunk` |
 | solve | pandapower AC power flow, flat start, 50 iterations, 1e-6 MVA tolerance | `profiles._solve_states_chunk` |
 | states kept | 82,000 requested, the first 72,000 converged kept per system | the v0.7.1 pool build (`REQUEST`, `TARGET`) |
@@ -310,7 +310,7 @@ The temporal features are written after the walk from `data/node_x` alone
 |---|---|
 | `temporal_delta` | `[P_inj, Q_inj](t) - [P_inj, Q_inj](t-1)` of the observed frames; zero on frame 0 |
 | `swing` | `temporal_delta` divided by the bus's recent-change scale |
-| scale | std of the observed scan-to-scan absolute change over the last `SWING_WINDOW = 60` changes before `t`, plus `1e-3`; `1e-3` alone with fewer than three changes (`recent_change_scale`) |
+| scale | std of the observed scan-to-scan absolute change over the last `SWING_WINDOW_SCANS = 60` changes before `t`, plus `1e-3`; `1e-3` alone with fewer than three changes (`recent_change_scale`) |
 
 A spike reads as a large swing at its first frame. The slow ramp `At` changes by less than the typical
 recent change on every frame, so its swing stays near the benign level (`formulas/temporal.py`).
@@ -413,4 +413,5 @@ A data release (the build scripts of v0.8.0 to v0.8.3 are in the git history at 
 2. Run once more with `MERGE=1` to combine the fragments into `manifest.json`.
 3. Upload with `python tools/upload_assets.py vX.Y.Z notes.md <files>`; it creates the `data-vX.Y.Z`
    tag and never replaces an asset already on the release.
-4. Add the release's sha256 values to `registry._SHA256`, then bump `registry._RELEASE` last.
+4. Add the release's sha256 values to `constants.releases.SHA256`, then bump
+   `constants.releases.PINNED_RELEASE` (the default of `registry._RELEASE`) last.

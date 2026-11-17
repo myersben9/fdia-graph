@@ -14,10 +14,10 @@ from typing import Optional
 
 import numpy as np
 
+from ...constants.channels import NodeChannel
 from ...formulas.attacks import bus_load
 from ...formulas.network import complex_voltages, flow_sensitivities, subnetwork
 from ...models.frames import AreaScore
-from ...models.grid import NODE
 from ..base import GridBase
 
 # the regions `rule_area` chooses among: the buses within this many hops of the goal (ours)
@@ -172,6 +172,6 @@ class AreaMixin(GridBase):
         first = np.asarray(states, float)[0]
         lut = self._ppc_row[np.arange(self.C)]
         V = np.ones(np.shape(self._Ybus)[0], np.complex128)
-        V[lut] = complex_voltages(first[:, NODE.v], first[:, NODE.theta])
+        V[lut] = complex_voltages(first[:, NodeChannel.V], first[:, NodeChannel.THETA])
         sens = flow_sensitivities(V, self._Ybus, self._Yf, self._from_bus_ppc, int(lut[self.slack_bus]))
         return sens[:, lut]

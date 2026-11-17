@@ -7,7 +7,7 @@ c: it moves every measurement the way a real state change would, so the residual
 [AE04, ch. 5]. Meters the attacker cannot write (secured, trusted) pin their rows: a_S = 0, so
 H_S c = 0 and c lies in the null space of H_S. The selection of the meters to trust, and the cost
 of the attacks a selection leaves open, are the analysis toolkit's (`fdia_analysis.formulas.trust`),
-built on `rref` and `TOL` here.
+built on `rref` here and on `constants.numerics.ZERO_TOL`.
 """
 
 from __future__ import annotations
@@ -17,10 +17,10 @@ from typing import Optional
 
 import numpy as np
 
-TOL = 1e-9  # a magnitude at or below this is zero: a pivot, a singular value, an entry of an attack
+from fdia_graph.constants.numerics import ZERO_TOL
 
 
-def rref(A: np.ndarray, tol: float = TOL) -> tuple[np.ndarray, list[int]]:
+def rref(A: np.ndarray, tol: float = ZERO_TOL) -> tuple[np.ndarray, list[int]]:
     """Reduced row echelon form of A and its pivot columns (Gauss-Jordan with partial pivoting).
 
     A       : [r, n]
@@ -48,7 +48,7 @@ def rref(A: np.ndarray, tol: float = TOL) -> tuple[np.ndarray, list[int]]:
 
 def sparsest_rows(
     M: np.ndarray,
-    tol: float = TOL,
+    tol: float = ZERO_TOL,
     rounds: int = 50,
     eligible: Optional[Callable[[np.ndarray], bool]] = None,
 ) -> np.ndarray:

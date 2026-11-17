@@ -8,6 +8,9 @@ import numpy as np
 import pytest
 
 from fdia_graph import schema
+from fdia_graph.constants.families import FAMILIES, FAMILY_CODE
+from fdia_graph.constants.newyork import SolveKind
+from fdia_graph.constants.time import WEEK_SECONDS
 from fdia_graph.dataset.clients import Dataset
 from fdia_graph.engine.attacks.attacker import Attacker
 from fdia_graph.engine.attacks.ramp import Ramp
@@ -18,10 +21,9 @@ from fdia_graph.generation.nygrid.config import Settings, rng
 from fdia_graph.generation.nygrid.io import read_pool
 from fdia_graph.generation.nygrid.network import Network
 from fdia_graph.generation.nygrid.ownership import assign_clients
-from fdia_graph.generation.nygrid.pool import SOLVED, Pool, peak_ratings
+from fdia_graph.generation.nygrid.pool import Pool, peak_ratings
 from fdia_graph.generation.nygrid.source import NewYorkSource
-from fdia_graph.generation.plan import WEEK, place_episodes, split_weeks
-from fdia_graph.models.choices import FAMILIES, FAMILY_CODE
+from fdia_graph.generation.plan import place_episodes, split_weeks
 from fdia_graph.models.config import NewYorkSettings
 
 from .inputs import DATA, POOL, TERRITORIES
@@ -71,7 +73,7 @@ def test_split_weeks_whole_weeks_stratified_on_weight():
     for w in hot:
         weight[w * 2016 : w * 2016 + 50] = 1
     split = split_weeks(time, (0.7, 0.15, 0.15), weight, rng(Settings(), "test-weeks"))
-    week = time // WEEK
+    week = time // WEEK_SECONDS
     assert all(len(set(split[week == w].tolist())) == 1 for w in range(52))  # whole weeks, never cut
     per = np.bincount([int(split[week == w][0]) for w in range(52)], minlength=3)
     assert per.tolist() == [36, 8, 8]  # 70/15/15 of the weeks by largest remainder in each stratum
@@ -197,4 +199,4 @@ def test_frames_are_noisy_benign_plus_attack_and_labels_match_tampered(built):
         for j in range(len(plan.kind)):
             bus[:, plan.bus[j]] |= tam[:, j]
         assert np.array_equal(a["bus_attacked"][w], bus)  # a bus is attacked when a meter at it is
-    assert (pool.solve_kind == SOLVED).all()
+    assert (pool.solve_kind == SolveKind.SOLVED).all()
