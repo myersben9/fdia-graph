@@ -2,7 +2,7 @@
 
     python pipelines/newyork/make_case.py NYGRID_DATA_DIR [OUT.m]
 
-The package reads the grid from `src/fdia_graph/generation/nygrid/case_nygrid.m` (`nygrid_case()`); this script is
+The package reads the grid from `src/fdia_graph/systems/case_nygrid.m` (`nygrid_case()`); this script is
 how that file was made, kept so the file can be checked against its source. `recipe` applies, in order:
 `read_npcc` (NYgrid's `npcc.mat` with the coordinates and zones of `npcc.csv`), `modify_mpc` (every change of
 NYgrid's `modifyMPC.m`), `nygrid_units` (the fixed unit list of NYgrid's hourly case), `split_zone_j` (half of
@@ -34,8 +34,8 @@ from fdia_graph.constants.newyork import (
     ZONES,
 )
 from fdia_graph.errors import DataConditionError
-from fdia_graph.generation.nygrid.case import CASE_FILE, Case
-from fdia_graph.generation.nygrid.tables import read_rows
+from fdia_graph.systems.case import CASE_FILE, Case
+from fdia_graph.systems.tables import read_rows
 
 # NYgrid's NPCC case has two New York areas, 2 upstate and 3 downstate. The case file does not tell them apart:
 # every New York bus is `NY_AREA` in a `Case`, and a neighbor's bus keeps its NPCC area number (the area in `REGIONS`).

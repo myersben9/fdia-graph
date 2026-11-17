@@ -52,12 +52,6 @@ src/fdia_graph/
   generation/nygrid/
     config.py           Settings, rng()
     io.py               read_pool, write_pool (the pool file)
-    tables.py           read_rows (the input CSV tables, read whole and closed)
-    case.py             Case (from_matpower, from_pandapower, check, static_graph), nygrid_case
-    network.py          Network
-    ownership.py        Ownership, assign_clients (the utility that owns each bus)
-    case_nygrid.m       the New York grid, one MATPOWER case file (140 buses, 227 branches, 271 units)
-    fixes.py            externals_at_base, hvdc_links
     interfaces.py       Interface, hourly_interfaces (N48)
     ny_bus_locations.csv each NY bus located on the territories (N12)
     inputs.py           ZoneLoad, NygridHour, read_nygrid, fetch_nyiso, download_once, fetch_inputs (every input at its pinned version)
@@ -67,9 +61,17 @@ src/fdia_graph/
     solver.py           AcSolver, Compensation
     pool.py             Pool, PoolBuilder, peak_ratings
     source.py           NewYorkSource (the grid as a timeline source; production() is the release's), SingleEpisodeSource, Survey
+  systems/
+    case.py             Case (from_matpower, from_pandapower, from_ieee, check, static_graph), nygrid_case
+    pandapower_types.py PandapowerNet, PpcTables (what from_pandapower reads, as types)
+    network.py          Network
+    ownership.py        Ownership, assign_clients (the utility that owns each bus)
+    tables.py           read_rows (the input CSV tables, read whole and closed)
+    case_nygrid.m       the New York grid, one MATPOWER case file (140 buses, 227 branches, 271 units)
+    fixes.py            externals_at_base, hvdc_links
   engine/
     solvers.py          ipopt (the checked Ipopt every OPF runs on; SolverUnavailable when it cannot run)
-  engine/sensing/
+  sensing/
     __init__.py         what the stage does (no names: each is imported from its defining module)
     meters.py           MeterPlan (from_coverage and from_placement: an IEEE case's), plan_meters
     measure.py          Measurement
@@ -125,7 +127,9 @@ The stages are drawn under "How a run flows" above. The imports point one way:
   owners of those meters, one or several.
 - `timeline` imports everything above it and `io`.
 - `detect` imports nothing of the package: a rule reads a statistic per scan.
-- `dataset` imports only `io` and `generation/nygrid/network.py`, so loading data never needs pandapower.
+- `dataset` (`dataset/clients.py`) imports `systems/ownership.py` and `sensing/meters.py`, and through them
+  `systems/case.py`, `systems/network.py` and `systems/tables.py`: none of them imports pandapower at import
+  time, so loading data never needs it.
 
 ## Records
 
@@ -133,14 +137,14 @@ Frozen dataclasses of arrays, passed between classes.
 
 | record | file | fields |
 |---|---|---|
-| `Case` | `generation/nygrid/case.py` | `base_mva`, buses (`bus_id`, `zone`, `area`, `kv`, `vmin`, `vmax`, `lat`, `lon`, `is_ny`), branches (`f`, `t`, `r`, `x`, `b`, `g` the shunt conductance, zero on a MATPOWER branch, `tap`, `shift`, `rating`), units (`bus`, `fuel`, `pmin`, `pmax`, `qmin`, `qmax`, `ramp` MW/min, NaN where unknown), HVDC links (`f`, `t`, `pmin`, `pmax`), base state |
-| `Ownership` | `generation/nygrid/ownership.py` | `names [K]` (the 7 utilities), `bus_client [N]` (-1 for external buses), `tie_lines [L]` |
+| `Case` | `systems/case.py` | `base_mva`, buses (`bus_id`, `zone`, `area`, `kv`, `vmin`, `vmax`, `lat`, `lon`, `is_ny`), branches (`f`, `t`, `r`, `x`, `b`, `g` the shunt conductance, zero on a MATPOWER branch, `tap`, `shift`, `rating`), units (`bus`, `fuel`, `pmin`, `pmax`, `qmin`, `qmax`, `ramp` MW/min, NaN where unknown), HVDC links (`f`, `t`, `pmin`, `pmax`), base state |
+| `Ownership` | `systems/ownership.py` | `names [K]` (the 7 utilities), `bus_client [N]` (-1 for external buses), `tie_lines [L]` |
 | `LoadSeries` | `generation/nygrid/loads.py` | `time [T]`, `p [T, N]`, `q [T, N]` |
 | `NygridHour` | `generation/nygrid/inputs.py` | one hour of NYgrid inputs: `time`, `fuel_mw [7]`, `iface_flow`, `iface_pos`, `iface_neg [17]`, `nuclear_mw [6]`, `stl_cf`, `thermal_mw [227]`, NYgrid's bus split `ny_pd`, `ny_qd [N]`, netted renewables `renew_mw [N]`, the thermal units' linear cost `thermal_cost [227]` ($/MWh, weekly fuel price times heat rate, allocateGen.m 'lm'), the proxy-bus LBMPs `ext_lbmp [4]` (NPX, O H, PJM, H Q) |
 | `Dispatch` | `generation/nygrid/dispatch.py` | `hour [H]`, `unit_p [H, G]`, `unit_on [H, G]`, `hvdc_p [H, D]`, the bus loads they balance `pd`, `qd [H, N]`, and NYgrid's generation cost `unit_cost [H, G]` ($/MWh: thermal from `thermal_cost`, nuclear and hydro at NYgrid's fixed draws, external units at their area's proxy LBMP) |
 | `Pool` | `generation/nygrid/pool.py` | `time [T]`, `vm [T, N]`, `va [T, N]`, `p [T, N]`, `q [T, N]`, `solve_kind [T]` (a `SolveKind` of `constants/newyork.py`: `SOLVED`, `FAILED`, `NO_HOUR`, `NO_LOAD`; unsolved frames keep their place with NaN state, branch flows are `Network.flows(vm, va)`), `unit_p [T, G]` each unit's real-time dispatch basepoint (N32; None for a pool written before N32) |
 | `Compensation` | `generation/nygrid/solver.py` | reactive support for a sensitivity of the benign dispatch (the release has none): switched shunt banks `shunt_lo`, `shunt_hi [N]` (MVAr at 1 p.u., reactors negative), a generator voltage schedule `v_schedule [N]` (p.u., NaN unregulated) held at `v_weight` k$/h per p.u.^2, the banks' switching cost `shunt_cost` (k$/h per MVAr), unit reactive limits `q_lo`, `q_hi [G]` and the operating band `v_lo`, `v_hi [N]` (NaN keeps the case's limit); `band(case)`, `shunt_buses` |
-| `MeterPlan` | `engine/sensing/meters.py` | one row per meter: `kind` (v, va, p, q, pf, qf, i, ia; ir, ii on an IEEE case, whose files store a current phasor as real and imaginary part), `bus`, `branch`, `end`, `owner`, `sigma_rel`, `sigma_abs`, `bias` |
+| `MeterPlan` | `sensing/meters.py` | one row per meter: `kind` (v, va, p, q, pf, qf, i, ia; ir, ii on an IEEE case, whose files store a current phasor as real and imaginary part), `bus`, `branch`, `end`, `owner`, `sigma_rel`, `sigma_abs`, `bias` |
 | `Episode` | `models/plan.py` | `family`, `clients` (owners of the tampered meters), `onset`, `length`, `buses`, `target_branch`, `a [length, M]` |
 | `Slot` | `models/plan.py` | one placed episode, the same record on every grid: `onset` (frame), `family` (here the name, "Am" or "At"; the IEEE generator uses the code), `length` |
 
@@ -148,12 +152,12 @@ Frozen dataclasses of arrays, passed between classes.
 
 | class | file | holds | methods |
 |---|---|---|---|
-| `Network` | `generation/nygrid/network.py` | a `Case`, its `Ybus`, `Yf`, `Yt` built once, the bus adjacency; `matpower_order` (off; the IEEE generator turns it on) sums `Ybus` in MATPOWER's order and holds it by column | `injections(vm, va)`, `flows(vm, va)`, `currents(vm, va)`, `neighbors(buses, hops)` |
+| `Network` | `systems/network.py` | a `Case`, its `Ybus`, `Yf`, `Yt` built once, the bus adjacency; `matpower_order` (off; the IEEE generator turns it on) sums `Ybus` in MATPOWER's order and holds it by column | `injections(vm, va)`, `flows(vm, va)`, `currents(vm, va)`, `neighbors(buses, hops)` |
 | `LoadModel` | `generation/nygrid/loads.py` | built as `LoadModel(case, own, nygrid_data, locations, cache_dir)`: each NY load bus's utility sector mix, its five nearest county prototype pools at 15 minutes (`building_stock_ny_15min.npz`), the IAC plant curves | `profiles(zone_load, rng) -> LoadSeries` (15-minute shares, then each bus's AR(1) fluctuation and industrial switching pulses, rescaled to the zone, N31) |
 | `AcSolver` | `generation/nygrid/solver.py` | built as `AcSolver(case, compensation=None)`: the `Network`, the Pyomo AC-OPF model (two objectives: deviation, and generation cost plus a quadratic penalty holding anchored units to a schedule; with a `Compensation` the dispatch also sets each bank and adds the voltage schedule's penalty and the banks' switching cost, and holds the operating band, while `project` stays NYgrid's), one pandapower net built from the `Case`, the last solved state for warm starts | `project(pd, qd, unit_p, unit_on, hvdc_p)` (hourly min-deviation AC-OPF as a Pyomo model solved by Ipopt), `dispatch(pd, qd, cost, p_lo, p_hi, q_lo, q_hi, unit_on, hvdc_p, init=None, anchor=None, anchor_weight=1000)` (one five-minute least-cost AC-OPF within per-unit P and Q bounds, started from `init` = the previous (unit_p, unit_q), units with a finite `anchor` (MW) held near it at `anchor_weight` $/MW^2h, N32, N39; returns each bank's output `shunt_q [N]`), `power_flow(pd, qd, unit_p, unit_on, unit_vm, hvdc_p, start=None)` (pandapower, at a frame's basepoints; `start` = (vm, va) starts Newton at the dispatch's own solution) |
 | `PoolBuilder` | `generation/nygrid/pool.py` | built as `PoolBuilder(solver, loads, dispatch, renew, ramp, q_cap=None)`: an `AcSolver`, the 5-minute `LoadSeries`, the `Dispatch`, NYgrid's hourly netted renewables `renew [H, N]`, each unit's ramp `ramp [G]` (MW per frame, inf unbounded), its reactive cap `q_cap [G]` (None: the case's limits, as the grid uses, N38; the solver's `Compensation` limits when it has one, the banks' output entering the power flow as a reactive injection); after a build `final` = (unit_p, unit_q, vm, va) of its last solved frame and per frame `slack_mw`, `cost`, `ramp_bound`, `anchor_dev`, `shunt_q [T, N]` | `build(start=None) -> Pool` (projects every hour the frames touch, then a least-cost AC-OPF per frame in order from `start` or from the first hour's AC point: thermal units within their limits and their ramp of the previous frame's basepoint, nuclear at the hourly AC points' output interpolated, hydro and external units anchored to it (N39), every unit in service for reactive power as in NYgrid's case; then a power flow at the basepoints), `report()` (solve counts, voltages, reference bus residual, cost, anchor deviation, ramp-held share, reactive fallbacks) |
-| `Measurement` | `engine/sensing/measure.py` | a `Network`, a `MeterPlan` | `h(vm, va, injections=None) -> z` (the injections follow from the voltages, or are the stored ones of an IEEE pool), `jacobian(vm, va)`, `for_client(c)` |
-| `NoiseModel` | `engine/sensing/noise.py` | the accuracy classes, the per-meter biases | `sigmas(z)`, `sample(z, rng)` |
+| `Measurement` | `sensing/measure.py` | a `Network`, a `MeterPlan` | `h(vm, va, injections=None) -> z` (the injections follow from the voltages, or are the stored ones of an IEEE pool), `jacobian(vm, va)`, `for_client(c)` |
+| `NoiseModel` | `sensing/noise.py` | the accuracy classes, the per-meter biases | `sigmas(z)`, `sample(z, rng)` |
 | `AttackFamily` | `engine/attacks/family.py` | interface only | `design(window, rng) -> Episode` |
 | `Attacker` | `engine/attacks/attacker.py` | a `Network`, a `Measurement` | `area(center, hops)` (the local subnetwork of [WU26], which may span utilities, or `None`), `false_state(vm, va, area, load_change)` (At's load goal: the pretended loads prescribed, solved by `formulas.network.local_flow_solve`: the area first grows over its non-free New York edge buses (`absorb`, N25); the other free injections of the area and its edge absorb, every other New York bus there, zero-injection ones included, holds its injection, a bus outside New York on the edge absorbs unless it has no unit and no injection (`_held_bus`, N44, bus 140), which holds; absorbing loads capped at 0.5 of their true P and Q (`ABSORB_CAP`, D16, N24); an active set pins a free injection at a bound and releases it when the solve without the pin leaves it inside), `attack_vector(vm_t, va_t, vm_f, va_f)` (global, in full), `tampered(vm, va, a)` (the meters moved beyond noise, angle changes wrapped: eq. 12 count, labels, owners), `load_buses(vm, va, buses=None)`, `free_injection_buses(vm, va, buses)`, `boundary(interior)`, `sigma(z)`, `bus_load(vm, va)` |
 | `OpfFdia` | `engine/attacks/opf.py` | an `Attacker`; `hops` (3), `load_cap` (0.1, N28), `budget` candidate supports per search, `family` ("Am"), `exit_scans` (N30), which needs `step_bound [24, N]` (`natural_steps` at load buses, `generator_ramps` at generator buses) and `frame_hour [T]` the clock hour of the frames onsets index; `gen_ramp [N]` (`generator_ramps`), `gen_band [N]` (`generator_band`, 3% of the upper limit, N33/N37), `q_lo`, `q_hi [N]` (`generator_q_capability`, widened to the unit's true Q, N34/N38), `q_ramp [N]` (unbounded by default, N37), `windows_solved` (3), `gen_output [T, N]` (the units' output at each bus, from the pool's `unit_p`; the generator bounds act on it and the load at the bus moves within the load cap, N42), `loads_only` (False; True pretends no generator bus, N43) | the base class of the OPF attacks, with no `design` of its own: the support search (`_candidates`, supports grown from the goal's end buses, smallest first), each candidate support tested by a one-scan AC OPF at the last rise scan with every static bound (`_static`), then solved scan by scan by Ipopt with the ramp, exit-step and band bounds (`_sequential`), each scan kept within reach of the static solution and of zero at the last scan |
@@ -165,7 +169,7 @@ Frozen dataclasses of arrays, passed between classes.
 
 ## The case file
 
-The New York grid is one MATPOWER case file, `src/fdia_graph/generation/nygrid/case_nygrid.m`, shipped with the package the way the IEEE test cases ship with pandapower. `nygrid_case()` reads it, and every build, test and pipeline starts from that `Case`. A change to the grid is an edit to the file: no code patches the case on the way in.
+The New York grid is one MATPOWER case file, `src/fdia_graph/systems/case_nygrid.m`, shipped with the package the way the IEEE test cases ship with pandapower. `nygrid_case()` reads it, and every build, test and pipeline starts from that `Case`. A change to the grid is an edit to the file: no code patches the case on the way in.
 
 `Case.from_matpower(path)` reads the file with matpowercaseframes, the reader pandapower uses for `.m` files, and takes every column by MATPOWER's own name (`BUS_I`, `PD`, `RATE_A`, `TAP`). Standard MATPOWER fields carry everything they can: the bus `zone` column says where each bus is, as a number (the table below), `mpc.bus_name` the bus names and `mpc.genfuel` the unit fuels. Two numeric fields are ours: `mpc.bus_latlon` (latitude and longitude in degrees) and `mpc.gen_ramp` (MW per minute, `NaN` where the source gives none). A branch with status 0 is left out, and a tap ratio of 0, MATPOWER's mark of a line, is 1.
 
@@ -191,17 +195,17 @@ Stateless steps, each called once in the build.
 
 | function | file | in | out |
 |---|---|---|---|
-| `nygrid_case()` | `generation/nygrid/case.py` | the case file `case_nygrid.m`, shipped with the package | the `Case` every build starts from: 140 buses, 227 branches, 271 units |
-| `Case.from_matpower(path)` | `generation/nygrid/case.py` | a MATPOWER case file | its `Case`, read with matpowercaseframes and checked: bus numbers become positions, the zone number a zone letter; a file whose parts disagree is a `DataConditionError` |
-| `hvdc_links(case)` | `generation/nygrid/fixes.py` | `Case` | `Case` with NYgrid's four HVDC links as DC lines in place of the AC branch 81-125 (a variant; the release keeps the branch) |
-| `externals_at_base(case, base)` | `generation/nygrid/fixes.py` | an hourly `Case`, the base `Case` | `Case` with external load at base and external units covering the balance |
+| `nygrid_case()` | `systems/case.py` | the case file `case_nygrid.m`, shipped with the package | the `Case` every build starts from: 140 buses, 227 branches, 271 units |
+| `Case.from_matpower(path)` | `systems/case.py` | a MATPOWER case file | its `Case`, read with matpowercaseframes and checked: bus numbers become positions, the zone number a zone letter; a file whose parts disagree is a `DataConditionError` |
+| `hvdc_links(case)` | `systems/fixes.py` | `Case` | `Case` with NYgrid's four HVDC links as DC lines in place of the AC branch 81-125 (a variant; the release keeps the branch) |
+| `externals_at_base(case, base)` | `systems/fixes.py` | an hourly `Case`, the base `Case` | `Case` with external load at base and external units covering the balance |
 | `hourly_interfaces(case, time, data, names=None, year=2019)` | `generation/nygrid/interfaces.py` | `Case`, the pool's frame times, NYgrid's data folder | a list of `Interface` (branches and signs from `updateOpCond.m` L420-430, real hourly limit and flow per frame from `interflowHourly_2019.csv`) |
 | `peak_ratings(case, pool, factor=1.0)` | `generation/nygrid/pool.py` | `Case`, `Pool` | `Case` with each unrated branch at `factor` times its peak apparent flow over the solved frames (N8; 1.0 by N47) |
 | `write_pool(path, pool)`, `read_pool(path)` | `io.py` | `Pool` | `pool.h5`: `time` (int64 seconds, NYISO local clock), `vm`, `va`, `p`, `q`, `solve_kind`, `unit_p` (when present) |
-| `plan_meters(net, own, rng, vbus_frac=0.6)` | `engine/sensing/meters.py` | `Network`, `Ownership`, a generator | `MeterPlan`: P, Q at every NY bus, P, Q flow at every branch end on a NY bus, \|V\| at a random 60% of NY buses, PMUs (voltage and branch-current phasors) at the smallest set that sees every NY bus (N7), each meter owned by its bus's client, accuracy class and drawn bias per meter |
-| `Case.from_pandapower(net)` | `generation/nygrid/case.py` | a pandapower net with its power flow solved (an IEEE case) | its `Case`: buses and branches in the net's order, the per-unit branch model the power flow built, loads per bus, the generators, static generators and external grid as units; the IEEE generator (`engine/core.py`) is built on it |
-| `MeterPlan.from_coverage(case, coverage, rng, pmu_at, flow_at)` | `engine/sensing/meters.py` | a `Case`, the coverage fractions (`MeterSettings`), a generator; `pmu_at` and `flow_at` stand in for the drawn places (a paper's metering) | the `MeterPlan` of an IEEE case: P, Q at every bus, P, Q flow at the from end of a random share of the branches, \|V\| at a random share of the buses, PMUs (voltage and branch-current phasors, real and imaginary part) at a random share; rows in the order a scan's noise is drawn |
-| `assign_clients(case, territories, locations)` | `generation/nygrid/ownership.py` | `Case`, territory polygons, path to `data/territories/ny_bus_locations.csv` (substation location or zone-chosen utility per NY bus) | `Ownership`, one client per utility |
+| `plan_meters(net, own, rng, vbus_frac=0.6)` | `sensing/meters.py` | `Network`, `Ownership`, a generator | `MeterPlan`: P, Q at every NY bus, P, Q flow at every branch end on a NY bus, \|V\| at a random 60% of NY buses, PMUs (voltage and branch-current phasors) at the smallest set that sees every NY bus (N7), each meter owned by its bus's client, accuracy class and drawn bias per meter |
+| `Case.from_pandapower(net)` | `systems/case.py` | a pandapower net with its power flow solved (an IEEE case) | its `Case`: buses and branches in the net's order, the per-unit branch model the power flow built, loads per bus, the generators, static generators and external grid as units; the IEEE generator (`engine/core.py`) is built on it |
+| `MeterPlan.from_coverage(case, coverage, rng, pmu_at, flow_at)` | `sensing/meters.py` | a `Case`, the coverage fractions (`MeterSettings`), a generator; `pmu_at` and `flow_at` stand in for the drawn places (a paper's metering) | the `MeterPlan` of an IEEE case: P, Q at every bus, P, Q flow at the from end of a random share of the branches, \|V\| at a random share of the buses, PMUs (voltage and branch-current phasors, real and imaginary part) at a random share; rows in the order a scan's noise is drawn |
+| `assign_clients(case, territories, locations)` | `systems/ownership.py` | `Case`, territory polygons, path to `data/territories/ny_bus_locations.csv` (substation location or zone-chosen utility per NY bus) | `Ownership`, one client per utility |
 | `read_nygrid(data_dir, year)` | `generation/nygrid/inputs.py` | NYgrid `Data/` | `NygridHour` list |
 | `fetch_nyiso(year)` | `generation/nygrid/inputs.py` | NYISO pal archive | `ZoneLoad` |
 | `hourly_dispatch(case, hours, hold_externals=True)` | `generation/nygrid/dispatch.py` | | `Dispatch`; `hold_externals=False` keeps NYgrid's own external scaling (the AC ablation) |
@@ -209,7 +213,7 @@ Stateless steps, each called once in the build.
 | `natural_steps(time, p, solved, pct=95.0)` | `engine/attacks/attacker.py` | the pool's frame times, net injections `p [T, N]` (MW), which frames are solved | `[24, N]` each bus's `pct` percentile of \|p(t) - p(t-1)\| over consecutive solved frames, by the clock hour of the later frame: the natural five-minute step the attacker knows, the bound on each scan of Am's exit (ours) |
 | `place_episodes(rng, lengths, frac, n, allowed=None)` | `generation/plan.py` | one split's frame count, `{family: length}`, the attacked share, `{family: [T] allowed onsets}` | `Slot` list with the counts requested and dropped: the whole episodes closest to `frac T` frames, families equal in attacked frames (a family capped at what its allowed onsets hold), each at a uniform random onset among the allowed ones where it fits without overlap (adjacency and gaps come only from this) |
 | `ipopt(**options)` | `solvers.py` | Ipopt's options | a Pyomo `SolverFactory` checked to start; `SolverUnavailable` with the fix when Pyomo or Ipopt is missing or Ipopt cannot start |
-| `read_rows(path, encoding)` | `tables.py` | a CSV table of the inputs | its rows as dicts, the file closed |
+| `read_rows(path, encoding)` | `systems/tables.py` | a CSV table of the inputs | its rows as dicts, the file closed |
 | `generator_ramps(case, minutes=5.0)` | `engine/attacks/attacker.py` | `Case` | `[N]` each bus's units' ramp over `minutes` (MW) summed at the bus: NYgrid's ramp, nuclear 0, hydro 10% of nameplate per minute, imports 300 MW per 15 minutes per unit (N34), inf at a bus with no unit |
 | `generator_band(case, share=BASEPOINT_BAND)` | `engine/attacks/attacker.py` | `Case` | `[N]` `share` (3%) of each bus's units' upper limit (MW), the basepoint band (N33) |
 | `generator_q_capability(case)` | `engine/attacks/attacker.py` | `Case` | `([N], [N])` reactive capability plus or minus 0.312 Pmax per bus (MVAr, N34) |
@@ -218,7 +222,7 @@ Stateless steps, each called once in the build.
 | `wrap_angles(d, kind)` | `engine/attacks/attacker.py` | reading differences `[..., M]`, meter kinds | the differences with angle readings (va, ia) wrapped to (-180, 180] |
 | `InterfaceFdia.max_overshoot(window, rng, high=800.0, tol=25.0)` | `engine/attacks/interface.py` | a window | `(Episode or None, MW)`: the damaging variant at the largest overshoot past the limit the bounds allow, by bisection (N58), on a copy of the family |
 | `InterfaceFdia.with_overshoot(mw)` | `engine/attacks/interface.py` | MW past the limit | a copy of the family with that goal; the original unchanged |
-| `Case.with_voltage_margin(margin)` | `generation/nygrid/case.py` | p.u. | a copy with every bus's voltage limits widened (N71); the original unchanged |
+| `Case.with_voltage_margin(margin)` | `systems/case.py` | p.u. | a copy with every bus's voltage limits widened (N71); the original unchanged |
 | `SingleEpisodeSource(source, onset, family, lo, hi, using=None, lag=0)` | `generation/nygrid/source.py` | a `NewYorkSource` and one onset | the same grid with one episode alone over frames lo..hi, every frame in train: a subclass that gives the one slot in place of a random placement and whose design must exist; `.generate(path)` writes it by the same path; `using` designs it with a family variant (such as `with_overshoot`) in place of the source's own; `lag` (frames) designs it on the window `lag` frames earlier, the attacker's persistence forecast, and adds its vector to the true scans from `onset`; the one design runs in the caller's process |
 
 ## The timeline file
@@ -266,7 +270,7 @@ onset, lag and the pool frames it covers) in place of the attacked share, the sp
 carries no `target_attacked_frac`.
 
 Not in the file: the unit table, the HVDC links and the bus names and places, which are the case file's
-(`generation/nygrid/case_nygrid.m`). The line ratings are in the file because the case file does not give
+(`systems/case_nygrid.m`). The line ratings are in the file because the case file does not give
 them all: the release rates a branch the case leaves unrated at its peak flow over the pool (N8), so
 `graph/edge_rating` is the ratings the attacks were designed against. Also not in the file: each meter's
 accuracy class (the table `KIND_ACCURACY` of `constants/meters.py`) and its bias (drawn from the seed), and
@@ -279,17 +283,17 @@ each meter's owner (the owner of its bus).
 | block | files |
 |---|---|
 | F1, F2 | `pyproject.toml`, `config.py`, `io.py` |
-| G1 | `generation/nygrid/case.py` (the case file and its reader), `generation/nygrid/network.py` |
-| G2 | the case file (zone J's split and the 765 kV line are in it; `pipelines/newyork/make_case.py` is how), `generation/nygrid/fixes.py` (the variants) |
+| G1 | `systems/case.py` (the case file and its reader), `systems/network.py` |
+| G2 | the case file (zone J's split and the 765 kV line are in it; `pipelines/newyork/make_case.py` is how), `systems/fixes.py` (the variants) |
 | G3 | the case file (the unit list, `mpc.gen` with `mpc.genfuel` and `mpc.gen_ramp`) |
 | G4 | the case file (the tie ratings, `mpc.branch`), `peak_ratings` in `generation/nygrid/pool.py` |
-| G5 | `generation/nygrid/ownership.py`, `data/territories/ny_bus_locations.csv` |
+| G5 | `systems/ownership.py`, `data/territories/ny_bus_locations.csv` |
 | P1 | `generation/nygrid/inputs.py` |
 | P2 | `generation/nygrid/loads.py` |
 | P3 | `generation/nygrid/dispatch.py` |
 | P4, P5 | `generation/nygrid/solver.py`, `generation/nygrid/pool.py` |
-| M1 | `engine/sensing/meters.py` |
-| M2 | `engine/sensing/measure.py`, `engine/sensing/noise.py` |
+| M1 | `sensing/meters.py` |
+| M2 | `sensing/measure.py`, `sensing/noise.py` |
 | A1 | `engine/attacks/family.py`, `engine/attacks/attacker.py` |
 | A2 | `engine/attacks/opf.py`, `engine/attacks/interface.py` and `generation/nygrid/interfaces.py` (N48, N49) |
 | A3 | `engine/attacks/ramp.py` |

@@ -29,7 +29,7 @@ class LayerSet(NamedTuple):
 
 class MeterLayers(NamedTuple):
     """One value per meter of a meter table, laid out as a file's layers
-    (`engine.sensing.meters.MeterPlan.scatter`), zero where no meter sits. An IEEE file's flow
+    (`sensing.meters.MeterPlan.scatter`), zero where no meter sits. An IEEE file's flow
     layer has the from end only [..., E, 2], and its currents are real and imaginary parts."""
 
     node: np.ndarray  # [..., N, 4] |V|, P_inj, Q_inj, theta

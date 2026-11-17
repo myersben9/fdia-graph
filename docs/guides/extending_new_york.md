@@ -32,7 +32,7 @@ false alarms on benign days of other months beside its detection rate.
 
 ## Changing the package itself
 
-- The grid is the MATPOWER case file `src/fdia_graph/generation/nygrid/case_nygrid.m`, read by `nygrid_case()`. To
+- The grid is the MATPOWER case file `src/fdia_graph/systems/case_nygrid.m`, read by `nygrid_case()`. To
   change a line, a unit or a limit, edit the file; code does not patch the case on the way in. Edit rows in place,
   or add and delete whole rows: `Case.from_matpower` reads the file with matpowercaseframes and refuses a file
   whose parts disagree, naming the file and what is wrong ([the architecture](../concepts/new_york_grid.md) lists

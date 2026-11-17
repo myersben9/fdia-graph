@@ -7,6 +7,8 @@ flowchart TB
         profiles["profiles.py"]
         ratings["ratings/"]
         registry["registry.py"]
+        sensing["sensing/"]
+        systems["systems/"]
         timeline["timeline.py"]
     end
     subgraph fdia_analysis["fdia-analysis, the analysis toolkit: analysis/src/fdia_analysis"]
@@ -16,12 +18,14 @@ flowchart TB
         se["se/"]
         trust["trust/"]
     end
-    dataset --> engine
-    dataset --> generation
+    dataset --> sensing
+    dataset --> systems
     download --> registry
     engine --> generation
     engine --> ratings
     engine --> registry
+    engine --> sensing
+    engine --> systems
     federated --> dataset
     federated --> localization
     federated --> se
@@ -29,11 +33,14 @@ flowchart TB
     generation --> engine
     generation --> profiles
     generation --> registry
+    generation --> sensing
+    generation --> systems
     generation --> timeline
     localization --> dataset
     localization --> se
-    profiles --> engine
+    profiles --> systems
     se --> dataset
+    sensing --> systems
     timeline --> generation
     trust --> dataset
     trust --> generation

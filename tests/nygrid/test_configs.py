@@ -10,7 +10,7 @@ import pytest
 
 
 def _toy_case():
-    from fdia_graph.generation.nygrid.case import Case
+    from fdia_graph.systems.case import Case
 
     return Case(**{f.name: (100.0 if f.name == "base_mva" else np.ones(3)) for f in fields(Case)})
 

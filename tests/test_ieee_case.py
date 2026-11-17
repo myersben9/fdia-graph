@@ -12,8 +12,8 @@ from pandapower.pypower.makeYbus import makeYbus  # noqa: E402
 
 from fdia_graph.constants.grid import IEEE_CASES, BusType  # noqa: E402
 from fdia_graph.errors import DataConditionError  # noqa: E402
-from fdia_graph.generation.nygrid.case import Case  # noqa: E402
-from fdia_graph.generation.nygrid.network import Network  # noqa: E402
+from fdia_graph.systems.case import Case  # noqa: E402
+from fdia_graph.systems.network import Network  # noqa: E402
 
 # makeYbus sums a bus's from-side and to-side branch admittances apart and then adds them; a `Network`
 # adds every term in one pass unless it is asked for MATPOWER's order. The two orders round differently

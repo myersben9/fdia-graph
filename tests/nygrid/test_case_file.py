@@ -10,7 +10,7 @@ import pytest
 
 from fdia_graph.constants.newyork import CASE_COLUMNS, FILE_AREA, NY_AREA, REGIONS, ZONES
 from fdia_graph.errors import DataConditionError
-from fdia_graph.generation.nygrid.case import Case
+from fdia_graph.systems.case import Case
 
 TINY = """function mpc = tiny
 % a three-bus case

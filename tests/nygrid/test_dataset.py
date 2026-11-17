@@ -24,10 +24,10 @@ def written(grid, tmp_path_factory):
     its designed episodes say."""
     from fdia_graph.dataset.clients import Dataset
     from fdia_graph.engine.attacks.attacker import Attacker
-    from fdia_graph.engine.sensing.measure import Measurement
-    from fdia_graph.engine.sensing.meters import MeterPlan
     from fdia_graph.generation.nygrid.source import NewYorkSource
     from fdia_graph.models.config import NewYorkSettings
+    from fdia_graph.sensing.measure import Measurement
+    from fdia_graph.sensing.meters import MeterPlan
 
     laid_out = []
 
@@ -59,7 +59,7 @@ def _all(ds):
 
 
 def test_the_meter_table_and_the_flat_vectors_come_back_exactly(written):
-    from fdia_graph.engine.sensing.meters import MeterPlan
+    from fdia_graph.sensing.meters import MeterPlan
 
     ds, source, stored = written
     plan = source.meas.plan

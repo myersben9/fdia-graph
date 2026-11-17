@@ -35,17 +35,11 @@ from fdia_graph.engine.attacks.attacker import (
 from fdia_graph.engine.attacks.family import AttackFamily
 from fdia_graph.engine.attacks.interface import InterfaceFdia
 from fdia_graph.engine.attacks.ramp import Ramp
-from fdia_graph.engine.sensing.measure import Measurement
-from fdia_graph.engine.sensing.meters import plan_meters
-from fdia_graph.engine.sensing.noise import NoiseModel
 from fdia_graph.errors import ConfigError, DataConditionError, NoAdmissibleTarget
 from fdia_graph.generation.design import DesignPool
-from fdia_graph.generation.nygrid.case import Case, nygrid_case
 from fdia_graph.generation.nygrid.config import Settings, rng
 from fdia_graph.generation.nygrid.interfaces import hourly_interfaces
 from fdia_graph.generation.nygrid.io import read_pool
-from fdia_graph.generation.nygrid.network import Network
-from fdia_graph.generation.nygrid.ownership import Ownership, assign_clients
 from fdia_graph.generation.nygrid.pool import Pool, peak_ratings
 from fdia_graph.generation.plan import STRATUM, split_bounds, split_column, split_weeks, week_index
 from fdia_graph.generation.source import OutPath, TimelineSource
@@ -55,6 +49,12 @@ from fdia_graph.models.config import NewYorkRelease, NewYorkSettings
 from fdia_graph.models.frames import Frame, LayerSet
 from fdia_graph.models.plan import Episode, Placement, Slot, SplitSpan
 from fdia_graph.schema import NEW_YORK_GRAPH_LEGEND, NEW_YORK_TAMPER_RULE, Attr, Static
+from fdia_graph.sensing.measure import Measurement
+from fdia_graph.sensing.meters import plan_meters
+from fdia_graph.sensing.noise import NoiseModel
+from fdia_graph.systems.case import Case, nygrid_case
+from fdia_graph.systems.network import Network
+from fdia_graph.systems.ownership import Ownership, assign_clients
 
 # weeks per stratum of the split when the weight is the surveyed attacks: they sit in about 9 weeks, one
 # of them holding 40%, so a 20-week stratum can leave a split one episode; 5 draws 3/1/1 per stratum

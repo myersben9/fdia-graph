@@ -13,7 +13,8 @@ import pytest
 
 PACKAGES = (
     "fdia_graph.generation.nygrid",
-    "fdia_graph.engine.sensing",
+    "fdia_graph.sensing",
+    "fdia_graph.systems",
 )
 
 

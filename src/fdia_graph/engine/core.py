@@ -17,16 +17,16 @@ from typing import TYPE_CHECKING, Optional, Union
 
 import numpy as np
 
-from ..constants.grid import IEEE_CASES, BusType
+from ..constants.grid import BusType
 from ..constants.meters import FLOW_KINDS, MeterKind
-from ..generation.nygrid.case import Case
-from ..generation.nygrid.network import Network
 from ..models.config import GeneratorOptions, MeterSettings
 from ..registry import system_id
+from ..sensing.measure import Measurement
+from ..sensing.meters import MeterPlan
+from ..sensing.noise import NoiseModel
+from ..systems.case import Case
+from ..systems.network import Network
 from .attacks import AttackMixin
-from .sensing.measure import Measurement
-from .sensing.meters import MeterPlan
-from .sensing.noise import NoiseModel
 
 if TYPE_CHECKING:
     from ..models.plan import GeneratorSpec
@@ -72,16 +72,9 @@ class FdiaGenerator(AttackMixin):
         return g
 
     def _open_case(self) -> None:
-        """The IEEE case pandapower ships, with its base power flow solved, as a `Case` and its
-        `Network`. The net itself is not kept. The bus admittance is in MATPOWER's order (`Network`,
-        `matpower_order`): the stored IEEE files were made with it, to the last bit."""
-        # pandapower is heavy and optional: imported only when generating
-        import pandapower as pp
-        import pandapower.networks as pn
-
-        net = getattr(pn, IEEE_CASES[self.C])()
-        pp.runpp(net)
-        self.case = Case.from_pandapower(net)
+        """The IEEE case (`Case.from_ieee`) and its `Network`. The bus admittance is in MATPOWER's
+        order (`Network`, `matpower_order`): the stored IEEE files were made with it, to the last bit."""
+        self.case = Case.from_ieee(self.C)
         self.net = Network(self.case, matpower_order=True)
 
     def _load_tables(self) -> None:

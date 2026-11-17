@@ -8,8 +8,8 @@ from pathlib import Path
 import numpy as np
 
 from fdia_graph.errors import DataConditionError
-from fdia_graph.generation.nygrid.case import Case
-from fdia_graph.generation.nygrid.tables import read_rows
+from fdia_graph.systems.case import Case
+from fdia_graph.systems.tables import read_rows
 
 
 @dataclass(frozen=True)

@@ -14,17 +14,17 @@ from fdia_graph.constants.time import WEEK_SECONDS
 from fdia_graph.dataset.clients import Dataset
 from fdia_graph.engine.attacks.attacker import Attacker
 from fdia_graph.engine.attacks.ramp import Ramp
-from fdia_graph.engine.sensing.measure import Measurement
-from fdia_graph.engine.sensing.meters import plan_meters
-from fdia_graph.generation.nygrid.case import nygrid_case
 from fdia_graph.generation.nygrid.config import Settings, rng
 from fdia_graph.generation.nygrid.io import read_pool
-from fdia_graph.generation.nygrid.network import Network
-from fdia_graph.generation.nygrid.ownership import assign_clients
 from fdia_graph.generation.nygrid.pool import Pool, peak_ratings
 from fdia_graph.generation.nygrid.source import NewYorkSource
 from fdia_graph.generation.plan import place_episodes, split_weeks
 from fdia_graph.models.config import NewYorkSettings
+from fdia_graph.sensing.measure import Measurement
+from fdia_graph.sensing.meters import plan_meters
+from fdia_graph.systems.case import nygrid_case
+from fdia_graph.systems.network import Network
+from fdia_graph.systems.ownership import assign_clients
 
 from .inputs import DATA, POOL, TERRITORIES
 

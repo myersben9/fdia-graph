@@ -60,10 +60,11 @@ PAGES = {
         "constants": "docs/ROADMAP.md",
         "ratings": "docs/ROADMAP.md",
         "formulas": "docs/reference/FORMULAS.md",
+        "systems": "docs/guides/generation.md",
+        "sensing": "docs/guides/generation.md",
         "engine": "docs/guides/generation.md",
         "engine/attacks": "docs/guides/generation.md",
         "generation": "docs/guides/generation.md",
-        "engine/sensing": "docs/concepts/new_york_grid.md",
         "generation/nygrid": "docs/concepts/new_york_grid.md",
     },
     ANALYSIS: {
@@ -133,7 +134,7 @@ EXEMPT: dict[str, dict[str, str]] = {
     "engine/attacks/opf.py": {"SUPPORT_BUDGET": "knob"},
     "engine/attacks/overload.py": {"AM_LINE_TRIES": "knob"},
     "engine/attacks/stealthy.py": {"STEP_HALVINGS": "knob"},
-    "generation/nygrid/case.py": {"CASE_FILE": "path", "STATEMENT": "private", "QUOTED": "private"},
+    "systems/case.py": {"CASE_FILE": "path", "STATEMENT": "private", "QUOTED": "private"},
     "generation/nygrid/source.py": {
         "HIT_STRATUM": "knob",
         "SURVEY_CHUNK": "private",

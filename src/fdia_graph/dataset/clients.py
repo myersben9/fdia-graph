@@ -15,13 +15,13 @@ import numpy as np
 
 from fdia_graph import schema
 from fdia_graph.constants.meters import ANGLE_KINDS, BUS_KINDS
-from fdia_graph.engine.sensing.meters import MeterPlan
 from fdia_graph.errors import NotATimeline
 from fdia_graph.formulas.temporal import wrap_degrees
-from fdia_graph.generation.nygrid.ownership import Ownership
 from fdia_graph.models.choices import Split
 from fdia_graph.models.frames import MeterLayers
 from fdia_graph.schema import Attr, Static
+from fdia_graph.sensing.meters import MeterPlan
+from fdia_graph.systems.ownership import Ownership
 
 
 class ClientView:

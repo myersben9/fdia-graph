@@ -21,7 +21,6 @@ from scipy.stats import genpareto
 
 from fdia_graph.constants import newyork
 from fdia_graph.constants.time import FRAME_MINUTES, HOURS_PER_YEAR, QUARTERS_PER_YEAR
-from fdia_graph.generation.nygrid.case import Case
 from fdia_graph.generation.nygrid.inputs import ZoneLoad, _bus_weights
 from fdia_graph.generation.nygrid.load_sources import (
     _building_stock,
@@ -31,8 +30,9 @@ from fdia_graph.generation.nygrid.load_sources import (
     _sector_mix,
     _work_hours,
 )
-from fdia_graph.generation.nygrid.ownership import Ownership
-from fdia_graph.generation.nygrid.tables import read_rows
+from fdia_graph.systems.case import Case
+from fdia_graph.systems.ownership import Ownership
+from fdia_graph.systems.tables import read_rows
 
 
 @dataclass(frozen=True)

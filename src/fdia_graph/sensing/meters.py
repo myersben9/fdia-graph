@@ -23,11 +23,11 @@ from fdia_graph.constants.meters import (
     POLAR_FILE_KINDS,
     MeterKind,
 )
-from fdia_graph.generation.nygrid.case import Case
-from fdia_graph.generation.nygrid.network import Network
-from fdia_graph.generation.nygrid.ownership import Ownership
 from fdia_graph.models.config import MeterSettings
 from fdia_graph.models.frames import MeterLayers
+from fdia_graph.systems.case import Case
+from fdia_graph.systems.network import Network
+from fdia_graph.systems.ownership import Ownership
 
 if TYPE_CHECKING:
     from scipy.sparse import spmatrix

@@ -17,8 +17,8 @@ solvable in AC). `nygrid_case()` reads it into a `Case`, a frozen record of arra
 admittances. Each New York bus belongs to one utility, a client of the federated dataset.
 
 ```python
-from fdia_graph.generation.nygrid.case import nygrid_case
-from fdia_graph.generation.nygrid.network import Network
+from fdia_graph.systems.case import nygrid_case
+from fdia_graph.systems.network import Network
 
 case = nygrid_case()
 net = Network(case)

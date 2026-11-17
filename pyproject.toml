@@ -46,7 +46,7 @@ Repository = "https://github.com/myersben9/fdia-graph"
 where = ["src"]
 
 [tool.setuptools.package-data]
-fdia_graph = ["profiles/*.npz", "ratings/*.json", "generation/nygrid/*.csv", "generation/nygrid/*.m"]
+fdia_graph = ["profiles/*.npz", "ratings/*.json", "generation/nygrid/*.csv", "systems/*.m"]
 
 # The two toolkits of this repository are tested from its root: this checkout's own source of both is
 # imported (an installed copy cannot stand in for it), the root `conftest.py` holds the fixtures the two

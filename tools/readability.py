@@ -58,20 +58,20 @@ _NYGRID_AS_WRITTEN = (  # generation/nygrid/source.py (the timeline source) is c
     "__init__.py",
     "config.py",
     "dispatch.py",
-    "fixes.py",
     "inputs.py",
     "interfaces.py",
     "io.py",
     "load_sources.py",
     "loads.py",
-    "ownership.py",
     "pool.py",
     "solver.py",
-    "tables.py",
 )
 _AS_WRITTEN = "the New York code, moved in as written; conformed module by module"
 DEFERRED: dict[str, str] = {
     **{f"{GENERATION}/generation/nygrid/{module}": _AS_WRITTEN for module in _NYGRID_AS_WRITTEN},
+    f"{GENERATION}/systems/fixes.py": _AS_WRITTEN,
+    f"{GENERATION}/systems/ownership.py": _AS_WRITTEN,
+    f"{GENERATION}/systems/tables.py": _AS_WRITTEN,
     f"{GENERATION}/engine/attacks/attacker.py": _AS_WRITTEN,
     f"{GENERATION}/engine/attacks/family.py": _AS_WRITTEN,
     f"{GENERATION}/engine/attacks/opf.py": _AS_WRITTEN,

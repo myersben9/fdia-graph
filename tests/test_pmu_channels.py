@@ -196,8 +196,8 @@ def test_a_current_bias_scales_with_the_end_phasor():
     """Review fix: the systematic error of a current channel is its relative bias times |I_end| (the
     C37.118 scale of `current_sigma`), so the Re channel of I = 1j still carries it."""
     from fdia_graph.constants.meters import CURRENT_FLOOR_PU, KIND_ACCURACY, MeterKind
-    from fdia_graph.engine.sensing.meters import MeterPlan
-    from fdia_graph.engine.sensing.noise import NoiseModel
+    from fdia_graph.sensing.meters import MeterPlan
+    from fdia_graph.sensing.noise import NoiseModel
     from tests.helpers import FixedDraws
 
     # one branch with a PMU at each end, its four current channels in `CurrentChannel` order

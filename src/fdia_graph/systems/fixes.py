@@ -9,7 +9,7 @@ from dataclasses import replace
 import numpy as np
 
 from fdia_graph.constants.newyork import HVDC_LINKS
-from fdia_graph.generation.nygrid.case import Case
+from fdia_graph.systems.case import Case
 
 
 def _pos(case: Case) -> dict[int, int]:

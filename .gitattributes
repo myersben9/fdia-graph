@@ -1,2 +1,2 @@
 # The New York case file is data: its bytes are the same on every platform (LF), never rewritten on checkout.
-src/fdia_graph/generation/nygrid/case_nygrid.m -text
+src/fdia_graph/systems/case_nygrid.m -text

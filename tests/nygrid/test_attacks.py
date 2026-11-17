@@ -11,13 +11,13 @@ from fdia_graph.constants.meters import MeterKind
 from fdia_graph.constants.newyork import SolveKind
 from fdia_graph.engine.attacks.attacker import ABSORB_CAP, Attacker, natural_steps, wrap_angles
 from fdia_graph.engine.attacks.ramp import Ramp
-from fdia_graph.engine.sensing.measure import Measurement
-from fdia_graph.engine.sensing.noise import NoiseModel
-from fdia_graph.generation.nygrid.case import nygrid_case
 from fdia_graph.generation.nygrid.config import Settings, rng
 from fdia_graph.generation.nygrid.io import read_pool
-from fdia_graph.generation.nygrid.network import Network
-from fdia_graph.generation.nygrid.ownership import assign_clients
+from fdia_graph.sensing.measure import Measurement
+from fdia_graph.sensing.noise import NoiseModel
+from fdia_graph.systems.case import nygrid_case
+from fdia_graph.systems.network import Network
+from fdia_graph.systems.ownership import assign_clients
 
 from .inputs import POOL_V1, TERRITORIES, needs_data, needs_pool_v1
 
@@ -54,7 +54,7 @@ def setup(pool):
 
 
 def plan_meters(net, own):
-    from fdia_graph.engine.sensing.meters import plan_meters as pm
+    from fdia_graph.sensing.meters import plan_meters as pm
 
     return pm(net, own, rng(Settings(), "meters"))
 

@@ -12,10 +12,10 @@ import pytest
 from fdia_graph.constants.grid import BusType
 from fdia_graph.constants.newyork import FILE_AREA, HQ_BUS, NY_AREA, REGIONS
 from fdia_graph.errors import DataConditionError
-from fdia_graph.generation.nygrid.case import CASE_FILE, Case, nygrid_case
-from fdia_graph.generation.nygrid.fixes import externals_at_base, hvdc_links
-from fdia_graph.generation.nygrid.network import Network
-from fdia_graph.generation.nygrid.ownership import assign_clients
+from fdia_graph.systems.case import CASE_FILE, Case, nygrid_case
+from fdia_graph.systems.fixes import externals_at_base, hvdc_links
+from fdia_graph.systems.network import Network
+from fdia_graph.systems.ownership import assign_clients
 
 from .inputs import DATA, TERRITORIES, needs_data, needs_territories
 from .test_case_file import differing

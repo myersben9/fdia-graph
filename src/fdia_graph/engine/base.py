@@ -9,12 +9,12 @@ from typing import Optional
 
 import numpy as np
 
-from ..generation.nygrid.case import Case
-from ..generation.nygrid.network import Network
 from ..models.frames import MeterLayers
-from .sensing.measure import Measurement
-from .sensing.meters import MeterPlan
-from .sensing.noise import NoiseModel
+from ..sensing.measure import Measurement
+from ..sensing.meters import MeterPlan
+from ..sensing.noise import NoiseModel
+from ..systems.case import Case
+from ..systems.network import Network
 
 
 class GridBase:
