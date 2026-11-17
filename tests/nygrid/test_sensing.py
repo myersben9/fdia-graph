@@ -9,7 +9,7 @@ import scipy.linalg
 import scipy.sparse as sp
 
 from fdia_graph.constants.meters import JITTER_FRAC, KIND_ACCURACY, MeterKind
-from fdia_graph.generation.nygrid.config import Settings, rng
+from fdia_graph.data.config import Settings, rng
 from fdia_graph.sensing.measure import Measurement
 from fdia_graph.sensing.meters import _min_pmus, plan_meters
 from fdia_graph.sensing.noise import NoiseModel

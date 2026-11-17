@@ -11,6 +11,7 @@ import pytest
 
 import fdia_graph
 import fdia_graph.constants
+import fdia_graph.data
 import fdia_graph.engine
 import fdia_graph.formulas
 import fdia_graph.generation
@@ -31,7 +32,14 @@ from tests.helpers import (
 # the New York code keeps its records in its own modules until each is conformed (DEFERRED in
 # tools/readability.py)
 NEW_YORK = (
-    "fdia_graph.generation.nygrid",
+    "fdia_graph.data.config",
+    "fdia_graph.data.dispatch",
+    "fdia_graph.data.inputs",
+    "fdia_graph.data.loads",
+    "fdia_graph.data.pool",
+    "fdia_graph.data.solver",
+    "fdia_graph.generation.newyork",
+    "fdia_graph.systems.interfaces",
     "fdia_graph.engine.attacks.family",
     "fdia_graph.sensing",
     "fdia_graph.systems.case",
@@ -79,12 +87,17 @@ def test_the_constants_import_nothing_of_the_package():
     assert exported_names(fdia_graph.constants) == set()
 
 
-def test_the_systems_and_the_meters_import_no_producer():
-    """A module of `fdia_graph.systems` or `fdia_graph.sensing` imports nothing of the engine, the
-    generation stages or the dataset at run time, and `systems` nothing of `sensing`: the imports
-    point one way, from the grid to the meters to what generates and reads a file."""
+def test_the_systems_the_meters_and_the_data_import_no_producer():
+    """A module of `fdia_graph.systems`, `fdia_graph.sensing` or `fdia_graph.data` imports nothing of the
+    engine, the generation stages or the dataset at run time, `systems` nothing of `sensing`, and neither
+    of them anything of `data`: the imports point one way, from the grid to the meters to the load data
+    and the operating points to what generates and reads a file."""
     producers = {"fdia_graph.engine", "fdia_graph.generation", "fdia_graph.dataset"}
-    refused = {fdia_graph.systems: producers | {"fdia_graph.sensing"}, fdia_graph.sensing: producers}
+    refused = {
+        fdia_graph.systems: producers | {"fdia_graph.sensing", "fdia_graph.data"},
+        fdia_graph.sensing: producers | {"fdia_graph.data"},
+        fdia_graph.data: producers | {"fdia_graph.sensing"},
+    }
     for package, never in refused.items():
         modules = runtime_imports(package)
         assert modules, f"{package.__name__} has no module: the scan is reading the wrong folder"

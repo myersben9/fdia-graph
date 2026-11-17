@@ -50,7 +50,7 @@ def test_jitter_draws_in_the_per_channel_order():
 def test_shunt_draws_leave_the_injections_like_the_loop():
     """Two shunts on one bus both come off it, in order, as the per-shunt loop did."""
     pd = pytest.importorskip("pandas")
-    from fdia_graph.profiles import _remove_shunt_injections
+    from fdia_graph.data.ieee_pool import _remove_shunt_injections
 
     base = SimpleNamespace(
         shunt=pd.DataFrame({"bus": [3, 1, 3, 9]}),

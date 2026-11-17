@@ -15,8 +15,9 @@ from collections.abc import Sequence
 from typing import TYPE_CHECKING, Optional, Union
 
 if TYPE_CHECKING:  # the lazy names below, with their real signatures for type checkers
+    from .data.ieee_pool import generate_states
+    from .data.profiles import fetch_profile, load_profile
     from .generation import generate
-    from .profiles import fetch_profile, generate_states, load_profile
 
 # Re-exports, so users write `fg.FdiaGraph` and `fg.load(...)` instead of reaching into submodules.
 from .constants.families import FAMILIES, STEALTHY_FAMILIES
@@ -97,10 +98,14 @@ def __getattr__(name: str) -> object:
         from .generation import generate
 
         return generate
-    if name in ("load_profile", "fetch_profile", "generate_states"):
-        from . import profiles
+    if name in ("load_profile", "fetch_profile"):
+        from .data import profiles
 
         return getattr(profiles, name)
+    if name == "generate_states":
+        from .data.ieee_pool import generate_states
+
+        return generate_states
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 

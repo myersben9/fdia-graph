@@ -101,7 +101,7 @@ def test_load_refuses_a_bad_argument_before_any_download(kwargs, monkeypatch):
     ids=_id,
 )
 def test_fetch_profile_refuses_a_bad_argument_before_the_network(kwargs, monkeypatch):
-    from fdia_graph import profiles
+    from fdia_graph.data import profiles
 
     monkeypatch.setattr(profiles, "requests", None, raising=False)
     args = {"iso": "nyiso", **kwargs}
@@ -113,7 +113,7 @@ def test_fetch_profile_refuses_a_bad_argument_before_the_network(kwargs, monkeyp
     "start, end", [("bogus", "2024-01-02"), ("2024-01-01", None), (20240101, "2024-01-02")]
 )
 def test_fetch_profile_refuses_a_bad_date_before_the_network(start, end, monkeypatch):
-    from fdia_graph import profiles
+    from fdia_graph.data import profiles
 
     monkeypatch.setattr(profiles, "_FEEDS", {})  # reaching a feed is the failure
     with pytest.raises(ConfigError, match="DateSpan"):
@@ -194,7 +194,7 @@ def test_a_source_or_field_list_of_the_wrong_kind_is_refused(build):
 
 def test_a_csv_source_and_a_dataset_name_are_checked_when_given():
     import fdia_graph as fg
-    from fdia_graph.profiles import CsvColumn
+    from fdia_graph.data.profiles import CsvColumn
     from fdia_graph.registry import resolve
 
     with pytest.raises(ConfigError, match="CsvSpec"):

@@ -18,9 +18,8 @@ on:
       - "src/fdia_graph/sensing/**"
       - "src/fdia_graph/engine/attacks/**"
       - "analysis/src/fdia_analysis/se/detect/**"
-      - "src/fdia_graph/engine/solvers.py"
+      - "src/fdia_graph/data/**"
       - "src/fdia_graph/formulas/**"
-      - "src/fdia_graph/profiles.py"
       - "src/fdia_graph/errors.py"
       - "src/fdia_graph/models/**"
       - "tests/nygrid/**"
@@ -41,9 +40,8 @@ on:
       - "src/fdia_graph/sensing/**"
       - "src/fdia_graph/engine/attacks/**"
       - "analysis/src/fdia_analysis/se/detect/**"
-      - "src/fdia_graph/engine/solvers.py"
+      - "src/fdia_graph/data/**"
       - "src/fdia_graph/formulas/**"
-      - "src/fdia_graph/profiles.py"
       - "src/fdia_graph/errors.py"
       - "src/fdia_graph/models/**"
       - "tests/nygrid/**"
@@ -82,7 +80,7 @@ jobs:
       - name: Install both toolkits, the generation one with the ny and test extras
         run: pip install -e ".[ny,test]" -e "./analysis[test]"
       - name: Ipopt starts
-        run: python -c "from fdia_graph.engine.solvers import ipopt; print(ipopt().version())"
+        run: python -c "from fdia_graph.data.ipopt import ipopt; print(ipopt().version())"
       # The public inputs change only with the pinned NYgrid commit; a test that fetches another year's NYISO
       # archives adds them under the same folder before the cache is saved.
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
@@ -91,7 +89,7 @@ jobs:
           key: nygrid-inputs-47698b6-2019-v1
       - name: Fetch the public inputs
         run: |
-          python -c "from fdia_graph.generation.nygrid.inputs import fetch_inputs; fetch_inputs('$NYGRID_ROOT')"
+          python -c "from fdia_graph.data.inputs import fetch_inputs; fetch_inputs('$NYGRID_ROOT')"
           rm -f "$NYGRID_ROOT"/data/NYgrid_*.zip  # the extracted Data/ is what the tests read; keep the cache small
           du -sh "$NYGRID_ROOT"/data/*
       - name: Run tests/nygrid

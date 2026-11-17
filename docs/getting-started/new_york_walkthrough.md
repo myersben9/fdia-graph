@@ -1,6 +1,6 @@
 # The New York grid: one run, end to end
 
-This page follows one attack through every stage of `fdia_graph.generation.nygrid`, from the network to the clients' view,
+This page follows one attack through every stage of the New York build, from the network to the clients' view,
 with the call that does each step. [The architecture](../concepts/new_york_grid.md) says how the modules fit together,
 [the troubleshooting page](../guides/troubleshooting_new_york.md) what each stage reports when it fails, and
 [the extending guide](../guides/extending_new_york.md) how to add an attack or an alarm rule of your own.
@@ -28,13 +28,13 @@ A change to the grid is an edit to the case file ([the architecture](../concepts
 
 ## 2. The operating points
 
-`fdia_graph.generation.nygrid` gives the true AC state of every five-minute frame of 2019: the loads by bus (`LoadModel`), NYgrid's
+`fdia_graph.data` gives the true AC state of every five-minute frame of 2019: the loads by bus (`LoadModel`), NYgrid's
 hourly dispatch, and a ramp-limited least-cost AC dispatch solved frame by frame (`PoolBuilder`). The year takes
 hours, so it is built once and read back:
 
 ```python
 from fdia_graph.constants.newyork import SolveKind
-from fdia_graph.generation.nygrid.io import read_pool
+from fdia_graph.data.pool import read_pool
 
 pool = read_pool("out/pool_2019_v3.h5")
 # 0.998: the frames that solved; only these are used downstream
@@ -48,7 +48,7 @@ families, over the pool. A source's `generate(path)` writes its timeline, by the
 take. One attack window can be written on its own, which is how the studies of the paper are made:
 
 ```python
-from fdia_graph.generation.nygrid.source import NewYorkSource, SingleEpisodeSource
+from fdia_graph.generation.newyork import NewYorkSource, SingleEpisodeSource
 from fdia_graph.models.config import NewYorkRelease
 
 release = NewYorkRelease(families=("Am",), workers=1, survey=0)

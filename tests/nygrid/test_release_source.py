@@ -18,7 +18,7 @@ pytestmark = [needs_data, needs_territories, needs_pool]
 def test_a_timeline_built_with_a_voltage_margin_records_the_true_limits(tmp_path):
     from fdia_graph import schema
     from fdia_graph.errors import DataConditionError
-    from fdia_graph.generation.nygrid.source import NewYorkSource, SingleEpisodeSource
+    from fdia_graph.generation.newyork import NewYorkSource, SingleEpisodeSource
     from fdia_graph.models.config import NewYorkRelease
 
     release = NewYorkRelease(families=("At",), workers=1, survey=0, root=ROOT, v_margin=0.02)
@@ -42,7 +42,7 @@ def test_a_timeline_built_with_a_voltage_margin_records_the_true_limits(tmp_path
 
 def test_the_load_cap_and_band_sensitivities_reach_the_opf_attacker():
     from fdia_graph.engine.attacks.attacker import generator_band
-    from fdia_graph.generation.nygrid.source import NewYorkSource
+    from fdia_graph.generation.newyork import NewYorkSource
     from fdia_graph.models.config import NewYorkRelease
 
     pool = str(POOL.relative_to(ROOT))
@@ -60,7 +60,7 @@ def test_a_lagged_attack_is_the_earlier_windows_design_added_to_the_true_scans(t
     from fdia_graph import schema
     from fdia_graph.dataset.clients import Dataset
     from fdia_graph.errors import ConfigError, DataConditionError
-    from fdia_graph.generation.nygrid.source import NewYorkSource, SingleEpisodeSource
+    from fdia_graph.generation.newyork import NewYorkSource, SingleEpisodeSource
     from fdia_graph.models.config import NewYorkRelease
 
     release = NewYorkRelease(families=("At",), workers=1, survey=0, root=ROOT)

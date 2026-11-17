@@ -28,15 +28,25 @@ You now have: a `Case` and its `Network`, which describe the grid.
 
 ## Operating points
 
-One AC operating point per frame, in time order. The set is called the pool.
+One AC operating point per frame, in time order. The set is called the pool. `data/` holds
+where it comes from, for every test system: first the load data, then the solve.
 
-- IEEE cases: `generate_states` in `profiles.py` scales the loads along a load profile and solves
-  one power flow per step. `load_profile` and `fetch_profile` read the profile.
-- New York grid: `PoolBuilder` in `generation/nygrid/pool.py` solves one optimal power flow per
-  five-minute frame, with `AcSolver` (`generation/nygrid/solver.py`).
+The load data:
 
-`generation/nygrid/` holds everything only the New York grid needs: its loads, its dispatch,
-its pool and its timeline source.
+- `data/profiles.py` reads a load series from a file (`load_profile`) or fetches it from an
+  operator's feed (`fetch_profile`). The result is a load profile, one number per step.
+- The New York grid takes a load per bus. `data/inputs.py` downloads and reads its public input
+  tables, `data/load_sources.py` fetches the building and sales data, and `LoadModel` in
+  `data/loads.py` builds each bus's load from them. `data/config.py` holds that build's settings.
+
+The solve:
+
+- IEEE cases: `generate_states` in `data/ieee_pool.py` scales the loads along a load profile and
+  solves one power flow per step.
+- New York grid: `data/dispatch.py` sets each hour's dispatch. `PoolBuilder` in `data/pool.py`
+  then solves one optimal power flow per five-minute frame, with `AcSolver` (`data/solver.py`),
+  which runs on the Ipopt that `data/ipopt.py` finds and checks. `data/pool.py` also reads and
+  writes the pool file.
 
 The IEEE pools are released, so `fg.generate` downloads one and you do not build it.
 [Solving](solving.md) explains the two kinds of solve, and what happens to a frame that does
@@ -94,7 +104,7 @@ frames in time order, and finish the file.
 
 - The steps are written once. A grid is a subclass that builds the generator, the pool and the
   designer of its families, and says what its files record: `IeeeSource` (`generation/ieee.py`)
-  and `NewYorkSource` (`generation/nygrid/source.py`).
+  and `NewYorkSource` (`generation/newyork.py`).
 - `TimelineWriter` (`generation/write.py`) is the one writer of the HDF5 file.
 - `schema.py` defines every group, dataset and attribute name of the file, once.
 - Settings arrive as models from `models/config.py`: `TimelineSettings` for an IEEE timeline,

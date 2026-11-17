@@ -7,9 +7,9 @@ import pytest
 
 pd = pytest.importorskip("pandas")
 
-from fdia_graph import profiles  # noqa: E402
+from fdia_graph.data import profiles  # noqa: E402
+from fdia_graph.data.profiles import CsvColumn, IsoFolder, RawSeries, load_profile  # noqa: E402
 from fdia_graph.models.choices import Iso  # noqa: E402
-from fdia_graph.profiles import CsvColumn, IsoFolder, RawSeries, load_profile  # noqa: E402
 
 
 def _standardized(x):

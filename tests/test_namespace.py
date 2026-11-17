@@ -7,13 +7,14 @@ import fdia_graph as fg
 
 
 def test_lazy_names_resolve_to_the_real_functions():
+    import fdia_graph.data.ieee_pool
+    import fdia_graph.data.profiles
     import fdia_graph.generation
-    import fdia_graph.profiles
 
     assert fg.generate is fdia_graph.generation.generate
-    assert fg.load_profile is fdia_graph.profiles.load_profile
-    assert fg.fetch_profile is fdia_graph.profiles.fetch_profile
-    assert fg.generate_states is fdia_graph.profiles.generate_states
+    assert fg.load_profile is fdia_graph.data.profiles.load_profile
+    assert fg.fetch_profile is fdia_graph.data.profiles.fetch_profile
+    assert fg.generate_states is fdia_graph.data.ieee_pool.generate_states
 
 
 def test_all_names_exist_and_dir_lists_them():

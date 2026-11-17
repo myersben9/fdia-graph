@@ -1,6 +1,6 @@
 # The New York grid: extending it
 
-`fdia_graph.generation.nygrid` is built to take new parts without changes to its own code. This page names each extension
+The New York build is built to take new parts without changes to its own code. This page names each extension
 point, what it must provide, and a runnable example that implements it. The examples under `examples/nygrid/` need
 no data, and CI runs each of them, so they stay current with the code. For how the stages fit together see
 [the architecture](../concepts/new_york_grid.md), for one run end to end [the walkthrough](../getting-started/new_york_walkthrough.md).

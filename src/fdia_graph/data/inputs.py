@@ -14,8 +14,8 @@ import numpy as np
 import pandas as pd
 
 from fdia_graph.constants import newyork
-from fdia_graph.generation.nygrid.config import Settings
-from fdia_graph.profiles import nyiso_zone_load
+from fdia_graph.data.config import Settings
+from fdia_graph.data.profiles import nyiso_zone_load
 from fdia_graph.systems.tables import read_rows
 
 

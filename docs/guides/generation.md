@@ -6,7 +6,7 @@ each is named beside it. Terms are defined in [`../reference/GLOSSARY.md`](../re
 
 | stage | code | output |
 |---|---|---|
-| 1. operating-point pool | `profiles.fetch_profile`, `profiles.generate_states`, the v0.7.1 pool build | `[T, N, 4]` AC states, one per minute |
+| 1. operating-point pool | `data.profiles.fetch_profile`, `data.ieee_pool.generate_states`, the v0.7.1 pool build | `[T, N, 4]` AC states, one per minute |
 | 2. meter plan and noise | `sensing/meters.py` (`MeterPlan`), `sensing/noise.py` (`NoiseModel`) | which channels are metered, one noisy scan per state |
 | 3. attack families | `engine/attacks/` (the `AttackMixin`: the false states, the fewest-tamper search and each family's episode design are methods of the generator), `engine/attacks/family.py` and `engine/attacks/search.py` (a family gives the episode of a window, and the episode its scans) | the attacked scan of each family |
 | 4. plan: split and episode placement | `generation/plan.py` (`split_bounds`, `place_split`, `planned_until`) | the split, onsets, lengths |
@@ -41,7 +41,7 @@ and moved (the source's `Designer` asks each family for the episode of a window)
 `header`, `recorded` and `record` say what it carries). A subclass builds `g`, `X` and the designer and owns only what
 differs between the grids:
 
-| step | `IeeeSource` (`generation/ieee.py`) | `NewYorkSource` (`generation/nygrid/source.py`) |
+| step | `IeeeSource` (`generation/ieee.py`) | `NewYorkSource` (`generation/newyork.py`) |
 |---|---|---|
 | the pool | `[T, N, 4]` AC states of a pandapower case | the year of five-minute AC states (`Pool`) |
 | `prepare` | nothing | each waiting family's onset mask; with `survey`, the onset survey (kept in a `Survey` record) |
@@ -82,13 +82,13 @@ noiseless pool.
 
 | item | value | source |
 |---|---|---|
-| load profile | NYISO system load, 11 zones summed, native 5-minute cadence | `profiles.NyisoArchive` (the NYISO entry of `profiles._FEEDS`) |
+| load profile | NYISO system load, 11 zones summed, native 5-minute cadence | `data.profiles.NyisoArchive` (the NYISO entry of `data.profiles._FEEDS`) |
 | window | 2024-01-01 to 2024-03-16 | the v0.7.1 pool build (a release script kept outside the repository; `WINDOW`) |
-| resampling | time-interpolated to a 1-minute grid, then standardized to zero mean and unit variance | `profiles.fetch_profile(resample_min=1)` |
-| per-bus scale | `clip(1 + k * S_t + j_t, 0.7, 1.3)`, `k = 0.1` | `profiles._ar1_scale`, `K_DEFAULT`, `CLIP_DEFAULT` |
+| resampling | time-interpolated to a 1-minute grid, then standardized to zero mean and unit variance | `data.profiles.fetch_profile(resample_min=1)` |
+| per-bus scale | `clip(1 + k * S_t + j_t, 0.7, 1.3)`, `k = 0.1` | `data.ieee_pool._ar1_scale`, `K_DEFAULT`, `CLIP_DEFAULT` |
 | jitter `j_t` | per-bus AR(1), `j_t = 0.98 j_{t-1} + sqrt(1 - 0.98^2) * 0.03 * eps`, stationary std 0.03 | `LOAD_JITTER_RHO` (`constants.time`), `SIGMA_DEFAULT` |
-| what is scaled | every load's P and Q and every generator's P at the bus, by the same factor | `profiles._solve_states_chunk` |
-| solve | pandapower AC power flow, flat start, 50 iterations, 1e-6 MVA tolerance | `profiles._solve_states_chunk` |
+| what is scaled | every load's P and Q and every generator's P at the bus, by the same factor | `data.ieee_pool._solve_states_chunk` |
+| solve | pandapower AC power flow, flat start, 50 iterations, 1e-6 MVA tolerance | `data.ieee_pool._solve_states_chunk` |
 | states kept | 82,000 requested, the first 72,000 converged kept per system | the v0.7.1 pool build (`REQUEST`, `TARGET`) |
 | column order | <code>&#124;V&#124;</code> pu, `P_inj` MW, `Q_inj` MVAr, `theta` deg, voltage first | `generation.as_v_first`, pool attribute `columns` |
 | file | `pool_ieee{C}.h5`, dataset `X` | `registry.pool_spec` |
@@ -96,7 +96,7 @@ noiseless pool.
 The AR(1) jitter makes each bus drift smoothly from minute to minute rather than jump. The clip holds
 every bus inside a plausible load band. Shunt draws are subtracted from the stored injections,
 because the estimator models a shunt in the admittance matrix, not as an injection
-(`profiles._remove_shunt_injections`).
+(`data.ieee_pool._remove_shunt_injections`).
 
 Consecutive pool timesteps are one minute apart on the profile grid. A timestep whose power flow
 does not converge is skipped, not filled, and the pool stores no timestamps. Frame `t` of a
@@ -369,7 +369,7 @@ grid; neither imports the engine or the generation stages:
 | `engine/base.py` | `GridBase`: the attributes the mixins share |
 | `engine/measurement.py` | `MeasurementMixin`: a scan from a stored state, `Measurement.h` and `NoiseModel.sample` laid out as a file's layers |
 | `engine/physics.py` | a scan's load and generation, read from its stored state |
-| `engine/solvers.py` | the optimization solver the AC optimal power flows run on, found and checked in one place |
+| `data/ipopt.py` | the optimization solver the AC optimal power flows run on, found and checked in one place |
 | `systems/case.py` | `Case`: one grid as a frozen record of arrays, read from a MATPOWER case file (`Case.from_matpower`) or from a pandapower net (`Case.from_pandapower`); `Case.from_ieee` is the IEEE case pandapower ships for a bus count, with its base power flow solved, and `nygrid_case()` reads the New York case file `case_nygrid.m` beside the module |
 | `systems/network.py` | `Network`: a case's admittances, built once, and the AC quantities they give for a state |
 | `systems/fixes.py` | two variants of the New York case: the external areas held at the base load, and the HVDC links |

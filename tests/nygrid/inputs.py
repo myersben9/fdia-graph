@@ -4,7 +4,7 @@ They come in three kinds:
 
 - Public inputs under `NYGRID_ROOT/data` (NYGRID_ROOT defaults to the checkout): NYgrid's `Data/` folder at the
   pinned commit, the NYS utility territories and NYISO's five-minute load archives; `fetch_inputs(root)` from
-  `fdia_graph.generation.nygrid.inputs` downloads them (a test fetches another year's archives itself). Most tests need
+  `fdia_graph.data.inputs` downloads them (a test fetches another year's archives itself). Most tests need
   only these, and CI downloads them (`.github/workflows/nygrid.yml`).
 - Checked in under `tests/nygrid/data/days` (its README says how it was made): the 2019 pool's frames of two
   days. The timeline digests build on them with the public inputs.
@@ -30,7 +30,7 @@ POOL = ROOT / "out" / "pool_2019_v3.h5"  # the whole year
 DAYS = Path(__file__).parent / "data" / "days"
 DAYS_POOL = DAYS / "pool_2019_v3_days.h5"  # the whole pool's frames of 2019-06-17 and 2019-07-05
 
-_FETCH = "fdia_graph.generation.nygrid.inputs.fetch_inputs(root) downloads it"
+_FETCH = "fdia_graph.data.inputs.fetch_inputs(root) downloads it"
 needs_data = pytest.mark.skipif(
     not DATA.exists(), reason=f"NYgrid's Data/ missing under {ROOT}/data ({_FETCH})"
 )

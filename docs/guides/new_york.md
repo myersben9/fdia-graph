@@ -1,6 +1,6 @@
 # The New York grid: building the timeline
 
-`fdia_graph.generation.nygrid` builds a federated FDIA timeline on the New York grid: NYgrid's modified NPCC-140 case in
+fdia-graph builds a federated FDIA timeline on the New York grid: NYgrid's modified NPCC-140 case in
 AC, a 2019 five-minute operating-point pool from a ramp-constrained AC dispatch, one client per utility
 service territory, a hybrid SCADA and PMU meter plan, and attacks against NYISO interface limits. The
 modules are in
@@ -46,7 +46,7 @@ the dispatch is continuous. The pool holds the true state and injections of ever
 
 ### How the within-hour load terms are fitted
 
-The load model (`generation/nygrid/loads.py`) gives each bus two five-minute terms of its own, so a
+The load model (`data/loads.py`) gives each bus two five-minute terms of its own, so a
 bus's steps are not its zone's. Their constants are in `constants/newyork.py`.
 
 - **Fluctuation** (`FLUCT_C`, `FLUCT_BETA`, `FLUCT_PHI`). An AR(1) factor on the bus's load,

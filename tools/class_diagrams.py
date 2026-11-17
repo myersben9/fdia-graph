@@ -212,6 +212,7 @@ TOOLKIT = {
 LABEL = {
     GENERATION: "__init__.py<br/>fg.* public API",
     "dataset": "dataset/",
+    "data": "data/",
     "systems": "systems/",
     "sensing": "sensing/",
     "engine": "engine/",
@@ -220,7 +221,6 @@ LABEL = {
     "registry": "registry.py",
     "download": "download.py",
     "timeline": "timeline.py",
-    "profiles": "profiles.py",
     "se": "se/",
     "localization": "localization/",
     "federated": "federated/",

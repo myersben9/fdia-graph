@@ -17,7 +17,7 @@ from .conftest import LENGTHS, UNSOLVED
 
 
 def _source(grid, cls=None, **settings):
-    from fdia_graph.generation.nygrid.source import NewYorkSource
+    from fdia_graph.generation.newyork import NewYorkSource
     from fdia_graph.models.config import NewYorkSettings
 
     pool, att, families, own = grid
@@ -47,7 +47,7 @@ def _datasets(path):
 def test_frames_written_in_stretches_are_the_frames_written_in_one_pass(grid, tmp_path):
     """The weekly splits interleave, so the walk runs in several stretches; holding every frame back to one
     pass after the last split is planned writes the same file, dataset by dataset."""
-    from fdia_graph.generation.nygrid.source import NewYorkSource
+    from fdia_graph.generation.newyork import NewYorkSource
 
     class Counting(NewYorkSource):
         stretches = 0
@@ -103,7 +103,7 @@ def test_a_new_york_timeline_needs_its_path(grid):
 
 
 def test_a_failed_run_leaves_no_file_and_keeps_the_one_that_was_there(grid, tmp_path):
-    from fdia_graph.generation.nygrid.source import NewYorkSource
+    from fdia_graph.generation.newyork import NewYorkSource
 
     class Failing(NewYorkSource):
         def finish(self):
@@ -119,8 +119,8 @@ def test_a_failed_run_leaves_no_file_and_keeps_the_one_that_was_there(grid, tmp_
 @pytest.mark.parametrize("lag", [0, 3])
 def test_a_single_episode_is_its_lagged_windows_design_on_the_true_scans(grid, tmp_path, lag):
     from fdia_graph.constants.families import FAMILY_CODE
-    from fdia_graph.generation.nygrid.config import Settings, rng
-    from fdia_graph.generation.nygrid.source import SingleEpisodeSource
+    from fdia_graph.data.config import Settings, rng
+    from fdia_graph.generation.newyork import SingleEpisodeSource
 
     pool, _, families, _ = grid
     onset, lo, hi, L = 500 + lag, 480, 540, LENGTHS["At"]
@@ -143,7 +143,7 @@ def test_a_single_episode_is_its_lagged_windows_design_on_the_true_scans(grid, t
 
 def test_a_single_episode_with_no_attack_or_on_unsolved_frames_is_refused_and_leaves_no_file(grid, tmp_path):
     from fdia_graph.errors import ConfigError, DataConditionError, NoAdmissibleTarget
-    from fdia_graph.generation.nygrid.source import SingleEpisodeSource
+    from fdia_graph.generation.newyork import SingleEpisodeSource
 
     source = _source(grid)
     with pytest.raises(NoAdmissibleTarget, match="no_target"):

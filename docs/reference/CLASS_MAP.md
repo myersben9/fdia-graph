@@ -24,7 +24,7 @@ returned records and the settings; the one validation engine is `fdia_graph.mode
 and source), `schema.py` (the file protocol) and `errors.py` (the named errors). Each package's own `__init__.py` (for `fdia_graph`, the `fg.*`
 public API, which imports everything) is left out for the same reason.
 
-[![Module diagram in two boxes. The analysis toolkit, fdia_analysis: federated over localization and se; localization over se; trust over se; results beside them. The generation toolkit, fdia_graph: generation over engine, profiles, timeline, download and registry; engine over generation, ratings and registry; dataset over generation; timeline over generation; profiles over engine; download over registry. Between the boxes every arrow points from analysis to generation: federated, localization, se and trust read dataset; trust reads generation and registry](../figures/diagrams/modules.png)](../figures/diagrams/modules.png)
+[![Module diagram in two boxes. The analysis toolkit, fdia_analysis: federated over localization and se; localization over se; trust over se; results beside them. The generation toolkit, fdia_graph: generation over data, engine, sensing, systems, timeline, download and registry; engine over data, sensing, systems, ratings and registry; data over systems; sensing over systems; dataset over sensing and systems; timeline over generation; download over registry. Between the boxes every arrow points from analysis to generation: federated, localization, se and trust read dataset; trust reads generation and registry](../figures/diagrams/modules.png)](../figures/diagrams/modules.png)
 
 ## The dataset
 

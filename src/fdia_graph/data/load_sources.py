@@ -24,7 +24,7 @@ from fdia_graph.constants.newyork import (
     STOCK_KEY_PREFIX,
 )
 from fdia_graph.constants.time import HOURS_PER_YEAR, QUARTERS_PER_YEAR
-from fdia_graph.generation.nygrid.inputs import download_once
+from fdia_graph.data.inputs import download_once
 
 
 def _list_keys(prefix: str) -> list[str]:

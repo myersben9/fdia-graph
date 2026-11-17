@@ -151,7 +151,7 @@ def test_a_required_field_refuses_none_with_its_phrase():
 
 def test_a_capability_name_and_a_fetch_are_checked_by_their_models(timeline):
     import fdia_graph as fg
-    from fdia_graph.profiles import fetch_profile
+    from fdia_graph.data.profiles import fetch_profile
 
     with pytest.raises(ConfigError, match=r"^Requirement\.capabilities must name capabilities"):
         fg.load(timeline, split="test").require("timelime", by="a typo")
@@ -184,7 +184,7 @@ def test_the_generator_refuses_a_bad_option_before_building_the_case(monkeypatch
 
 
 def test_generate_states_refuses_a_system_it_has_no_case_for():
-    from fdia_graph.profiles import generate_states
+    from fdia_graph.data.ieee_pool import generate_states
 
     with pytest.raises(ConfigError, match=r"^SupportedSystem: unknown system 15; supported: \["):
         generate_states(15, np.ones(4))
