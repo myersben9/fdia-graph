@@ -7,7 +7,7 @@ from enum import IntEnum
 
 import numpy as np
 
-from .channels import EdgeChannel, NodeChannel, PolarCurrentChannel
+from .channels import CurrentChannel, EdgeChannel, NodeChannel, PolarCurrentChannel
 
 # Meter accuracy classes [ASP14], by the meter type's name in that table: the standard deviation of
 # the error of every meter type. |V| and the angle are the class-0.2/sqrt(3) instrument-transformer figures, absolute (pu, radians);
@@ -27,7 +27,9 @@ WU26_NOISE = {"scada": 0.03, "pmu": 0.01}
 
 
 class MeterKind(IntEnum):
-    """What a meter of the New York meter plan reads: the `kind` code of a row of the plan."""
+    """What a meter reads: the `kind` code of a row of a meter plan. A PMU's branch current is two
+    rows, magnitude and angle (I, IA: a New York file) or real and imaginary part (IR, II: an IEEE
+    file)."""
 
     V = 0  # voltage magnitude at a bus (pu)
     VA = 1  # voltage angle at a PMU bus (degrees)
@@ -37,15 +39,24 @@ class MeterKind(IntEnum):
     QF = 5  # reactive flow at one end of a branch (MVAr)
     I = 6  # current magnitude at one end of a branch, read by a PMU (pu)
     IA = 7  # current angle at one end of a branch, read by a PMU (degrees)
+    IR = 8  # real part of the current phasor at one end of a branch, read by a PMU (pu)
+    II = 9  # its imaginary part (pu)
 
 
 # The kinds read at a bus, in the order of a client's node features.
 BUS_KINDS = (MeterKind.V, MeterKind.VA, MeterKind.P, MeterKind.Q)
 ANGLE_KINDS = (MeterKind.VA, MeterKind.IA)  # the kinds read in degrees, which wrap at +-180
+FLOW_KINDS = (MeterKind.PF, MeterKind.QF)  # the kinds of a flow meter, in a flow layer's column order
+# The two parts of a current phasor stored as real and imaginary part. Their error is relative to
+# the phasor's magnitude |I|, not to the part's own size [C37118].
+PHASOR_KINDS = (MeterKind.IR, MeterKind.II)
+# The kinds of a file that stores its currents as magnitude and angle (New York's).
+POLAR_FILE_KINDS = tuple(k for k in MeterKind if k not in PHASOR_KINDS)
 
 # The accuracy of each kind as (relative, absolute) standard deviations, sigma = rel |z| + abs: the
 # classes of `ACCURACY_CLASS` per meter kind, with the angles in degrees like the state. A PMU current
-# takes 1/300 of |I| on the magnitude and 1/300 rad on the angle.
+# takes 1/300 of |I| on the magnitude and 1/300 rad on the angle, or 1/300 of |I| on each of the real
+# and the imaginary part.
 KIND_ACCURACY = {
     MeterKind.V: (0.0, ACCURACY_CLASS["v"]),
     MeterKind.VA: (0.0, float(np.degrees(ACCURACY_CLASS["va"]))),
@@ -55,6 +66,8 @@ KIND_ACCURACY = {
     MeterKind.QF: (ACCURACY_CLASS["qf"], POWER_NOISE_FLOOR_MW),
     MeterKind.I: (PMU_CURRENT_CLASS, CURRENT_FLOOR_PU),
     MeterKind.IA: (0.0, float(np.degrees(PMU_CURRENT_CLASS))),
+    MeterKind.IR: (PMU_CURRENT_CLASS, CURRENT_FLOOR_PU),
+    MeterKind.II: (PMU_CURRENT_CLASS, CURRENT_FLOOR_PU),
 }
 # Where a kind's readings sit in a timeline file: the layer (0 the bus layer, 1 the flow layer, 2 the
 # PMU current layer) and the column. A branch kind's column is its from end's; its to end's is
@@ -68,4 +81,6 @@ METER_SLOT = {
     MeterKind.QF: (1, EdgeChannel.Q_FROM),
     MeterKind.I: (2, PolarCurrentChannel.MAG_FROM),
     MeterKind.IA: (2, PolarCurrentChannel.ANGLE_FROM),
+    MeterKind.IR: (2, CurrentChannel.RE_FROM),
+    MeterKind.II: (2, CurrentChannel.IM_FROM),
 }

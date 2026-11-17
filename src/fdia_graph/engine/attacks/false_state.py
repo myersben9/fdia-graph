@@ -60,7 +60,7 @@ def _clip_generator(
 class _FlowRegion(NamedTuple):
     """One support S at one true state: what every solve of `solve_flow_local` on it shares. `free` are
     S's free injection buses and `rest` the others; `goal` = (branches, targets in MVA); `V` the true
-    voltages (ppc order); `touched` S with its edge and `S_true` their true injections (per unit);
+    voltages; `touched` S with its edge and `S_true` their true injections (per unit);
     `gen` [N, 2] and `load` [N] the true generator output and load (MW)."""
 
     S: np.ndarray
@@ -100,17 +100,16 @@ class FalseStateMixin(AreaMixin, PhysicsMixin):
         buses = np.unique(self.load_bus)
         Pinj[buses] = load[buses] - self.scan_generation(Xt)[buses]
         Qinj[buses] = qload[buses] - self.scan_reactive_generation(Xt)[buses]
-        lut = self._ppc_row[np.arange(C)]
-        Vc = np.zeros(self._n_ppc_buses, complex)
-        Vc[lut] = complex_voltages(Xa[:, NodeChannel.V], Xa[:, NodeChannel.THETA])
-        target = -(Pinj[interior] + 1j * Qinj[interior]) / self._base_mva  # generation-positive, per unit
-        Vf = local_ac_solve(self._dense_admittances()[0], Vc, lut[interior], target)
+        Vc = complex_voltages(Xa[:, NodeChannel.V], Xa[:, NodeChannel.THETA])
+        base_mva = self.case.base_mva
+        target = -(Pinj[interior] + 1j * Qinj[interior]) / base_mva  # generation-positive, per unit
+        Vf = local_ac_solve(self._dense_admittances()[0], Vc, interior, target)
         if Vf is None:
             return None
-        Xa[interior, NodeChannel.V] = np.abs(Vf[lut[interior]])
-        Xa[interior, NodeChannel.THETA] = np.degrees(np.angle(Vf[lut[interior]]))
+        Xa[interior, NodeChannel.V] = np.abs(Vf[interior])
+        Xa[interior, NodeChannel.THETA] = np.degrees(np.angle(Vf[interior]))
         touched = np.union1d(interior, self._boundary(interior)[1])  # and its boundary
-        S = bus_injections(Vf, self._Ybus, self._base_mva)[lut[touched]]
+        S = bus_injections(Vf, self.net.ybus, base_mva)[touched]
         Xa[touched, NodeChannel.P_INJ] = -S.real
         Xa[touched, NodeChannel.Q_INJ] = -S.imag
         return Xa
@@ -195,13 +194,11 @@ class FalseStateMixin(AreaMixin, PhysicsMixin):
     ) -> _FlowRegion:
         """What every solve on support S at the true state Xt shares; `support` = (S, its free buses)."""
         S, free = support
-        lut = self._ppc_row[np.arange(self.C)]
         lines = np.atleast_1d(np.asarray(line, np.int64))
-        V = np.zeros(self._n_ppc_buses, complex)
-        V[lut] = complex_voltages(Xt[:, NodeChannel.V], Xt[:, NodeChannel.THETA])
+        V = complex_voltages(Xt[:, NodeChannel.V], Xt[:, NodeChannel.THETA])
         touched, blocks = self._support_blocks(S, lines)
         # per unit, the model's injections at the true voltages
-        S_true = bus_injections(V, blocks.Yb)[lut[touched]]
+        S_true = bus_injections(V, blocks.Yb)[touched]
         return _FlowRegion(
             S,
             free,
@@ -223,10 +220,9 @@ class FalseStateMixin(AreaMixin, PhysicsMixin):
         cached = getattr(self, "_last_support_blocks", None)
         if cached is not None and cached[0] == key:
             return cached[1]
-        lut = self._ppc_row[np.arange(self.C)]
         Yb, Yf = self._dense_admittances()
         touched = self.touched_buses(S)  # only S and its edge change injection
-        value = (touched, _flow_blocks(Yb, Yf[lines], lut[S], lut[touched]))
+        value = (touched, _flow_blocks(Yb, Yf[lines], S, touched))
         self._last_support_blocks = (key, value)
         return value
 
@@ -239,13 +235,13 @@ class FalseStateMixin(AreaMixin, PhysicsMixin):
         """One flow solve on the region's support. `held` = ((bus -> pinned P change, bus -> pinned Q
         change), bus -> held |V|). Returns (the false state [N, 4], the injection change per bus [N],
         generation positive, MVA), or None when the solve fails."""
-        C, lut, S, touched = self.C, self._ppc_row[np.arange(self.C)], region.S, region.touched
+        C, S, touched, base_mva = self.C, region.S, region.touched, self.case.base_mva
         lines, targets = region.goal
         (pin_p, pin_q), held_v = held
         both = region.rest  # the buses of S that hold their injection
         fixed = np.union1d(both, np.array(sorted({*pin_p, *pin_q}), np.int64))
         change = np.array([complex(pin_p.get(int(b), 0.0), pin_q.get(int(b), 0.0)) for b in fixed])
-        S_held = region.S_true[np.searchsorted(touched, fixed)] + change / self._base_mva
+        S_held = region.S_true[np.searchsorted(touched, fixed)] + change / base_mva
         # a held bus of S holds both components, a pinned bus only the pinned one(s)
         whole = set(both.tolist())
         ints = [int(b) for b in fixed]
@@ -255,23 +251,23 @@ class FalseStateMixin(AreaMixin, PhysicsMixin):
         Vf = local_flow_solve(
             Yb,
             Yf[lines],
-            np.asarray(self._from_bus_ppc)[lines],
+            self.case.f[lines],
             region.V,
-            lut[S],
-            lut[fixed],
+            S,
+            fixed,
             S_held,
-            targets / self._base_mva,
-            vm_fixed=(lut[vb], np.array([held_v[int(b)] for b in vb])),
+            targets / base_mva,
+            vm_fixed=(vb, np.array([held_v[int(b)] for b in vb])),
             hold=hold.reshape(-1, 2),
             blocks=region.blocks,
         )
         if Vf is None:
             return None
         Xa = np.array(Xt, np.float64, copy=True)
-        Xa[S, NodeChannel.V] = np.abs(Vf[lut[S]])
-        Xa[S, NodeChannel.THETA] = np.degrees(np.angle(Vf[lut[S]]))
+        Xa[S, NodeChannel.V] = np.abs(Vf[S])
+        Xa[S, NodeChannel.THETA] = np.degrees(np.angle(Vf[S]))
         dS = np.zeros(C, complex)
-        dS[touched] = (bus_injections(Vf, Yb)[lut[touched]] - region.S_true) * self._base_mva
+        dS[touched] = (bus_injections(Vf, Yb)[touched] - region.S_true) * base_mva
         Xa[touched, NodeChannel.P_INJ] -= np.real(dS[touched])  # the stored injection is load positive
         Xa[touched, NodeChannel.Q_INJ] -= np.imag(dS[touched])
         return Xa, dS
@@ -318,7 +314,7 @@ class FalseStateMixin(AreaMixin, PhysicsMixin):
         """Ybus and Yf as dense arrays, built once (the flow solve indexes rows and multiplies often)."""
         cached = getattr(self, "_dense_Y", None)
         if cached is None:
-            cached = (_dense(self._Ybus), _dense(self._Yf))
+            cached = (_dense(self.net.ybus), _dense(self.net.yf))
             self._dense_Y = cached
         return cached
 
@@ -348,22 +344,19 @@ class FalseStateMixin(AreaMixin, PhysicsMixin):
             dev,
             bnx,
             bex,
+            ix,
+            scan.i_m,
             tamper,
-            i_x=ix,
-            i_m=scan.i_m,
             benign_i_x=scan.i_x,
             i_tamper=itamper,
         )
 
     def _currents_with_attack(
         self, scan: Scan, Xa: np.ndarray, Xt: np.ndarray
-    ) -> tuple[Optional[np.ndarray], Optional[np.ndarray]]:
+    ) -> tuple[np.ndarray, np.ndarray]:
         """The PMU branch-current readings of a stealthy frame [WU26 eqs. 19-20]: the true scan's
-        currents plus the attack vector on them, and the current channels written; (None, None)
-        without currents in the meter plan."""
+        currents plus the attack vector on them, and the current channels written."""
         a = self._current_attack(Xa, Xt)
-        if a is None or scan.i_x is None or scan.i_m is None:
-            return None, None
         moved = (np.abs(a) > ZERO_TOL) & (scan.i_m > 0)
         ix = scan.i_x.copy()
         ix[moved] += a[moved].astype(np.float32)
@@ -423,12 +416,10 @@ class FalseStateMixin(AreaMixin, PhysicsMixin):
         flows = self.clean_flows_from_states(np.stack([Xa, Xt]))  # [2, E, 2], unmetered zeroed
         return (np.asarray(Xa, float) - np.asarray(Xt, float)).astype(np.float32), flows[0] - flows[1]
 
-    def _current_attack(self, Xa: np.ndarray, Xt: np.ndarray) -> Optional[np.ndarray]:
+    def _current_attack(self, Xa: np.ndarray, Xt: np.ndarray) -> np.ndarray:
         """The attack vector on the PMU branch-current channels [E, 4] (per unit), zero where no PMU
-        reads that end; None without currents in the meter plan. The currents of a false state follow
-        from its voltages, so the attacker must write them too [WU26 eqs. 19-20]."""
-        if self.current_mask() is None:
-            return None
+        reads that end. The currents of a false state follow from its voltages, so the attacker must
+        write them too [WU26 eqs. 19-20]."""
         cur = self.currents_from_states(np.stack([Xa, Xt]))
         return cur[0] - cur[1]
 

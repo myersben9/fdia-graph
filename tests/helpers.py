@@ -77,6 +77,32 @@ def agree(b: Bundle) -> None:
             assert b[b.key_of(name)] is v
 
 
+# ---- the IEEE cases -------------------------------------------------------------------------------
+def ieee_net(system: int):
+    """pandapower's IEEE case of `system` buses with its base power flow solved, the net a generator
+    reads its `Case` from and does not keep."""
+    import pandapower
+    import pandapower.networks
+
+    from fdia_graph.constants.grid import IEEE_CASES
+
+    net = getattr(pandapower.networks, IEEE_CASES[system])()
+    pandapower.runpp(net)
+    return net
+
+
+# ---- meter noise ----------------------------------------------------------------------------------
+class FixedDraws:
+    """Stands in for a random stream: every normal draw is `value` standard deviations from its mean."""
+
+    def __init__(self, value: float) -> None:
+        self.value = value
+
+    def normal(self, loc: float, scale: np.ndarray, size: object = None) -> np.ndarray:
+        shape = np.shape(scale) if size is None else size
+        return loc + self.value * scale * np.ones(shape)
+
+
 # ---- the fewest-tamper search ---------------------------------------------------------------------
 WINDOW = 6  # snapshots per test window: a ramp's loads move above their noise by then, still fast
 

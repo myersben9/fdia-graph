@@ -56,7 +56,6 @@ EXCEPTIONS: dict[str, str] = {}
 # checked to reproduce the same output; until then its rules are src/fdia_graph/generation/nygrid/CLAUDE.md.
 _NYGRID_AS_WRITTEN = (  # generation/nygrid/source.py (the timeline source) is conformed and measured
     "__init__.py",
-    "case.py",
     "config.py",
     "dispatch.py",
     "fixes.py",
@@ -65,7 +64,6 @@ _NYGRID_AS_WRITTEN = (  # generation/nygrid/source.py (the timeline source) is c
     "io.py",
     "load_sources.py",
     "loads.py",
-    "network.py",
     "ownership.py",
     "pool.py",
     "solver.py",
@@ -80,7 +78,6 @@ DEFERRED: dict[str, str] = {
     f"{GENERATION}/engine/attacks/interface.py": _AS_WRITTEN,
     f"{GENERATION}/engine/attacks/perturbation.py": _AS_WRITTEN,
     f"{GENERATION}/engine/attacks/ramp.py": _AS_WRITTEN,
-    f"{GENERATION}/engine/sensing": _AS_WRITTEN,
     f"{GENERATION}/engine/solvers.py": _AS_WRITTEN,
     f"{GENERATION}/dataset/clients.py": _AS_WRITTEN,
     f"{ANALYSIS}/se/detect": _AS_WRITTEN,

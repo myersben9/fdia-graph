@@ -44,6 +44,6 @@ def _benign_frame(g: FdiaGenerator, Xt: np.ndarray) -> Frame:
         np.zeros(0, float),
         None,
         None,
-        i_x=scan.i_x,
-        i_m=scan.i_m,
+        scan.i_x,
+        scan.i_m,
     )

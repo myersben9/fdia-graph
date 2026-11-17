@@ -40,37 +40,29 @@ class AreaMixin(MeasurementMixin):
         """The attacker's interior around `seeds` [WU26]: the buses within `hops` branches, never the slack
         (the estimator pins it), grown over zero-injection boundary buses (they cannot absorb the changed
         power), with `hops` reduced until a boundary exists. None when the seeds alone leave no boundary."""
-        live = self._live_edges()
         for h in range(hops, -1, -1):
-            interior, _ = subnetwork(live, seeds, h, self.C)
+            interior, _ = subnetwork(self.ei, seeds, h, self.C)
             interior, boundary = self._grow_over_zero_injection(interior[interior != self.slack_bus])
             if len(interior) and len(boundary):
                 return interior
         return None
 
-    def _live_edges(self) -> np.ndarray:
-        """The edge index without the branches out of service: an opened line (an N-1 contingency)
-        is not a hop and its far bus is not a boundary."""
-        status = self.branch.status
-        return self.ei if status is None else self.ei[:, status > 0]
-
-    def _live_adjacency(self) -> list[frozenset[int]]:
-        """Every bus's neighbours over the live branches, cached per branch status: the searches ask
-        for boundaries thousands of times per window."""
-        status = self.branch.status
+    def _adjacency(self) -> list[frozenset[int]]:
+        """Every bus's neighbours, built once: the searches ask for boundaries thousands of times per
+        window."""
         cached = getattr(self, "_adjacency_cache", None)
-        if cached is None or cached[0] is not status:
+        if cached is None:
             adj: list[set[int]] = [set() for _ in range(self.C)]
-            for a, b in self._live_edges().T:
+            for a, b in self.ei.T:
                 adj[int(a)].add(int(b))
                 adj[int(b)].add(int(a))
-            cached = (status, [frozenset(n) for n in adj])
+            cached = [frozenset(n) for n in adj]
             self._adjacency_cache = cached
-        return cached[1]
+        return cached
 
     def _boundary(self, interior: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-        """(the interior sorted, its boundary: the buses one live branch outside it, sorted)."""
-        adj = self._live_adjacency()
+        """(the interior sorted, its boundary: the buses one branch outside it, sorted)."""
+        adj = self._adjacency()
         inside = {int(b) for b in interior}
         ring = {j for i in inside for j in adj[i]} - inside
         return np.array(sorted(inside), int), np.array(sorted(ring), int)
@@ -127,7 +119,7 @@ class AreaMixin(MeasurementMixin):
         true `states` [T, N, 4]; `spread` is `_spread(states)` when the caller already has it."""
         if lines and spread is None:
             spread = self._spread(states)
-        node_m, _ = self.meter_masks()
+        node_m = self.masks.node
         loads = np.abs(bus_load(np.asarray(states, float), self.load_base, self.gen_base))  # [T, N] MW
         mean, sd = loads.mean(0), loads.std(0)
         total = float(mean.sum())
@@ -146,11 +138,11 @@ class AreaMixin(MeasurementMixin):
         )
 
     def _connected(self, buses: np.ndarray) -> bool:
-        """Whether `buses` form one connected region over live branches."""
+        """Whether `buses` form one connected region."""
         inside = {int(b) for b in buses}
         if not inside:
             return False
-        adj = self._live_adjacency()
+        adj = self._adjacency()
         seen: set[int] = set()
         stack = [next(iter(inside))]
         while stack:
@@ -161,12 +153,8 @@ class AreaMixin(MeasurementMixin):
         return seen == inside
 
     def _spread(self, states: np.ndarray) -> np.ndarray:
-        """Each branch's active flow change per MW injected at each bus [E, N], pandapower bus order, at the
-        window's first true state (`formulas.network.flow_sensitivities`, the AC power flow's own
-        sensitivities)."""
+        """Each branch's active flow change per MW injected at each bus [E, N], at the window's first
+        true state (`formulas.network.flow_sensitivities`, the AC power flow's own sensitivities)."""
         first = np.asarray(states, float)[0]
-        lut = self._ppc_row[np.arange(self.C)]
-        V = np.ones(np.shape(self._Ybus)[0], np.complex128)
-        V[lut] = complex_voltages(first[:, NodeChannel.V], first[:, NodeChannel.THETA])
-        sens = flow_sensitivities(V, self._Ybus, self._Yf, self._from_bus_ppc, int(lut[self.slack_bus]))
-        return sens[:, lut]
+        V = complex_voltages(first[:, NodeChannel.V], first[:, NodeChannel.THETA])
+        return flow_sensitivities(V, self.net.ybus, self.net.yf, self.case.f, self.slack_bus)

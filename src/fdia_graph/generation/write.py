@@ -53,15 +53,12 @@ class TimelineWriter:
         schema.EDGE_CLEAN: ("E", FLOW_WIDTH, np.float32),
         schema.NODE_TAMPER: ("C", 4, np.uint8),
         schema.EDGE_TAMPER: ("E", FLOW_WIDTH, np.uint8),
-    }
-    # filled after the walk; a `LayerSet` may leave them out
-    TEMPORAL_LAYERS = (schema.TEMPORAL_DELTA, schema.SWING)
-    # the PMU branch-current layers, created only when the meter plan reads currents (hybrid meters)
-    CURRENT_LAYERS = {
-        schema.PMU_I: ("E", 4, np.float32),
+        schema.PMU_I: ("E", 4, np.float32),  # the PMU branch-current layers
         schema.PMU_I_BENIGN: ("E", 4, np.float32),
         schema.PMU_I_TAMPER: ("E", 4, np.uint8),
     }
+    # filled after the walk; a `LayerSet` may leave them out
+    TEMPORAL_LAYERS = (schema.TEMPORAL_DELTA, schema.SWING)
     # the columns of the episode tables under episodes/, in the order of a row's values: (name, dtype)
     EPISODE_COLUMNS = (
         (schema.EPISODE_ONSET, np.int32),
@@ -97,7 +94,7 @@ class TimelineWriter:
         self.seq_id = np.full(T, -1, np.int32)
         self.mag_bus: list[np.ndarray] = [np.zeros(0, np.int32)] * T
         self.mag: list[np.ndarray] = [np.zeros(0, np.float32)] * T
-        # the meter plan and the mask of the PMU currents (hybrid meters), from the first stored frame
+        # the meter plan and the mask of the PMU currents, from the first stored frame
         self.node_m: Optional[np.ndarray] = None
         self.edge_m: Optional[np.ndarray] = None
         self.i_m: Optional[np.ndarray] = None
@@ -106,8 +103,7 @@ class TimelineWriter:
         self.am_rows: list[tuple[int, int, float, float, float, float]] = []  # (episode, *a row of AmRows)
         # the attack vector of the last stored frame, observed minus its benign twin (zero when benign):
         # an adjacent episode's stealth bound starts from it
-        currents = np.zeros((E, 4)) if spec.currents else None
-        self.last_attack = AttackVector(np.zeros((C, 4)), np.zeros((E, spec.edge_width)), currents)
+        self.last_attack = AttackVector(np.zeros((C, 4)), np.zeros((E, spec.edge_width)), np.zeros((E, 4)))
         self.attacked = 0  # frames stored so far with at least one attacked bus
         self._clean = clean
         self.f = h5py.File(path, "w")
@@ -125,7 +121,6 @@ class TimelineWriter:
             self.f.create_group(group)
         spec, rows = self.spec, {"C": self.dims[1], "E": self.dims[2]}
         table = {n: v for n, v in self.FRAME_LAYERS.items() if spec.temporal or n not in self.TEMPORAL_LAYERS}
-        table.update(self.CURRENT_LAYERS if spec.currents else {})
         for name, (axis, width, dtype) in table.items():
             width = spec.edge_width if width == self.FLOW_WIDTH else width
             shape = (rows[axis], width) if width else (rows[axis],)
@@ -192,26 +187,22 @@ class TimelineWriter:
         self.seq_id[t] = sid if fid else -1
         self.attacked += int(frame.y.any())
         if self.node_m is None:
-            self.node_m, self.edge_m = frame.node_m, frame.edge_m
-        current = self._store_currents(r, fid, frame) if self.spec.currents else None
+            self.node_m, self.edge_m, self.i_m = frame.node_m, frame.edge_m, frame.i_m
         self.last_attack = AttackVector(
             np.asarray(frame.node_x, np.float64) - np.asarray(bnx, np.float64),
             np.asarray(frame.edge_x, np.float64) - np.asarray(bex, np.float64),
-            current,
+            self._store_currents(r, fid, frame),
         )
         self._store_attack(t, fid, frame, bnx, bex)
 
     def _store_currents(self, r: int, fid: int, frame: Frame) -> np.ndarray:
         """Stage a frame's PMU branch-current layers and return its attack vector on them (observed
         minus un-attacked, zero on a benign frame)."""
-        assert frame.i_x is not None, "a hybrid-meter generator emits the currents on every frame"
         bix = frame.i_x if frame.benign_i_x is None else frame.benign_i_x
         L = self._layers
         L[schema.PMU_I][r], L[schema.PMU_I_BENIGN][r] = frame.i_x, bix
         tamper = frame.i_tamper if fid != BENIGN_CODE and frame.i_tamper is not None else frame.i_x != bix
         L[schema.PMU_I_TAMPER][r] = tamper if fid != BENIGN_CODE else 0
-        if self.i_m is None:
-            self.i_m = frame.i_m
         return np.asarray(frame.i_x, np.float64) - np.asarray(bix, np.float64)
 
     def _store_attack(self, t: int, fid: int, frame: Frame, bnx: np.ndarray, bex: np.ndarray) -> None:
@@ -274,11 +265,9 @@ class TimelineWriter:
     def _write_masks(self) -> None:
         """Write data/node_m and data/edge_m per frame: the static plan repeated, in bounded slabs. Per
         frame, so a later series can change topology mid-file without a layout change."""
-        assert self.node_m is not None and self.edge_m is not None
+        assert self.node_m is not None and self.edge_m is not None and self.i_m is not None
         T = self.dims[0]
-        masks = [(schema.NODE_M, self.node_m), (schema.EDGE_M, self.edge_m)]
-        if self.i_m is not None:  # hybrid meters
-            masks.append((schema.PMU_I_M, self.i_m))
+        masks = [(schema.NODE_M, self.node_m), (schema.EDGE_M, self.edge_m), (schema.PMU_I_M, self.i_m)]
         for name, m in masks:
             ds = self._create(name, m.shape, np.uint8)
             for a in range(0, T, 4096):

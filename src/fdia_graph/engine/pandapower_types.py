@@ -1,7 +1,7 @@
 """The pandapower objects the engine reads, as types.
 
-pandapower ships no type information and is an optional dependency, so the engine names here the
-parts of a network it actually reads: the element tables, the result tables of a power flow, and the
+pandapower ships no type information and is an optional dependency, so the parts of a network that
+`Case.from_pandapower` and the profile helpers read are named here: the element tables, the result tables of a power flow, and the
 internal PYPOWER case with its pandapower-to-PYPOWER bus lookup. A real `pandapowerNet` satisfies
 `PandapowerNet` structurally; nothing here is imported at run time beyond typing.
 """
@@ -25,7 +25,7 @@ class PpcTables(TypedDict):
 
 
 class PandapowerNet(Protocol):
-    """A pandapower network, as far as the engine reads one."""
+    """A pandapower network, as far as the package reads one."""
 
     bus: pd.DataFrame
     line: pd.DataFrame
@@ -36,8 +36,16 @@ class PandapowerNet(Protocol):
     ext_grid: pd.DataFrame
     shunt: pd.DataFrame
     res_bus: pd.DataFrame
+    res_gen: pd.DataFrame
+    res_ext_grid: pd.DataFrame
     res_line: pd.DataFrame
     res_shunt: pd.DataFrame
     sn_mva: float
     _ppc: PpcTables
     _pd2ppc_lookups: dict[str, np.ndarray]
+
+    def __getitem__(self, table: str) -> pd.DataFrame:
+        """An element table by its name (`net["line"]` is `net.line`)."""
+        ...
+
+    def __contains__(self, table: str) -> bool: ...

@@ -21,10 +21,9 @@ from typing import TYPE_CHECKING, NamedTuple, Optional, Union, cast
 import numpy as np
 
 from ...constants.channels import NodeChannel
-from ...constants.meters import PMU_CURRENT_CLASS, POWER_NOISE_FLOOR_MW
 from ...formulas.attacks import generator_output, tampered_channels, tampered_devices, within_limits
 from ...formulas.network import _row_block, complex_voltages
-from ...formulas.noise import accuracy_sigma, current_sigma, paper_current_sigma, paper_sigma
+from ...formulas.noise import paper_current_sigma, paper_sigma
 from ...models.choices import CostUnit, SupportMethod
 from ...models.config import TrustSchedule
 from ...models.frames import AttackVector, FlowGoal, FrameKnobs, LoadGoal, MinimizerResult
@@ -37,8 +36,8 @@ if TYPE_CHECKING:
 # (devices, channels, support size): the objective, then its tie-breaks; with `FrameKnobs.objective`
 # "channels" the first two swap (`_Window.rank`)
 _Cost = tuple[int, int, int]
-# the tampered node, flow and PMU current channels (masks; no currents without them in the plan)
-_Channels = tuple[np.ndarray, np.ndarray, Optional[np.ndarray]]
+# the tampered node, flow and PMU current channels (masks)
+_Channels = tuple[np.ndarray, np.ndarray, np.ndarray]
 Goal = Union[LoadGoal, FlowGoal]  # what a window must realize: the loads of At, the flow of Am
 
 
@@ -94,7 +93,7 @@ class MinimizeMixin(FalseStateMixin):
         the window (At's stealth bound starts from it); `trust` the trusted-PMU schedule [WU26 eqs. 26-32].
         With `k.support_method` "rref" a flow goal takes its support from `rref.RrefSupport` instead."""
         if trust is not None:  # refused before the search runs: every trusted bus carries a PMU
-            TrustablePmus(trust.buses, frozenset(self.meters.pmu), self.C)
+            TrustablePmus(trust.buses, frozenset(self.pmu_buses.tolist()), self.C)
         with _one_blas_thread():
             if k.support_method == SupportMethod.RREF.value and goal.kind == "flow":
                 from .rref import RrefSupport
@@ -206,9 +205,9 @@ class MinimizeMixin(FalseStateMixin):
                     _push(heap, seen, child)
 
     def _area_adjacency(self, allowed: set[int]) -> dict[int, set[int]]:
-        """The live branches between buses of the area, as neighbour sets."""
+        """The branches between buses of the area, as neighbour sets."""
         adj: dict[int, set[int]] = {b: set() for b in allowed}
-        for a, b in self._live_edges().T:
+        for a, b in self.ei.T:
             if int(a) in allowed and int(b) in allowed:
                 adj[int(a)].add(int(b))
                 adj[int(b)].add(int(a))
@@ -258,24 +257,20 @@ def _starts_in_area(
 class _Near(NamedTuple):
     """The branches with an end in a support (`lines`) and what their readings need: their from-end
     and to-end Yf and Yt rows cut to the columns they touch (`_row_block`: block, columns), their
-    from buses in ppc order, and whether each is metered."""
+    from buses, and whether each is metered."""
 
     lines: np.ndarray
     yf: tuple[np.ndarray, np.ndarray]
     yt: tuple[np.ndarray, np.ndarray]
-    from_ppc: np.ndarray
+    from_bus: np.ndarray
     metered: np.ndarray
 
 
 def _near_branches(g: MinimizeMixin, S: np.ndarray) -> _Near:
-    """`_Near` of support S: the in-service branches with an end in S."""
-    touches = np.isin(g.ei, S).any(axis=0)
-    if g.branch.status is not None:
-        touches &= np.asarray(g.branch.status) > 0
-    lines = np.flatnonzero(touches)
-    metered = np.asarray(g.meters.flow, bool)[lines]
-    from_ppc = np.asarray(g._from_bus_ppc)[lines]
-    return _Near(lines, _row_block(g._Yf, lines), _row_block(g._Yt, lines), from_ppc, metered)
+    """`_Near` of support S: the branches with an end in S."""
+    lines = np.flatnonzero(np.isin(g.ei, S).any(axis=0))
+    yf, yt = _row_block(g.net.yf, lines), _row_block(g.net.yt, lines)
+    return _Near(lines, yf, yt, g.case.f[lines], g.flow_metered[lines])
 
 
 class _Window:
@@ -301,54 +296,41 @@ class _Window:
         # the buses a trusted PMU pins at each snapshot [WU26 eqs. 29-31]
         self.pinned = [frozenset[int]() if trust is None else trust.pinned(t) for t in range(len(states))]
         self._near: Optional[tuple[bytes, _Near]] = None  # the last support's branches (`near`)
-        self.node_m, self.edge_m = g.meter_masks()
+        self.node_m, self.edge_m = g.masks.node, g.masks.edge
         self.pmu = np.zeros(g.C, bool)
-        self.pmu[sorted(g.meters.pmu)] = True
+        self.pmu[g.pmu_buses] = True
         # a bus angle is a PMU channel: a SCADA voltmeter reads |V| only
         self.node_m = self.node_m.copy()
         self.node_m[~self.pmu, NodeChannel.THETA] = 0
         self.flows = g.clean_flows_from_states(np.stack(states))  # [T, E, 2], unmetered zeroed
-        # the PMU branch-current channels [WU26 eqs. 19-20]: their mask and noise scale (None without)
-        self.i_m = g.current_mask()
-        self.currents, self.i_sigma = self._currents(g, states, goal)
-        self.sigma = self._sigmas(g, states, goal)
+        # the PMU branch-current channels [WU26 eqs. 19-20]: their mask, true values and noise scale
+        self.i_m: np.ndarray = g.masks.current
+        self.currents: np.ndarray = g.currents_from_states(np.stack(states))
+        self.sigma, self.i_sigma = self._sigmas(g, states, goal)
         self.zero = np.array(sorted({int(b) for b in g.zero_inj} - {g.slack_bus}), dtype=np.int64)
         self.prev = self._before(prev)
 
     def _sigmas(
         self, g: MinimizeMixin, states: list[np.ndarray], goal: Goal
-    ) -> list[tuple[np.ndarray, np.ndarray]]:
+    ) -> tuple[list[tuple[np.ndarray, np.ndarray]], list[np.ndarray]]:
         """What a change must exceed to count as tampering at each snapshot, and for At also the most a
-        channel may move between snapshots: [WU26]'s own noise for the overload attack, the l0 threshold
-        only the meters' rated accuracy for At."""
+        channel may move between snapshots, as (the node and flow layers, the PMU current layer) per
+        snapshot: [WU26]'s own noise for the overload attack (0.01 pu on a current), the l0 threshold
+        only; the meters' rated accuracy at the true readings for At (`NoiseModel.sigmas`)."""
         if goal.kind == "flow":
-            paper = paper_sigma(self.node_m.shape, self.edge_m.shape, self.pmu, g._base_mva)
-            return [paper for _ in states]
-        return [accuracy_sigma(X, F, g.SD, POWER_NOISE_FLOOR_MW) for X, F in zip(states, self.flows)]
+            paper = paper_sigma(self.node_m.shape, self.edge_m.shape, self.pmu, g.case.base_mva)
+            return [paper for _ in states], [paper_current_sigma((g.E, 4)) for _ in states]
+        exact = (np.asarray(X, np.float64) for X in states)
+        true = (g.plan.gather(X, F, I) for X, F, I in zip(exact, self.flows, self.currents))
+        rated = [g.layers(g.noise.sigmas(z)) for z in true]
+        return [(s.node, s.edge) for s in rated], [s.current for s in rated]
 
     def _before(self, prev: Optional[AttackVector]) -> AttackVector:
-        """The attack vector of the frame before the window: zero when it is benign; a bare (node, edge)
-        pair is an attack vector without currents."""
-        no_i = None if self.i_m is None else np.zeros(self.i_m.shape)
+        """The attack vector of the frame before the window: zero when it is benign."""
         if prev is None:
-            return AttackVector(np.zeros(self.node_m.shape), np.zeros(self.edge_m.shape), no_i)
-        p = AttackVector(*prev)
-        cur = no_i if p.current is None else np.asarray(p.current, float)
-        return AttackVector(np.asarray(p.node, float), np.asarray(p.edge, float), cur)
-
-    @staticmethod
-    def _currents(
-        g: MinimizeMixin, states: list[np.ndarray], goal: Goal
-    ) -> tuple[Optional[np.ndarray], Optional[list[np.ndarray]]]:
-        """(The true PMU branch currents per snapshot [T, E, 4]; their noise scale per snapshot: [WU26]'s
-        0.01 pu for the overload attack, the PMU accuracy class at the true currents for At),
-        both None without currents in the meter plan."""
-        if g.current_mask() is None:
-            return None, None
-        true = g.currents_from_states(np.stack(states))
-        if goal.kind == "flow":
-            return true, [paper_current_sigma((g.E, 4)) for _ in true]
-        return true, [current_sigma(i, PMU_CURRENT_CLASS) for i in true]
+            shapes = (self.node_m.shape, self.edge_m.shape, self.i_m.shape)
+            return AttackVector(*(np.zeros(shape) for shape in shapes))
+        return AttackVector(*(np.asarray(part, float) for part in prev))
 
     def cost(self, S: np.ndarray, beat: Optional[_Cost]) -> Optional[_Cost]:
         """The cost of support S held for the window: the union of the tampered devices and channels over
@@ -374,7 +356,8 @@ class _Window:
     def _tampered(self, S: np.ndarray, beat: Optional[_Cost]) -> Optional[tuple[_Channels, int]]:
         """The union of tampered channels (node, flow, PMU current masks) on S over the window and its
         device count, or None when S fails at a snapshot or its first count so far exceeds `beat`'s."""
-        union: _Channels = (np.zeros(self.node_m.shape, bool), np.zeros(self.edge_m.shape, bool), None)
+        shapes = (self.node_m.shape, self.edge_m.shape, self.i_m.shape)
+        union: _Channels = (np.zeros(shapes[0], bool), np.zeros(shapes[1], bool), np.zeros(shapes[2], bool))
         devices, prev = 0, self.prev
         for t in range(len(self.states)):
             free = self.support_at(t, S)
@@ -412,7 +395,7 @@ class _Window:
 
     def _snapshot(
         self, t: int, S: np.ndarray, prev: AttackVector
-    ) -> Optional[tuple[np.ndarray, np.ndarray, Optional[np.ndarray], AttackVector]]:
+    ) -> Optional[tuple[np.ndarray, np.ndarray, np.ndarray, AttackVector]]:
         """Snapshot t on support S: (the node, flow and PMU current channels moved beyond their noise,
         and this snapshot's attack vector), or None when S has no false state here or (At) breaks the
         stealth bound against the previous snapshot's attack vector `prev`."""
@@ -444,52 +427,40 @@ class _Window:
             self._near = (key, _near_branches(self.g, S))
         return self._near[1]
 
-    def _branch_attack(self, t: int, Xa: np.ndarray, near: _Near) -> tuple[np.ndarray, Optional[np.ndarray]]:
+    def _branch_attack(self, t: int, Xa: np.ndarray, near: _Near) -> tuple[np.ndarray, np.ndarray]:
         """The attack vector of false state Xa at snapshot t on the flow channels [E, 2] and the PMU
-        branch currents [E, 4] (None without currents). Only a branch with an end in the support sees a
+        branch currents [E, 4]. Only a branch with an end in the support sees a
         false voltage, so only those (`near`) are evaluated; every other entry is zero."""
-        g = self.g
-        lut = g._ppc_row[np.arange(g.C)]
-        V = np.zeros(g._n_ppc_buses, complex)
-        V[lut] = complex_voltages(Xa[:, NodeChannel.V], Xa[:, NodeChannel.THETA])
+        V = complex_voltages(Xa[:, NodeChannel.V], Xa[:, NodeChannel.THETA])
         (Yf, f_cols), (Yt, t_cols) = near.yf, near.yt
         If = Yf @ V[f_cols]
-        Sf = V[near.from_ppc] * np.conj(If) * g._base_mva
+        Sf = V[near.from_bus] * np.conj(If) * self.g.case.base_mva
         flows = np.stack([np.real(Sf), np.imag(Sf)], axis=1)
         # an unmetered flow is zero on both sides, as `clean_flows_from_states` has it
         flows[~near.metered] = 0.0
         a_edge = np.zeros(self.edge_m.shape)
         a_edge[near.lines] = flows - self.flows[t][near.lines]
-        if self.currents is None or self.i_m is None:
-            return a_edge, None
         It = Yt @ V[t_cols]
         cur = np.stack([np.real(If), np.imag(If), np.real(It), np.imag(It)], axis=1) * self.i_m[near.lines]
         a_cur = np.zeros(self.i_m.shape)
         a_cur[near.lines] = cur - self.currents[t][near.lines]
         return a_edge, a_cur
 
-    def _over(self, t: int, a_cur: Optional[np.ndarray], scale: float) -> Optional[np.ndarray]:
+    def _over(self, t: int, a_cur: np.ndarray, scale: float) -> np.ndarray:
         """The PMU branch-current channels an attack-vector part moves beyond `scale` times their noise
-        at snapshot t, metered ones only; None without currents in the plan."""
-        if a_cur is None or self.i_m is None or self.i_sigma is None:
-            return None
+        at snapshot t, metered ones only."""
         return (np.abs(a_cur) > scale * self.i_sigma[t]) & (self.i_m > 0)
 
-    def _current_step(self, t: int, a_cur: Optional[np.ndarray], prev: AttackVector, scale: float) -> bool:
+    def _current_step(self, t: int, a_cur: np.ndarray, prev: AttackVector, scale: float) -> bool:
         """Whether the attack's step on a PMU branch-current channel breaks the stealth bound."""
-        if a_cur is None or prev.current is None:
-            return False
-        over = self._over(t, a_cur - prev.current, scale)
-        return bool(over is not None and over.any())
+        return bool(self._over(t, a_cur - prev.current, scale).any())
 
 
 def _channel_count(union: _Channels) -> int:
     """How many channels (node, flow, PMU current) the union holds."""
-    return sum(int(m.sum()) for m in union if m is not None)
+    return sum(int(m.sum()) for m in union)
 
 
 def _union(a: _Channels, b: _Channels) -> _Channels:
     """The channels tampered in either of a and b (node, flow, PMU current)."""
-    if a[2] is None or b[2] is None:  # a current mask that is None (no currents in the plan) holds none
-        return a[0] | b[0], a[1] | b[1], b[2] if a[2] is None else a[2]
     return a[0] | b[0], a[1] | b[1], a[2] | b[2]

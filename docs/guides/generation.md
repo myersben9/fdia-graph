@@ -99,7 +99,8 @@ timeline is pool timestep `t` (`data/timestep`).
 ## 2. Meter plan and noise
 
 The meter plan is drawn once per generator from the seed and is the same on every frame
-(`FdiaGenerator._meter_plan`, `emit_from_state`).
+(`MeterPlan.from_coverage` in `engine/sensing/meters.py`, the table of meters the New York grid
+also uses; `emit_from_state` lays a scan's readings out per bus and per branch).
 
 | channel | metered at | default |
 |---|---|---|
@@ -121,9 +122,9 @@ generator; every other bus is zero-injection (`FdiaGenerator._load_tables`). The
 bus, so every bus carries P and Q injection meters. On IEEE-14 the plan meters `|V|` and `theta` at
 9 buses, P and Q at 14 buses, and 18 of 20 branch flows.
 
-Each reading is the true value plus a constant per-meter bias plus a fresh per-scan jitter
-(`emit_from_state`). The accuracy-class standard deviations follow [ASP14]
-(`FdiaGenerator.__init__`, `self.SD`):
+Each reading is the true value (`Measurement.h`) plus a constant per-meter bias plus a fresh
+per-scan jitter (`NoiseModel.sample`). The accuracy-class standard deviations follow [ASP14]
+(`ACCURACY_CLASS` and, per meter kind, `KIND_ACCURACY` in `constants/meters.py`):
 
 | channel | total std | kind |
 |---|---|---|
@@ -135,12 +136,17 @@ A branch current (hybrid meters) carries the PMU class of IEEE C37.118.1, a tota
 at most 1% taken as three standard deviations, relative to the current's magnitude on the real and
 the imaginary part alike, plus a `1e-5` pu floor (`formulas.noise.current_sigma`,
 `PMU_CURRENT_CLASS`) [C37118]; its bias is drawn once per channel after the other meters' biases.
+In the meter table the two parts of a phasor are the kinds `IR` and `II`.
 
-`formulas.noise.bias_jitter_split` splits each total into jitter `0.25 SD` and bias
-`sqrt(1 - 0.25^2) SD`, so the two add to the class total in quadrature. The bias is drawn once per
-meter (`_meter_bias`). Power and flow jitter also carry an absolute floor of `1e-3` MW or MVAr, so a
-near-zero reading still has noise. Treating the whole class error as per-scan noise would
-over-jitter one-minute traces and hide the temporal signal (`bias_jitter_split` docstring).
+Each total is split into jitter `0.25 SD` (`JITTER_FRAC`) and bias `sqrt(1 - 0.25^2) SD`, so the two
+add to the class total in quadrature. The bias is drawn once per meter, with the plan
+(`MeterPlan.from_placement`): one draw for every bus and branch, metered or not, in the order P, Q,
+<code>&#124;V&#124;</code>, angle, P flow, Q flow, then the currents. The jitter of frame `t` comes from the
+frame's own stream, one draw per meter in the table's row order: bus by bus
+(<code>&#124;V&#124;</code>, angle, P, Q), then the flows, then the currents, branch by branch. Power and
+flow jitter also carry an absolute floor of `1e-3` MW or MVAr, so a near-zero reading still has
+noise. Treating the whole class error as per-scan noise would over-jitter one-minute traces and
+hide the temporal signal.
 
 ## 3. The attack families
 
@@ -352,13 +358,13 @@ The generator is `FdiaGenerator` in `engine/core.py`, composed of mixins over th
 
 | file | holds |
 |---|---|
-| `engine/core.py` | `FdiaGenerator`: the grid, the meter plan and noise, attack targeting, and the mixins below composed |
+| `engine/core.py` | `FdiaGenerator`: the IEEE case as a `Case` with its `Network`, its `MeterPlan`, `Measurement` and `NoiseModel` (the New York grid's classes), attack targeting, and the mixins below composed |
 | `engine/base.py` | `GridBase`: the attributes the mixins share |
-| `engine/measurement.py` | `MeasurementMixin`: the measurement function `h(x)`, a scan from a state |
+| `engine/measurement.py` | `MeasurementMixin`: a scan from a stored state, `Measurement.h` and `NoiseModel.sample` laid out as a file's layers |
 | `engine/physics.py` | a scan's load and generation, read from its stored state |
 | `engine/records.py` | one scan of the timeline writer: benign, or attacked by `engine.attacks` |
 | `engine/solvers.py` | the optimization solver the AC optimal power flows run on, found and checked in one place |
-| `engine/pandapower_types.py` | the pandapower objects the engine reads, as types |
+| `engine/pandapower_types.py` | the pandapower objects `Case.from_pandapower` and the profile helpers read, as types |
 | `engine/attacks/area.py` | the attacker's area: the subnetwork a stealthy attack re-solves and the boundary it holds |
 | `engine/attacks/false_state.py` | the local false state: the area re-solved under false loads with the boundary held true |
 | `engine/attacks/stealthy.py` | `At` one scan at a time: a local false state added to the true scan |

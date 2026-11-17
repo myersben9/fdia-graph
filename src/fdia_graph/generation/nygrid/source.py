@@ -65,7 +65,7 @@ AM_RISE = 16  # Am's rise scans; its window adds as many exit scans
 AT_LENGTH = 16  # the slow ramp's window (scans)
 RELEASE_LENGTH = {AM: 2 * AM_RISE, AT: AT_LENGTH}  # the release's episode lengths (scans)
 # what a New York file carries per frame: PMU currents, the flows at both branch ends, no temporal features
-LAYERS = LayerSet(currents=True, both_ends=True, temporal=False)
+LAYERS = LayerSet(both_ends=True, temporal=False)
 
 
 @dataclass(frozen=True)
@@ -301,30 +301,17 @@ class NewYorkSource(TimelineSource[str, Episode]):
         self._writer.write_graph(edges, self._graph(), NEW_YORK_GRAPH_LEGEND)
 
     def _graph(self) -> dict[str, np.ndarray]:
-        """The static graph a file carries, by `Static` name: the branch model, bus shunts, line ratings (the
-        case file's, or the pool's peak flow on an unrated branch), bus facts and owning client. It is the
-        true case, not the attacker's widened copy. The units, HVDC links, names and places are not written:
-        they are the case file's. Integers are int32 on every platform."""
+        """The static graph a file carries, by `Static` name: the case's (`Case.static_graph`: the branch
+        model and bus shunts) with the line ratings (the case file's, or the pool's peak flow on an unrated
+        branch), bus facts and owning client. It is the true case, not the attacker's widened copy. The units,
+        HVDC links, names and places are not written: they are the case file's. Integers are int32 on every
+        platform."""
         case = self.meas.net.case
-        series = 1.0 / (case.r + 1j * case.x)
         has_gen = np.zeros(len(case.bus_id), np.uint8)
         has_gen[case.unit_bus] = 1
-        # a branch between two voltage levels, or with a tap ratio or a phase shift
-        trafo = (case.kv[case.f] != case.kv[case.t]) | (case.tap != 1.0) | (case.shift != 0.0)
         return {
-            Static.EDGE_R: case.r,
-            Static.EDGE_X: case.x,
-            Static.EDGE_B: case.b,
-            Static.EDGE_G: np.zeros(len(case.f)),
-            Static.EDGE_GS: series.real,
-            Static.EDGE_BS: series.imag,
-            Static.EDGE_TAP: case.tap,
-            Static.EDGE_SHIFT: case.shift,
-            Static.EDGE_STATUS: np.ones(len(case.f)),
-            Static.EDGE_IS_TRAFO: trafo.astype(np.float64),
+            **case.static_graph(),
             Static.EDGE_RATING: case.rating,
-            Static.BUS_SHUNT_G: case.gs,
-            Static.BUS_SHUNT_B: case.bs,
             Static.BUS_TYPE: case.bus_type.astype(np.int32),
             Static.BUS_VMIN: case.vmin,
             Static.BUS_VMAX: case.vmax,

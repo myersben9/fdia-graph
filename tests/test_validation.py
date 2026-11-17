@@ -174,10 +174,11 @@ def test_the_generator_refuses_a_bad_option_before_building_the_case(monkeypatch
     import pandapower.networks
 
     from fdia_graph.engine.core import FdiaGenerator
+    from fdia_graph.models.config import MeterSettings
 
     monkeypatch.setattr(pandapower.networks, "case14", lambda: pytest.fail("the case was built"))
-    with pytest.raises(ConfigError, match=r"^GeneratorOptions\.meter_model must be one of \['hybrid'\]"):
-        FdiaGenerator(14, meter_model="scada")
+    with pytest.raises(ConfigError, match=r"^MeterSettings\.meter_model must be one of \['hybrid'\]"):
+        FdiaGenerator(14, meters=MeterSettings(meter_model="scada"))
     with pytest.raises(ConfigError, match=r"^GeneratorOptions\.max_load_mw must be > 0, got -1\.0$"):
         FdiaGenerator(14, max_load_mw=-1.0)
 

@@ -16,7 +16,6 @@ if TYPE_CHECKING:  # the generator is a producer: named for the type checker onl
 class LayerSet(NamedTuple):
     """Which per-frame layers a timeline file carries; the grid decides."""
 
-    currents: bool = False  # the PMU branch-current layers: the meter plan reads currents
     # the flow layers hold both branch ends [E, 4] = P_from, Q_from, P_to, Q_to (New York meters each
     # end of a branch); False: the from end only [E, 2]
     both_ends: bool = False
@@ -29,8 +28,9 @@ class LayerSet(NamedTuple):
 
 
 class MeterLayers(NamedTuple):
-    """One value per meter of a New York meter table, laid out as a file's layers
-    (`engine.sensing.meters.MeterPlan.scatter`), zero where no meter sits."""
+    """One value per meter of a meter table, laid out as a file's layers
+    (`engine.sensing.meters.MeterPlan.scatter`), zero where no meter sits. An IEEE file's flow
+    layer has the from end only [..., E, 2], and its currents are real and imaginary parts."""
 
     node: np.ndarray  # [..., N, 4] |V|, P_inj, Q_inj, theta
     edge: np.ndarray  # [..., E, 4] P_from, Q_from, P_to, Q_to
@@ -44,10 +44,8 @@ class Scan(NamedTuple):
     node_m: np.ndarray  # [N, 4] meter mask
     edge_x: np.ndarray  # [E, 2] P_from, Q_from
     edge_m: np.ndarray  # [E, 2] meter mask
-    # the PMU branch-current phasors [E, 4] (`CurrentChannel` columns, per unit) and their mask; None when the
-    # meter plan has no currents
-    i_x: Optional[np.ndarray] = None
-    i_m: Optional[np.ndarray] = None
+    i_x: np.ndarray  # [E, 4] the PMU branch-current phasors (`CurrentChannel` columns, per unit)
+    i_m: np.ndarray  # [E, 4] their meter mask
 
 
 class AttackDesign(NamedTuple):
@@ -86,15 +84,13 @@ class Frame(NamedTuple):
     mag: np.ndarray  # designed |change| / |base| per entry of mag_bus, the plausibility-band record
     benign_node_x: Optional[np.ndarray]  # un-attacked node measurement of the same scan (with_benign)
     benign_edge_x: Optional[np.ndarray]  # un-attacked branch flows of the same scan (with_benign)
+    i_x: np.ndarray  # [E, 4] observed PMU branch currents (per unit; an IEEE file: `CurrentChannel` columns)
+    i_m: np.ndarray  # [E, 4] their meter mask
     # The meters the attacker wrote: ([N, 4], [E, 2]) boolean masks, the meters whose true value
     # the local false state moves.
     tamper: Optional[tuple[np.ndarray, np.ndarray]] = None
-    # the PMU branch-current channels, observed and un-attacked [E, 4] (per unit), their mask and the
-    # current channels the attacker wrote; None without currents in the meter plan
-    i_x: Optional[np.ndarray] = None
-    i_m: Optional[np.ndarray] = None
-    benign_i_x: Optional[np.ndarray] = None
-    i_tamper: Optional[np.ndarray] = None
+    benign_i_x: Optional[np.ndarray] = None  # [E, 4] un-attacked PMU branch currents of the same scan
+    i_tamper: Optional[np.ndarray] = None  # [E, 4] the current channels the attacker wrote
 
 
 class OperatingLimits(NamedTuple):
@@ -145,7 +141,7 @@ class AttackVector(NamedTuple):
 
     node: np.ndarray  # [N, 4] |V|, P_inj, Q_inj, theta
     edge: np.ndarray  # [E, 2] P_from, Q_from
-    current: Optional[np.ndarray] = None  # [E, 4] the PMU branch-current channels, when the plan has them
+    current: np.ndarray  # [E, 4] the PMU branch-current channels
 
 
 class LoadGoal(NamedTuple):

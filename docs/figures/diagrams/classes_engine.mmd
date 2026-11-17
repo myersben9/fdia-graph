@@ -2,8 +2,8 @@ classDiagram
     class GridBase {
     }
     class MeasurementMixin {
-        +meter_masks()
-        +current_mask()
+        +exact()
+        +layers()
         +emit_from_state()
         +clean_flows_from_states()
         +all_flows_from_states()
@@ -24,8 +24,11 @@ classDiagram
     class AttackDesign {
         <<models>>
     }
-    class BranchModel {
-        <<models>>
+    class BusType {
+        <<constants>>
+    }
+    class Case {
+        <<generation>>
     }
     class EpisodeDesignMixin {
         <<engine>>
@@ -42,19 +45,28 @@ classDiagram
     class GeneratorSpec {
         <<models>>
     }
-    class MeterBias {
+    class Measurement {
+        <<engine>>
+    }
+    class MeterKind {
+        <<constants>>
+    }
+    class MeterLayers {
         <<models>>
     }
     class MeterPlan {
+        <<engine>>
+    }
+    class MeterSettings {
         <<models>>
     }
+    class Network {
+        <<generation>>
+    }
+    class NoiseModel {
+        <<engine>>
+    }
     class OverloadMixin {
-        <<engine>>
-    }
-    class PandapowerNet {
-        <<engine>>
-    }
-    class PpcTables {
         <<engine>>
     }
     class Scan {
@@ -72,15 +84,21 @@ classDiagram
     AttackMixin ..> AttackDesign : uses
     AttackMixin ..> Frame : uses
     AttackMixin ..> FrameKnobs : uses
-    FdiaGenerator ..> BranchModel : uses
+    FdiaGenerator ..> BusType : uses
+    FdiaGenerator ..> Case : uses
     FdiaGenerator ..> GeneratorOptions : uses
     FdiaGenerator ..> GeneratorSpec : uses
-    FdiaGenerator ..> MeterBias : uses
+    FdiaGenerator ..> Measurement : uses
+    FdiaGenerator ..> MeterKind : uses
     FdiaGenerator ..> MeterPlan : uses
-    FdiaGenerator ..> PandapowerNet : uses
-    FdiaGenerator ..> PpcTables : uses
-    GridBase ..> BranchModel : uses
-    GridBase ..> MeterBias : uses
+    FdiaGenerator ..> MeterSettings : uses
+    FdiaGenerator ..> Network : uses
+    FdiaGenerator ..> NoiseModel : uses
+    GridBase ..> Case : uses
+    GridBase ..> Measurement : uses
+    GridBase ..> MeterLayers : uses
     GridBase ..> MeterPlan : uses
-    GridBase ..> PandapowerNet : uses
+    GridBase ..> Network : uses
+    GridBase ..> NoiseModel : uses
+    MeasurementMixin ..> MeterLayers : uses
     MeasurementMixin ..> Scan : uses

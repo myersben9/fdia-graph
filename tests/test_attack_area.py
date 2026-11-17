@@ -26,7 +26,7 @@ from . import case_studies  # noqa: E402
 
 @pytest.fixture(scope="module")
 def g118():
-    return FdiaGenerator(118, seed=1, meter_model="hybrid")
+    return FdiaGenerator(118, seed=1)
 
 
 def _lines(g, system: int) -> list[int]:
@@ -67,13 +67,13 @@ def test_area_rule_is_a_validated_choice():
 
 def test_delta_ratings_end_each_goal_at_its_flow_plus_the_step():
     # [WU26 eqs. 24-25]
-    g = FdiaGenerator(14, seed=1, meter_model="hybrid")
+    g = FdiaGenerator(14, seed=1)
     window = list(_load_states(14, None)[:6])
     g.use_line_ratings(OverloadSettings(rating_source="delta", rating_delta=0.1), np.stack(window))
     lines = _lines(g, 14)
     goal = g.overload_goal(window, *lines)
     flows = g.clean_flows_from_states(np.stack(window))
-    want = np.hypot(flows[-1, lines, 0], flows[-1, lines, 1]) + 0.1 * g._base_mva
+    want = np.hypot(flows[-1, lines, 0], flows[-1, lines, 1]) + 0.1 * g.case.base_mva
     assert np.allclose(goal.targets_at(len(window) - 1), want)
     with pytest.raises(ConfigError):
         OverloadSettings(rating_source="delta", rating_delta=-0.1)
@@ -83,13 +83,13 @@ def test_every_attack_the_search_returns_is_valid():
     # [WU26 eqs. 12, 24-25, 29]
     """Scenario 2 at k = 1.1 with the paper's trust schedule: the goal is met at every snapshot (the last
     at both ratings), no untampered channel moves beyond its noise, and a trusted bus is exactly true."""
-    g = FdiaGenerator(14, seed=1, meter_model="hybrid")
+    g = FdiaGenerator(14, seed=1)
     X = _load_states(14, None)
     lines = [case_studies.branch(g, *pair) for pair in case_studies.SCENARIOS[14][1]]
-    flow = np.asarray(g.meters.flow, bool).copy()
+    flow = g.flow_metered.copy()
     flow[lines] = True
     flow[case_studies.branch(g, 6, 11)] = True
-    g.meters = g.meters._replace(pmu=set(case_studies.buses(g, case_studies.PMUS[14]).tolist()), flow=flow)
+    g = case_studies.paper_metering(g, case_studies.PMUS[14], flow)
     window = list(X[:8])
     g.use_line_ratings(OverloadSettings(rating_margin=1.1), np.stack(window))
     k = FrameKnobs(2, g.operating_limits(X), True, 256, 1.0, 0.5, 2, area=case_studies.area(g))

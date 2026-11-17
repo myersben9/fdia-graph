@@ -30,21 +30,20 @@ def pool():
 
 def test_a_scada_voltmeter_reads_no_angle_under_the_hybrid_model(gens):
     g = gens
-    nm, _ = g.meter_masks()
+    nm = g.masks.node
     pmu = np.zeros(g.C, bool)
-    pmu[sorted(g.meters.pmu)] = True
+    pmu[g.pmu_buses] = True
     assert (nm[:, NodeChannel.THETA].astype(bool) == pmu).all()  # the angle is a PMU channel
     assert (nm[:, NodeChannel.V].astype(bool) >= pmu).all() and nm[
         :, NodeChannel.V
     ].sum() > pmu.sum()  # SCADA reads |V|
-    assert g.current_mask() is not None
 
 
 def test_the_current_mask_follows_the_pmus(gens):
     g = gens
-    cm = g.current_mask()
+    cm = g.masks.current
     pmu = np.zeros(g.C, bool)
-    pmu[sorted(g.meters.pmu)] = True
+    pmu[g.pmu_buses] = True
     assert (cm[:, CurrentChannel.RE_FROM].astype(bool) == pmu[g.ei[0]]).all()
     assert (cm[:, CurrentChannel.IM_TO].astype(bool) == pmu[g.ei[1]]).all()
 
@@ -66,10 +65,14 @@ def test_the_exact_currents_carry_the_exact_flows(gens, pool):
     X = pool[:3]
     cur = g.currents_from_states(X)
     flows = g.clean_flows_from_states(X)  # [T, E, 2] MW/MVAr, unmetered zeroed
-    both = (g.current_mask()[:, CurrentChannel.RE_FROM] > 0) & (flows[0, :, 0] != 0)
+    both = (g.masks.current[:, CurrentChannel.RE_FROM] > 0) & (flows[0, :, 0] != 0)
     th = np.deg2rad(X[:, :, NodeChannel.THETA])
     Vf = (X[:, :, NodeChannel.V] * np.exp(1j * th))[:, g.ei[0]]
-    S = Vf * np.conj(cur[..., CurrentChannel.RE_FROM] + 1j * cur[..., CurrentChannel.IM_FROM]) * g._base_mva
+    S = (
+        Vf
+        * np.conj(cur[..., CurrentChannel.RE_FROM] + 1j * cur[..., CurrentChannel.IM_FROM])
+        * g.case.base_mva
+    )
     assert both.any()
     np.testing.assert_allclose(S.real[:, both], flows[:, both, 0], atol=1e-4)
     np.testing.assert_allclose(S.imag[:, both], flows[:, both, 1], atol=1e-4)
@@ -109,7 +112,7 @@ def test_the_search_counts_the_current_channels(gens, pool):
 
     g = gens
     k = FrameKnobs(2, g.operating_limits(pool), True, 256)
-    pmu = sorted(g.meters.pmu)
+    pmu = g.pmu_buses.tolist()
     target = next(
         i for i, b in enumerate(g.load_bus) if b in pmu or any(n in pmu for n in g.local_region([b], 1))
     )
@@ -121,7 +124,7 @@ def test_the_search_counts_the_current_channels(gens, pool):
     cost = window.cost(area, None)
     moved = window._snapshot(0, area, window.prev)
     assert cost is not None and moved is not None and moved[2] is not None and moved[2].any()
-    window.i_m = window.i_sigma = None  # the same window, blind to the currents
+    window.i_m = np.zeros_like(window.i_m)  # the same window, blind to the currents
     blind = window.cost(area, None)
     assert blind is not None and blind[1] < cost[1]  # the current channels add to the tamper count
 
@@ -169,7 +172,7 @@ def test_new_generation_is_hybrid_only():
 
     assert MeterSettings().meter_model == "hybrid"  # its own knob, in the meter plan
     assert "meter_model" not in inspect.signature(generate_timeline).parameters  # no new top-level knob
-    assert inspect.signature(FdiaGenerator).parameters["meter_model"].default == "hybrid"
+    assert inspect.signature(FdiaGenerator).parameters["meters"].default == MeterSettings()
     for old in ("v083", "scada"):  # the v0.8.3 meters stay readable in old releases, not generated
         with pytest.raises(ValueError):
             MeterSettings(meter_model=old)
@@ -192,13 +195,30 @@ def test_the_previous_frame_carries_its_currents(pmu_files):
 def test_a_current_bias_scales_with_the_end_phasor():
     """Review fix: the systematic error of a current channel is its relative bias times |I_end| (the
     C37.118 scale of `current_sigma`), so the Re channel of I = 1j still carries it."""
-    from fdia_graph.constants.meters import CURRENT_FLOOR_PU
-    from fdia_graph.formulas.noise import biased_current
+    from fdia_graph.constants.meters import CURRENT_FLOOR_PU, KIND_ACCURACY, MeterKind
+    from fdia_graph.engine.sensing.meters import MeterPlan
+    from fdia_graph.engine.sensing.noise import NoiseModel
+    from tests.helpers import FixedDraws
 
-    true = np.array([[0.0, 1.0, 0.0, 0.0]])  # I_from = 1j pu, no PMU current at the to end
-    bias = np.array([[0.004, -0.002, 0.003, 0.001]])
-    got = biased_current(true, bias)
-    assert got[0, 0] == pytest.approx(0.004) and got[0, 1] == pytest.approx(1.0 - 0.002)
-    assert got[0, 2] == 0.0 and got[0, 3] == 0.0  # a zero end phasor carries no bias
-    sig = current_sigma(true, PMU_CURRENT_CLASS)
-    assert sig[0, 0] == pytest.approx(PMU_CURRENT_CLASS + CURRENT_FLOOR_PU) == sig[0, 1]
+    # one branch with a PMU at each end, its four current channels in `CurrentChannel` order
+    kind = np.array([MeterKind.IR, MeterKind.II, MeterKind.IR, MeterKind.II])
+    ends = np.array([0, 0, 1, 1])
+    rel, floor = KIND_ACCURACY[MeterKind.IR]
+    plan = MeterPlan(
+        kind=kind,
+        bus=ends,
+        branch=np.zeros(4, int),
+        end=ends,
+        owner=np.zeros(4, int),
+        sigma_rel=np.full(4, rel),
+        sigma_abs=np.full(4, floor),
+        bias=np.array([0.004, -0.002, 0.003, 0.001]),
+    )
+    noise = NoiseModel(plan)
+    true = np.array([0.0, 1.0, 0.0, 0.0])  # I_from = 1j pu, no current at the to end
+    got = noise.sample(true, FixedDraws(0.0))  # type: ignore[arg-type]  # the readings before jitter
+    assert got[0] == pytest.approx(0.004) and got[1] == pytest.approx(1.0 - 0.002)
+    assert got[2] == 0.0 and got[3] == 0.0  # a zero end phasor carries no bias
+    sig = noise.sigmas(true)
+    assert sig[0] == pytest.approx(PMU_CURRENT_CLASS + CURRENT_FLOOR_PU) == sig[1]
+    assert np.allclose(sig, current_sigma(true[None], PMU_CURRENT_CLASS)[0])

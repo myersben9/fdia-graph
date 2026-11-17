@@ -9,24 +9,42 @@ import pytest
 
 
 def test_jitter_draws_in_the_per_channel_order():
-    """`_jitter_in_order` takes one vector draw that equals the per-channel draws it replaced: row
-    by row, and within a row in the given column order, only where the mask is set."""
-    from fdia_graph.constants.channels import NODE_DRAW_ORDER
-    from fdia_graph.engine.measurement import MeasurementMixin
+    """A scan's jitter is one vector draw that equals the per-channel draws it replaced: an IEEE
+    plan's rows run bus by bus (|V|, angle, P, Q, where metered), then the flows and then the PMU
+    currents, branch by branch, and draw i scales meter row i."""
+    pytest.importorskip("pandapower")
+    from fdia_graph.constants.channels import TO_END_OFFSET, CurrentChannel
+    from fdia_graph.constants.meters import BUS_KINDS, FLOW_KINDS, METER_SLOT, PHASOR_KINDS
+    from fdia_graph.engine.core import FdiaGenerator
+    from tests.helpers import FixedDraws
 
-    rng = np.random.default_rng(3)
-    mask = (rng.random((12, 4)) < 0.6).astype(np.uint8)
-    mask[:, 2] = mask[:, 1]  # P and Q are metered together
-    sig = rng.random((12, 4)) + 0.1
-    gen = SimpleNamespace(_jitter=np.random.default_rng(7))
-    got = MeasurementMixin._jitter_in_order(gen, mask, sig, NODE_DRAW_ORDER)  # type: ignore[arg-type]
+    g = FdiaGenerator(14, seed=7)
+    plan, masks = g.plan, g.masks
+    volt = masks.node[:, METER_SLOT[BUS_KINDS[0]][1]] > 0
+    assert volt.any() and not volt.all() and len(g.pmu_buses) < volt.sum()  # a mixed plan
+    want = []  # (kind, bus, branch, end) of every meter, in draw order
+    for b in range(g.C):
+        want += [(int(k), b, -1, -1) for k in BUS_KINDS if masks.node[b, METER_SLOT[k][1]]]
+    for e in range(g.E):
+        at = int(g.ei[0, e])
+        want += [(int(k), at, e, 0) for k in FLOW_KINDS if masks.edge[e, METER_SLOT[k][1]]]
+    for e in range(g.E):
+        for c in CurrentChannel:
+            end = c // TO_END_OFFSET
+            if masks.current[e, c]:
+                want.append((int(PHASOR_KINDS[c % TO_END_OFFSET]), int(g.ei[end, e]), e, end))
+    rows = zip(plan.kind.tolist(), plan.bus.tolist(), plan.branch.tolist(), plan.end.tolist())
+    assert list(rows) == want
+
+    z = g.exact(np.stack([g.case.vm, g.case.pd, g.case.qd, g.case.va], axis=1))
+    sig = g.noise.jitter(z)
+    got = g.noise.sample(z, np.random.default_rng(7))
     ref = np.random.default_rng(7)
-    want = np.zeros((12, 4))
-    for b in range(12):
-        for c in NODE_DRAW_ORDER:
-            if mask[b, c]:
-                want[b, c] = ref.normal(0, sig[b, c])
-    np.testing.assert_array_equal(got, want)
+    want_scan = g.noise.sample(z, FixedDraws(0.0))  # type: ignore[arg-type]
+    for i in range(len(z)):
+        want_scan[i] += ref.normal(0, 1) * sig[i]
+    assert (sig > 0).all()
+    np.testing.assert_array_equal(got, want_scan)
 
 
 def test_shunt_draws_leave_the_injections_like_the_loop():

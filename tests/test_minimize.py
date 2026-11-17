@@ -8,8 +8,7 @@ import pytest
 
 from fdia_graph.constants.channels import NodeChannel
 from fdia_graph.formulas.attacks import tampered_channels, tampered_devices
-from fdia_graph.formulas.noise import accuracy_sigma, jitter_sigma
-from tests.helpers import windows
+from tests.helpers import FixedDraws, windows
 
 
 def test_a_window_with_no_held_support_says_so(case):
@@ -49,55 +48,88 @@ def test_the_search_equals_brute_force(case):
 
 
 def test_the_emitter_draws_with_the_shared_noise_rule(case):
-    g, X, _ = case
-    drawn = []
+    """A scan takes one draw per meter, bus by bus (|V|, angle, P, Q), then the flows, then the PMU
+    currents, and scales each by the meter's jitter: the class's jitter share, relative on powers
+    and currents with an unscaled floor."""
+    from fdia_graph.constants.meters import (
+        ACCURACY_CLASS,
+        CURRENT_FLOOR_PU,
+        JITTER_FRAC,
+        PMU_CURRENT_CLASS,
+        POWER_NOISE_FLOOR_MW,
+    )
+    from fdia_graph.formulas.network import branch_currents, branch_flows, complex_voltages
+    from fdia_graph.formulas.noise import current_magnitude
 
-    class _Recorder:  # stands in for the emission's stream: records every std, in draw order
-        def normal(self, loc, scale):
-            drawn.extend(float(s) for s in np.ravel(scale))
-            return np.zeros(np.shape(scale))
+    g, X, _ = case
+    sizes = []
+
+    class _Recorder:  # stands in for the emission's stream: records every draw's size
+        def normal(self, loc, scale, size):
+            sizes.append(size)
+            return np.random.default_rng(5).normal(loc, scale, size)
 
     g._jitter_stream = lambda: _Recorder()
     try:
         scan = g.emit_from_state(X[0])
     finally:
         del g._jitter_stream
-    from fdia_graph.formulas.network import branch_flows, complex_voltages
+    z = g.exact(X[0])
+    assert sizes == [z.shape]  # one vector draw, a normal per meter
+    drawn = g.layers(g.noise.sample(z, _Recorder()).astype(np.float32))
+    assert np.array_equal(scan.node_x, drawn.node) and np.array_equal(scan.edge_x, drawn.edge)
+    assert scan.i_x is not None and np.array_equal(scan.i_x, drawn.current)
 
-    Vc = np.zeros(g._n_ppc_buses, complex)  # the emitter's own float64 flows
-    Vc[g._ppc_row[np.arange(g.C)]] = complex_voltages(X[0][:, NodeChannel.V], X[0][:, NodeChannel.THETA])
-    Sf = branch_flows(Vc, g._Yf, g._from_bus_ppc, g._base_mva)
+    x, N = np.asarray(X[0], np.float64), NodeChannel
+    Vc = complex_voltages(x[:, N.V], x[:, N.THETA])  # the emitter's own float64 flows and currents
+    Sf = branch_flows(Vc, g.net.yf, g.case.f, g.case.base_mva)
     flows = np.stack([Sf.real, Sf.imag], axis=1)
-    sig, sig_f = jitter_sigma(X[0], flows, g.SDj, 1e-3)
+    cur = JITTER_FRAC * PMU_CURRENT_CLASS * current_magnitude(branch_currents(Vc, g.net.yf, g.net.yt))
+    cur = cur + CURRENT_FLOOR_PU
+    jitter = {k: JITTER_FRAC * c for k, c in ACCURACY_CLASS.items()}
     expected = []
     for b in range(g.C):
-        if scan.node_m[b, NodeChannel.V]:
-            expected.append(sig[b, NodeChannel.V])
-        if scan.node_m[b, NodeChannel.THETA]:  # the hybrid meters: an angle at the PMU buses only
-            expected.append(sig[b, NodeChannel.THETA])
-        if scan.node_m[b, NodeChannel.P_INJ]:
-            expected += [sig[b, NodeChannel.P_INJ], sig[b, NodeChannel.Q_INJ]]
+        if scan.node_m[b, N.V]:
+            expected.append(jitter["v"])
+        if scan.node_m[b, N.THETA]:  # the hybrid meters: an angle at the PMU buses only
+            expected.append(JITTER_FRAC * np.degrees(ACCURACY_CLASS["va"]))
+        if scan.node_m[b, N.P_INJ]:
+            expected.append(abs(x[b, N.P_INJ]) * jitter["pi"] + POWER_NOISE_FLOOR_MW)
+            expected.append(abs(x[b, N.Q_INJ]) * jitter["qi"] + POWER_NOISE_FLOOR_MW)
     for e in range(g.E):
         if scan.edge_m[e, 0]:
-            expected += [sig_f[e, 0], sig_f[e, 1]]
-    # then the PMU branch-current channels, after the flows
-    assert drawn[: len(expected)] == pytest.approx(expected, rel=0, abs=0)
-    assert len(drawn) == len(expected) + int(scan.i_m.sum())
-    # and the rule is the emitter's former one, relative power noise with the floor
-    b = int(np.argmax(np.abs(X[0][:, NodeChannel.P_INJ])))
-    assert sig[b, NodeChannel.P_INJ] == abs(X[0][b, NodeChannel.P_INJ]) * g.SDj["pi"] + 1e-3
+            expected.append(abs(flows[e, 0]) * jitter["pf"] + POWER_NOISE_FLOOR_MW)
+            expected.append(abs(flows[e, 1]) * jitter["qf"] + POWER_NOISE_FLOOR_MW)
+    # then the PMU branch-current channels, after the flows, branch by branch
+    expected += [cur[e, c] for e, c in zip(*np.nonzero(scan.i_m))]
+    assert g.noise.jitter(z).tolist() == expected  # exactly: the same products in the same order
+    # draw i moves meter i alone
+    one = np.zeros(len(z))
+    one[3] = 1.0
+
+    class _Third:
+        def normal(self, loc, scale, size):
+            return one
+
+    moved = g.noise.sample(z, _Third()) - g.noise.sample(z, FixedDraws(0.0))
+    assert np.flatnonzero(moved).tolist() == [3] and moved[3] == pytest.approx(expected[3])
 
 
 def test_the_search_counts_against_the_calibrations_accuracy_sigma(case):
-    """accuracy_sigma is the measured calibration's sigma (SEBase._class_sigma through
-    accuracy_class_sigma) at one scan's readings, in physical units; it is larger than the jitter."""
+    """The rated accuracy (`NoiseModel.sigmas`) is the measured calibration's sigma (SEBase._class_sigma
+    through accuracy_class_sigma) at one scan's readings, in physical units; it is larger than the jitter."""
     from fdia_graph.constants.meters import ACCURACY_CLASS
     from fdia_graph.formulas.noise import accuracy_class_sigma
 
     g, X, _ = case
-    x, base = X[0], g._base_mva
+    x, base = X[0], g.case.base_mva
     flows = g.clean_flows_from_states(X[:1])[0].astype(np.float64)
-    sig, sig_f = accuracy_sigma(x, flows, ACCURACY_CLASS, 1e-3)
+    z = g.exact(x)
+    rated = g.layers(g.noise.sigmas(z))
+    sig, sig_f = rated.node, rated.edge
+    node, edge = g.masks.node > 0, g.masks.edge > 0  # a sigma is kept where a meter sits
+    volt, pmu = node[:, NodeChannel.V], node[:, NodeChannel.THETA]
+    assert node[:, NodeChannel.P_INJ].all() and volt.any() and pmu.any() and edge[:, 1].any()
     # the calibration's rule, in its units (per unit on baseMVA, radians), on the same readings
     pu_p = accuracy_class_sigma(
         np.abs(x[:, NodeChannel.P_INJ]) / base,
@@ -112,14 +144,16 @@ def test_the_search_counts_against_the_calibrations_accuracy_sigma(case):
         1e-3 / base,
     )
     assert np.allclose(sig[:, NodeChannel.P_INJ], pu_p * base) and np.allclose(
-        sig[:, NodeChannel.THETA], np.degrees(va)
+        sig[pmu, NodeChannel.THETA], np.degrees(va)[pmu]
     )
-    assert np.allclose(sig[:, NodeChannel.V], ACCURACY_CLASS["v"])
+    assert np.allclose(sig[volt, NodeChannel.V], ACCURACY_CLASS["v"])
     # the stored angle is in degrees, the class in radians: the sigma is returned in the scan's units
-    assert np.allclose(sig[:, NodeChannel.THETA], np.degrees(ACCURACY_CLASS["va"]))
-    assert np.allclose(sig_f[:, 1], ACCURACY_CLASS["qf"] * np.abs(flows[:, 1]) + 1e-3)
-    jit, jit_f = jitter_sigma(x, flows, g.SDj, 1e-3)
-    assert (sig >= jit).all() and (sig_f >= jit_f).all()
+    assert np.allclose(sig[pmu, NodeChannel.THETA], np.degrees(ACCURACY_CLASS["va"]))
+    on = edge[:, 1]
+    assert np.allclose(sig_f[on, 1], ACCURACY_CLASS["qf"] * np.abs(flows[on, 1]) + 1e-3)
+    jit = g.layers(g.noise.jitter(z))
+    assert (sig >= jit.node).all() and (sig_f >= jit.edge).all() and (rated.current >= jit.current).all()
+    assert (sig[volt, NodeChannel.V] > jit.node[volt, NodeChannel.V]).all()
 
 
 def test_devices_group_channels_by_bus_terminal_and_pmu():
@@ -159,7 +193,7 @@ def test_supports_keep_the_region_rules(case):
     rules `local_region` applies to the region."""
     g, _, k = case
     zero = set(int(b) for b in g.zero_inj) - {g.slack_bus}
-    edges = g._live_edges()
+    edges = g.ei
     for _, _, d in windows(case, 2):
         buses = np.unique(g.load_bus[d.targets])
         area = g.local_region(buses, k.hops)

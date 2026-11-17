@@ -19,11 +19,11 @@ from ..constants.families import AM_CODE
 from ..engine.core import FdiaGenerator
 from ..errors import ConfigError
 from ..models.config import TimelineSettings
-from ..models.frames import AmOverloadDesign, FrameContext, FrameKnobs, LayerSet
+from ..models.frames import AmOverloadDesign, FrameContext, FrameKnobs
 from ..models.inputs import AdmissibleTargets, GeneratedFamilies
 from ..models.plan import GeneratorSpec, Placement, Schedule, Slot, SplitSpan
 from ..registry import CACHE_DIR, system_id
-from ..schema import Attr, Static
+from ..schema import Attr
 from . import _load_states
 from .design import AmDesigner, AmEpisode
 from .emit import Walk
@@ -123,42 +123,22 @@ class IeeeSource(TimelineSource[int, AmOverloadDesign]):
             out[Attr.SUPPORT_METHOD] = o.support_method
         if s.search.min_tamper or self.am_runs:
             out[Attr.STEALTH_SCALE] = s.ramp.stealth_scale
-        if self.g.current_mask() is not None:  # a hybrid-meter file
-            out[Attr.METER_MODEL] = s.meters.meter_model
-            out[Attr.CURRENT_FEAT] = schema.CURRENT_FEAT_LEGEND[schema.CURRENT_RECTANGULAR]
-            out[Attr.CURRENT_UNITS] = schema.CURRENT_UNITS_LEGEND[schema.CURRENT_RECTANGULAR]
+        out[Attr.METER_MODEL] = s.meters.meter_model
+        out[Attr.CURRENT_FEAT] = schema.CURRENT_FEAT_LEGEND[schema.CURRENT_RECTANGULAR]
+        out[Attr.CURRENT_UNITS] = schema.CURRENT_UNITS_LEGEND[schema.CURRENT_RECTANGULAR]
         return out
 
     def _topology(self) -> dict[str, object]:
-        """The topology a file records: "base" (intact) or "n1_line" (one line out for every frame),
-        with the outaged line and its base flow in MW."""
-        c = self.g.contingency
+        """The topology a file records: "base", the intact case (every branch in service), so the
+        attributes of an outaged line are empty."""
         return {
-            Attr.TOPOLOGY: ("base" if c.line is None else "n1_line"),
-            Attr.OUTAGE_LINE: (-1 if c.line is None else int(c.line)),
-            Attr.OUTAGE_BRANCH_POS: int(c.pos),
-            Attr.OUTAGE_LINE_NAME: c.name,
-            Attr.OUTAGE_FROM_BUS: int(c.from_bus),
-            Attr.OUTAGE_TO_BUS: int(c.to_bus),
-            Attr.OUTAGE_BASE_FLOW_MW: float(c.base_flow_mw),
-        }
-
-    def _graph(self) -> dict[str, Optional[np.ndarray]]:
-        """The static graph a file carries, by `Static` name: the branch model and the bus shunts."""
-        g, br = self.g, self.g.branch
-        return {
-            Static.EDGE_R: br.r,
-            Static.EDGE_X: br.x,
-            Static.EDGE_B: br.b,
-            Static.EDGE_G: br.g,
-            Static.EDGE_GS: g.edge_gs,
-            Static.EDGE_BS: g.edge_bs,
-            Static.EDGE_TAP: br.tap,
-            Static.EDGE_SHIFT: br.shift_deg,
-            Static.EDGE_STATUS: br.status,
-            Static.EDGE_IS_TRAFO: g.edge_is_trafo,
-            Static.BUS_SHUNT_G: g.bus_shunt_g,
-            Static.BUS_SHUNT_B: g.bus_shunt_b,
+            Attr.TOPOLOGY: "base",
+            Attr.OUTAGE_LINE: -1,
+            Attr.OUTAGE_BRANCH_POS: -1,
+            Attr.OUTAGE_LINE_NAME: "",
+            Attr.OUTAGE_FROM_BUS: -1,
+            Attr.OUTAGE_TO_BUS: -1,
+            Attr.OUTAGE_BASE_FLOW_MW: float("nan"),
         }
 
     def record(self) -> dict[str, object]:
@@ -192,9 +172,8 @@ class IeeeSource(TimelineSource[int, AmOverloadDesign]):
             raise ConfigError("an IeeeSource generates one timeline; build a new source for another")
         g, T = self.g, self.frames
         self._designer = AmDesigner(g, self._spec(), self.settings.workers if self.am_runs else 1)
-        spec = LayerSet(currents=g.current_mask() is not None)
-        self._writer = TimelineWriter(path, (T, g.C, g.E), self._clean, spec)
-        self._writer.write_graph(g.ei, self._graph())
+        self._writer = TimelineWriter(path, (T, g.C, g.E), self._clean)
+        self._writer.write_graph(g.ei, g.case.static_graph())
         self._frames = Walk(FrameContext(g, self.X, self.knobs), self._writer)
         self.rec = Placement.empty(list(self.schedule.families))
 
@@ -236,7 +215,7 @@ class IeeeSource(TimelineSource[int, AmOverloadDesign]):
         w, frac = self.writer, self.settings.split.fractions
         self.g.scan_key = None
         columns = {schema.SPLIT: split_column(self.bounds, self.frames)}
-        header = {**w.header(float(self.g.base.sn_mva), self.seed), **self._topology()}
+        header = {**w.header(self.g.case.base_mva, self.seed), **self._topology()}
         w.finish(columns, header, self.recorded, self.record(), self.rec, frac)
 
     def close(self, finished: bool) -> None:

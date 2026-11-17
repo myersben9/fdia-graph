@@ -70,7 +70,7 @@ def test_family_filter_and_pu_units(timeline):
 
 
 def test_ybus_matches_engine_and_clean_injections(timeline):
-    """ds.ybus equals the engine's makeYbus matrix and reproduces the clean injections at the
+    """ds.ybus equals the engine's bus admittance and reproduces the clean injections at the
     shunt-free buses, so bus order and the branch model are both right."""
     pytest.importorskip("pandapower")
     from fdia_graph.engine.core import FdiaGenerator
@@ -78,8 +78,7 @@ def test_ybus_matches_engine_and_clean_injections(timeline):
     ds = fg.load(timeline)
     Y = ds.ybus_np
     g = FdiaGenerator(14, seed=1)
-    lut = np.asarray(g._ppc_row)  # timeline bus i -> ppc row lut[i]
-    ref = g._Ybus.toarray()[np.ix_(lut, lut)]
+    ref = g.net.ybus.toarray()  # in the timeline's bus order
     assert Y.shape == (ds.N, ds.N) and np.allclose(Y, ref, atol=1e-9)
     # S = V conj(Y V) is the net injection (generation positive); the clean layer stores P/Q with
     # pandapower's consumption-positive sign and the shunt draw removed, so compare -S where there
@@ -93,8 +92,8 @@ def test_ybus_matches_engine_and_clean_injections(timeline):
     assert tuple(ds.ybus.shape) == (ds.N, ds.N)
     # Branch admittance matrices: equal to the engine's, and Yf reproduces the clean from-end flows
     # (edge_clean is zero on unmetered branches, so compare where a flow meter exists).
-    assert np.allclose(ds.yf_np, g._Yf.toarray()[:, lut], atol=1e-9)
-    assert np.allclose(ds.yt_np, g._Yt.toarray()[:, lut], atol=1e-9)
+    assert np.allclose(ds.yf_np, g.net.yf.toarray(), atol=1e-9)
+    assert np.allclose(ds.yt_np, g.net.yt.toarray(), atol=1e-9)
     f = ds.edge_index_np[0]
     Sf = V[:, f] * np.conj(V @ ds.yf_np.T) * ds.baseMVA  # [T, E]
     ec = ds._eclean_np[:64].astype(float)

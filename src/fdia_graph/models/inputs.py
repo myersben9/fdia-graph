@@ -19,7 +19,7 @@ import numpy as np
 
 from ..constants.families import FAMILIES, FAMILY_CODE, GENERATED_FAMILIES
 from ..constants.releases import FIRST_RELEASE
-from ..errors import NoAdmissibleTarget
+from ..errors import DataConditionError, NoAdmissibleTarget
 from .choices import Capability
 from .validation import AsArray, AsTuple, AtLeast, Dims, Integer, NonEmpty, Parses, Required, Validated
 
@@ -193,6 +193,39 @@ class DatasetName(Validated):
         if isinstance(n, str) and n not in self.local and n.strip().lower() in self.builtin:
             return n.strip().lower()  # "IEEE118" like system_id; a local name stays case-sensitive
         return n
+
+
+@dataclass(frozen=True)
+class ModelledNet(Validated):
+    """What `Case.from_pandapower` found in a pandapower net that a `Case` would drop or misread; any
+    of it is a `DataConditionError` naming the elements. A `Case` holds a grid with every element in
+    service, at the power its table states, in the bus order of its solved power flow."""
+
+    error: ClassVar[type[ValueError]] = DataConditionError
+
+    out_of_service: tuple[str, ...]  # "line 3": a bus, line, transformer, load or generator switched off
+    scaled: tuple[str, ...]  # "load 0": a load or generator whose `scaling` is not 1
+    not_read: tuple[str, ...]  # "xward": an element table with rows that no field of a `Case` is read from
+    open_branches: Annotated[int, Integer()]  # branches of the solved case with status 0
+    buses: Annotated[int, Integer()]  # buses of the net
+    solved_buses: Annotated[int, Integer()]  # buses of its solved case
+
+    def invariants(self) -> Iterable[tuple[bool, str]]:
+        net = "the pandapower net"
+        off, scaled, tables = (
+            ", ".join(names) for names in (self.out_of_service, self.scaled, self.not_read)
+        )
+        yield not off, f"{net} has {off} out of service, and a Case holds no element that is switched off"
+        yield not scaled, f"{net} scales {scaled} (`scaling` is not 1), and a Case reads the power as stated"
+        yield not tables, f"{net} has rows in {tables}, which a Case does not model"
+        yield (
+            self.open_branches == 0,
+            f"{net} has {self.open_branches} branches switched off (status 0) in its solved case",
+        )
+        yield (
+            self.buses == self.solved_buses,
+            f"{net} has {self.buses} buses and its solved case {self.solved_buses}",
+        )
 
 
 @dataclass(frozen=True)

@@ -19,10 +19,9 @@ def _irls_support(g, states, goal, area, iters=20):
 
     Xt = states[0]
     N = g.C
-    lut = g._ppc_row[np.arange(N)]
-    H = ac_jacobian(
-        Xt[:, NodeChannel.V], np.radians(Xt[:, NodeChannel.THETA]), g._Ybus, g._Yf, g._Yt, g._ppc_branch, lut
-    )
+    ends = np.stack([g.case.f, g.case.t], axis=1)  # the two branch columns the derivatives read
+    vm, theta = Xt[:, NodeChannel.V], np.radians(Xt[:, NodeChannel.THETA])
+    H = ac_jacobian(vm, theta, g.net.ybus, g.net.yf, g.net.yt, ends, np.arange(N))
     P, Q = (
         H[N * NodeChannel.P_INJ : N * (NodeChannel.P_INJ + 1)],
         H[N * NodeChannel.Q_INJ : N * (NodeChannel.Q_INJ + 1)],
@@ -35,7 +34,7 @@ def _irls_support(g, states, goal, area, iters=20):
         dload, g.load_bus[design.targets], g.true_load(Xt)[design.targets] * (np.asarray(design.mult) - 1.0)
     )
     A = np.vstack([P[targets][:, cols], Q[targets][:, cols]])
-    rhs = np.r_[dload[targets], np.zeros(len(targets))] / g._base_mva
+    rhs = np.r_[dload[targets], np.zeros(len(targets))] / g.case.base_mva
     others = [b for b in range(N) if b not in set(targets.tolist())]
     w = np.ones(len(others))
     x = np.zeros(len(cols))

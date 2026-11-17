@@ -1,6 +1,5 @@
 """The static description of a system: the per-branch pi model and the admittance matrices built
-from it, which meters exist, the constant meter bias, and the N-1 contingency a generator was
-built with. Nothing here changes from one scan to the next."""
+from it. Nothing here changes from one scan to the next."""
 
 from __future__ import annotations
 
@@ -27,47 +26,3 @@ class Admittances(NamedTuple):
     ybus: np.ndarray  # [N, N]
     yf: np.ndarray  # [E, N] from-end: I_f = Yf @ V
     yt: np.ndarray  # [E, N] to-end: I_t = Yt @ V
-
-
-class MeterPlan(NamedTuple):
-    """The sparse metering plan, sampled once per generator: which buses carry a voltage-magnitude
-    meter, which carry a PMU (|V| and angle), which carry P/Q injection meters, and which branches
-    carry a flow meter. Under the hybrid meter model a voltmeter bus reads |V| only and each PMU also
-    reads the current phasor of every in-service branch at its bus; with both flags off (a v0.8.3
-    file) every voltmeter bus has an angle and there are no currents."""
-
-    vbus: set[int]
-    pmu: set[int]
-    inj: list[int]
-    flow: np.ndarray  # [E] bool
-    angle_at_pmu_only: bool = False  # hybrid: the voltage angle is a PMU channel
-    pmu_currents: bool = False  # hybrid: branch-current phasors at every PMU bus [WU26 eqs. 19-20]
-
-
-class MeterBias(NamedTuple):
-    """The per-meter SYSTEMATIC bias drawn once (constant across scans): relative for P/Q
-    injections and flows, absolute for |V| and angle (radians)."""
-
-    pi: np.ndarray  # [N]
-    qi: np.ndarray  # [N]
-    v: np.ndarray  # [N]
-    va: np.ndarray  # [N]
-    pf: np.ndarray  # [E]
-    qf: np.ndarray  # [E]
-    i: Optional[np.ndarray] = None  # [E, 4] relative, the PMU branch-current channels (hybrid meters only)
-
-
-class Outage(NamedTuple):
-    """The N-1 contingency a generator was built with: the pandapower line id (None = intact), its
-    branch position, its name, its terminals, and its intact-case active flow (the contingency's
-    size)."""
-
-    line: Optional[int]
-    pos: int
-    name: str
-    from_bus: int
-    to_bus: int
-    base_flow_mw: float
-
-
-INTACT = Outage(None, -1, "", -1, -1, float("nan"))

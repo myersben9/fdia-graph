@@ -20,8 +20,8 @@ hold for them.
   (`generation/source.py`). What is this grid's own (the onset masks and the survey, the splits, designs, frames)
   is a method of `NewYorkSource`; never a second driver, and no mode flag: a variant is a subclass. The file
   layout is not this grid's own: one layout (`schema.py`) and one writer serve every grid.
-- `generation/nygrid/source.py` is measured by `tools/readability.py` like the SDK's own code; the other modules
-  here are still listed in `DEFERRED`.
+- `generation/nygrid/source.py`, `case.py`, `network.py` and `engine/sensing/` are measured by
+  `tools/readability.py` like the SDK's own code; the other modules here are still listed in `DEFERRED`.
 - The grid is the MATPOWER case file `case_nygrid.m` in `generation/nygrid/`, read by `nygrid_case()`
   (`case.py`, with matpowercaseframes). A change to the grid is an edit to that file; no code assembles or patches the case on the way
   in. `pipelines/newyork/make_case.py` is the recipe that first made the file from NYgrid's `Data/` folder.

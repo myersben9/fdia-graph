@@ -208,7 +208,9 @@ class Attr:
     SUPPORT_METHOD = "support_method"  # how the overload attack chose its supports: "search" or "rref"
     SETTINGS = "settings"  # what identifies the timeline, as JSON (`TimelineSource.record`)
     SETTINGS_HASH = "settings_hash"  # `config_hash` (below) of those settings, what a result cites
-    METER_MODEL = "meter_model"  # written on a hybrid-meter file only
+    METER_MODEL = (
+        "meter_model"  # what the meters measure (`MeterModel`): on every IEEE file the generator writes
+    )
     CURRENT_FEAT = "current_feat"  # the legend of pmu_i, on a hybrid-meter file
     CURRENT_UNITS = "current_units"
     CURRENT_FORM = "current_form"  # how pmu_i holds a phasor (`CURRENT_RECTANGULAR` when absent)

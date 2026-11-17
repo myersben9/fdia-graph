@@ -8,7 +8,6 @@ runs state estimation over every meter, gets the same view over the full scan.
 
 from __future__ import annotations
 
-from dataclasses import fields
 from pathlib import Path
 
 import h5py
@@ -95,10 +94,9 @@ class Dataset:
 
     def _view(self, meters: np.ndarray, buses: np.ndarray, split: str | None) -> ClientView:
         frames = self._frames(split)
-        plan = type(self.plan)(**{f.name: getattr(self.plan, f.name)[meters] for f in fields(self.plan)})
         z = self.z(frames)[:, meters]
         labels = self._rows(schema.Y, frames)[:, buses].astype(bool)
-        return ClientView(z, labels, plan, buses, frames)
+        return ClientView(z, labels, self.plan.select(meters), buses, frames)
 
     def z(self, frames: np.ndarray, benign: bool = False) -> np.ndarray:
         """`[len(frames), M]` the flat reading vector of `plan` at the increasing `frames`, float32 as

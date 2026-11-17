@@ -13,7 +13,6 @@ from fdia_graph.formulas.network import (
     complex_voltages,
     series_admittance,
 )
-from fdia_graph.formulas.noise import bias_jitter_split
 from fdia_graph.formulas.temporal import recent_change_scale, swing_zscore, temporal_delta, wrap_degrees
 from fdia_graph.models.grid import BranchModel
 
@@ -90,13 +89,11 @@ def test_flow_sensitivities_match_a_resolved_power_flow():
 
     g = FdiaGenerator(14, seed=1)
     X = _load_states(14, None)[0]
-    lut = g._ppc_row[np.arange(g.C)]
-    V0 = np.ones(np.shape(g._Ybus)[0], np.complex128)
-    V0[lut] = complex_voltages(X[:, NodeChannel.V], X[:, NodeChannel.THETA])
-    Y, F = _dense(g._Ybus), _dense(g._Yf)
-    slack = int(lut[g.slack_bus])
+    V0 = complex_voltages(X[:, NodeChannel.V], X[:, NodeChannel.THETA])
+    Y, F = _dense(g.net.ybus), _dense(g.net.yf)
+    slack = g.slack_bus
     keep = np.flatnonzero(np.arange(len(V0)) != slack)
-    sens = flow_sensitivities(V0, Y, F, g._from_bus_ppc, slack)
+    sens = flow_sensitivities(V0, Y, F, g.case.f, slack)
     assert sens.shape == (g.E, len(V0)) and not sens[:, slack].any()
 
     def state(x: np.ndarray) -> np.ndarray:
@@ -104,7 +101,7 @@ def test_flow_sensitivities_match_a_resolved_power_flow():
         th[keep], vm[keep] = x[: len(keep)], x[len(keep) :]
         return vm * np.exp(1j * th)
 
-    S0, f0 = bus_injections(V0, Y), branch_flows(V0, F, g._from_bus_ppc).real
+    S0, f0 = bus_injections(V0, Y), branch_flows(V0, F, g.case.f).real
     start = np.r_[np.angle(V0)[keep], np.abs(V0)[keep]]
     eps = 1e-4
     for b in keep[::3]:
@@ -115,15 +112,42 @@ def test_flow_sensitivities_match_a_resolved_power_flow():
             S = bus_injections(state(x), Y) - target
             return np.r_[S.real[keep], S.imag[keep]]
 
-        moved = branch_flows(state(fsolve(mismatch, start, xtol=1e-13)), F, g._from_bus_ppc).real
+        moved = branch_flows(state(fsolve(mismatch, start, xtol=1e-13)), F, g.case.f).real
         assert np.allclose((moved - f0) / eps, sens[:, b], atol=1e-4)
 
 
-def test_bias_jitter_split_keeps_the_class_total():
-    jitter, bias = bias_jitter_split({"v": 0.0012, "pf": 0.017}, jitter_frac=0.25)
-    assert jitter["v"] == pytest.approx(0.0003) and bias["pf"] == pytest.approx(0.017 * (1 - 0.0625) ** 0.5)
-    for k in ("v", "pf"):
-        assert bias[k] ** 2 + jitter[k] ** 2 == pytest.approx({"v": 0.0012, "pf": 0.017}[k] ** 2)
+def test_bias_and_jitter_keep_the_class_total():
+    """Every meter's class splits into a constant bias and a per-scan jitter, jitter = 0.25 class
+    and bias^2 + jitter^2 = class^2 (a relative meter's floor comes on top, unscaled)."""
+    pytest.importorskip("pandapower")
+    from fdia_graph.constants.meters import MeterKind
+    from fdia_graph.engine.core import FdiaGenerator
+    from fdia_graph.engine.sensing.measure import Measurement
+    from fdia_graph.engine.sensing.meters import MeterPlan
+    from fdia_graph.engine.sensing.noise import NoiseModel
+    from tests.helpers import FixedDraws
+
+    g = FdiaGenerator(14, seed=1)
+    everywhere = (np.ones(g.C, bool), np.ones(g.C, bool), np.ones(g.E, bool))
+    # every bias one standard deviation of its draw, so `plan.bias` is each meter's bias std
+    plan = MeterPlan.from_placement(g.case, *everywhere, FixedDraws(1.0))  # type: ignore[arg-type]
+    noise = NoiseModel(plan)
+    z = Measurement(g.net, plan).h(g.case.vm, g.case.va)
+    partner = plan.phasor_partner()
+    # what a relative class is taken of: the reading, or the phasor's magnitude on a current part
+    size = np.where(partner >= 0, np.hypot(z, z[np.maximum(partner, 0)]), np.abs(z))
+    relative = plan.sigma_rel > 0
+    cls = np.where(relative, plan.sigma_rel * size, plan.sigma_abs)
+    floor = np.where(relative, plan.sigma_abs, 0.0)
+    bias = np.where(relative, plan.bias * size, plan.bias)
+    jitter = noise.jitter(z) - floor
+    assert set(plan.kind.tolist()) == {k for k in MeterKind if k not in (MeterKind.I, MeterKind.IA)}
+    assert np.allclose(jitter, 0.25 * cls, rtol=1e-9, atol=1e-15)
+    assert np.allclose(bias**2 + jitter**2, cls**2, rtol=1e-9, atol=1e-18)
+    assert np.allclose(noise.sigmas(z), cls + floor)
+    v, pf = (int(np.flatnonzero(plan.kind == k)[0]) for k in (MeterKind.V, MeterKind.PF))
+    assert jitter[v] == pytest.approx(0.0003)
+    assert plan.bias[pf] == pytest.approx(0.017 * (1 - 0.0625) ** 0.5)  # a gain error on a relative meter
 
 
 def test_ramp_profile_shape():

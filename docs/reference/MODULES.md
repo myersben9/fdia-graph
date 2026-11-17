@@ -65,20 +65,20 @@ What every folder of the repository holds, then what every Python file does, in 
 | `engine.attacks.stealthy` | The stealthy ramp At: one scan at a time, a local false state added to the true scan. |
 | `engine.base` | The state FdiaGenerator's mixins share: attribute annotations only. |
 | `engine.core` | The dataset generation engine: attack simulation and realistic meter readings on an IEEE case. |
-| `engine.measurement` | Measurement emission: turn a grid state into meter readings (the measurement function h(x)). |
+| `engine.measurement` | Measurement emission: the generator's meter readings of a stored state, as a file's layers. |
 | `engine.pandapower_types` | The pandapower objects the engine reads, as types. |
 | `engine.physics` | A scan's load and generation, read from its stored state. |
 | `engine.records` | One scan of the timeline writer: a benign scan, or an attacked At scan built by `engine.attacks`. |
 | `engine.sensing` | The meters: what each client measures, and how wrong each meter is. |
 | `engine.sensing.measure` | The measurement function: the meter readings a grid state gives, and their derivatives. |
-| `engine.sensing.meters` | The meter plan: every meter on the New York buses as one row of a table, with its owner and accuracy class. |
+| `engine.sensing.meters` | The meter plan: every meter of a grid as one row of a table, with its owner and accuracy class. |
 | `engine.sensing.noise` | Meter noise: the accuracy class of each meter split into a constant bias and a per-scan jitter. |
 | `engine.solvers` | The optimization solver every nygrid OPF runs on, found and checked in one place. |
 | `errors` | Every error the package raises on purpose, defined in this one module. |
 | `formulas` | The mathematics of the generation toolkit as named, pure functions: numpy in, numpy out, no files, no dataset objects, no torch. Each function carries its equation and a source key from docs/reference/REFERENCES.md; docs/reference/FORMULAS.md is the catalogue. Import a formula from its module (`formulas.network`, `formulas.noise`, `formulas.attacks`, `formulas.temporal`, `formulas.trust`). The formulas of estimation, localization, federated training and trust selection are the analysis toolkit's (`fdia_analysis.formulas`). |
 | `formulas.attacks` | Attack shapes defined by the dataset [DAT26] that are pure functions of their parameters. |
 | `formulas.network` | The AC network model: branch admittances, bus injections and branch flows [AE04, ch. 2], [MP19]. |
-| `formulas.noise` | The meter error model: accuracy-class standard deviations split into a constant per-meter bias and a per-scan jitter [ASP14], our split. |
+| `formulas.noise` | The meter error model: the standard deviation an accuracy class gives a reading [ASP14], and the noise [WU26]'s case studies state. `engine.sensing.noise.NoiseModel` splits a class into a constant per-meter bias and a per-scan jitter (ours) and draws both. |
 | `formulas.temporal` | The temporal features of a scan [FED26]: the one-step injection change and its z-score against the bus's typical recent change, and the recent-change scale itself. |
 | `formulas.trust` | Row reduction for stealthy attacks under trusted meters [WU26]: the reduced row echelon form of a matrix, and the sparsest rows of a row space, which the attack generator searches for an attack vector the trusted meters leave open. |
 | `generation` | generate(system, name, **knobs) — build a custom dataset and register it as `name`. |
@@ -86,7 +86,7 @@ What every folder of the repository holds, then what every Python file does, in 
 | `generation.emit` | The emit stage of a timeline: every frame in time order, benign or under its episode's design. |
 | `generation.ieee` | An IEEE case as the source of a timeline: its pool of operating points and its steps of the driver. |
 | `generation.nygrid` | The New York system: NYgrid's NPCC-140 case made solvable in AC, its reduced network, the 2019 loads by bus, the hourly dispatch and the five-minute pool of AC operating states, and the timeline written from them. |
-| `generation.nygrid.case` | The grid as one frozen record of arrays, read from a MATPOWER case file. |
+| `generation.nygrid.case` | The grid as one frozen record of arrays, read from a MATPOWER case file or from a pandapower net. |
 | `generation.nygrid.config` | Build settings and the one place random generators are made. |
 | `generation.nygrid.dispatch` | Hourly unit dispatch, NYgrid's allocation of the NYISO fuel mix to the fixed unit list. |
 | `generation.nygrid.fixes` | Two variants of a case, applied when one is asked for: the external areas held at the base load, and NYgrid's HVDC links in place of the AC branch 81-125. The changes every build has (zone J's split, the 765 kV line) are in the case file itself (`case.py` reads it). |
@@ -112,7 +112,7 @@ What every folder of the repository holds, then what every Python file does, in 
 | `models.data` | What a user gets back: one record, a batch, a whole split, a summary and the episode table. Each is a Bundle, so it is also a dict. |
 | `models.fields` | The fields the record bundles share, each one's meaning written once. |
 | `models.frames` | What the generator passes around per scan: a measurement scan, the emitted frame with its labels, the run's attack knobs, the design of an At ramp and of an Am overload episode, and what the fewest-tamper search returns. |
-| `models.grid` | The static description of a system: the per-branch pi model and the admittance matrices built from it, which meters exist, the constant meter bias, and the N-1 contingency a generator was built with. Nothing here changes from one scan to the next. |
+| `models.grid` | The static description of a system: the per-branch pi model and the admittance matrices built from it. Nothing here changes from one scan to the next. |
 | `models.inputs` | What the formulas and the parsers accept, one model each, checked when built (`models.validation`). |
 | `models.plan` | The records of a timeline's plan and design stages: a placed episode (`Slot`), a split and its frames (`SplitSpan`), a placed episode on its way through the design stage (`Planned`), the attack as it is written (`Episode`), what is placed (`Schedule`) and what the placement asked for and got (`Placement`), and what a design worker rebuilds its generator from (`GeneratorSpec`). |
 | `models.validation` | The one place inputs are checked (CONTRIBUTING.md, "an input is checked in one place"). |
@@ -218,6 +218,7 @@ What every folder of the repository holds, then what every Python file does, in 
 | `tests/test_attack_area.py` | The attacker's area [WU26] Sec. III-A and the window ratings of the overload attack: the paper's own area where it states one, the region its four principles pick otherwise (rules 1 and 2 as checks, 3 and 4 as a score of ours), the "delta" ratings matched to its Fig. 4 magnitudes, and the validity of every attack the search returns (the goal met, every untampered channel within its noise, trusted buses true). |
 | `tests/test_edges.py` | The public edges: wrong arguments fail early with a message naming what is allowed, and the filters mean what the docs say. The other test files prove the happy path; this file is the rest. |
 | `tests/test_formulas.py` | The generation toolkit's formulas: each function on a case small enough to check by hand. The analysis toolkit's formulas, and the estimator's torch measurement function pinned to the numpy kernel here, are checked in analysis/tests/test_formulas.py. |
+| `tests/test_ieee_case.py` | An IEEE case as a `Case`: `Case.from_pandapower` against the pandapower net it reads, what it refuses, and the `Network` admittances against pandapower's `makeYbus` on the same net. |
 | `tests/test_loader_timeline.py` | `fg.load` on a timeline file: the record table and the timeline from one file, `order`, the benign layer on records, batches and exports, `ds.windows` and `ds.episodes`. Uses the `timeline` fixture of conftest. |
 | `tests/test_malformed_inputs.py` | A malformed setting or argument is a `ConfigError`, never a raw TypeError, KeyError, ValueError or IndexError from deeper in the code (docs/reference/REVIEW_CHECKLIST.md, item 4). |
 | `tests/test_minimize.py` | The fewest-tamper support search [WU26 eq. 12]: exact against brute force on IEEE-14, a lower bound that never exceeds a cost, the two sigmas (the emitter's per-scan jitter, the meters' accuracy class the search counts against), and a continuous reweighted-l1 cross-check the search is never beaten by. |
