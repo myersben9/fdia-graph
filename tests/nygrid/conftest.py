@@ -13,16 +13,29 @@ LENGTHS = {"Am": 6, "At": 4}
 UNSOLVED = slice(300, 303)
 
 
-def _family(name, plan):
+MASK_HOURS = (12, 18)  # a masked family may start in these hours of the day only
+
+
+def allowed_hours(frames=T):
+    """[frames] bool: the onsets a masked family may take."""
+    hours = np.arange(frames) % 24
+    return (hours >= MASK_HOURS[0]) & (hours < MASK_HOURS[1])
+
+
+def bias_family(name, plan, every=0, masked=False):
+    """A family that writes a growing bias on one meter drawn from the design's stream. It finds no attack
+    at an onset divisible by 7 or, with `every`, at any onset not divisible by `every` (most designs then
+    miss). `masked`: it may start only in the hours `MASK_HOURS`."""
     from fdia_graph.engine.attacks.family import AttackFamily
     from fdia_graph.models.plan import Episode
 
     class Bias(AttackFamily):
-        """A growing bias on one meter drawn from the design's stream; no attack at an onset divisible by 7."""
+        def onset_mask(self, vm, va, length):
+            return allowed_hours(len(vm)) if masked else None
 
         def design(self, window, rng):
             onset, vm, _ = window
-            if onset % 7 == 0:
+            if onset % every != 0 if every else onset % 7 == 0:
                 self.last_miss = "no_target"
                 return None
             meter = int(rng.integers(len(plan.kind)))
@@ -63,5 +76,5 @@ def grid():
         "datetime64[s]"
     )
     pool = Pool(time, vm, va, np.zeros((T, n)), np.zeros((T, n)), kind)
-    families = {name: _family(name, meas.plan) for name in LENGTHS}
+    families = {name: bias_family(name, meas.plan) for name in LENGTHS}
     return pool, Attacker(net, meas), families, own

@@ -21,9 +21,7 @@ def _source(grid, cls=None, **settings):
     from fdia_graph.models.config import NewYorkSettings
 
     pool, att, families, own = grid
-    return (cls or NewYorkSource)(
-        pool, att, families, own, NewYorkSettings(length=LENGTHS, block=100, **settings)
-    )
+    return (cls or NewYorkSource)(pool, att, families, own, NewYorkSettings(length=LENGTHS, **settings))
 
 
 def _datasets(path):
@@ -71,22 +69,24 @@ def test_frames_written_in_stretches_are_the_frames_written_in_one_pass(grid, tm
     got = _datasets(a)
     assert set(np.unique(got["split"]).tolist()) == {0, 1, 2}
     assert len(got["episodes/onset"]) >= 10 and np.isnan(got["z_benign"][UNSOLVED]).all()
-    assert (
-        chunked.summary()["missed"]["Am"].get("no_target", 0)
-        + chunked.summary()["missed"]["At"].get("no_target", 0)
-        == sum(map(sum, chunked.summary()["placed"]))
-        - len(got["episodes/onset"])
-        - chunked.summary()["skipped_unsolved"]
-    )
+    # a slot with no attack (an onset divisible by 7) or on an unsolved frame moved, as on an IEEE timeline:
+    # every failed attempt is one move (none is given up here), and every placed slot ends with an episode
+    summary = chunked.summary()
+    misses = sum(sum(summary["missed"][f].values()) for f in ("Am", "At")) + summary["unsolved_attempts"]
+    moved, given_up = sum(map(sum, summary["moved"])), sum(map(sum, summary["given_up"]))
+    assert given_up == 0 and misses == moved > 0 and summary["missed"]["At"].get("no_target", 0) > 0
+    assert len(got["episodes/onset"]) == sum(map(sum, summary["placed"])) == sum(map(sum, summary["built"]))
+    assert not (got["episodes/onset"] % 7 == 0).any()
 
 
-def test_the_benign_scans_do_not_depend_on_the_split_or_the_block(grid, tmp_path):
-    """Another split (three blocks in time order: one stretch per split) and another block size place other
-    episodes, on the same noisy benign scans."""
+def test_the_benign_scans_do_not_depend_on_the_split_or_the_attacks(grid, tmp_path):
+    """Another split (three blocks in time order: one stretch per split) places other episodes, on the same
+    noisy benign scans: a frame's jitter comes from its own stream."""
     weeks = _datasets(_source(grid).generate(tmp_path / "weeks.h5"))
     blocks = _datasets(_source(grid, split_by="time").generate(tmp_path / "blocks.h5"))
     assert np.array_equal(weeks["z_benign"], blocks["z_benign"], equal_nan=True)
     assert not np.array_equal(weeks["split"], blocks["split"])
+    assert not np.array_equal(weeks["episodes/onset"], blocks["episodes/onset"])
 
 
 def test_one_source_generates_the_same_file_twice(grid, tmp_path):

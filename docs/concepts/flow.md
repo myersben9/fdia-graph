@@ -79,6 +79,9 @@ added to the benign scan.
 
 The IEEE designs are methods of `FdiaGenerator` (`engine/core.py`), which gets them from
 `AttackMixin`. The New York designs are classes on one `Attacker` (`engine/attacks/attacker.py`).
+A timeline asks every family the same thing, the episode of a window (`EpisodeFamily.designed`,
+`engine/attacks/family.py`); the IEEE designs answer as the families `SearchRamp` and
+`SearchOverload` (`engine/attacks/search.py`).
 
 You now have: the episodes, each with its frames, its buses and its attack vectors.
 
@@ -89,8 +92,9 @@ writer. `TimelineSource.generate` in `generation/source.py` is the one path ever
 the file, cut the train, validation and test splits, place the episodes, design them, walk the
 frames in time order, and finish the file.
 
-- A grid is a subclass that writes the steps that depend on it: `IeeeSource`
-  (`generation/ieee.py`) and `NewYorkSource` (`generation/nygrid/source.py`).
+- The steps are written once. A grid is a subclass that builds the generator, the pool and the
+  designer of its families, and says what its files record: `IeeeSource` (`generation/ieee.py`)
+  and `NewYorkSource` (`generation/nygrid/source.py`).
 - `TimelineWriter` (`generation/write.py`) is the one writer of the HDF5 file.
 - `schema.py` defines every group, dataset and attribute name of the file, once.
 - Settings arrive as models from `models/config.py`: `TimelineSettings` for an IEEE timeline,

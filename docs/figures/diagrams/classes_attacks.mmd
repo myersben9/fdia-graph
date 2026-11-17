@@ -15,7 +15,7 @@ classDiagram
         +solve_flow_local()
         +touched_buses()
         +frame_from_state()
-        ... and 3 more
+        ... and 4 more
     }
     class MinimizeMixin {
         +min_tamper()
@@ -69,6 +69,9 @@ classDiagram
     }
     class MeasurementMixin {
         <<engine>>
+    }
+    class MeterLayers {
+        <<models>>
     }
     class MinimizerResult {
         <<models>>
@@ -126,6 +129,7 @@ classDiagram
     FalseStateMixin ..> AttackDesign : uses
     FalseStateMixin ..> Frame : uses
     FalseStateMixin ..> FrameKnobs : uses
+    FalseStateMixin ..> MeterLayers : uses
     FalseStateMixin ..> OperatingLimits : uses
     FalseStateMixin ..> Scan : uses
     MinimizeMixin ..> AttackVector : uses

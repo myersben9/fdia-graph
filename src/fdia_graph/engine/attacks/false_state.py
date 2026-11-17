@@ -20,7 +20,7 @@ from ...formulas.network import (
     local_ac_solve,
     local_flow_solve,
 )
-from ...models.frames import AttackDesign, Frame, FrameKnobs, OperatingLimits, Scan
+from ...models.frames import AttackDesign, Frame, FrameKnobs, MeterLayers, OperatingLimits, Scan
 from ..physics import PhysicsMixin
 from .area import AreaMixin
 
@@ -329,26 +329,25 @@ class FalseStateMixin(AreaMixin, PhysicsMixin):
         nx, ex = bnx.copy(), bex.copy()
         nx[moved[0]] += a_node[moved[0]]
         ex[moved[1]] += a_edge[moved[1]]
-        tamper = (nx != bnx, ex != bex)  # the meters whose stored float32 reading changed, no fewer, no more
         y = np.zeros(self.C, np.uint8)
         y[buses] = 1
         ix, itamper = self._currents_with_attack(scan, Xa, Xt)
-        return Frame(
-            nx,
-            scan.node_m,
-            ex,
-            scan.edge_m,
-            y,
-            1,
-            buses,
-            dev,
-            bnx,
-            bex,
-            ix,
-            scan.i_m,
-            tamper,
-            benign_i_x=scan.i_x,
-            i_tamper=itamper,
+        # the tamper masks: the meters whose stored float32 reading changed, no fewer, no more
+        changed = MeterLayers(nx != bnx, ex != bex, itamper)
+        return Frame.from_scan(scan, MeterLayers(nx, ex, ix), y, (buses, dev), changed)
+
+    def frame_from_vector(self, Xt: np.ndarray, a: np.ndarray) -> Frame:
+        """The emitted frame of an attack held as a vector over the meters, a [M] = h(x_false) -
+        h(x_true): the true scan plus `a` on every meter. The meters it moves beyond their noise
+        (`NoiseModel.tampered`) are the tamper masks, and a bus with one is labelled."""
+        scan = self.emit_from_state(Xt)
+        tampered = self.noise.tampered(self.exact(Xt), a)
+        add = self.layers(np.asarray(a, float))
+        seen = (scan.node_x + add.node, scan.edge_x + add.edge, scan.i_x + add.current)
+        y = np.zeros(self.C, np.uint8)
+        y[self.plan.bus[tampered]] = 1
+        return Frame.from_scan(
+            scan, MeterLayers(*(x.astype(np.float32) for x in seen)), y, None, self.layers(tampered)
         )
 
     def _currents_with_attack(

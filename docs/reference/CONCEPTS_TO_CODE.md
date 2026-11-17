@@ -11,7 +11,7 @@ Paths are under `src/fdia_graph/`; `se/` and `localization/` are under
 Every attack is built in `engine.attacks`, the generator's `AttackMixin`: a local false state
 (`engine.attacks.false_state`) designed per episode (`ramp_design` for At, `am_overload_design` for
 Am, `engine.attacks.episodes`) on a support the search or [WU26]'s row reduction chooses
-(`MinimizeMixin.min_tamper`, `RrefSupport`); `engine.records.attack_frame` adds the attack vector to the
+(`MinimizeMixin.min_tamper`, `RrefSupport`); `FalseStateMixin.frame_from_state` adds the attack vector to the
 benign scan.
 
 ## Modules

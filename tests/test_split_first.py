@@ -14,14 +14,21 @@ from fdia_graph import schema
 from fdia_graph import timeline as tl
 from fdia_graph.constants.families import FAMILY_CODE
 from fdia_graph.generation import plan as plan_stage
-from fdia_graph.models.plan import Placement, Planned, Schedule, Slot, SplitSpan
+from fdia_graph.models.plan import Placement, Planned, Slot, SplitSpan
 from fdia_graph.schema import Attr
 
-AT, AM = FAMILY_CODE["At"], FAMILY_CODE["Am"]
+AT, AM = "At", "Am"
+
+
+class _Plan:
+    """What a test places: the families, one episode length for all, and the attacked share."""
+
+    def __init__(self, fams, length, frac):
+        self.families, self.lengths, self.attacked_frac = list(fams), dict.fromkeys(fams, length), frac
 
 
 def _plan(fams=(AT, AM), length=60, frac=0.5):
-    return Schedule(list(fams), length, 0.002, length, frac)
+    return _Plan(fams, length, frac)
 
 
 # ---- 1. the splits ------------------------------------------------------------------------------
@@ -147,7 +154,7 @@ def test_the_full_sized_splits_never_jam():
 
 def test_onsets_are_uniform_over_the_split():
     """One episode in a 600-frame split: its onset is uniform over the 541 valid onsets (chi-square)."""
-    plan = Schedule([AT], 60, 0.002, 60, 0.1)
+    plan = _Plan([AT], 60, 0.1)
     rng = np.random.default_rng(7)
     onsets = []
     for _ in range(4000):
@@ -162,40 +169,35 @@ def test_onsets_are_uniform_over_the_split():
 
 # ---- 8. an infeasible episode moves -------------------------------------------------------------
 class _Design:
-    """An Am design stage whose designs fail by rule (`fails(slot index, move)`), on no grid."""
+    """A design stage whose Am designs fail by rule (`fails(slot index, move)`), on no grid; a ramp At
+    always has its design (the walk designs it)."""
 
-    def __init__(self, monkeypatch, fails):
-        from fdia_graph.generation.design import AmDesigner
+    def __init__(self, fails):
+        self.fails = fails
+        self.tried: list[tuple[int, int]] = []  # (slot index, onset) of every Am design attempted
 
-        self.tried: list[tuple[int, int]] = []  # (slot index, onset) of every design attempted
-        designer = object.__new__(AmDesigner)
-        designer.g, designer.seed = None, 3
-
-        def run(_self, tasks):
-            out = []
-            for task in tasks:
-                _, _, i, move = task.key
-                self.tried.append((i, int(task.window[0, 0, 0])))
-                out.append(None if fails(i, move) else "design")
-            return out
-
-        monkeypatch.setattr(AmDesigner, "_run", run)
-        self.designer = designer
+    def designs(self, todo):
+        out = []
+        for p in todo:
+            if p.slot.family == AM:
+                self.tried.append((p.index, p.slot.onset))
+            out.append(None if p.slot.family == AM and self.fails(p.index, p.moves) else "design")
+        return out
 
     def split(self, slots, span=(0, 600)):
-        X = np.arange(span[1], dtype=float)[:, None, None] * np.ones((1, 1, 4))  # X[t] carries t
-        plan = Schedule([AT, AM], 10, 0.002, 10, 0.1)
-        rec = Placement.empty(plan.families)
-        episodes = self.designer.design_split(X, None, SplitSpan(0, *span), slots, rec)
+        from fdia_graph.generation.design import SplitDesign
+
+        rec = Placement.empty([AT, AM])
+        episodes = SplitDesign(3, SplitSpan(0, *span), rec).run(slots, self.designs)
         placed = [e.slot for e in episodes]
-        designs = {e.slot.onset: e.design for e in episodes if e.design is not None}
+        designs = {e.slot.onset: e.design for e in episodes if e.slot.family == AM}
         return placed, designs, rec
 
 
 def test_an_infeasible_am_moves_anywhere_in_its_split(monkeypatch):
     """An Am with no design at its onset moves to an onset uniform over its whole split, earlier as
     well as later (no frame is written yet), never onto another placed episode."""
-    d = _Design(monkeypatch, lambda i, move: move < 12)
+    d = _Design(lambda i, move: move < 12)
     ramp = Slot(100, AT, 10)
     placed, designs, rec = d.split([ramp, Slot(500, AM, 10)])
     onsets = [o for _, o in d.tried]
@@ -207,7 +209,7 @@ def test_an_infeasible_am_moves_anywhere_in_its_split(monkeypatch):
 
 def test_an_am_infeasible_everywhere_is_given_up_after_the_cap(monkeypatch):
     """Moved REDRAWS times with room always left, the Am is then given up, recorded and warned about."""
-    d = _Design(monkeypatch, lambda i, move: True)
+    d = _Design(lambda i, move: True)
     with pytest.warns(RuntimeWarning, match="no feasible design"):
         placed, designs, rec = d.split([Slot(500, AM, 10)])
     assert not designs and not placed and rec.redraws[0].tolist() == [0, plan_stage.REDRAWS]
@@ -217,7 +219,7 @@ def test_an_am_infeasible_everywhere_is_given_up_after_the_cap(monkeypatch):
 def test_each_am_counts_its_own_moves(monkeypatch):
     """Two Am in one split: the one that fails is moved and given up on its own count, however the
     other fares."""
-    d = _Design(monkeypatch, lambda i, move: i == 1)
+    d = _Design(lambda i, move: i == 1)
     with pytest.warns(RuntimeWarning, match="no feasible design"):
         placed, designs, rec = d.split([Slot(50, AM, 10), Slot(300, AM, 10)])
     assert list(designs) == [50] and rec.redraws[0].tolist() == [0, plan_stage.REDRAWS]
@@ -227,7 +229,7 @@ def test_the_moves_do_not_depend_on_the_workers(monkeypatch):
     """The moves of a split come from keyed streams, in slot order: two runs give the same onsets."""
     runs = []
     for _ in range(2):
-        d = _Design(monkeypatch, lambda i, move: move < 3)
+        d = _Design(lambda i, move: move < 3)
         runs.append((d.split([Slot(50, AM, 10), Slot(300, AM, 10)])[0], d.tried))
     assert runs[0] == runs[1]
 
@@ -239,19 +241,20 @@ def _walk_ramp(monkeypatch, fails: int, bounds=(0, 600)):
     from fdia_graph.generation.emit import Walk
 
     tries = []  # the walk's only state here is its random stream: its steps are replaced below
-    w = Walk(SimpleNamespace(g=SimpleNamespace(rng=np.random.default_rng(3))), None)
+    w = Walk(SimpleNamespace(rng=np.random.default_rng(3)), None, SimpleNamespace(last_attack=None))
 
-    def ramp(w_, onset, length, rate):
-        tries.append(onset)
-        return None if len(tries) <= fails else onset + length
+    class Ramp:
+        def begin(self, g, X, t, prev):
+            tries.append(t)
+            return len(tries) > fails
 
-    monkeypatch.setattr(Walk, "ramp_episode", ramp)
+    monkeypatch.setattr(Walk, "episode", lambda w_, t, length, designed: t + length)
     monkeypatch.setattr(Walk, "benign_run", lambda w_, t, until: until)
-    plan = Schedule([AT], 10, 0.002, 10, 10 / 600)  # one 10-frame episode
+    plan = _Plan([AT], 10, 10 / 600)  # one 10-frame episode
     rec = Placement.empty(plan.families)
     span = SplitSpan(0, *bounds)
     slots = plan_stage.place_split(np.random.default_rng(1), plan.lengths, plan.attacked_frac, span, rec)
-    w.walk_split(plan, span, [Planned(s) for s in slots], rec)
+    w.run(span.start, span.stop, [Planned(s, Ramp()) for s in slots], [span], rec)
     return rec, tries
 
 
@@ -316,7 +319,9 @@ def test_the_file_records_what_the_placement_asked_for_and_got(variants):
     assert (a[Attr.EPISODE_SHORTFALL] == req - built).all()
     for s in range(3):
         on = split[onset] == s
-        assert [int((on & (efam == f_)).sum()) for f_ in (AT, AM)] == built[s].tolist()
+        assert [int((on & (efam == f_)).sum()) for f_ in (FAMILY_CODE[AT], FAMILY_CODE[AM])] == built[
+            s
+        ].tolist()
         assert a[Attr.SPLIT_ATTACKED_FRAC][s] == pytest.approx(float((seq[split == s] >= 0).mean()))
     # 4 and 5: every episode has its full length and lies inside one split
     assert all(int(L) == 10 for L in length)

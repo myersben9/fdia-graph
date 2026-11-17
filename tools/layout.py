@@ -139,7 +139,6 @@ EXEMPT: dict[str, dict[str, str]] = {
     "generation/nygrid/source.py": {
         "HIT_STRATUM": "knob",
         "SURVEY_CHUNK": "private",
-        "LOG_EVERY": "private",
         "AM_RISE": "knob",
         "AT_LENGTH": "knob",
         "RELEASE_LENGTH": "knob",

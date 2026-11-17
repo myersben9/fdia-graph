@@ -44,8 +44,9 @@ net (`Case.from_pandapower`), its `Network`, a `MeterPlan` (`MeterPlan.from_cove
 share. `PhysicsMixin` reads a scan's load and generation and `MeasurementMixin` emits scans; neither calls the
 other, so each has `GridBase` alone as its base. `AttackMixin` builds every attack (next section) and calls both.
 A mixin lists as bases the mixins whose methods it calls.
-`engine/records.py` emits a benign scan and hands an attacked family to the mixin; `timeline.py`
-decides when and where each episode runs.
+`MeasurementMixin.benign_frame` emits a benign scan, and a designed episode (`engine/attacks/family.py`,
+`DesignedEpisode`) asks the mixin for each attacked one; `timeline.py` decides when and where each episode
+runs.
 
 [![Class diagram of the engine package: GridBase, PhysicsMixin and MeasurementMixin each under it, AttackMixin composed of EpisodeDesignMixin and StealthyMixin, and FdiaGenerator inheriting AttackMixin; the mixins use Scan, AttackDesign, Frame and FrameKnobs, and the generator holds a Case, a Network, a MeterPlan, a Measurement and a NoiseModel](../figures/diagrams/classes_engine.png)](../figures/diagrams/classes_engine.png)
 
@@ -56,7 +57,8 @@ Every attack is built in `engine/attacks/`, one module per concern, composed int
 attack vector, `StealthyMixin` builds the ramp frames, `MinimizeMixin` finds the support that tampers
 the fewest devices over an attack window [WU26, eq. 12], `OverloadMixin` builds the overload `Am`,
 and `EpisodeDesignMixin` draws what an `At` episode attacks at its onset. `AttackMixin.attack_frame`
-is the one entry for an attacked `At` scan; an `Am` frame comes from `overload_step`.
+is the one entry for an attacked `At` scan; an `Am` frame comes from `overload_step`. The walk reaches
+both through a designed episode (`engine/attacks/search.py`: `RampEpisode`, `OverloadEpisode`).
 
 [![Class diagram of the attack package: MeasurementMixin with AreaMixin under it, FalseStateMixin under AreaMixin and PhysicsMixin, StealthyMixin and MinimizeMixin under FalseStateMixin, OverloadMixin under MinimizeMixin, EpisodeDesignMixin under OverloadMixin, and AttackMixin inheriting EpisodeDesignMixin and StealthyMixin; the mixins use AttackDesign, RampDesign, LoadGoal, FlowGoal, MinimizerResult, Frame, FrameKnobs, OperatingLimits and Scan](../figures/diagrams/classes_attacks.png)](../figures/diagrams/classes_attacks.png)
 

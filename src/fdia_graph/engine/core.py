@@ -20,6 +20,7 @@ import numpy as np
 from ..constants.grid import BusType
 from ..constants.meters import FLOW_KINDS, MeterKind
 from ..models.config import GeneratorOptions, MeterSettings
+from ..models.frames import LayerSet
 from ..registry import system_id
 from ..sensing.measure import Measurement
 from ..sensing.meters import MeterPlan
@@ -41,24 +42,45 @@ class FdiaGenerator(AttackMixin):
         max_load_mw: Optional[float] = 2000.0,
         plan: Optional[MeterPlan] = None,
     ) -> None:
-        """Load the IEEE case, solve the base power flow, and draw the meter plan of `meters` from
-        `seed` (`MeterPlan.from_coverage`: the meters, then their biases). Only PMUs read angles, and
-        they read branch currents [WU26 eqs. 17-20]. A `plan` is used as given and nothing is drawn."""
-        self.C = system_id(system)  # "ieee118" and 118 both accepted, like every public entry point
+        """Load the IEEE case `system` ("ieee118" and 118 alike), solve the base power flow, and draw
+        the meter plan of `meters` from `seed` (`MeterPlan.from_coverage`: the meters, then their
+        biases). Only PMUs read angles, and they read branch currents [WU26 eqs. 17-20]. A `plan` is
+        used as given and nothing is drawn. The bus admittance is in MATPOWER's order (`Network`,
+        `matpower_order`): the stored IEEE files were made with it, to the last bit."""
+        options = GeneratorOptions(max_load_mw)  # refused here, before the case is built
+        net = Network(Case.from_ieee(system_id(system)), matpower_order=True)
+        self._open(net, seed, LayerSet(), options.max_load_mw)
+        self._meter(MeterPlan.from_coverage(self.case, meters, self.rng) if plan is None else plan)
+
+    @classmethod
+    def from_network(
+        cls, net: Network, plan: MeterPlan, seed: int = 123, spec: LayerSet = LayerSet()
+    ) -> FdiaGenerator:
+        """The generator of any grid: its `Network` and its meter `plan`, a scan laid out in the
+        layers of `spec` (New York meters both ends of a branch)."""
+        g = cls.__new__(cls)
+        g._open(net, seed, spec)
+        g._meter(plan)
+        return g
+
+    def _open(self, net: Network, seed: int, spec: LayerSet, max_load_mw: Optional[float] = 2000.0) -> None:
+        """The grid, the generator's random stream and the tables of the case."""
+        self.spec = spec
         # `max_load_mw` keeps a larger load out of the attack targets (None: no cap): it is an area
         # equivalent (IEEE-145 has loads of 4 to 58 GW), with no power-flow solution near a 5% to 20% shift.
         # No load of the other seven ladder systems exceeds 1.1 GW.
-        self.max_load_mw = GeneratorOptions(max_load_mw).max_load_mw
+        self.max_load_mw = max_load_mw
         self.rng = np.random.default_rng(seed)
         self.seed, self.scan_key = seed, None
-        self._open_case()
+        self.net, self.case = net, net.case
+        self.C = len(self.case.bus_id)
         self.ei = np.vstack([self.case.f, self.case.t]).astype(np.int32)  # [2, E]: from bus, to bus
         self.E = self.ei.shape[1]
         self._load_tables()
         self._case_limits()
-        if plan is None:
-            plan = MeterPlan.from_coverage(self.case, meters, self.rng)
-        # the plan's measurement function, its noise and the masks of its meters
+
+    def _meter(self, plan: MeterPlan) -> None:
+        """The meter plan with its measurement function, its noise and the masks of its meters."""
         self.plan, self.meas, self.noise = plan, Measurement(self.net, plan), NoiseModel(plan)
         self.masks = self.layers(np.ones(len(plan.kind), np.uint8))
         self.pmu_buses = plan.buses(MeterKind.VA)
@@ -70,12 +92,6 @@ class FdiaGenerator(AttackMixin):
         g = cls(spec.system, spec.seed, spec.meters, spec.max_load_mw)
         g._line_ratings, g._rating_delta = spec.ratings, spec.rating_delta
         return g
-
-    def _open_case(self) -> None:
-        """The IEEE case (`Case.from_ieee`) and its `Network`. The bus admittance is in MATPOWER's
-        order (`Network`, `matpower_order`): the stored IEEE files were made with it, to the last bit."""
-        self.case = Case.from_ieee(self.C)
-        self.net = Network(self.case, matpower_order=True)
 
     def _load_tables(self) -> None:
         """Which buses carry load, which loads can be attacked, and which buses inject nothing. The

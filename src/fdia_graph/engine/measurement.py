@@ -11,7 +11,7 @@ import numpy as np
 from ..constants.channels import NodeChannel
 from ..constants.streams import JITTER_STREAM
 from ..formulas.network import branch_flows, complex_voltages
-from ..models.frames import MeterLayers, Scan
+from ..models.frames import Frame, MeterLayers, Scan
 from .base import GridBase
 
 
@@ -33,10 +33,11 @@ class MeasurementMixin(GridBase):
         return self.meas.h(X[..., N.V], X[..., N.THETA], (X[..., N.P_INJ], X[..., N.Q_INJ]))
 
     def layers(self, z: np.ndarray) -> MeterLayers:
-        """One value per meter z [..., M] as an IEEE file's layers: node [..., N, 4], flow [..., E, 2]
-        (the from end, the only one metered) and PMU current [..., E, 4]; zero where no meter sits."""
+        """One value per meter z [..., M] as a file's layers: node [..., N, 4], flow [..., E, 2] (the
+        from end, the only one an IEEE case meters) or [..., E, 4] (both ends, `spec.both_ends`) and
+        PMU current [..., E, 4]; zero where no meter sits."""
         full = self.plan.scatter(z, self.C, self.E)
-        return full._replace(edge=full.edge[..., :2])
+        return full._replace(edge=full.edge[..., : self.spec.edge_width])
 
     def emit_from_state(self, X: np.ndarray) -> Scan:
         """The scan of one stored state X [N, 4]: each reading is the exact one with its meter's constant
@@ -44,6 +45,13 @@ class MeasurementMixin(GridBase):
         noisy = self.noise.sample(self.exact(X), self._jitter_stream())
         x, m = self.layers(noisy.astype(np.float32)), self.masks
         return Scan(x.node, m.node, x.edge, m.edge, x.current, m.current)
+
+    def benign_frame(self, X: np.ndarray) -> Frame:
+        """The benign frame of one stored state X [N, 4]: its scan, with no label and no attack. One
+        emission per scan, so a file is reproduced bit for bit from its seed."""
+        scan = self.emit_from_state(X)
+        seen = MeterLayers(scan.node_x, scan.edge_x, scan.i_x)
+        return Frame.from_scan(scan, seen, np.zeros(self.C, np.uint8))
 
     def clean_flows_from_states(self, X: np.ndarray) -> np.ndarray:
         """The exact from-end flows [T, E, 2] (P MW, Q MVAr) of a stack of states [T, N, 4], with no noise:

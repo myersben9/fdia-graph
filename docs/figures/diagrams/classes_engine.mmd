@@ -5,6 +5,7 @@ classDiagram
         +exact()
         +layers()
         +emit_from_state()
+        +benign_frame()
         +clean_flows_from_states()
         +all_flows_from_states()
         +currents_from_states()
@@ -19,6 +20,7 @@ classDiagram
         +attack_frame()
     }
     class FdiaGenerator {
+        +from_network()
         +from_spec()
     }
     class AttackDesign {
@@ -43,6 +45,9 @@ classDiagram
         <<models>>
     }
     class GeneratorSpec {
+        <<models>>
+    }
+    class LayerSet {
         <<models>>
     }
     class Measurement {
@@ -88,6 +93,7 @@ classDiagram
     FdiaGenerator ..> Case : uses
     FdiaGenerator ..> GeneratorOptions : uses
     FdiaGenerator ..> GeneratorSpec : uses
+    FdiaGenerator ..> LayerSet : uses
     FdiaGenerator ..> Measurement : uses
     FdiaGenerator ..> MeterKind : uses
     FdiaGenerator ..> MeterPlan : uses
@@ -95,10 +101,12 @@ classDiagram
     FdiaGenerator ..> Network : uses
     FdiaGenerator ..> NoiseModel : uses
     GridBase ..> Case : uses
+    GridBase ..> LayerSet : uses
     GridBase ..> Measurement : uses
     GridBase ..> MeterLayers : uses
     GridBase ..> MeterPlan : uses
     GridBase ..> Network : uses
     GridBase ..> NoiseModel : uses
+    MeasurementMixin ..> Frame : uses
     MeasurementMixin ..> MeterLayers : uses
     MeasurementMixin ..> Scan : uses

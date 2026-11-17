@@ -18,8 +18,8 @@ hold for them.
 ## Rules that hold
 
 - One path generates a timeline, for the IEEE cases and for this grid: `TimelineSource.generate`
-  (`generation/source.py`). What is this grid's own (the onset masks and the survey, the splits, designs, frames)
-  is a method of `NewYorkSource`; never a second driver, and no mode flag: a variant is a subclass. The file
+  (`generation/source.py`). What is this grid's own (the onset masks and the survey, the week splits, what a file records)
+  is a method of `NewYorkSource`, its designs are `PoolDesigner`'s, and the shared steps are `TimelineSource`'s; never a second driver, and no mode flag: a variant is a subclass. The file
   layout is not this grid's own: one layout (`schema.py`) and one writer serve every grid.
 - `generation/nygrid/source.py`, `systems/case.py`, `systems/network.py` and `sensing/` are measured by
   `tools/readability.py` like the SDK's own code; the other modules here are still listed in `DEFERRED`.
@@ -27,8 +27,11 @@ hold for them.
   (`systems/case.py`, with matpowercaseframes). A change to the grid is an edit to that file; no code assembles or patches the case on the way
   in. `pipelines/newyork/make_case.py` is the recipe that first made the file from NYgrid's `Data/` folder.
 - pandapower is imported only in `generation/nygrid/solver.py`. Optimization problems are Pyomo models solved by
-  `engine.solvers.ipopt()`. h5py only in the timeline writer every grid shares (`TimelineWriter`, `generation/write.py`), the pool readers (`generation/__init__.py`, `generation/nygrid/io.py`) and `dataset/`; a source holds the writer (`source.writer`), never the open file. Random generators come only from
-  `generation.nygrid.config.rng()` and are passed in.
+  `engine.solvers.ipopt()`. h5py only in the timeline writer every grid shares (`TimelineWriter`, `generation/write.py`), the pool readers (`generation/__init__.py`, `generation/nygrid/io.py`) and `dataset/`; a source holds the writer (`source.writer`), never the open file. Random generators of this package come from
+  `generation.nygrid.config` and are passed in: `rng()` for the meters, the split and the placement, and `stream_key()` for
+  each design, whose generator the design process makes from the key. The shared path keys two streams by the build
+  seed itself: a frame's meter jitter (seed, `JITTER_STREAM`, pool frame) and an episode's move
+  (seed, `RELOCATE_STREAM`, split, slot, move).
 - Records are frozen dataclasses of numpy arrays. A class owns state, cached work or a shared interface. Stateless
   math is a plain function, and a formula the SDK already has in `formulas/` is called, not rewritten.
 - Measurements are the flat vector `z` with the `MeterPlan` table. A client's data is `z[:, meters.owner == c]`.

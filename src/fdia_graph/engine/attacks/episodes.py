@@ -15,6 +15,7 @@ import numpy as np
 from ...constants.families import AT_CODE
 from ...formulas.attacks import ramp_profile
 from ...models.frames import AmOverloadDesign, AttackDesign, AttackVector, FrameKnobs, LoadGoal, RampDesign
+from ...systems.states import States
 from .overload import OverloadMixin
 
 ONSET_DRAWS = 40  # designs an At episode tries for one with a stealthy state on every frame
@@ -52,7 +53,7 @@ class EpisodeDesignMixin(OverloadMixin):
 
     def ramp_design(
         self,
-        X: np.ndarray,
+        X: States,
         t: int,
         shape: tuple[int, float],
         k: FrameKnobs,
@@ -73,7 +74,7 @@ class EpisodeDesignMixin(OverloadMixin):
     def _fewest_tamper(
         self,
         design: RampDesign,
-        X: np.ndarray,
+        X: States,
         window: tuple[range, int, float],
         k: FrameKnobs,
         prev: Optional[AttackVector],

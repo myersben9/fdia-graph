@@ -15,10 +15,8 @@ from __future__ import annotations
 import numpy as np
 
 from fdia_graph.constants.grid import BusType
-from fdia_graph.constants.meters import MeterKind
 from fdia_graph.constants.newyork import BASEPOINT_BAND, HYDRO_RAMP_PER_MIN, IMPORT_RAMP_MW_PER_MIN, Q_SHARE
 from fdia_graph.formulas.network import local_flow_solve
-from fdia_graph.formulas.temporal import wrap_degrees
 from fdia_graph.sensing.measure import Measurement
 from fdia_graph.sensing.noise import NoiseModel
 from fdia_graph.systems.case import Case
@@ -78,15 +76,6 @@ def generator_q_capability(case: Case) -> tuple[np.ndarray, np.ndarray]:
     minus 9999 MVAr per unit; plus or minus inf at a bus with no unit."""
     q = _per_bus(case, Q_SHARE * np.asarray(case.pmax, float))
     return -q, q
-
-
-def wrap_angles(d: np.ndarray, kind: np.ndarray) -> np.ndarray:
-    """A difference of readings `d [..., M]` with each angle difference (kinds va and ia, degrees)
-    wrapped to (-180, 180], since angle readings wrap at +-180 degrees; `kind [M]` the meter kinds."""
-    d = np.array(d, float, copy=True)
-    angle = np.isin(kind, (MeterKind.VA, MeterKind.IA))
-    d[..., angle] = wrap_degrees(d[..., angle])
-    return d
 
 
 class Attacker:
@@ -359,7 +348,7 @@ class Attacker:
         """Which meters an attack moves beyond their noise, per frame [L, M] for true states [L, N] and
         attack vectors [L, M]: the meters [WU26] eq. 12 counts, the localization labels and their owners.
         An angle change is wrapped first, so a reading crossing +-180 degrees counts by its true move."""
-        return np.abs(wrap_angles(a, self.meas.plan.kind)) > self.sigma(self.meas.h(vm, va))
+        return self._noise.tampered(self.meas.h(vm, va), a)
 
     def bus_load(self, vm: np.ndarray, va: np.ndarray) -> np.ndarray:
         """The active load at every bus (MW) for a state: minus the net injection at a bus with no

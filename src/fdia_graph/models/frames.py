@@ -4,13 +4,9 @@ fewest-tamper search returns."""
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import TYPE_CHECKING, NamedTuple, Optional, Union
+from typing import NamedTuple, Optional, Union
 
 import numpy as np
-
-if TYPE_CHECKING:  # the generator is a producer: named for the type checker only
-    from ..engine.core import FdiaGenerator
 
 
 class LayerSet(NamedTuple):
@@ -91,6 +87,26 @@ class Frame(NamedTuple):
     tamper: Optional[tuple[np.ndarray, np.ndarray]] = None
     benign_i_x: Optional[np.ndarray] = None  # [E, 4] un-attacked PMU branch currents of the same scan
     i_tamper: Optional[np.ndarray] = None  # [E, 4] the current channels the attacker wrote
+
+    @classmethod
+    def from_scan(
+        cls,
+        scan: Scan,
+        seen: MeterLayers,
+        y: np.ndarray,
+        mag: Optional[tuple[np.ndarray, np.ndarray]] = None,
+        tamper: Optional[MeterLayers] = None,
+    ) -> Frame:
+        """The frame of a scan: `seen` its observed layers (the scan's own on a benign frame), `y` its
+        labels [N], `mag` the designed (buses, magnitudes), and `tamper` the meters the attacker
+        wrote, laid out like the readings (None: a benign frame)."""
+        mag_bus, size = (np.zeros(0, int), np.zeros(0, float)) if mag is None else mag
+        masks, currents = (None, None) if tamper is None else ((tamper.node, tamper.edge), tamper.current)
+        attacked = int(tamper is not None)
+        return cls(
+            seen.node, scan.node_m, seen.edge, scan.edge_m, y, attacked, mag_bus, size,
+            scan.node_x, scan.edge_x, seen.current, scan.i_m, masks, scan.i_x, currents,
+        )  # fmt: skip
 
 
 class OperatingLimits(NamedTuple):
@@ -211,12 +227,3 @@ class AreaScore(NamedTuple):
     stability: float  # rule 4: 1 / (1 + the mean coefficient of variation of the area's loads)
     observability: float  # rule 4: metered channels per area bus against the system's, capped at 1
     size: float  # the area's buses as a share of the system's
-
-
-@dataclass
-class FrameContext:
-    """What every record of one generation run shares, passed explicitly to the record functions."""
-
-    g: FdiaGenerator
-    X: np.ndarray  # operating-point pool [T, N, 4] in [|V|, Pinj, Qinj, theta] order
-    knobs: FrameKnobs  # the attack settings every scan shares

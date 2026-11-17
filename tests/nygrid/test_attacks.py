@@ -9,12 +9,12 @@ from scipy.stats import chi2
 
 from fdia_graph.constants.meters import MeterKind
 from fdia_graph.constants.newyork import SolveKind
-from fdia_graph.engine.attacks.attacker import ABSORB_CAP, Attacker, natural_steps, wrap_angles
+from fdia_graph.engine.attacks.attacker import ABSORB_CAP, Attacker, natural_steps
 from fdia_graph.engine.attacks.ramp import Ramp
 from fdia_graph.generation.nygrid.config import Settings, rng
 from fdia_graph.generation.nygrid.io import read_pool
 from fdia_graph.sensing.measure import Measurement
-from fdia_graph.sensing.noise import NoiseModel
+from fdia_graph.sensing.noise import NoiseModel, wrap_angles
 from fdia_graph.systems.case import nygrid_case
 from fdia_graph.systems.network import Network
 from fdia_graph.systems.ownership import assign_clients

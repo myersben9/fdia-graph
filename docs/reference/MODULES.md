@@ -56,19 +56,19 @@ What every folder of the repository holds, then what every Python file does, in 
 | `engine.attacks.attacker` | The attacker: the local subnetwork it re-solves, the false state a pretended load implies, and the bounds the grid's own behaviour puts on a pretended change (`natural_steps`, `generator_ramps`, `generator_band`, `generator_q_capability`). |
 | `engine.attacks.episodes` | What one episode attacks: its design, drawn at onset (`EpisodeDesignMixin`). |
 | `engine.attacks.false_state` | The local false state of a stealthy attack: the attacker's area re-solved under false loads with the boundary held true, checked against the operating limits, and the attack vector it writes. |
-| `engine.attacks.family` | The interface the attack families share: a design is one `Episode` (`models.plan`) or a miss. |
+| `engine.attacks.family` | The interface the attack families share. The design stage asks a family one thing, the episode of a window (`EpisodeFamily.designed`), and the walk emits what it gets (`DesignedEpisode`), whichever family made it. A New York family (`AttackFamily`) designs one `Episode` (`models.plan`) or a miss. |
 | `engine.attacks.interface` | Am, the overload attack on a NYISO interface (ours): over a window of scans the reported flow across an interface rises to its limit, each scan the reading of one AC false state from `OpfFdia`'s local OPF. |
 | `engine.attacks.minimize` | The cheapest support of an attack window [WU26 eq. 12]. |
 | `engine.attacks.opf` | The attacker's false states from a local AC optimal power flow: the support search and the per-scan OPF every OPF attack shares. `OpfFdia` is the base class; a subclass adds the goal and `design` (`interface.InterfaceFdia`, the one the release builds). |
 | `engine.attacks.overload` | `Am`, the multi-snapshot overload attack of [WU26]: the reported flows of its target branches (one or two, `OverloadSettings.n_lines`) driven to their ratings S_max (`use_line_ratings`) over the window, with the fewest devices tampered. |
 | `engine.attacks.ramp` | At, the slow ramp: a false load that rises a little each frame, every step below the natural five-minute load swing, so no single snapshot looks anomalous while the total drifts the state away. |
 | `engine.attacks.rref` | [WU26]'s construction of the attack's support: row reduction of the transposed area Jacobian. |
+| `engine.attacks.search` | The search-based families: the slow ramp At and the overload Am [WU26]. |
 | `engine.attacks.stealthy` | The stealthy ramp At: one scan at a time, a local false state added to the true scan. |
 | `engine.base` | The state FdiaGenerator's mixins share: attribute annotations only. |
 | `engine.core` | The dataset generation engine: attack simulation and realistic meter readings on an IEEE case. |
 | `engine.measurement` | Measurement emission: the generator's meter readings of a stored state, as a file's layers. |
 | `engine.physics` | A scan's load and generation, read from its stored state. |
-| `engine.records` | One scan of the timeline writer: a benign scan, or an attacked At scan built by `engine.attacks`. |
 | `engine.solvers` | The optimization solver every nygrid OPF runs on, found and checked in one place. |
 | `errors` | Every error the package raises on purpose, defined in this one module. |
 | `formulas` | The mathematics of the generation toolkit as named, pure functions: numpy in, numpy out, no files, no dataset objects, no torch. Each function carries its equation and a source key from docs/reference/REFERENCES.md; docs/reference/FORMULAS.md is the catalogue. Import a formula from its module (`formulas.network`, `formulas.noise`, `formulas.attacks`, `formulas.temporal`, `formulas.trust`). The formulas of estimation, localization, federated training and trust selection are the analysis toolkit's (`fdia_analysis.formulas`). |
@@ -78,9 +78,9 @@ What every folder of the repository holds, then what every Python file does, in 
 | `formulas.temporal` | The temporal features of a scan [FED26]: the one-step injection change and its z-score against the bus's typical recent change, and the recent-change scale itself. |
 | `formulas.trust` | Row reduction for stealthy attacks under trusted meters [WU26]: the reduced row echelon form of a matrix, and the sparsest rows of a row space, which the attack generator searches for an attack vector the trusted meters leave open. |
 | `generation` | generate(system, name, **knobs) — build a custom dataset and register it as `name`. |
-| `generation.design` | The design stage of a timeline: the overload Am episodes of a split, designed before it is walked. |
+| `generation.design` | The design stage of a timeline: every placed episode of a split gets its design before the split is walked, from its family (`engine.attacks.family.EpisodeFamily.designed`). |
 | `generation.emit` | The emit stage of a timeline: every frame in time order, benign or under its episode's design. |
-| `generation.ieee` | An IEEE case as the source of a timeline: its pool of operating points and its steps of the driver. |
+| `generation.ieee` | An IEEE case as the source of a timeline: its pool of operating points and what its files record. |
 | `generation.nygrid` | The New York system: NYgrid's NPCC-140 case made solvable in AC, its reduced network, the 2019 loads by bus, the hourly dispatch and the five-minute pool of AC operating states, and the timeline written from them. |
 | `generation.nygrid.config` | Build settings and the one place random generators are made. |
 | `generation.nygrid.dispatch` | Hourly unit dispatch, NYgrid's allocation of the NYISO fuel mix to the fixed unit list. |
@@ -93,7 +93,7 @@ What every folder of the repository holds, then what every Python file does, in 
 | `generation.nygrid.solver` | AC solutions of a Case: the hourly projection (an AC-OPF in Pyomo, solved by Ipopt) and the power flows between hours (pandapower). |
 | `generation.nygrid.source` | The New York grid as the source of a timeline: the year of pool states and its steps of the one path. |
 | `generation.plan` | The plan stage of a timeline: where its splits are cut and where each split's episodes go. |
-| `generation.source` | The system a timeline is generated on, and the one path that generates it. |
+| `generation.source` | The one source of a timeline: a grid, its pool of operating points, and the path that generates it. |
 | `generation.write` | The one writer of a timeline file, for every grid: `TimelineWriter` owns the open HDF5 file. |
 | `models` | Every data model of the generation toolkit, one module per subject; import a model from its module. |
 | `models.assets` | How files are found: where a dataset comes from and where its bytes are fetched from. |
@@ -105,7 +105,7 @@ What every folder of the repository holds, then what every Python file does, in 
 | `models.frames` | What the generator passes around per scan: a measurement scan, the emitted frame with its labels, the run's attack knobs, the design of an At ramp and of an Am overload episode, and what the fewest-tamper search returns. |
 | `models.grid` | The static description of a system: the per-branch pi model and the admittance matrices built from it. Nothing here changes from one scan to the next. |
 | `models.inputs` | What the formulas and the parsers accept, one model each, checked when built (`models.validation`). |
-| `models.plan` | The records of a timeline's plan and design stages: a placed episode (`Slot`), a split and its frames (`SplitSpan`), a placed episode on its way through the design stage (`Planned`), the attack as it is written (`Episode`), what is placed (`Schedule`) and what the placement asked for and got (`Placement`), and what a design worker rebuilds its generator from (`GeneratorSpec`). |
+| `models.plan` | The records of a timeline's plan and design stages: a placed episode (`Slot`), a split and its frames (`SplitSpan`), a placed episode on its way through the design stage (`Planned`), the attack as it is written (`Episode`, `EpisodeRecord`), what the placement asked for and got (`Placement`), and what a design worker rebuilds its generator from (`GeneratorSpec`). |
 | `models.validation` | The one place inputs are checked (CONTRIBUTING.md, "an input is checked in one place"). |
 | `profiles` | Load profiles and operating states: the front of the pipeline. |
 | `ratings` | Branch thermal ratings for the overload attack of [WU26] (eqs. 24-25), stored with the package. |
@@ -121,6 +121,7 @@ What every folder of the repository holds, then what every Python file does, in 
 | `systems.network` | Admittances of a Case, built once, and the AC quantities they give for any state, from the SDK's network formulas (`formulas.network`). |
 | `systems.ownership` | Federated clients: each NY bus belongs to the electric utility whose service territory holds it. |
 | `systems.pandapower_types` | The pandapower objects the package reads, as types. |
+| `systems.states` | The pool of operating points a timeline walks, one frame per point: an array [T, N, 4] in memory, or `PoolStates`, which keeps a year of solved voltages as they are and gives a frame's state when it is asked for. |
 | `systems.tables` | The CSV tables of the inputs, read whole and closed: the NYgrid checkout's bus, unit and renewable tables and the bus locations. One reader, so no input file is left open. |
 | `timeline` | One continuous attacked timeline per system, written as one HDF5 file. |
 
@@ -208,6 +209,7 @@ What every folder of the repository holds, then what every Python file does, in 
 | `tests/nygrid/test_golden.py` | Golden snapshots of nygrid's outputs on fixed inputs, the safety net of the readability refactor. |
 | `tests/nygrid/test_grid.py` | The New York grid's case file: what it holds, its exact round trip through the MATPOWER reader and writer, the recipe that made it from NYgrid, the two case variants and the utility of each bus. |
 | `tests/nygrid/test_misses.py` | Every design that finds no attack says why (a miss reason), so a timeline with few attacks can be read: nothing to attack, nothing feasible, or a solver that failed (no data needed). |
+| `tests/nygrid/test_moves.py` | The move rule on the New York grid, and the noise of a pool frame, on the synthetic grid of `conftest.py` (no NYgrid data, no solver): a placed episode with no design moves inside its split and only where its family's mask allows, is given up after the redraw limit, never moves when the survey already holds its design; and one pool frame reads the same in a timeline and in a single-episode file. |
 | `tests/nygrid/test_public.py` | The public surface of the New York code: every module of its packages imports, a package exports no name of its own, and reading a dataset stays light (no data needed). |
 | `tests/nygrid/test_release_source.py` | The release source's attacker sensitivities stay with the attacker: a timeline built with `v_margin` records the case's true voltage limits, while the attacker designs against the widened ones. Needs the public inputs and the whole 2019 pool (inputs.py). |
 | `tests/nygrid/test_scenario.py` | The hourly operating points against NYgrid's own MATLAB output: the inputs, the dispatch, the AC projection and the pool, and the bottom-up load profiles with their within-hour calibration. |
