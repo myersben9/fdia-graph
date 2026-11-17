@@ -25,7 +25,7 @@ from ..errors import NoRoomForEpisode
 from ..models.choices import BENIGN_CODE
 from ..models.data import EpisodeRow
 from ..models.frames import AmOverloadDesign, AttackVector, Frame, FrameContext, MinimizerResult
-from ..models.plan import Pending, Placement, Schedule, Slot, SplitSpan
+from ..models.plan import Designed, Pending, Placement, Schedule, Slot, SplitSpan
 from .plan import REDRAWS, give_up, uniform_onset
 
 _BATCH = 256  # frames staged in memory between two flushes to the file
@@ -307,16 +307,17 @@ def walk_split(
     w: Walk,
     plan: Schedule,
     span: SplitSpan,
-    slots: list[Slot[int]],
-    designs: dict[int, AmOverloadDesign],
-    rec: Placement,
+    episodes: Sequence[Designed[int, AmOverloadDesign]],
+    rec: Placement[int],
 ) -> None:
     """Emit the frames of the split `span` in time order: benign runs between its episodes, each
-    episode where it was placed. `slots` are the split's episodes and `designs` the designs of its
-    overload Am episodes, by onset (`generation.design`, which already moved or gave up the infeasible
-    ones). A ramp whose design is infeasible at its onset moves to a later free onset of the split, up
-    to REDRAWS times; past that it is given up (the shortfall, `rec`) and warned about."""
-    pending = [Pending(i, s, 0) for i, s in enumerate(slots)]
+    episode where it was placed. `episodes` are the split's episodes after the design stage, each
+    overload Am with its design (`generation.design`, which already moved or gave up the infeasible
+    ones) and each ramp At without one. A ramp is designed here, as the walk reaches it; one whose
+    design is infeasible at its onset moves to a later free onset of the split, up to REDRAWS times;
+    past that it is given up (the shortfall, `rec`) and warned about."""
+    designs = {e.slot.onset: e.design for e in episodes if e.design is not None}
+    pending = [Pending(i, e.slot, 0) for i, e in enumerate(episodes)]
     t = span.start
     while pending:
         episode = pending.pop(0)

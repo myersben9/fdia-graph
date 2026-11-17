@@ -41,20 +41,24 @@ print((pool.solve_kind == SOLVED).mean())  # 0.998: the frames that solved; only
 
 ## 3. The meters, the attacker and the timeline
 
-`production_builder` assembles the release build: the clients, the meter plan, the attacker and its families, over
-the pool. One attack window can be built on its own, which is how the studies of the paper are made:
+`NewYorkSource.production` assembles the release's source: the clients, the meter plan, the attacker and its
+families, over the pool. A source's `generate(path)` writes its timeline, by the same path the IEEE timelines
+take. One attack window can be written on its own, which is how the studies of the paper are made:
 
 ```python
-from fdia_graph.generation.nygrid import production_builder
+from fdia_graph.generation.nygrid import NewYorkSource, SingleEpisodeSource
+from fdia_graph.models import NewYorkRelease
 
-b = production_builder("out/pool_2019_v3.h5", ("Am",), workers=1, survey=0)
-b.build_episode("one.h5", onset=48220, family="Am")  # the interface attack at the limit, on its day
+release = NewYorkRelease(families=("Am",), workers=1, survey=0)
+source = NewYorkSource.production("out/pool_2019_v3.h5", release)
+one = SingleEpisodeSource(source, onset=48220, family="Am")  # the interface attack at the limit, on its day
+one.generate("one.h5")
 ```
 
 The Am family (`InterfaceFdia`) raises the reported flow of the Sprain Brook and Dunwoodie South interface to its
 limit while keeping every reading consistent with a false state, so the operator's residual test cannot see it.
-`b.build(path)` writes the whole year instead, with episodes placed at random; its summary counts what it placed,
-built and, by reason, missed.
+`source.generate(path)` writes the whole year instead, with episodes placed at random;
+`source.summary()` then counts what it placed, built and, by reason, missed.
 
 ## 4. The clients' view
 

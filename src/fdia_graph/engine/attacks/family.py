@@ -1,6 +1,6 @@
 """What one attack occupies on the timeline, and the interface its two families share.
 
-Why a design found no attack is a miss reason, kept in `AttackFamily.last_miss` and counted by the builder as
+Why a design found no attack is a miss reason, kept in `AttackFamily.last_miss` and counted by the timeline's source as
 `missed`:
 "no_target"    nothing to attack in the window (no interface near its limit, no load bus for a ramp);
 "infeasible"   targets existed but no support met every bound;
@@ -56,6 +56,12 @@ class AttackFamily(ABC):
     @abstractmethod
     def design(self, window: Window, rng: np.random.Generator) -> Episode | None:
         """One episode over `window = (onset, vm, va)`, or None."""
+
+    def onset_mask(self, vm: np.ndarray, va: np.ndarray, length: int) -> np.ndarray | None:
+        """[T] bool, the frames an episode of `length` frames may start at over the pool states `vm`, `va`
+        [T, N]; None when the family may start anywhere (the default). A family that waits for a loaded
+        grid, such as the interface attack, gives its mask here (N36)."""
+        return None
 
     def design_explained(self, window: Window, rng: np.random.Generator) -> tuple[Episode | None, str | None]:
         """`design`, and why it found no attack: (the episode, None) or (None, a miss reason), the reason also

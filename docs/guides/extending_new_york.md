@@ -9,7 +9,7 @@ no data, and CI runs each of them, so they stay current with the code. For how t
 
 | You add | It provides | It plugs into | Example |
 |---|---|---|---|
-| An attack family | `design(window, rng) -> Episode \| None` (subclass `AttackFamily`) | `TimelineBuilder` beside the package's families; `design_explained` reports why a window has none | [custom_attack_family.py](../../examples/nygrid/custom_attack_family.py) |
+| An attack family | `design(window, rng) -> Episode \| None` (subclass `AttackFamily`) | `NewYorkSource` beside the package's families (`source.generate(path)` then places, designs and writes its episodes like theirs); `onset_mask` holds it to the onsets it may take; `design_explained` reports why a window has none | [custom_attack_family.py](../../examples/nygrid/custom_attack_family.py) |
 | An alarm rule | `first_alarm(stat) -> int` (the `AlarmRule` protocol) | your own detector, in place of `PersistenceRule`: the package ships the rule and the protocol, and the code that computes the statistic and asks the rule is yours | [custom_alarm_rule.py](../../examples/nygrid/custom_alarm_rule.py) |
 
 ## An attack family

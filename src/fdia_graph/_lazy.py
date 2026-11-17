@@ -1,4 +1,4 @@
-"""Public names that load on first use, for the nygrid packages.
+"""Public names that load on first use, for the nygrid packages and `fdia_graph.generation`.
 
 Each package lists its public names with the module that defines them, so `from fdia_graph.generation.nygrid import
 read_pool` works while `import fdia_graph.generation.nygrid` imports nothing heavy. That keeps the dataset readers

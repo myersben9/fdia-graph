@@ -9,14 +9,15 @@ from __future__ import annotations
 
 import math
 import os
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import asdict, dataclass, field, replace
-from typing import Annotated, Optional, cast
+from typing import Annotated, Optional, Union, cast
 
 import numpy as np
 
 from .choices import (
     GENERATED_FAMILIES,
+    NEW_YORK_FAMILIES,
     AmAttack,
     AreaRule,
     Buses,
@@ -34,6 +35,7 @@ from .choices import (
     RecordFormat,
     Reweight,
     Split,
+    SplitBy,
     SupportMethod,
     Units,
 )
@@ -520,6 +522,90 @@ class IsoExport(Validated):
             self.iso in EXPORT_COLUMNS,
             f"no CSV export format is known for {self.iso}; one of {sorted(EXPORT_COLUMNS)}",
         )
+
+
+# ---- the New York grid -------------------------------------------------------------------------------
+SurveyGrid = Annotated[int, Integer(), AtLeast(0)]  # frames between two surveyed onsets; 0: no survey
+FolderPath = Union[str, os.PathLike[str]]
+RELEASE_INTERFACE = "SPR/DUN-SOUTH"  # the NYISO interface the release's Am attacks (N48)
+
+
+@dataclass(frozen=True)
+class NewYorkSettings(Validated):
+    """The settings of a timeline on the New York grid (`NewYorkSource`).
+
+    `length` frames per episode, one number for every family or `{family: frames}` (16 five-minute
+    scans by default); `attacked_frac`, the share of each split's frames placed under an episode;
+    `split`, the train, val and test shares of the year; `split_by`, whole weeks ("week") or three
+    blocks in time order ("time"); `workers`, the processes the designs run on (1 runs them in the
+    caller's); `block`, the frames written at a time; `verbose` prints progress; `survey` (frames, 0
+    off) designs every waiting family's allowed onsets on that grid first and places its episodes only
+    among those with an attack, each chunk of designs saved under `survey_cache` when given, so a
+    stopped build resumes."""
+
+    length: Union[int, Mapping[str, int]] = 16
+    attacked_frac: Annotated[float, InRange(0.0, 1.0, lo_closed=True, hi_closed=True)] = 0.2
+    split: SplitSettings = field(default_factory=lambda: SplitSettings((0.7, 0.15, 0.15)))
+    split_by: Annotated[str, OneOf(SplitBy)] = "week"
+    workers: Count = 1
+    block: Count = 2016
+    verbose: Annotated[bool, Boolean()] = False
+    survey: SurveyGrid = 0
+    survey_cache: Optional[FolderPath] = None
+
+    def invariants(self) -> Iterable[tuple[bool, str]]:
+        frames = list(self.length.values()) if isinstance(self.length, Mapping) else [self.length]
+        yield (
+            all(isinstance(n, int) and not isinstance(n, bool) and n >= 1 for n in frames),
+            "length must be a whole number of frames, at least 1, or one per family",
+        )
+        yield isinstance(self.split, SplitSettings), "split must be a SplitSettings"
+
+    def lengths_for(self, families: Sequence[str]) -> dict[str, int]:
+        """The episode length in frames of each of `families`."""
+        if isinstance(self.length, Mapping):
+            return {f: int(self.length[f]) for f in families}
+        return {f: int(self.length) for f in families}
+
+
+@dataclass(frozen=True)
+class NewYorkRelease(Validated):
+    """What the New York release's source is built from (`NewYorkSource.production`).
+
+    `families`, each one of Am and At: Am targets the NYISO `interfaces` (at least one), At is the
+    slow ramp. `workers` processes design the episodes; `survey` is the onset survey's grid in frames
+    (0 off), saved by chunk under `survey_cache` when given. `root` is the folder whose `data/` holds
+    the fetched inputs and that the pool's path is relative to. The attacker's sensitivities:
+    `hold_external` keeps every bus outside New York at its true injection (N62); `v_margin` (p.u.)
+    widens the voltage limits the attacker must respect, on its own copy of the case (N71);
+    `gen_v_tol` (p.u.) holds each generator bus's false voltage that close to its schedule (N75);
+    `load_cap` replaces the cap on a pretended load change (None keeps the family's own, 0.1, N28);
+    `band` is the share of a unit's upper limit in its basepoint band (None keeps 0.03, N33)."""
+
+    families: Annotated[Sequence[str], AsTuple()] = NEW_YORK_FAMILIES
+    interfaces: Annotated[Sequence[str], AsTuple()] = (RELEASE_INTERFACE,)
+    workers: Count = 12
+    survey: SurveyGrid = 12
+    survey_cache: Optional[FolderPath] = None
+    root: FolderPath = "."
+    hold_external: Annotated[bool, Boolean()] = False
+    v_margin: Annotated[float, Finite(), AtLeast(0)] = 0.0
+    gen_v_tol: Annotated[Optional[float], Finite(), AtLeast(0)] = None
+    load_cap: Annotated[Optional[float], Finite(), Positive()] = None
+    band: Annotated[Optional[float], Finite(), Positive()] = None
+
+    def invariants(self) -> Iterable[tuple[bool, str]]:
+        unknown = [str(f) for f in self.families if f not in NEW_YORK_FAMILIES]
+        yield (
+            not unknown,
+            f"the release builds the families {', '.join(NEW_YORK_FAMILIES)}; it does not build "
+            f"{', '.join(unknown)}",
+        )
+        yield (
+            "Am" not in self.families or len(self.interfaces) > 0,
+            "Am attacks a NYISO interface: name at least one in `interfaces`",
+        )
+        yield isinstance(self.root, (str, os.PathLike)), f"root must be a folder path, got {self.root!r}"
 
 
 @dataclass(frozen=True)

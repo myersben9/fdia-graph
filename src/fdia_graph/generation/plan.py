@@ -21,8 +21,8 @@ from typing import Optional, Union
 import numpy as np
 
 from ..errors import NoRoomForEpisode
-from ..models.choices import FAMILIES, SPLITS
-from ..models.plan import Family, Placement, Schedule, Slot, SplitSpan
+from ..models.choices import FAMILIES, SPLITS, family_label
+from ..models.plan import Family, Placement, Slot, SplitSpan
 
 PLACE_TRIES = 10  # whole-split placements tried before one episode is dropped (the split-first packing rule)
 WEEK = 7 * 86400  # seconds
@@ -177,22 +177,46 @@ def place_episodes(
     return [], requested, dropped
 
 
-def place_split(rng: np.random.Generator, plan: Schedule, span: SplitSpan, rec: Placement) -> list[Slot[int]]:
-    """The episodes of the split `span` of the schedule, onsets in timeline frames, with what was
-    requested and dropped recorded in `rec` (and a warning when an episode was dropped)."""
-    lengths = {f: plan.length_of(f) for f in plan.families}
-    placed, requested, dropped = place_episodes(rng, lengths, plan.attacked_frac, span.stop - span.start)
-    rec.requested[span.code] = [requested[f] for f in plan.families]
-    rec.dropped[span.code] = [dropped[f] for f in plan.families]
-    for f in plan.families:
+def place_split(
+    rng: np.random.Generator,
+    lengths: Mapping[Family, int],
+    frac: float,
+    span: SplitSpan,
+    rec: Placement[Family],
+    masks: Optional[Mapping[Family, np.ndarray]] = None,
+) -> list[Slot[Family]]:
+    """The episodes of the split `span`, onsets in timeline frames, with what was requested and
+    dropped recorded in `rec` (and a warning when an episode was dropped).
+
+    `lengths` gives each family's episode length and `frac` the share of the split's frames to attack.
+    An episode starts only where its frames are consecutive on the timeline (`SplitSpan.onsets_fit`:
+    always so in a block split, inside one week block in a split of whole weeks), and, for a family
+    with a mask in `masks` ([T] over the timeline's frames), only where the mask allows."""
+    index = span.index()
+    allowed = {f: span.onsets_fit(length) for f, length in lengths.items()}
+    for f, mask in (masks or {}).items():
+        allowed[f] &= mask[index]
+    placed, requested, dropped = place_episodes(rng, lengths, frac, len(index), allowed)
+    rec.requested[span.code] = [requested[f] for f in rec.families]
+    rec.dropped[span.code] = [dropped[f] for f in rec.families]
+    for f in rec.families:
         if dropped[f]:
             warnings.warn(
                 f"split {SPLITS[span.code]}: placements jammed {PLACE_TRIES} times, {dropped[f]} "
-                f"{FAMILIES[f]} episode(s) dropped",
+                f"{family_label(f)} episode(s) dropped",
                 RuntimeWarning,
                 stacklevel=2,
             )
-    return [slot.at(span.start + slot.onset) for slot in placed]
+    return [slot.at(int(index[slot.onset])) for slot in placed]
+
+
+def planned_until(spans: Sequence[SplitSpan], k: int) -> int:
+    """The frame the walk may run up to once the splits `spans[0..k]` have their episodes: the first
+    frame of a split still to plan, or the end of the timeline when none is left. In block splits that
+    is the end of split k; in splits of whole weeks the walk waits until the weeks before it are all
+    planned."""
+    later = [span.start for span in spans[k + 1 :] if span.size]
+    return min(later, default=max(span.stop for span in spans))
 
 
 def free_onset(rng: np.random.Generator, length: int, others: Sequence[Slot[int]], span: SplitSpan) -> int:

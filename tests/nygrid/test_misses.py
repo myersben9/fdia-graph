@@ -6,7 +6,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-pytest.importorskip("h5py")  # the timeline builder writes HDF5
+pytest.importorskip("h5py")  # the timeline's source writes HDF5
 
 
 def _family(miss: str | None, solver_errors: int, found: bool):
@@ -35,17 +35,17 @@ def _family(miss: str | None, solver_errors: int, found: bool):
     ids=["found", "no-target", "infeasible", "solver-error"],
 )
 def test_design_says_why_it_found_no_attack(miss, errors, found, want):
-    from fdia_graph.generation.nygrid import timeline as builder
+    from fdia_graph.generation.nygrid import source
     from fdia_graph.generation.nygrid.config import Settings
 
-    builder._init({"Am": _family(miss, errors, found)}, Settings())
-    _, ep, _, why = builder._design((0, "Am", 5, np.ones((1, 2)), np.zeros((1, 2))))
-    assert (ep is not None) is found
-    assert why == want
+    state = source._Designing({"Am": _family(miss, errors, found)}, Settings())
+    tried = source._design(state, source._Task("Am", 5, np.ones((1, 2)), np.zeros((1, 2))))
+    assert (tried.episode is not None) is found
+    assert tried.miss == want
 
 
 def test_design_explained_keeps_last_miss_right_on_direct_calls():
-    """Outside the builder too: a success clears the reason a previous miss left, and an unexplained None reads as
+    """Outside a timeline build too: a success clears the reason a previous miss left, and an unexplained None reads as
     infeasible rather than a stale 'no_target'."""
     fam = _family("no_target", 0, False)
     assert fam.design_explained((0, np.ones((1, 2)), np.zeros((1, 2))), np.random.default_rng(0)) == (

@@ -50,7 +50,13 @@ the dispatch is continuous. The pool holds the true state and injections of ever
 python $FG/pipelines/newyork/build_timeline.py out/timeline_2019.h5 --pool out/pool_2019.h5 --workers 8
 ```
 
-`production_builder` puts every decided bound in one place: line ratings from the pool's peak flows, the
+The script builds the release's source and generates it: `NewYorkSource.production(pool_path,
+NewYorkRelease(...)).generate(path)`. `generate` is the one path every timeline takes, the IEEE ones too
+([generation.md](generation.md#one-path-two-grids)). The file is written as `timeline_2019.h5.part` and takes
+its name when it is whole, so a build that stops leaves no file to mistake for a timeline. The design
+processes are spawned: a script of your own that asks for more than one worker must start under
+`if __name__ == "__main__":`. `NewYorkSource.production` puts every decided
+bound in one place: line ratings from the pool's peak flows, the
 overload attack (Am) against the Sprain Brook/Dunwoodie South interface, the slow ramp (At), 20% of
 each split's frames attacked, and onsets surveyed among the hours an attack can reach. The weeks are split
 into train, validation and test, stratified on those hours.

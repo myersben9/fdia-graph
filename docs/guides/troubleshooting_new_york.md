@@ -40,7 +40,8 @@ the data.
 
 ## The timeline
 
-`TimelineBuilder.build()` returns a summary. When it built fewer attacks than it placed, `missed` (and, with the
+After `source.generate(path)`, `NewYorkSource.summary()` returns a summary. When the build made fewer
+attacks than it placed, `missed` (and, with the
 onset survey on, `survey_missed`) says why, counted per family:
 
 | Reason | Meaning | What to do |
@@ -49,8 +50,12 @@ onset survey on, `survey_missed`) says why, counted per family:
 | `infeasible` | Targets existed, but no support met every bound of the attacker (load cap, basepoint band, ramps, voltage limits) | The bounds are binding. Widening them is a modeling decision, not a fix |
 | `solver_error` | Ipopt started but stopped abnormally on a support the search tried, so the window may hold an attack the search did not see | A few are tolerable. Many mean a numerically hard case; the family's `solver_errors` counts them |
 
-`build_episode` raises `NoAdmissibleTarget` naming the reason when its one window has no attack, and a
-`DataConditionError` when the window touches an unsolved frame.
+For one episode alone, building the `SingleEpisodeSource` raises a `DataConditionError` when the window touches an
+unsolved frame, and its `generate` raises `NoAdmissibleTarget` naming the reason when that one window has no attack.
+
+A run that fails leaves no file: the timeline is written under a `.part` name and takes its own only when it is
+whole. A build whose design processes never start, or that starts itself again and again, is a script without
+`if __name__ == "__main__":` around its entry: the processes are spawned and import the script.
 
 ## The golden snapshots
 

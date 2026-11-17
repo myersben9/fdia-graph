@@ -8,6 +8,11 @@ pool). This module also holds what the writer shares with the engine: the operat
 (`_load_states`, any column order, npz or HDF5), the noise floor and the swing window, and the
 file attributes and static graph group every file carries.
 
+The one path that generates a timeline is `TimelineSource.generate` (`generation/source.py`); the grids are
+its subclasses, `IeeeSource` (`generation/ieee.py`) and the New York grid's (`generation/nygrid/source.py`),
+and `DesignPool` (`generation/design.py`) is the worker processes both design on. The three names load from
+this package on first use.
+
   states            source of operating points: path to a pool .npz or .h5 (key 'X' [T,N,4]) or an init dir of
                     X_*.npy; if None, uses $FDIA_GRAPH_INIT or downloads the system's operating-point pool.
   out               output .h5 path (default under the cache dir)
@@ -17,12 +22,13 @@ from __future__ import annotations
 
 import glob
 import os
-from typing import Any, Optional, Union
+from typing import TYPE_CHECKING, Any, Optional, Union
 
 import h5py
 import numpy as np
 
 from .. import schema
+from .._lazy import attach
 from ..engine import FdiaGenerator
 from ..errors import UnknownColumnOrder
 from ..models.config import ShardRun, TimelineSettings
@@ -30,6 +36,20 @@ from ..models.grid import NODE
 from ..models.inputs import StatePool, StateSource
 from ..registry import CACHE_DIR, register_local
 from ..schema import KIND_TIMELINE, Attr, Group, Static
+
+if TYPE_CHECKING:  # the names below, for type checkers; at run time they load on first use
+    from .design import DesignPool
+    from .ieee import IeeeSource
+    from .source import TimelineSource
+
+# the sources import this module (the pool, the graph group), so their names load on first use
+_PUBLIC = {
+    "DesignPool": ".design",
+    "IeeeSource": ".ieee",
+    "TimelineSource": ".source",
+}
+__all__ = ["DesignPool", "IeeeSource", "TimelineSource", "as_v_first", "generate"]
+__getattr__, __dir__ = attach(__name__, _PUBLIC)
 
 
 def as_v_first(X: np.ndarray) -> np.ndarray:

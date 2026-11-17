@@ -86,7 +86,7 @@ jobs:
           key: nygrid-inputs-47698b6-2019-v1
       - name: Fetch the public inputs
         run: |
-          python -c "from fdia_graph.generation.nygrid.build import fetch_inputs; fetch_inputs('$NYGRID_ROOT')"
+          python -c "from fdia_graph.generation.nygrid.inputs import fetch_inputs; fetch_inputs('$NYGRID_ROOT')"
           rm -f "$NYGRID_ROOT"/data/NYgrid_*.zip  # the extracted Data/ is what the tests read; keep the cache small
           du -sh "$NYGRID_ROOT"/data/*
       - name: Run tests/nygrid

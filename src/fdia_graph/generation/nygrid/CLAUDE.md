@@ -7,7 +7,7 @@ hold for them.
 | Job | Where |
 |---|---|
 | the system: the case file, its variants, interfaces, reduced network, loads, dispatch and the pool | `generation/nygrid/` |
-| the timeline written from a pool, and its HDF5 files | `generation/nygrid/timeline.py`, `io.py` (its plan stage is `generation/plan.py`) |
+| the timeline written from a pool, and its HDF5 files | `generation/nygrid/source.py` (`NewYorkSource` and `SingleEpisodeSource`, the grid's steps of the one path `TimelineSource.generate`), `io.py` (its plan stage is `generation/plan.py`) |
 | the meter table, the measurement function and meter noise | `engine/sensing/` |
 | the attack families (`AttackFamily`, `Attacker`, Am, the OPF and interface attacks, Ac, At) | `engine/attacks/` |
 | the alarm rules | `se/detect/` |
@@ -16,6 +16,11 @@ hold for them.
 
 ## Rules that hold
 
+- One path generates a timeline, for the IEEE cases and for this grid: `TimelineSource.generate`
+  (`generation/source.py`). What is this grid's own (the onset masks and the survey, the splits, designs, frames,
+  the file layout) is a method of `NewYorkSource`; never a second driver, and no mode flag: a variant is a subclass.
+- `generation/nygrid/source.py` is measured by `tools/readability.py` like the SDK's own code; the other modules
+  here are still listed in `DEFERRED`.
 - The grid is the MATPOWER case file `case_nygrid.m` in `generation/nygrid/`, read by `nygrid_case()`
   (`case.py`, with matpowercaseframes). A change to the grid is an edit to that file; no code assembles or patches the case on the way
   in. `pipelines/newyork/make_case.py` is the recipe that first made the file from NYgrid's `Data/` folder.

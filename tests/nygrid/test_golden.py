@@ -102,14 +102,14 @@ def test_persistence_rule():
 @pytest.mark.parametrize("overshoot", (0.0, 175.0))
 def test_interface_attack_design(overshoot):
     """The Am design on one onset (frame 48220, 2019-06-17), at the limit and 175 MW past it."""
-    from fdia_graph.generation.nygrid.build import production_builder
     from fdia_graph.generation.nygrid.config import Settings, rng
+    from fdia_graph.generation.nygrid.source import NewYorkSource
+    from fdia_graph.models.config import NewYorkRelease
 
-    b = production_builder(
-        str(POOL.relative_to(ROOT)), ("Am",), interfaces=("SPR/DUN-SOUTH",), workers=1, survey=0, root=ROOT
-    )
+    release = NewYorkRelease(families=("Am",), interfaces=("SPR/DUN-SOUTH",), workers=1, survey=0, root=ROOT)
+    b = NewYorkSource.production(str(POOL.relative_to(ROOT)), release)
     fam = b.families["Am"]
-    onset, L = 48220, b.episode_lengths()["Am"]
+    onset, L = 48220, b.lengths()["Am"]
     w = slice(onset, onset + L)
     ep = fam.with_overshoot(overshoot).design(
         (onset, b.pool.vm[w], b.pool.va[w]), rng(Settings(), f"Am{onset}")

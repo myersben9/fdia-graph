@@ -48,8 +48,27 @@ EXCEPTIONS: dict[str, str] = {}
 # Subpackages these rules do not reach yet, with the reason. fdia_graph.generation.nygrid came in from its own
 # repository as written (2026-11-02) and is brought under the rules one module at a time, each change
 # checked to reproduce the same output; until then its rules are src/fdia_graph/generation/nygrid/CLAUDE.md.
+_NYGRID_AS_WRITTEN = (  # generation/nygrid/source.py (the timeline source) is conformed and measured
+    "__init__.py",
+    "case.py",
+    "config.py",
+    "dispatch.py",
+    "fixes.py",
+    "inputs.py",
+    "interfaces.py",
+    "io.py",
+    "load_sources.py",
+    "loads.py",
+    "network.py",
+    "pool.py",
+    "solver.py",
+    "tables.py",
+)
 DEFERRED: dict[str, str] = {
-    "generation/nygrid": "the New York code, moved in as written; conformed module by module",
+    **{
+        f"generation/nygrid/{module}": "the New York code, moved in as written; conformed module by module"
+        for module in _NYGRID_AS_WRITTEN
+    },
     "engine/attacks/attacker.py": "the New York code, moved in as written; conformed module by module",
     "engine/attacks/family.py": "the New York code, moved in as written; conformed module by module",
     "engine/attacks/opf.py": "the New York code, moved in as written; conformed module by module",

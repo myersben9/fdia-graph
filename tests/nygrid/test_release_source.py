@@ -1,8 +1,10 @@
-"""The release builder's attacker sensitivities stay with the attacker: a timeline built with `v_margin` records the
+"""The release source's attacker sensitivities stay with the attacker: a timeline built with `v_margin` records the
 case's true voltage limits, while the attacker designs against the widened ones (N71). Needs the public inputs and
 the whole 2019 pool (inputs.py)."""
 
 from __future__ import annotations
+
+from dataclasses import replace
 
 import numpy as np
 import pytest
@@ -14,18 +16,18 @@ pytestmark = [needs_data, needs_territories, needs_pool]
 
 def test_a_timeline_built_with_a_voltage_margin_records_the_true_limits(tmp_path):
     from fdia_graph.errors import DataConditionError
-    from fdia_graph.generation.nygrid.build import production_builder
     from fdia_graph.generation.nygrid.io import open_timeline
+    from fdia_graph.generation.nygrid.source import NewYorkSource, SingleEpisodeSource
+    from fdia_graph.models.config import NewYorkRelease
 
-    b = production_builder(
-        str(POOL.relative_to(ROOT)), ("At",), workers=1, survey=0, root=ROOT, v_margin=0.02
-    )
+    release = NewYorkRelease(families=("At",), workers=1, survey=0, root=ROOT, v_margin=0.02)
+    b = NewYorkSource.production(str(POOL.relative_to(ROOT)), release)
     true = b.meas.net.case
     assert np.allclose(b.att.net.case.vmax, true.vmax + 0.02)  # the attacker designs on the widened limits
     path = tmp_path / "one.h5"
     for onset in (48220, 50000, 52000, 56000):  # the first window where the ramp finds an attack
         try:
-            b.build_episode(path, onset, "At")
+            SingleEpisodeSource(b, onset, "At").generate(path)
             break
         except DataConditionError:
             continue
@@ -38,11 +40,13 @@ def test_a_timeline_built_with_a_voltage_margin_records_the_true_limits(tmp_path
 
 def test_the_load_cap_and_band_sensitivities_reach_the_opf_attacker():
     from fdia_graph.engine.attacks.attacker import generator_band
-    from fdia_graph.generation.nygrid.build import production_builder
+    from fdia_graph.generation.nygrid.source import NewYorkSource
+    from fdia_graph.models.config import NewYorkRelease
 
     pool = str(POOL.relative_to(ROOT))
-    base = production_builder(pool, ("Am",), workers=1, survey=0, root=ROOT)
-    knob = production_builder(pool, ("Am",), workers=1, survey=0, root=ROOT, load_cap=0.05, band=0.02)
+    release = NewYorkRelease(families=("Am",), workers=1, survey=0, root=ROOT)
+    base = NewYorkSource.production(pool, release)
+    knob = NewYorkSource.production(pool, replace(release, load_cap=0.05, band=0.02))
     case = base.meas.net.case
     assert base.families["Am"].load_cap == 0.1 and knob.families["Am"].load_cap == 0.05
     assert np.array_equal(base.families["Am"].gen_band, generator_band(case))
@@ -52,15 +56,17 @@ def test_the_load_cap_and_band_sensitivities_reach_the_opf_attacker():
 
 def test_a_lagged_attack_is_the_earlier_windows_design_added_to_the_true_scans(tmp_path):
     from fdia_graph.errors import ConfigError, DataConditionError
-    from fdia_graph.generation.nygrid.build import production_builder
     from fdia_graph.generation.nygrid.io import open_timeline
+    from fdia_graph.generation.nygrid.source import NewYorkSource, SingleEpisodeSource
+    from fdia_graph.models.config import NewYorkRelease
 
-    b = production_builder(str(POOL.relative_to(ROOT)), ("At",), workers=1, survey=0, root=ROOT)
+    release = NewYorkRelease(families=("At",), workers=1, survey=0, root=ROOT)
+    b = NewYorkSource.production(str(POOL.relative_to(ROOT)), release)
     lag = 12  # an hour
     for known in (48220, 50000, 52000, 56000):  # the first window where the ramp finds an attack
         try:
-            b.build_episode(tmp_path / "known.h5", known, "At")
-            b.build_episode(tmp_path / "lagged.h5", known + lag, "At", lag=lag)
+            SingleEpisodeSource(b, known, "At").generate(tmp_path / "known.h5")
+            SingleEpisodeSource(b, known + lag, "At", lag=lag).generate(tmp_path / "lagged.h5")
             break
         except DataConditionError:
             continue
@@ -84,4 +90,4 @@ def test_a_lagged_attack_is_the_earlier_windows_design_added_to_the_true_scans(t
     assert np.allclose(k_a, l_a, atol=1e-3)  # the same vector (z is float32), designed on the earlier window
     assert not np.allclose(k_vm, l_vm)  # added to the scans of the later one
     with pytest.raises(ConfigError):
-        b.build_episode(tmp_path / "x.h5", 5, "At", lag=10)
+        SingleEpisodeSource(b, 5, "At", lag=10)

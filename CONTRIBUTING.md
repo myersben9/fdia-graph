@@ -104,7 +104,7 @@ registry maps the short name (`fg.load(..., release="v0.8.0")`) to the tag, and
 | you want to change | look in |
 |---|---|
 | an attack family, the plausibility band, the meter model | `engine/`, `formulas/attacks.py`, `formulas/noise.py` |
-| what a timeline file contains | `generation/` by stage: `plan.py` (splits and placement), `design.py` (the overload Am, in parallel), `emit.py` (the frames), `write.py` (the file); `generation/__init__.py` (the pool and `generate`); `timeline.py` orchestrates them; then `docs/reference/DATA_DICTIONARY.md` |
+| what a timeline file contains | `generation/` by stage: `plan.py` (splits and placement), `design.py` (the overload Am, in parallel), `emit.py` (the frames), `write.py` (the file); `generation/__init__.py` (the pool and `generate`); `source.py` holds the one path of every timeline (`TimelineSource.generate`) and the grids are its subclasses (`ieee.py` an IEEE case, `nygrid/source.py` the New York grid); `timeline.py` is the IEEE entry point; then `docs/reference/DATA_DICTIONARY.md` |
 | a generation setting | its model in `models/config.py` (`TimelineSettings` and the nested `RampSettings`, `SearchSettings`, `OverloadSettings`, `MeterSettings`, `SplitSettings`); `generate_timeline` takes every field as a flat keyword too |
 | how a timeline is loaded or exported | `dataset/`, one concern per file |
 | an estimator | `se/methods.py`, its algebra in `formulas/estimation.py` |

@@ -45,6 +45,13 @@ STEALTHY_FAMILIES = {FAMILY_CODE[n] for n in ("Aq", "At", "Al", "Am")}
 HELDOUT_FAMILIES = ("As", "Ar")  # kept out of train and val in the unseen-attack protocol [BOY22]
 # what the generator makes: the multi-snapshot families [WU26] (the ramp At, the overload Am)
 GENERATED_FAMILIES = ("At", "Am")
+# the families the New York release builds, by the names its files carry
+NEW_YORK_FAMILIES = ("Am", "At")
+
+
+def family_label(family: object) -> str:
+    """A family's name, from its code in a file (5 reads "At") or from the name itself."""
+    return FAMILIES[family] if isinstance(family, int) else str(family)
 
 
 # ---- the dataset ---------------------------------------------------------------------------------
@@ -59,6 +66,14 @@ class Split(Choice):
 # ("train", "val", "test"): a split's position is its code in a file's split column (0, 1, 2) and its
 # row in the per-split attributes, for the IEEE timelines and the New York ones alike.
 SPLITS = tuple(Split.values())
+
+
+class SplitBy(Choice):
+    """How a New York timeline's splits are cut: whole weeks drawn into the three splits, or three
+    blocks in time order (what the IEEE timelines do)."""
+
+    WEEK = "week"
+    TIME = "time"
 
 
 class Units(Choice):

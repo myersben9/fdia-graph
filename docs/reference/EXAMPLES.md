@@ -276,7 +276,7 @@ research target, not a given.
   plus a per-window z-score.
 - Inside a sustained attack episode the rolling window is already contaminated, so the anomaly
   fades after onset. The file's `swing` avoids this: it compares each observed frame with the
-  previous one (`timeline.write_temporal_layers`).
+  previous one (`generation.write.write_temporal_layers`).
 - Needs `pip install "fdia-graph[torch]"`.
 
 ```python
