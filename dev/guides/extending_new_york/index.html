@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="Stealthy FDIA localization datasets for power grids, PyTorch-ready in one line">
+        <meta name="description" content="A Python package that builds attacked measurement timelines on power-grid test systems, with a second toolkit to analyse them. Download a ready timeline or generate your own.">
       
       
       
@@ -52,6 +52,8 @@
         <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
       
     
+    
+      <link rel="stylesheet" href="../../stylesheets/extra.css">
     
     <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
@@ -1633,13 +1635,13 @@ no data, and CI runs each of them, so they stay current with the code. For how t
 <td>An attack family</td>
 <td><code>design(window, rng) -&gt; Episode \| None</code> (subclass <code>AttackFamily</code>)</td>
 <td><code>NewYorkSource</code> beside the package's families (<code>source.generate(path)</code> then places, designs and writes its episodes like theirs); <code>onset_mask</code> holds it to the onsets it may take; <code>design_explained</code> reports why a window has none</td>
-<td><a href="../../examples/nygrid/custom_attack_family.py">custom_attack_family.py</a></td>
+<td><a href="https://github.com/myersben9/fdia-graph/blob/main/examples/nygrid/custom_attack_family.py">custom_attack_family.py</a></td>
 </tr>
 <tr>
 <td>An alarm rule</td>
 <td><code>first_alarm(stat) -&gt; int</code> (the <code>AlarmRule</code> protocol)</td>
 <td>your own detector, in place of <code>PersistenceRule</code>: the package ships the rule and the protocol, and the code that computes the statistic and asks the rule is yours</td>
-<td><a href="../../examples/nygrid/custom_alarm_rule.py">custom_alarm_rule.py</a></td>
+<td><a href="https://github.com/myersben9/fdia-graph/blob/main/examples/nygrid/custom_alarm_rule.py">custom_alarm_rule.py</a></td>
 </tr>
 </tbody>
 </table>

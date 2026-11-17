@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="Stealthy FDIA localization datasets for power grids, PyTorch-ready in one line">
+        <meta name="description" content="A Python package that builds attacked measurement timelines on power-grid test systems, with a second toolkit to analyse them. Download a ready timeline or generate your own.">
       
       
       
@@ -50,6 +50,8 @@
         <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
       
     
+    
+      <link rel="stylesheet" href="stylesheets/extra.css">
     
     <script>__md_scope=new URL(".",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
@@ -511,6 +513,50 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#two-toolkits" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Two toolkits
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#test-systems" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Test systems
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#three-steps" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Three steps
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#how-it-flows" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How it flows
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#install" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -522,54 +568,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#load" class="md-nav__link">
+  <a href="#where-next" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Load
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#state-estimation" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        State estimation
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#localization" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Localization
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#data" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Data
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#attacks" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Attacks
+        Where next
       
     </span>
   </a>
@@ -1587,6 +1589,50 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#two-toolkits" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Two toolkits
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#test-systems" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Test systems
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#three-steps" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Three steps
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#how-it-flows" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How it flows
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#install" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1598,54 +1644,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#load" class="md-nav__link">
+  <a href="#where-next" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Load
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#state-estimation" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        State estimation
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#localization" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Localization
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#data" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Data
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#attacks" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Attacks
+        Where next
       
     </span>
   </a>
@@ -1695,75 +1697,94 @@
 
 
 <h1 id="fdia-graph">fdia-graph<a class="headerlink" href="#fdia-graph" title="Permanent link">&para;</a></h1>
-<p>Stealthy FDIA localization datasets for power grids, PyTorch-ready in one line. Eight IEEE systems
-(14 / 30 / 57 / 89 / 118 / 145 / 200 / 300 buses), one continuous timeline of 72,000 frames each:
-a record table when shuffled, a time series when not.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">fdia_graph</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">fg</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">ds</span> <span class="o">=</span> <span class="n">fg</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">"ieee118"</span><span class="p">,</span> <span class="n">split</span><span class="o">=</span><span class="s2">"train"</span><span class="p">)</span>     <span class="c1"># auto-downloads + caches</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="k">for</span> <span class="n">batch</span> <span class="ow">in</span> <span class="n">ds</span><span class="o">.</span><span class="n">loader</span><span class="p">(</span><span class="n">batch_size</span><span class="o">=</span><span class="mi">64</span><span class="p">):</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">batch</span><span class="p">[</span><span class="s2">"node_x"</span><span class="p">],</span> <span class="n">batch</span><span class="p">[</span><span class="s2">"edge_x"</span><span class="p">],</span> <span class="n">batch</span><span class="p">[</span><span class="s2">"edge_index"</span><span class="p">],</span> <span class="n">batch</span><span class="p">[</span><span class="s2">"y"</span><span class="p">],</span> <span class="n">batch</span><span class="p">[</span><span class="s2">"family"</span><span class="p">]</span>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="n">ts</span> <span class="o">=</span> <span class="n">fg</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">"ieee118"</span><span class="p">,</span> <span class="n">split</span><span class="o">=</span><span class="s2">"test"</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="s2">"time"</span><span class="p">)</span>   <span class="c1"># the same frames in time order</span>
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="n">Xw</span><span class="p">,</span> <span class="n">yw</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">windows</span><span class="p">(</span><span class="n">W</span><span class="o">=</span><span class="mi">24</span><span class="p">,</span> <span class="n">stride</span><span class="o">=</span><span class="mi">12</span><span class="p">)</span>                  <span class="c1"># [n, 24, N, 4] windows for an LSTM / TGN</span>
-</code></pre></div>
-<p><img alt="The pipeline: ISO load profiles feed fg.generate, which writes one timeline file per system with observed, benign and clean layers; fg.load reads it as a record table for fdia_analysis.se and fdia_analysis.localization, or as a time series of windows and episodes for a temporal model" src="https://raw.githubusercontent.com/myersben9/fdia-graph/main/docs/figures/diagrams/pipeline.png" /></p>
+<p>A Python package that builds attacked measurement timelines on power-grid test systems, with a
+second toolkit to analyse them. Download a ready timeline or generate your own.</p>
+<p>A timeline is the meter readings of one grid, frame by frame, with false data injection attacks
+(FDIA) placed in it and labelled per bus.</p>
+<h2 id="two-toolkits">Two toolkits<a class="headerlink" href="#two-toolkits" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
 <tr>
-<th>Read</th>
-<th>To learn</th>
+<th>Toolkit</th>
+<th>Package</th>
+<th>What it does</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><a href="ROADMAP/"><code>docs/ROADMAP.md</code></a></td>
-<td>which file does what, and how the paths connect</td>
+<td><code>fdia-graph</code></td>
+<td><code>fdia_graph</code></td>
+<td>generates a timeline and loads it</td>
 </tr>
 <tr>
-<td><a href="guides/generation/"><code>docs/guides/generation.md</code></a></td>
-<td>how a timeline is generated, and which layers a feature may read</td>
-</tr>
-<tr>
-<td><a href="reference/DATA_DICTIONARY/"><code>docs/reference/DATA_DICTIONARY.md</code></a></td>
-<td>what every array means</td>
-</tr>
-<tr>
-<td><a href="reference/GLOSSARY/"><code>docs/reference/GLOSSARY.md</code></a></td>
-<td>every term, with where it lives in the code</td>
-</tr>
-<tr>
-<td><a href="reference/MODULES/"><code>docs/reference/MODULES.md</code></a></td>
-<td>what every file does, in one line</td>
-</tr>
-<tr>
-<td><a href="reference/CONCEPTS_TO_CODE/"><code>docs/reference/CONCEPTS_TO_CODE.md</code></a></td>
-<td>paper equations to functions</td>
-</tr>
-<tr>
-<td><a href="reference/CLASS_MAP/"><code>docs/reference/CLASS_MAP.md</code></a></td>
-<td>architecture: the UML class and module diagrams, drawn from the code</td>
-</tr>
-<tr>
-<td><a href="reference/EXAMPLES/"><code>docs/reference/EXAMPLES.md</code></a></td>
-<td>runnable baselines, the timeline as sequences, dataset stats</td>
-</tr>
-<tr>
-<td><a href="analysis/estimation/"><code>docs/analysis/estimation/</code></a> · <a href="analysis/localization/"><code>docs/analysis/localization/</code></a> · <a href="analysis/trust/"><code>docs/analysis/trust/</code></a> · <a href="analysis/federated/"><code>docs/analysis/federated/</code></a></td>
-<td>the analysis modules, with results</td>
-</tr>
-<tr>
-<td><a href="contributing/"><code>CONTRIBUTING.md</code></a></td>
-<td>rules, pull-request flow, releases</td>
+<td><code>fdia-analysis</code></td>
+<td><code>fdia_analysis</code></td>
+<td>runs estimators and localizers on a timeline</td>
 </tr>
 </tbody>
 </table>
+<p><code>fdia-analysis</code> holds state estimation, attack localization, federated training, trusted-meter
+selection and a results store. It depends on <code>fdia-graph</code>. <code>fdia-graph</code> never imports it.</p>
+<h2 id="test-systems">Test systems<a class="headerlink" href="#test-systems" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>System</th>
+<th>Buses</th>
+<th>Data</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>IEEE and other public cases</td>
+<td>14, 30, 57, 89, 118, 145, 200, 300</td>
+<td>released datasets, downloaded by <code>fg.load</code></td>
+</tr>
+<tr>
+<td>New York grid</td>
+<td>140</td>
+<td>case file in the package; you build the dataset</td>
+</tr>
+</tbody>
+</table>
+<p>Each released dataset is one timeline of 72,000 frames. The New York grid is a MATPOWER case file
+with 140 buses and 227 branches; <a href="guides/new_york/">the New York guide</a> builds its dataset.</p>
+<p>The generator makes two attack families: <code>At</code>, a slow load ramp, and <code>Am</code>, a line overload. The
+released files hold seven families: five that the generator does not make (<code>Aq</code>, <code>Ad</code>, <code>As</code>, <code>Ar</code>,
+<code>Al</code>), and an <code>Am</code> that drives no line to its limit.
+<a href="guides/generation/">The generation guide</a> has the details.</p>
+<h2 id="three-steps">Three steps<a class="headerlink" href="#three-steps" title="Permanent link">&para;</a></h2>
+<p><strong>1. Load</strong> a released dataset.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">fdia_graph</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">fg</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="c1"># downloads the IEEE-118 timeline once, then caches it</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="n">train</span> <span class="o">=</span> <span class="n">fg</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">"ieee118"</span><span class="p">,</span> <span class="n">split</span><span class="o">=</span><span class="s2">"train"</span><span class="p">)</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="n">arrays</span> <span class="o">=</span> <span class="n">train</span><span class="o">.</span><span class="n">export</span><span class="p">()</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="nb">print</span><span class="p">(</span><span class="n">arrays</span><span class="p">[</span><span class="s2">"node_x"</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">arrays</span><span class="p">[</span><span class="s2">"y"</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+</code></pre></div>
+<p><strong>2. Generate</strong> your own, then load it by name.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># needs fdia-graph[generate]</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="c1"># downloads the IEEE-14 pool of solved operating points</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="c1"># about five minutes on a laptop</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="n">fg</span><span class="o">.</span><span class="n">generate</span><span class="p">(</span><span class="s2">"ieee14"</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">"my_run"</span><span class="p">,</span> <span class="n">frames</span><span class="o">=</span><span class="mi">2000</span><span class="p">)</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="n">mine</span> <span class="o">=</span> <span class="n">fg</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">"my_run"</span><span class="p">,</span> <span class="n">split</span><span class="o">=</span><span class="s2">"train"</span><span class="p">)</span>
+</code></pre></div>
+<p><strong>3. Analyse</strong> it with an estimator.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># needs fdia-analysis[se]</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fdia_analysis.se.methods</span><span class="w"> </span><span class="kn">import</span> <span class="n">WLS</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="n">test</span> <span class="o">=</span> <span class="n">fg</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">"ieee118"</span><span class="p">,</span> <span class="n">split</span><span class="o">=</span><span class="s2">"test"</span><span class="p">)</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="n">est</span> <span class="o">=</span> <span class="n">WLS</span><span class="p">()</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">train</span><span class="p">)</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="nb">print</span><span class="p">(</span><span class="n">est</span><span class="o">.</span><span class="n">score</span><span class="p">(</span><span class="n">test</span><span class="p">))</span>
+</code></pre></div>
+<h2 id="how-it-flows">How it flows<a class="headerlink" href="#how-it-flows" title="Permanent link">&para;</a></h2>
+<p><img src="https://raw.githubusercontent.com/myersben9/fdia-graph/main/docs/figures/diagrams/flow.png" width="450" alt="Six stages, top to bottom. 1. Test system: Case, Network. 2. Operating points: generate_states for the IEEE cases, PoolBuilder for New York. 3. Meters and attacks: MeterPlan, NoiseModel, the attack designs. 4. Timeline file: TimelineSource.generate, TimelineWriter. 5. Load: fg.load returns FdiaGraph. 6. Analyse: fdia_analysis."></p>
 <h2 id="install">Install<a class="headerlink" href="#install" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
 <tr>
-<th>command</th>
-<th>gives</th>
+<th>Command</th>
+<th>Gives</th>
 </tr>
 </thead>
 <tbody>
@@ -1772,264 +1793,42 @@ a record table when shuffled, a time series when not.</p>
 <td>the loader (numpy, h5py)</td>
 </tr>
 <tr>
-<td><code>pip install "fdia-graph[torch]"</code></td>
-<td>+ PyTorch DataLoader</td>
-</tr>
-<tr>
-<td><code>pip install "fdia-graph[pyg]"</code></td>
-<td>+ torch_geometric records and timelines</td>
-</tr>
-<tr>
 <td><code>pip install "fdia-graph[generate]"</code></td>
-<td>+ pandapower, to generate custom data</td>
+<td>adds pandapower, to generate timelines</td>
 </tr>
 <tr>
-<td><code>pip install "fdia-graph[iso]"</code></td>
-<td>+ gridstatus, to download CAISO and ERCOT load profiles (NYISO needs no extra)</td>
-</tr>
-<tr>
-<td><code>pip install "fdia-graph[all]"</code></td>
-<td>every extra above</td>
-</tr>
-<tr>
-<td><code>pip install fdia-analysis</code></td>
-<td>the analysis toolkit, a second package on top of this one: state estimation, localization, federated training, trusted-meter selection (its extras: <code>[se]</code>, <code>[torch]</code>, <code>[federated]</code>, <code>[all]</code>)</td>
+<td><code>pip install "fdia-analysis[se]"</code></td>
+<td>the analysis toolkit with state estimation</td>
 </tr>
 </tbody>
 </table>
-<p>The repository holds two toolkits. <code>fdia-graph</code> (the package <code>fdia_graph</code>, under <code>src/</code>) generates a
-timeline and loads it, and is everything above. <code>fdia-analysis</code> (the package <code>fdia_analysis</code>, under
-<a href="analysis/README.md"><code>analysis/</code></a>) is what is measured on a timeline; it depends on <code>fdia-graph</code>, and
-<code>fdia-graph</code> never imports it.</p>
-<p>Data is pinned per SDK version and cached in <code>~/.cache/fdia_graph</code>. <code>fg.load(..., release="v0.8.1")</code>
-pins a data version, any timeline release from v0.8.0; <code>pip install --upgrade fdia-graph</code> moves it forward.
-The record shards of the data releases before v0.8.0 are read by <code>fdia-graph==0.21.0</code>.</p>
-<h2 id="load">Load<a class="headerlink" href="#load" title="Permanent link">&para;</a></h2>
-<p>One file per system, one loader. <code>order</code> decides what the file is to you:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">fg</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">"ieee300"</span><span class="p">,</span> <span class="n">split</span><span class="o">=</span><span class="s2">"train"</span><span class="p">)</span>                              <span class="c1"># 60/20/20 chronological split, episodes never cut</span>
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="n">fg</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">"ieee118"</span><span class="p">,</span> <span class="n">split</span><span class="o">=</span><span class="s2">"test"</span><span class="p">,</span> <span class="n">families</span><span class="o">=</span><span class="p">[</span><span class="s2">"At"</span><span class="p">])</span>             <span class="c1"># family subset</span>
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="n">fg</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">"ieee118"</span><span class="p">,</span> <span class="n">units</span><span class="o">=</span><span class="s2">"pu"</span><span class="p">)</span>                                 <span class="c1"># per-unit + radians (default: physical)</span>
-<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="n">fg</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">"ieee118"</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="s2">"random"</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>                     <span class="c1"># the record table: a fixed permutation</span>
-<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="n">fg</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">"ieee118"</span><span class="p">,</span> <span class="n">split</span><span class="o">=</span><span class="s2">"test"</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="s2">"time"</span><span class="p">)</span>                 <span class="c1"># the time series: windows, episodes</span>
-</code></pre></div>
-<table>
-<thead>
-<tr>
-<th>you want</th>
-<th>call</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>a whole split at once</td>
-<td><code>ds.export()</code> (arrays), <code>ds.export(format="torch")</code>, <code>ds.export(format="pandas")</code></td>
-</tr>
-<tr>
-<td>windows for an LSTM / TGN</td>
-<td><code>ds.windows(W, stride, label, layer, per_bus=True)</code> on a time-ordered view (one sequence per bus)</td>
-</tr>
-<tr>
-<td>the attack episodes</td>
-<td><code>ds.episodes</code> (onset, length, family, buses)</td>
-</tr>
-<tr>
-<td>the attack removed</td>
-<td>every record carries <code>benign</code> and <code>edge_benign</code> next to <code>node_x</code> and <code>clean</code></td>
-</tr>
-<tr>
-<td>custom data</td>
-<td><code>fg.generate(system, name, attacked_frac=..., families=..., frames=...)</code>, then <code>fg.load(name)</code></td>
-</tr>
-</tbody>
-</table>
-<h2 id="state-estimation">State estimation<a class="headerlink" href="#state-estimation" title="Permanent link">&para;</a></h2>
-<p>The analysis toolkit, <code>pip install "fdia-analysis[se]"</code>:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fdia_analysis.models.config</span><span class="w"> </span><span class="kn">import</span> <span class="n">PriorConfig</span>
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fdia_analysis.se.methods</span><span class="w"> </span><span class="kn">import</span> <span class="n">SubspacePrior</span>
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>
-<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="n">train</span><span class="p">,</span> <span class="n">test</span> <span class="o">=</span> <span class="n">fg</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">"ieee118"</span><span class="p">,</span> <span class="n">split</span><span class="o">=</span><span class="s2">"train"</span><span class="p">),</span> <span class="n">fg</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">"ieee118"</span><span class="p">,</span> <span class="n">split</span><span class="o">=</span><span class="s2">"test"</span><span class="p">)</span>
-<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="n">est</span> <span class="o">=</span> <span class="n">SubspacePrior</span><span class="p">(</span><span class="n">prior</span><span class="o">=</span><span class="n">PriorConfig</span><span class="p">(</span><span class="n">rank_frac</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span> <span class="n">reweight</span><span class="o">=</span><span class="s2">"huber"</span><span class="p">,</span> <span class="n">c</span><span class="o">=</span><span class="mf">2.5</span><span class="p">))</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">train</span><span class="p">)</span>
-<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="n">xhat</span> <span class="o">=</span> <span class="n">est</span><span class="o">.</span><span class="n">estimate</span><span class="p">(</span><span class="n">test</span><span class="p">)</span>          <span class="c1"># [n, 2N-1] = [theta rad (non-slack) | V pu (all buses)]</span>
-<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="nb">print</span><span class="p">(</span><span class="n">est</span><span class="o">.</span><span class="n">score</span><span class="p">(</span><span class="n">test</span><span class="p">))</span>             <span class="c1"># per-family angle / voltage MAE vs the clean truth</span>
-</code></pre></div>
-<p>One solver, six estimators that each change one thing: <code>WLS</code>, <code>AdaptiveWeighting</code>, <code>ResidualRemoval</code>,
-<code>SubspacePrior</code>, <code>JacobianWeighting</code>, <code>GatedPrior</code>. Results: <a href="analysis/estimation/"><code>docs/analysis/estimation/</code></a>.</p>
-<h2 id="localization">Localization<a class="headerlink" href="#localization" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fdia_analysis.localization.learned</span><span class="w"> </span><span class="kn">import</span> <span class="n">BusCNN</span>             <span class="c1"># needs fdia-analysis[torch]</span>
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fdia_analysis.localization.methods</span><span class="w"> </span><span class="kn">import</span> <span class="n">SwingThreshold</span>     <span class="c1"># numpy only</span>
-<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fdia_analysis.models.config</span><span class="w"> </span><span class="kn">import</span> <span class="n">LocalizerConfig</span>
-<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>
-<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="n">loc</span> <span class="o">=</span> <span class="n">SwingThreshold</span><span class="p">(</span><span class="n">localizer</span><span class="o">=</span><span class="n">LocalizerConfig</span><span class="p">(</span><span class="n">fa_target</span><span class="o">=</span><span class="mf">0.01</span><span class="p">))</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">train</span><span class="p">)</span>     <span class="c1"># per-bus thresholds from benign records only</span>
-<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="n">flag</span> <span class="o">=</span> <span class="n">loc</span><span class="o">.</span><span class="n">localize</span><span class="p">(</span><span class="n">test</span><span class="p">)</span>                           <span class="c1"># [n, N] bool: which buses are called attacked</span>
-<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="nb">print</span><span class="p">(</span><span class="n">loc</span><span class="o">.</span><span class="n">score</span><span class="p">(</span><span class="n">test</span><span class="p">))</span>                              <span class="c1"># per-family node-F1, strict accuracy, DR next to FA</span>
-<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>
-<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="n">zs</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">families</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">])</span>                       <span class="c1"># the papers' zero-shot protocol</span>
-<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="n">cnn</span> <span class="o">=</span> <span class="n">BusCNN</span><span class="p">()</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">fg</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">"ieee118"</span><span class="p">,</span> <span class="n">split</span><span class="o">=</span><span class="s2">"train"</span><span class="p">,</span> <span class="o">**</span><span class="n">zs</span><span class="p">),</span> <span class="n">val</span><span class="o">=</span><span class="n">fg</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">"ieee118"</span><span class="p">,</span> <span class="n">split</span><span class="o">=</span><span class="s2">"val"</span><span class="p">,</span> <span class="o">**</span><span class="n">zs</span><span class="p">))</span>
-</code></pre></div>
-<p>One calibration, five localizers: <code>SwingThreshold</code>, <code>DeltaThreshold</code>, <code>ResidualLocalizer</code>, <code>BusMLP</code>,
-<code>BusCNN</code>. Results: <a href="analysis/localization/"><code>docs/analysis/localization/</code></a>.</p>
-<h2 id="data">Data<a class="headerlink" href="#data" title="Permanent link">&para;</a></h2>
-<p>Each record is a sparse measurement graph with <strong>N buses</strong> (nodes) and <strong>E branches</strong> (edges).
-A shape reads "values per item": <code>[N,4]</code> is 4 numbers per bus.</p>
-<table>
-<thead>
-<tr>
-<th>field</th>
-<th>shape</th>
-<th>columns</th>
-<th>meaning</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>node_x</code></td>
-<td><code>[N,4]</code></td>
-<td><code>&#124;V&#124;</code>, <code>P_inj</code>, <code>Q_inj</code>, <code>theta</code></td>
-<td>bus meters (<code>node_m</code> is the mask)</td>
-</tr>
-<tr>
-<td><code>edge_x</code></td>
-<td><code>[E,2]</code></td>
-<td><code>P_from</code>, <code>Q_from</code></td>
-<td>branch flows (<code>edge_m</code> is the mask)</td>
-</tr>
-<tr>
-<td><code>edge_index</code></td>
-<td><code>[2,E]</code></td>
-<td><code>from_bus</code>; <code>to_bus</code></td>
-<td>connectivity</td>
-</tr>
-<tr>
-<td><code>edge_attr</code></td>
-<td><code>[E,8]</code></td>
-<td><code>r</code>, <code>x</code>, <code>b</code>, <code>g</code>, <code>gs</code>, <code>bs</code>, <code>tap</code>, <code>shift</code></td>
-<td>static line physics (<code>Data.edge_phys</code> in PyG)</td>
-</tr>
-<tr>
-<td><code>y</code></td>
-<td><code>[N]</code></td>
-<td></td>
-<td>1 attacked, 0 clean</td>
-</tr>
-<tr>
-<td><code>family</code></td>
-<td>scalar</td>
-<td></td>
-<td>0 benign, 1 Aq, 2 Ad, 3 As, 4 Ar, 5 At, 6 Al, 7 Am (<code>fg.FAMILIES</code>)</td>
-</tr>
-<tr>
-<td><code>temporal_delta</code>, <code>swing</code></td>
-<td><code>[N,2]</code></td>
-<td><code>ΔP</code>, <code>ΔQ</code></td>
-<td>change against the previous frame, and as a z-score of recent change</td>
-</tr>
-<tr>
-<td><code>benign</code>, <code>edge_benign</code></td>
-<td><code>[N,4]</code>, <code>[E,2]</code></td>
-<td>as above</td>
-<td>the same scan with the attack removed, noise kept</td>
-</tr>
-<tr>
-<td><code>clean</code>, <code>edge_clean</code>, <code>edge_clean_full</code></td>
-<td><code>[N,4]</code>, <code>[E,2]</code>, <code>[E,2]</code></td>
-<td>as above</td>
-<td>noiseless truth: buses, metered branches, every branch</td>
-</tr>
-<tr>
-<td><code>seq_id</code>, <code>timestep</code>, <code>split</code></td>
-<td>scalars</td>
-<td></td>
-<td>episode index (-1 benign), frame index, partition</td>
-</tr>
-<tr>
-<td><code>slack</code>, <code>ybus</code>, <code>yf</code>, <code>yt</code></td>
-<td>dataset attributes</td>
-<td></td>
-<td>reference bus, admittance matrices</td>
-</tr>
-</tbody>
-</table>
-<p>Full reference: <a href="reference/DATA_DICTIONARY/"><code>docs/reference/DATA_DICTIONARY.md</code></a>.</p>
-<h2 id="attacks">Attacks<a class="headerlink" href="#attacks" title="Permanent link">&para;</a></h2>
-<table>
-<thead>
-<tr>
-<th>family</th>
-<th>attack</th>
-<th>classical BDD</th>
-<th>plausibility</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>At</code></td>
-<td>slow load ramp, re-solved locally every frame; by default (<code>min_tamper=True</code>) on the support that tampers the fewest devices, else on the region within <code>hops</code></td>
-<td>evades</td>
-<td>peak 2.4% to 5.2% of the load (0.2% per frame over a 12 to 26 frame rise), 60 frames</td>
-</tr>
-<tr>
-<td><code>Am</code></td>
-<td>the overload attack of [WU26]: a line's reported flow driven to its rating (1.25 times its peak pool flow, or PGLib-OPF's) over the episode on the fewest-tamper support</td>
-<td>evades</td>
-<td>the rating reached at the last scan; every scan one AC state, the fewest devices beyond [WU26]'s noise</td>
-</tr>
-</tbody>
-</table>
-<p>The generator makes these two multi-snapshot families. The single-snapshot families of data
-releases v0.8.3 and earlier (<code>Aq</code> load rescale, <code>Al</code> load redistribution, and the in-place <code>Ad</code>
-bias, <code>As</code> scaling and <code>Ar</code> replay) stay in those files and load, filter and score by name as
-before (<code>fg.load(..., release="v0.8.3", families=["Aq"])</code>); fdia-graph 0.20 is the last version
-that generates them.</p>
-<p>Every stealthy family is a local false state: the attacker solves the power flow of a subnetwork
-around the attack with the boundary voltages held true, writes only that subnetwork's meters, and
-the measurement vector stays consistent with an AC state, so the residual test sees noise. The
-meters written are the tamper masks in the file's <code>attack/</code> group. The generated <code>At</code> and <code>Am</code>
-satisfy equations (13)-(23) of [WU26] (the SCADA measurements, the PMU voltage magnitudes, angles
-and branch currents, and the operating limits); <code>Am</code> also meets the line-overload goal, eqs.
-(24)-(25), and both are held on the support that tampers the fewest devices, eq. (12), when
-<code>min_tamper=True</code> (the default for <code>At</code>; <code>Am</code> always picks its support that way, by the search or by
-[WU26]'s row reduction, <code>am_attack=OverloadSettings(support_method="rref")</code>). The single-snapshot families and the
-redistribution <code>Am</code> of the older releases were drawn at random targets, on meters without branch
-currents, and drove no line to its limit.</p>
-<p><img alt="BDD statistic per family: the stealthy families sit below the alarm line with benign, the three tampering families sit far above it" src="https://raw.githubusercontent.com/myersben9/fdia-graph/main/docs/figures/fig_bdd.png" /></p>
-<p><em>Bad-data statistic relative to the alarm threshold, per family, on data release v0.8.3. Green families are indistinguishable
-from benign; red ones trip the alarm.</em> Meter error follows an accuracy-class model (per-meter bias
-plus per-scan jitter). Report per-family node-F1 next to the false-alarm rate, never accuracy.</p>
+<p>Every extra of both toolkits is listed in <a href="ROADMAP/#install">the roadmap</a>.</p>
+<h2 id="where-next">Where next<a class="headerlink" href="#where-next" title="Permanent link">&para;</a></h2>
+<ul>
+<li><a href="guides/generation/">How a timeline is generated</a></li>
+<li><a href="guides/new_york/">Building the New York dataset</a></li>
+<li><a href="reference/DATA_DICTIONARY/">Data dictionary: what every array means</a></li>
+<li><a href="reference/EXAMPLES/">Loading options and runnable baselines</a></li>
+<li>Analysis pages: <a href="analysis/estimation/">state estimation</a>,
+  <a href="analysis/localization/">localization</a>,
+  <a href="analysis/trust/">trusted meters</a>,
+  <a href="analysis/federated/">federated training</a></li>
+<li><a href="contributing/">Contributing: rules, pull requests, releases</a></li>
+</ul>
 <h2 id="citation">Citation<a class="headerlink" href="#citation" title="Permanent link">&para;</a></h2>
-<table>
-<thead>
-<tr>
-<th>cite</th>
-<th>for</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Yuan, Li &amp; Ren, <em>Modeling load redistribution attacks in power systems</em>, IEEE T-SG 2(2), 2011</td>
-<td><code>Al</code></td>
-</tr>
-<tr>
-<td>Haghshenas, Hasnat &amp; Naeini, <em>A Temporal GNN for Cyber Attack Detection and Localization in Smart Grids</em>, IEEE ISGT 2023</td>
-<td><code>At</code></td>
-</tr>
-<tr>
-<td>Zaman &amp; Lin, <em>PING: Physics-Informed GNNs to Generalize FDIA Localization</em>, NAPS 2025</td>
-<td>measurement model</td>
-</tr>
-<tr>
-<td>Asprou, Kyriakides &amp; Albu, <em>Variable Weights in a WLS State Estimator</em>, IEEE T-IM 63, 2014</td>
-<td>meter noise</td>
-</tr>
-<tr>
-<td>Boyaci et al., <em>Joint Detection and Localization of Stealth FDIA</em>, IEEE T-SG, 2022</td>
-<td>protocol</td>
-</tr>
-<tr>
-<td>Wu, Wang, Hu, Ye &amp; Tang, <em>Dynamic PMU configuration for stealthy multi-snapshot FDIA mitigation</em>, IEEE T-SG 17(1), 2026</td>
-<td>local false states, Am, trusted meters</td>
-</tr>
-</tbody>
-</table>
+<ul>
+<li><code>Al</code> (released files) and the load bound of <code>Am</code>: Yuan, Li &amp; Ren, <em>Modeling load redistribution
+  attacks in power systems</em>, IEEE T-SG 2(2), 2011.</li>
+<li><code>At</code>: Haghshenas, Hasnat &amp; Naeini, <em>A Temporal GNN for Cyber Attack Detection and Localization
+  in Smart Grids</em>, IEEE ISGT 2023.</li>
+<li>Measurement model: Zaman &amp; Lin, <em>PING: Physics-Informed GNNs to Generalize FDIA Localization</em>,
+  NAPS 2025.</li>
+<li>Meter noise: Asprou, Kyriakides &amp; Albu, <em>Variable Weights in a WLS State Estimator</em>, IEEE T-IM
+  63, 2014.</li>
+<li>Protocol: Boyaci et al., <em>Joint Detection and Localization of Stealth FDIA</em>, IEEE T-SG, 2022.</li>
+<li>Local false states, <code>Am</code>, trusted meters: Wu, Wang, Hu, Ye &amp; Tang, <em>Dynamic PMU configuration
+  for stealthy multi-snapshot FDIA mitigation</em>, IEEE T-SG 17(1), 2026.</li>
+</ul>
 <h2 id="license">License<a class="headerlink" href="#license" title="Permanent link">&para;</a></h2>
 <p>Data under CC BY 4.0, code under MIT (see <code>LICENSE</code>). Synthetic, from public IEEE cases. Not for
 operational decisions.</p>

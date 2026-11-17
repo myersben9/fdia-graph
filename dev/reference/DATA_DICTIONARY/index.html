@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="Stealthy FDIA localization datasets for power grids, PyTorch-ready in one line">
+        <meta name="description" content="A Python package that builds attacked measurement timelines on power-grid test systems, with a second toolkit to analyse them. Download a ready timeline or generate your own.">
       
       
       
@@ -52,6 +52,8 @@
         <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
       
     
+    
+      <link rel="stylesheet" href="../../stylesheets/extra.css">
     
     <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
@@ -2509,7 +2511,7 @@ physics live on the dataset as <code>ds.edge_attr</code> <code>[E,8]</code> and 
 </ul>
 <h2 id="the-three-layers-of-a-frame">The three layers of a frame<a class="headerlink" href="#the-three-layers-of-a-frame" title="Permanent link">&para;</a></h2>
 <p>Every frame of a timeline carries three aligned layers, for node and for edge measurements:</p>
-<p><img alt="clean plus meter noise gives benign; benign plus the corruption (Ad, As, Ar) or the attack vector of the local false state (Aq, At, Al, Am) gives the observed node_x and edge_x, so observed minus benign is the attack exactly" src="../../figures/diagrams/data_dictionary_layers.png" /></p>
+<p><img alt="three layers, top to bottom: clean and edge_clean, the noiseless true state; plus meter noise gives benign and edge_benign, the scan without the attack; plus the attack gives node_x and edge_x, the observed model input, so observed minus benign is the attack exactly" src="../../figures/diagrams/data_dictionary_layers.png" /></p>
 <table>
 <thead>
 <tr>
@@ -2603,8 +2605,7 @@ angles in radians. A file without these datasets (every released file) loads unc
 and its records carry no <code>pmu_i</code>. <code>export(["prev_pmu_i"])</code> gives the previous emitted frame's
 currents on a hybrid-meter timeline, like <code>prev_node_x</code>.</p>
 <p>Chunked along the frame axis so a window of W frames is one read. A file without the <code>kind</code> attribute
-<code>timeline</code> (a record shard of a data release before v0.8.0) is refused with <code>NotATimeline</code>; fdia-graph
-0.21 reads those.</p>
+<code>timeline</code> (a record shard of a data release before v0.8.0) is refused with <code>NotATimeline</code>.</p>
 <!-- models:begin -->
 <h2 id="models">Models<a class="headerlink" href="#models" title="Permanent link">&para;</a></h2>
 <p>Every dict the two toolkits return is a typed bundle (<code>fdia_graph.models.base.Bundle</code>): a frozen

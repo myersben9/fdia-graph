@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="Stealthy FDIA localization datasets for power grids, PyTorch-ready in one line">
+        <meta name="description" content="A Python package that builds attacked measurement timelines on power-grid test systems, with a second toolkit to analyse them. Download a ready timeline or generate your own.">
       
       
       
@@ -52,6 +52,8 @@
         <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
       
     
+    
+      <link rel="stylesheet" href="../../stylesheets/extra.css">
     
     <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
@@ -1814,6 +1816,10 @@
 <td>the images pages share, each with its data or its diagram source</td>
 </tr>
 <tr>
+<td><code>docs/stylesheets/</code></td>
+<td>the docs site's stylesheet: the display width of the phone diagrams</td>
+</tr>
+<tr>
 <td><code>.github/</code></td>
 <td>the CI workflows and the dependency updates</td>
 </tr>
@@ -2675,7 +2681,7 @@
 </tr>
 <tr>
 <td><code>tests/test_tools.py</code></td>
-<td>Two repository tools on small samples: the constants rule of <code>tools/layout.py</code> on a temporary tree, and <code>tools/count_lines.py</code> on a file whose lines are easy to miscount.</td>
+<td>Three repository tools on small samples: the constants rule of <code>tools/layout.py</code> on a temporary tree, <code>tools/count_lines.py</code> on a file whose lines are easy to miscount, and the phone rules of <code>tools/render_mermaid.py</code> on two flow diagrams.</td>
 </tr>
 <tr>
 <td><code>tests/test_trust_formulas.py</code></td>
@@ -2852,7 +2858,7 @@
 </tr>
 <tr>
 <td><code>pipelines/newyork/run_pool.py</code></td>
-<td>Build the P5 pool for a time window as NYISO's real-time dispatch (N32, N39), in chunks run in parallel.</td>
+<td>Build the pool of operating points for a time window as NYISO's real-time dispatch, in chunks run in parallel.</td>
 </tr>
 </tbody>
 </table>

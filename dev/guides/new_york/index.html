@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="Stealthy FDIA localization datasets for power grids, PyTorch-ready in one line">
+        <meta name="description" content="A Python package that builds attacked measurement timelines on power-grid test systems, with a second toolkit to analyse them. Download a ready timeline or generate your own.">
       
       
       
@@ -52,6 +52,8 @@
         <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
       
     
+    
+      <link rel="stylesheet" href="../../stylesheets/extra.css">
     
     <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
@@ -1718,7 +1720,7 @@ five-minute zonal load, the NYS DPS utility territories, and the bus locations t
 database are downloaded by the load model the first time the pool is built (about 200 MB, 15 minutes).
 Every step keeps a file that is already there.</p>
 <h2 id="2-the-operating-point-pool">2. The operating-point pool<a class="headerlink" href="#2-the-operating-point-pool" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>python<span class="w"> </span><span class="nv">$FG</span>/pipelines/newyork/run_pool.py<span class="w"> </span><span class="m">2019</span>-01-01<span class="w"> </span><span class="m">2020</span>-01-01<span class="w"> </span>out/pool_2019.h5<span class="w"> </span>--workers<span class="w"> </span><span class="m">8</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>python<span class="w"> </span><span class="nv">$FG</span>/pipelines/newyork/run_pool.py<span class="w"> </span><span class="m">2019</span>-01-01<span class="w"> </span><span class="m">2020</span>-01-01<span class="w"> </span>out/pool_2019_v3.h5<span class="w"> </span>--workers<span class="w"> </span><span class="m">8</span>
 </code></pre></div>
 <p>The year is dispatched in weekly chunks in parallel, then each seam between chunks is solved again until
 the dispatch is continuous. The pool holds the true state and injections of every five-minute frame.</p>
@@ -1753,10 +1755,9 @@ bus's steps are not its zone's. Their constants are in <code>constants/newyork.p
   industrial load at that frame.</li>
 </ul>
 <p>Last, each zone's buses are rescaled to sum exactly to the zone's real 5-minute load.</p>
-<p>The two fit functions (<code>_fluctuation_fit</code>, <code>_switching_fit</code>) are not in the package; the constants are
-their results. They can be read and run in release 0.21.0, <code>fdia_graph/nyfed/scenario/loads.py</code>.</p>
+<p>The constants are the results of two fits. The fit functions are not part of the package.</p>
 <h2 id="3-the-timeline">3. The timeline<a class="headerlink" href="#3-the-timeline" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>python<span class="w"> </span><span class="nv">$FG</span>/pipelines/newyork/build_timeline.py<span class="w"> </span>out/timeline_2019.h5<span class="w"> </span>--pool<span class="w"> </span>out/pool_2019.h5<span class="w"> </span>--workers<span class="w"> </span><span class="m">8</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>python<span class="w"> </span><span class="nv">$FG</span>/pipelines/newyork/build_timeline.py<span class="w"> </span>out/timeline_2019.h5<span class="w"> </span>--pool<span class="w"> </span>out/pool_2019_v3.h5<span class="w"> </span>--workers<span class="w"> </span><span class="m">8</span>
 </code></pre></div>
 <p>The script builds the release's source and generates it: <code>NewYorkSource.production(pool_path,
 NewYorkRelease(...)).generate(path)</code>. <code>generate</code> is the one path every timeline takes, the IEEE ones too
@@ -1768,7 +1769,7 @@ bound in one place: line ratings from the pool's peak flows, the
 overload attack (Am) against the Sprain Brook/Dunwoodie South interface, the slow ramp (At), 20% of
 each split's frames attacked, and onsets surveyed among the hours an attack can reach. The weeks are split
 into train, validation and test, stratified on those hours.</p>
-<p>For one attack studied by hand, <code>pipelines/newyork/build_single_episodes.py OUT_DIR --pool out/pool_2019.h5
+<p>For one attack studied by hand, <code>pipelines/newyork/build_single_episodes.py OUT_DIR --pool out/pool_2019_v3.h5
 --onset 2019-07-05T10:30:00</code> writes the whole day of that onset with a single Am episode in it.</p>
 <h2 id="4-reading-it-as-clients">4. Reading it as clients<a class="headerlink" href="#4-reading-it-as-clients" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fdia_graph.dataset.clients</span><span class="w"> </span><span class="kn">import</span> <span class="n">Dataset</span>
@@ -1784,7 +1785,7 @@ into train, validation and test, stratified on those hours.</p>
 opens it too: the static graph, the admittance matrices and the layers per frame. <code>Dataset</code> is the view by
 meter and by client: <code>ds.plan</code> is the meter table, <code>ds.z(frames)</code> the flat reading vector of that table,
 <code>ds.z(frames, benign=True)</code> the same scans without the attack and <code>ds.tampered(frames)</code> the tampered meters.
-A file written before this layout is refused; it reads with fdia-graph 0.21.</p>
+A file with any other layout is refused.</p>
 <h2 id="tests">Tests<a class="headerlink" href="#tests" title="Permanent link">&para;</a></h2>
 <p><code>tests/nygrid</code> reads the inputs and the pool under <code>NYGRID_ROOT</code> (the folder of steps 1 to 3) and skips a
 test whose input is missing:</p>

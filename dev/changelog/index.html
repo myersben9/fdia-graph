@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="Stealthy FDIA localization datasets for power grids, PyTorch-ready in one line">
+        <meta name="description" content="A Python package that builds attacked measurement timelines on power-grid test systems, with a second toolkit to analyse them. Download a ready timeline or generate your own.">
       
       
       
@@ -50,6 +50,8 @@
         <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
       
     
+    
+      <link rel="stylesheet" href="../stylesheets/extra.css">
     
     <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
@@ -1721,7 +1723,26 @@
 the public API, the generated files and the numbers are the same as the previous release.</p>
 <h2 id="unreleased">Unreleased<a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
 <ul>
-<li><strong>The grid and the meters have their own packages, <code>fdia_graph.systems</code> and <code>fdia_graph.sensing</code>
+<li>
+<p><strong>Docs: a landing page that says what the package is, and diagrams a phone can read (no change to the
+  code of either package).</strong> <code>README.md</code> presents the two toolkits, the test systems (the eight IEEE
+  cases and the New York grid), three steps (load, generate, analyse) and one top-to-bottom picture of
+  the flow, <code>docs/figures/diagrams/flow.png</code>. Its loading table moved to <code>docs/reference/EXAMPLES.md</code>, the
+  list of extras to <code>docs/ROADMAP.md</code>. <code>tools/render_mermaid.py</code> draws a hand-written flow diagram for a
+  phone (20 px type, a white card 900 px wide), and <code>tools/prereview.py</code> fails one that is not
+  <code>flowchart TB</code>, has more than 8 nodes or is wider than 900 px; nine diagrams are drawn that way, seven
+  are exempt on its <code>NOT_YET_REDRAWN</code> list (the old <code>pipeline.png</code> among them, which the published PyPI
+  page loads until the next release), the docs site shows a phone diagram at most 450 px wide
+  (<code>docs/stylesheets/extra.css</code>), and the class and module diagrams keep the wide rendering. The
+  New York walkthrough's snippet reads <code>SolveKind.SOLVED</code>, and links to files outside <code>docs/</code> are full
+  GitHub addresses. The New York guide names the pool file as the pipeline scripts do
+  (<code>out/pool_2019_v3.h5</code>). The generation guide carries no decision codes, and the recipes of its
+  overload table are named in plain words ("with the load and generator bounds"; the labels in
+  <code>results/queries.py</code>, the stored runs unchanged). The package description on PyPI follows the new
+  summary.</p>
+</li>
+<li>
+<p><strong>The grid and the meters have their own packages, <code>fdia_graph.systems</code> and <code>fdia_graph.sensing</code>
   (breaking for the module paths below; a move only: no class is renamed, no logic changes and no stored
   byte changes: the five whole-file digests are unchanged, and thirty-two IEEE timelines are byte for byte
   the files the previous code writes).</strong> <code>fg.load</code>, <code>fg.generate</code> and <code>generate_timeline</code> are used as
@@ -1730,7 +1751,8 @@ the public API, the generated files and the numbers are the same as the previous
   engine. <code>systems</code> and <code>sensing</code> import nothing of <code>engine</code>, <code>generation</code> or <code>dataset</code> (a test holds them to
   it), so the generator (<code>engine/core.py</code>, <code>engine/base.py</code>) no longer imports <code>generation.nygrid</code>;
   <code>engine/attacks/interface.py</code> still reads <code>Interface</code> from <code>generation.nygrid.interfaces</code>. The old module
-  paths are gone, with no alias.</li>
+  paths are gone, with no alias.</p>
+</li>
 </ul>
 <table>
 <thead>

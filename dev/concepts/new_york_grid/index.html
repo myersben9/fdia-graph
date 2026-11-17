@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="Stealthy FDIA localization datasets for power grids, PyTorch-ready in one line">
+        <meta name="description" content="A Python package that builds attacked measurement timelines on power-grid test systems, with a second toolkit to analyse them. Download a ready timeline or generate your own.">
       
       
       
@@ -52,6 +52,8 @@
         <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
       
     
+    
+      <link rel="stylesheet" href="../../stylesheets/extra.css">
     
     <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
@@ -1754,12 +1756,14 @@ step, <a href="../../guides/extending_new_york/">the extending guide</a> says ho
 <a href="../../guides/troubleshooting_new_york/">the troubleshooting page</a> what each stage reports when it fails. Tags N1 onward in the code
 number the design decisions.</p>
 <h2 id="how-a-run-flows">How a run flows<a class="headerlink" href="#how-a-run-flows" title="Permanent link">&para;</a></h2>
-<p><img alt="The stages of fdia_graph.generation.nygrid" src="../../figures/diagrams/nygrid_pipeline.png" /></p>
-<p>Each box is a subpackage, one stage, and each stage reads what the one before it wrote. <code>grid</code> turns NYgrid's case into
-the network and the clients; <code>scenario</code> solves the year of true operating points (the slow step, built once into the
-pool); <code>sensing</code> places the meters; <code>attacks</code> designs each attack on a window of true states; <code>timeline</code> writes the
-noisy, labelled year. Beside the stages, <code>se/detect</code> holds the alarm rules, in the analysis toolkit
-(<code>fdia_analysis.se.detect</code>). Each package's <code>__init__.py</code> opens with what its stage does.</p>
+<p><img alt="The New York build in seven stages, top to bottom: the inputs (fetch_inputs: NYgrid tables, NYISO 2019 load, utility territories); the network (Case, Network, Ownership: a client per utility); the operating points (LoadModel, hourly_dispatch, PoolBuilder: the Pool); the meters (plan_meters: the MeterPlan, Measurement h(x), NoiseModel); the attacker (Attacker: a local false state, AttackFamily.design: an Episode); the timeline (NewYorkSource.generate); the clients' view (Dataset, ClientView)" src="../../figures/diagrams/nygrid_pipeline.png" /></p>
+<p>Each box is one stage, in the order a build runs them. <code>systems/</code> holds the network and
+the clients. <code>generation/nygrid/</code> solves the year of true operating points (the slow step, built once into the
+pool). <code>sensing/</code> places the meters. <code>engine/attacks/</code> designs each attack on a window of true states; the interface limits
+(<code>Interface</code>, read from NYgrid's data in <code>generation/nygrid/interfaces.py</code>) enter there, as the goal of <code>Am</code>.
+<code>NewYorkSource</code> in <code>generation/nygrid/source.py</code> writes the noisy, labelled year, and <code>dataset/clients.py</code> reads it
+back by client. Beside the stages, <code>se/detect</code> holds the alarm rules, in the analysis toolkit
+(<code>fdia_analysis.se.detect</code>).</p>
 <h2 id="principles">Principles<a class="headerlink" href="#principles" title="Permanent link">&para;</a></h2>
 <ol>
 <li>A setting is an argument of the function or constructor that uses it. Code never changes a library object's

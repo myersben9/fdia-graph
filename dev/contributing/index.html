@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="Stealthy FDIA localization datasets for power grids, PyTorch-ready in one line">
+        <meta name="description" content="A Python package that builds attacked measurement timelines on power-grid test systems, with a second toolkit to analyse them. Download a ready timeline or generate your own.">
       
       
       
@@ -52,6 +52,8 @@
         <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
       
     
+    
+      <link rel="stylesheet" href="../stylesheets/extra.css">
     
     <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
@@ -1656,9 +1658,18 @@ the analysis packages use lives in <code>fdia_analysis</code>; no name is export
 docs are read in the GitHub mobile app, and neither renders Mermaid. Each diagram's source is a
 <code>docs/figures/diagrams/&lt;name&gt;.mmd</code> next to its <code>&lt;name&gt;.png</code> and <code>&lt;name&gt;.svg</code>; edit the source and
 re-render with <code>python tools/render_mermaid.py docs/figures/diagrams/&lt;name&gt;.mmd</code> (Playwright with
-Chromium), which writes both images, then commit all three. The class and module diagrams of
-<code>docs/reference/CLASS_MAP.md</code> are generated: <code>python tools/class_diagrams.py</code> rewrites their sources from
-the code (CI fails when they are stale), then render them the same way. README images use the
+Chromium), which writes both images, then commit all three. A hand-written flow diagram is drawn for
+a phone: the renderer uses 20 px type and the site's teal palette, and puts the diagram at its natural
+size on a white card 450 px wide with rounded corners, so the PNG (two device pixels per CSS pixel) is
+900 px wide and reads on a dark page and on a light one. <code>python tools/prereview.py</code> fails a
+hand-written flow diagram that is not <code>flowchart TB</code>, has more than 8 nodes or has a PNG wider than
+900 px, or names a node otherwise than <code>name["label"]</code>; the diagrams not yet redrawn are listed in
+<code>NOT_YET_REDRAWN</code> in <code>tools/prereview.py</code>. On the docs site <code>docs/stylesheets/extra.css</code> shows a phone
+diagram at most 450 px wide, and names the same exempt diagrams. The class
+and module diagrams of <code>docs/reference/CLASS_MAP.md</code> are generated: <code>python tools/class_diagrams.py</code>
+rewrites their sources from the code (CI fails when they are stale), then render them the same way;
+the renderer knows them by name (<code>classes_*</code>, <code>modules</code>), keeps them wide (Mermaid's default theme on
+a 1400 px page) and the gate exempts them. README images use the
 raw.githubusercontent.com URL so PyPI shows them; docs pages use relative paths.</p>
 <p>The Models section of <code>docs/reference/DATA_DICTIONARY.md</code> is generated too: <code>python tools/models_doc.py</code>
 rewrites it from the dataclasses in the two <code>models/</code> packages (<code>src/fdia_graph/models/</code>,
@@ -1792,6 +1803,9 @@ number, and <code>fdia-analysis</code> requires exactly <code>fdia-graph==&lt;ve
 PyPI (pypi.org, Your account, Publishing: owner <code>myersben9</code>, repository <code>fdia-graph</code>, workflow
 <code>publish.yml</code>); without it the upload of <code>fdia-analysis</code> is refused after <code>fdia-graph</code> is already out.
 A publish run that failed part-way can be run again: each upload skips the files PyPI already has.</p>
+<p>After the release that ships the new <code>README.md</code>, delete <code>docs/figures/diagrams/pipeline.mmd</code>, its
+<code>.png</code> and its <code>.svg</code>, and take <code>pipeline</code> off <code>NOT_YET_REDRAWN</code> in <code>tools/prereview.py</code> and off
+<code>docs/stylesheets/extra.css</code>: until then the published PyPI page loads that PNG from <code>main</code>.</p>
 <p>A released version is never re-cut; fix forward. Data releases (timelines, pools) have their own
 tags, <code>data-v&lt;x.y.z&gt;</code> (the bare <code>v0.x.y</code> tags belong to package versions), and do not move the
 package version. The

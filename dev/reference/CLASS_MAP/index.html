@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="Stealthy FDIA localization datasets for power grids, PyTorch-ready in one line">
+        <meta name="description" content="A Python package that builds attacked measurement timelines on power-grid test systems, with a second toolkit to analyse them. Download a ready timeline or generate your own.">
       
       
       
@@ -52,6 +52,8 @@
         <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
       
     
+    
+      <link rel="stylesheet" href="../../stylesheets/extra.css">
     
     <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
@@ -1734,6 +1736,7 @@ Read with <a href="../../ROADMAP/"><code>ROADMAP.md</code></a> (what each file i
 <p>An open arrowhead is inheritance, a dashed arrow is a class using another (an argument type, a return
 type or a collaborator it builds), and a box marked with another package's name is a participant that
 lives there.</p>
+<p>The diagrams are wide and are best viewed on a wide screen. Each picture links to its full-size file.</p>
 <h2 id="modules">Modules<a class="headerlink" href="#modules" title="Permanent link">&para;</a></h2>
 <p>Which module imports which, in one picture with a box per toolkit: every arrow between the boxes
 runs from the analysis toolkit to the generation toolkit, never back. Five foundations are read by
@@ -1742,14 +1745,14 @@ returned records and the settings; the one validation engine is <code>fdia_graph
 <code>formulas/</code> (the equations), and the generation toolkit's <code>constants/</code> (the facts, each with its unit
 and source), <code>schema.py</code> (the file protocol) and <code>errors.py</code> (the named errors). Each package's own <code>__init__.py</code> (for <code>fdia_graph</code>, the <code>fg.*</code>
 public API, which imports everything) is left out for the same reason.</p>
-<p><img alt="Module diagram in two boxes. The analysis toolkit, fdia_analysis: federated over localization and se; localization over se; trust over se; results beside them. The generation toolkit, fdia_graph: generation over engine, profiles, timeline, download and registry; engine over generation, ratings and registry; dataset over generation; timeline over generation; profiles over engine; download over registry. Between the boxes every arrow points from analysis to generation: federated, localization, se and trust read dataset; trust reads generation and registry" src="../../figures/diagrams/modules.png" /></p>
+<p><a href="../../figures/diagrams/modules.png"><img alt="Module diagram in two boxes. The analysis toolkit, fdia_analysis: federated over localization and se; localization over se; trust over se; results beside them. The generation toolkit, fdia_graph: generation over engine, profiles, timeline, download and registry; engine over generation, ratings and registry; dataset over generation; timeline over generation; profiles over engine; download over registry. Between the boxes every arrow points from analysis to generation: federated, localization, se and trust read dataset; trust reads generation and registry" src="../../figures/diagrams/modules.png" /></a></p>
 <h2 id="the-dataset">The dataset<a class="headerlink" href="#the-dataset" title="Permanent link">&para;</a></h2>
 <p><code>FdiaGraph</code> is the file. Five mixins over <code>DatasetBase</code> give it its faces: the static graph physics
 (<code>GraphMixin</code>), the admittance matrices (<code>AdmittanceMixin</code>), records and batches (<code>RecordsMixin</code>), the
 exports (<code>ExportMixin</code>) and the time-ordered windows and episodes (<code>SequenceMixin</code>). The methods that
 produce records return <code>models</code> bundles (a record, a batch, an exported split, the episode table, the
 summary); the graph properties are tensors or arrays, <code>loader()</code> is a DataLoader and <code>windows()</code> a tuple.</p>
-<p><img alt="Class diagram of the dataset package: DatasetBase with GraphMixin, AdmittanceMixin, RecordsMixin, ExportMixin and SequenceMixin under it and FdiaGraph inheriting all five; the mixins use ArraysBundle, Summary, BatchBundle, RecordBundle, EpisodeTable, Admittances and BranchModel" src="../../figures/diagrams/classes_dataset.png" /></p>
+<p><a href="../../figures/diagrams/classes_dataset.png"><img alt="Class diagram of the dataset package: DatasetBase with GraphMixin, AdmittanceMixin, RecordsMixin, ExportMixin and SequenceMixin under it and FdiaGraph inheriting all five; the mixins use ArraysBundle, Summary, BatchBundle, RecordBundle, EpisodeTable, Admittances and BranchModel" src="../../figures/diagrams/classes_dataset.png" /></a></p>
 <h2 id="the-engine">The engine<a class="headerlink" href="#the-engine" title="Permanent link">&para;</a></h2>
 <p><code>FdiaGenerator</code> is the AC model of one IEEE system with its meter plan: a <code>Case</code> read from the pandapower
 net (<code>Case.from_pandapower</code>), its <code>Network</code>, a <code>MeterPlan</code> (<code>MeterPlan.from_coverage</code>), a <code>Measurement</code> and a
@@ -1759,7 +1762,7 @@ other, so each has <code>GridBase</code> alone as its base. <code>AttackMixin</c
 A mixin lists as bases the mixins whose methods it calls.
 <code>engine/records.py</code> emits a benign scan and hands an attacked family to the mixin; <code>timeline.py</code>
 decides when and where each episode runs.</p>
-<p><img alt="Class diagram of the engine package: GridBase, PhysicsMixin and MeasurementMixin each under it, AttackMixin composed of EpisodeDesignMixin and StealthyMixin, and FdiaGenerator inheriting AttackMixin; the mixins use Scan, AttackDesign, Frame and FrameKnobs, and the generator holds a Case, a Network, a MeterPlan, a Measurement and a NoiseModel" src="../../figures/diagrams/classes_engine.png" /></p>
+<p><a href="../../figures/diagrams/classes_engine.png"><img alt="Class diagram of the engine package: GridBase, PhysicsMixin and MeasurementMixin each under it, AttackMixin composed of EpisodeDesignMixin and StealthyMixin, and FdiaGenerator inheriting AttackMixin; the mixins use Scan, AttackDesign, Frame and FrameKnobs, and the generator holds a Case, a Network, a MeterPlan, a Measurement and a NoiseModel" src="../../figures/diagrams/classes_engine.png" /></a></p>
 <h2 id="the-attacks">The attacks<a class="headerlink" href="#the-attacks" title="Permanent link">&para;</a></h2>
 <p>Every attack is built in <code>engine/attacks/</code>, one module per concern, composed into <code>AttackMixin</code>:
 <code>AreaMixin</code> finds the attacker's area, <code>FalseStateMixin</code> solves and checks its false state and the
@@ -1767,37 +1770,37 @@ attack vector, <code>StealthyMixin</code> builds the ramp frames, <code>Minimize
 the fewest devices over an attack window [WU26, eq. 12], <code>OverloadMixin</code> builds the overload <code>Am</code>,
 and <code>EpisodeDesignMixin</code> draws what an <code>At</code> episode attacks at its onset. <code>AttackMixin.attack_frame</code>
 is the one entry for an attacked <code>At</code> scan; an <code>Am</code> frame comes from <code>overload_step</code>.</p>
-<p><img alt="Class diagram of the attack package: MeasurementMixin with AreaMixin under it, FalseStateMixin under AreaMixin and PhysicsMixin, StealthyMixin and MinimizeMixin under FalseStateMixin, OverloadMixin under MinimizeMixin, EpisodeDesignMixin under OverloadMixin, and AttackMixin inheriting EpisodeDesignMixin and StealthyMixin; the mixins use AttackDesign, RampDesign, LoadGoal, FlowGoal, MinimizerResult, Frame, FrameKnobs, OperatingLimits and Scan" src="../../figures/diagrams/classes_attacks.png" /></p>
+<p><a href="../../figures/diagrams/classes_attacks.png"><img alt="Class diagram of the attack package: MeasurementMixin with AreaMixin under it, FalseStateMixin under AreaMixin and PhysicsMixin, StealthyMixin and MinimizeMixin under FalseStateMixin, OverloadMixin under MinimizeMixin, EpisodeDesignMixin under OverloadMixin, and AttackMixin inheriting EpisodeDesignMixin and StealthyMixin; the mixins use AttackDesign, RampDesign, LoadGoal, FlowGoal, MinimizerResult, Frame, FrameKnobs, OperatingLimits and Scan" src="../../figures/diagrams/classes_attacks.png" /></a></p>
 <h2 id="state-estimation">State estimation<a class="headerlink" href="#state-estimation" title="Permanent link">&para;</a></h2>
 <p><code>SEBase</code> holds the shared solve: the measurement function, the chord Jacobian, the meter weights and the
 chord-Newton loop. Each estimator overrides one hook. <code>GatedPrior</code> takes a fitted localizer as its gate;
 <code>JacobianFeatures</code> is the per-bus feature block the localizers can consume.</p>
-<p><img alt="Class diagram of the estimation package: SEBase with WLS, AdaptiveWeighting, ResidualRemoval, SubspacePrior and JacobianWeighting under it, GatedPrior under SubspacePrior using a LocalizerBase gate, JacobianFeatures beside them; the estimators use ErrorPair, EstimatorScores, TrueState and JacobianOutputs" src="../../figures/diagrams/classes_estimation.png" /></p>
+<p><a href="../../figures/diagrams/classes_estimation.png"><img alt="Class diagram of the estimation package: SEBase with WLS, AdaptiveWeighting, ResidualRemoval, SubspacePrior and JacobianWeighting under it, GatedPrior under SubspacePrior using a LocalizerBase gate, JacobianFeatures beside them; the estimators use ErrorPair, EstimatorScores, TrueState and JacobianOutputs" src="../../figures/diagrams/classes_estimation.png" /></a></p>
 <h2 id="localization-and-trusted-meters">Localization and trusted meters<a class="headerlink" href="#localization-and-trusted-meters" title="Permanent link">&para;</a></h2>
 <p><code>LocalizerBase</code> calibrates any per-bus score to one false-alarm budget; the threshold arms score a stored
 feature, <code>ResidualLocalizer</code> runs an estimator, the learned arms train a per-bus network.
 <code>TrustSelector</code> chooses the meters to secure on the WLS Jacobian, by row reduction (<code>TrustedMeters</code>) or
 by a deep Q-network (<code>TrustedMetersDQN</code>), and scores the residual test with them secured.</p>
-<p><img alt="Class diagram of localization and trust: LocalizerBase with SwingThreshold, DeltaThreshold, ResidualLocalizer and LearnedLocalizer under it, BusCNN and BusMLP under LearnedLocalizer; ResidualLocalizer uses an SEBase estimator, the learned arms use JacobianFeatures; TrustSelector with TrustedMeters and TrustedMetersDQN under it, using WLS; the scores are LocalizerScores, PerBusScores, GridScores and TrustScores" src="../../figures/diagrams/classes_localization_trust.png" /></p>
+<p><a href="../../figures/diagrams/classes_localization_trust.png"><img alt="Class diagram of localization and trust: LocalizerBase with SwingThreshold, DeltaThreshold, ResidualLocalizer and LearnedLocalizer under it, BusCNN and BusMLP under LearnedLocalizer; ResidualLocalizer uses an SEBase estimator, the learned arms use JacobianFeatures; TrustSelector with TrustedMeters and TrustedMetersDQN under it, using WLS; the scores are LocalizerScores, PerBusScores, GridScores and TrustScores" src="../../figures/diagrams/classes_localization_trust.png" /></a></p>
 <h2 id="federated-training">Federated training<a class="headerlink" href="#federated-training" title="Permanent link">&para;</a></h2>
 <p><code>FederatedLocalizer</code> is a <code>LearnedLocalizer</code> whose fit runs FedAvg over a <code>Partition</code> of the buses:
 each client trains its own copy with the shared <code>LocalTrainer</code> on its own buses, and <code>FedBusMLP</code> and
 <code>FedBusCNN</code> take their encoder from <code>BusMLP</code> and <code>BusCNN</code>. <code>RoundLog</code> records every round.
 <code>RegionalPrior</code> is a <code>SubspacePrior</code> whose basis is fitted per client of a <code>Partition</code>.</p>
-<p><img alt="Class diagram of the federated package: FederatedLocalizer under LearnedLocalizer, FedBusMLP under FederatedLocalizer and BusMLP, FedBusCNN under FederatedLocalizer and BusCNN; the federated localizer uses LocalTrainer, Partition, RoundLog and JacobianFeatures; RegionalPrior under SubspacePrior uses Partition" src="../../figures/diagrams/classes_federated.png" /></p>
+<p><a href="../../figures/diagrams/classes_federated.png"><img alt="Class diagram of the federated package: FederatedLocalizer under LearnedLocalizer, FedBusMLP under FederatedLocalizer and BusMLP, FedBusCNN under FederatedLocalizer and BusCNN; the federated localizer uses LocalTrainer, Partition, RoundLog and JacobianFeatures; RegionalPrior under SubspacePrior uses Partition" src="../../figures/diagrams/classes_federated.png" /></a></p>
 <h2 id="the-records">The records<a class="headerlink" href="#the-records" title="Permanent link">&para;</a></h2>
 <p>Everything a call returns is a <code>Bundle</code>, a dict with attribute access and a fixed key order. The record
 forms share one base, <code>RecordFields</code>, which declares every field once, so a record, a batch and an exported split
 carry the same names. An exported split adds the export-only <code>prev_*</code> fields
 (the previous frame's readings on a timeline).</p>
-<p><img alt="Class diagram of the record bundles: Bundle, RecordFields under it, and RecordBundle, BatchBundle and ArraysBundle under RecordFields; EpisodeTable and Summary under Bundle" src="../../figures/diagrams/classes_models.png" /></p>
+<p><a href="../../figures/diagrams/classes_models.png"><img alt="Class diagram of the record bundles: Bundle, RecordFields under it, and RecordBundle, BatchBundle and ArraysBundle under RecordFields; EpisodeTable and Summary under Bundle" src="../../figures/diagrams/classes_models.png" /></a></p>
 <h2 id="the-scores">The scores<a class="headerlink" href="#the-scores" title="Permanent link">&para;</a></h2>
 <p>The result of every <code>score()</code> is a <code>Bundle</code> too, defined in the analysis toolkit
 (<code>fdia_analysis.models.scores</code>) on the generation toolkit's <code>Bundle</code>: <code>ErrorPair</code> and <code>EstimatorScores</code> for the estimators,
 <code>OverallMetrics</code>, <code>BenignMetrics</code>, <code>FamilyMetrics</code> and <code>LocalizerScores</code> for the localizers, <code>TrustScores</code>
 for the trusted meters, <code>JacobianOutputs</code> for the feature block; <code>TrueState</code> (<code>fdia_analysis.models.data</code>)
 is the truth an estimator is scored against.</p>
-<p><img alt="Class diagram of the score bundles: ErrorPair, EstimatorScores, OverallMetrics, BenignMetrics, FamilyMetrics, LocalizerScores, PerBusMetrics, PerBusScores, GridScores, TrustScores, JacobianOutputs and TrueState all under Bundle" src="../../figures/diagrams/classes_scores.png" /></p>
+<p><a href="../../figures/diagrams/classes_scores.png"><img alt="Class diagram of the score bundles: ErrorPair, EstimatorScores, OverallMetrics, BenignMetrics, FamilyMetrics, LocalizerScores, PerBusMetrics, PerBusScores, GridScores, TrustScores, JacobianOutputs and TrueState all under Bundle" src="../../figures/diagrams/classes_scores.png" /></a></p>
 <p>The named tuples of <code>models/frames.py</code> (<code>Scan</code>, <code>Frame</code>, <code>OperatingLimits</code>, <code>FrameKnobs</code>),
 <code>models/grid.py</code> (<code>BranchModel</code>, <code>Admittances</code>) and <code>models/assets.py</code> (<code>AssetSpec</code>) are plain
 value types with no hierarchy, so they appear only where a class above uses them.</p>

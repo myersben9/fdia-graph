@@ -1,46 +1,21 @@
 flowchart TB
-    subgraph inputs["Inputs (fetch_inputs)"]
-        nygrid["NYgrid case and tables"]
-        nyiso["NYISO 2019 zonal load"]
-        terr["Utility territories"]
-    end
-    subgraph grid["grid: the network"]
-        case["Case + Network"]
-        own["Ownership: one client per utility"]
-        ifaces["Interface: real limits and flows"]
-    end
-    subgraph scenario["scenario: the operating points"]
-        loads["LoadModel: bus loads every 5 min"]
-        dispatch["hourly_dispatch"]
-        pool["PoolBuilder: AC dispatch, the Pool"]
-    end
-    subgraph sensing["sensing: the meters"]
-        plan["plan_meters: the MeterPlan"]
-        meas["Measurement h(x) + NoiseModel"]
-    end
-    subgraph attacks["attacks: the attacker"]
-        att["Attacker: local false state"]
-        fam["AttackFamily.design: an Episode"]
-    end
-    subgraph timeline["timeline: the dataset"]
-        source["NewYorkSource.generate: timeline.h5"]
-        ds["Dataset, ClientView"]
-    end
-    nygrid --> case
-    terr --> own
-    nygrid --> ifaces
-    nyiso --> loads
-    case --> loads
-    case --> dispatch
-    loads --> pool
-    dispatch --> pool
-    case --> plan
-    own --> plan
-    plan --> meas
-    meas --> att
-    att --> fam
-    ifaces --> fam
-    pool --> source
-    fam --> source
-    meas --> source
-    source --> ds
+    inputs["`**1. Inputs**
+    fetch_inputs: NYgrid tables,
+    NYISO 2019 load, territories`"]
+    grid["`**2. The network**
+    Case, Network
+    Ownership: a client per utility`"]
+    pool["`**3. The operating points**
+    LoadModel, hourly_dispatch
+    PoolBuilder: the Pool`"]
+    meters["`**4. The meters**
+    plan_meters: the MeterPlan
+    Measurement h(x), NoiseModel`"]
+    attacks["`**5. The attacker**
+    Attacker: a local false state
+    AttackFamily.design: an Episode`"]
+    file[("`**6. The timeline**
+    NewYorkSource.generate`")]
+    view["`**7. The clients' view**
+    Dataset, ClientView`"]
+    inputs --> grid --> pool --> meters --> attacks --> file --> view

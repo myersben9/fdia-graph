@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="Stealthy FDIA localization datasets for power grids, PyTorch-ready in one line">
+        <meta name="description" content="A Python package that builds attacked measurement timelines on power-grid test systems, with a second toolkit to analyse them. Download a ready timeline or generate your own.">
       
       
       
@@ -52,6 +52,8 @@
         <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
       
     
+    
+      <link rel="stylesheet" href="../stylesheets/extra.css">
     
     <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
@@ -538,6 +540,17 @@
       Table of contents
     </label>
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#install" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Install
+      
+    </span>
+  </a>
+  
+</li>
       
         <li class="md-nav__item">
   <a href="#the-two-paths" class="md-nav__link">
@@ -1567,6 +1580,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#install" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Install
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#the-two-paths" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1663,9 +1687,71 @@ results store's code. It depends on <code>fdia-graph</code>; nothing in <code>fd
 (<code>fdia_graph.generation.nygrid</code>, behind <code>[ny]</code>) in the first, and <code>fdia_analysis.se</code>,
 <code>fdia_analysis.localization</code>, <code>fdia_analysis.trust</code> and <code>fdia_analysis.federated</code> in the second;
 everything else serves them.</p>
-<p><img alt="the package map in two boxes: the analysis toolkit fdia_analysis with federated over localization, localization and trust over se, the results store, and its own models and formulas; the generation toolkit fdia_graph with the public API over the dataset loader and the timeline writer, the loader over the registry and download, the writer over the engine, and its own models and formulas; one arrow, from the analysis toolkit to the generation toolkit: it reads timelines and uses the formulas and records" src="../figures/diagrams/roadmap_modules.png" /></p>
+<p><img alt="the package map in two boxes, top to bottom. The analysis toolkit fdia_analysis: federated (training across clients, uses localization and se), localization (which buses, uses se), trust (which meters, uses se), se (state estimation) and the results store. One arrow, from the analysis toolkit down to the generation toolkit: it reads timelines and uses the formulas and records. The generation toolkit fdia_graph: dataset (fg.load: FdiaGraph, the loader), with registry.py and download.py at the package root; generation and engine (fg.generate: the walk, physics and attacks) over the foundations: systems, sensing, models, formulas and constants" src="../figures/diagrams/roadmap_modules.png" /></p>
+<h2 id="install">Install<a class="headerlink" href="#install" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>command</th>
+<th>gives</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>pip install fdia-graph</code></td>
+<td>the loader (numpy, h5py)</td>
+</tr>
+<tr>
+<td><code>pip install "fdia-graph[torch]"</code></td>
+<td>adds the PyTorch DataLoader</td>
+</tr>
+<tr>
+<td><code>pip install "fdia-graph[pyg]"</code></td>
+<td>adds torch_geometric records and timelines</td>
+</tr>
+<tr>
+<td><code>pip install "fdia-graph[generate]"</code></td>
+<td>adds pandapower, to generate timelines</td>
+</tr>
+<tr>
+<td><code>pip install "fdia-graph[iso]"</code></td>
+<td>adds gridstatus, to download CAISO and ERCOT load profiles (NYISO needs no extra)</td>
+</tr>
+<tr>
+<td><code>pip install "fdia-graph[ny]"</code></td>
+<td>adds what the New York build needs (pandapower, Pyomo; the Ipopt binary is installed apart): <a href="../guides/new_york/"><code>guides/new_york.md</code></a></td>
+</tr>
+<tr>
+<td><code>pip install "fdia-graph[all]"</code></td>
+<td>every extra above</td>
+</tr>
+<tr>
+<td><code>pip install fdia-analysis</code></td>
+<td>the analysis toolkit and <code>fdia-graph</code>: the threshold localizers and the results store</td>
+</tr>
+<tr>
+<td><code>pip install "fdia-analysis[se]"</code></td>
+<td>adds pandapower and scipy, for <code>fdia_analysis.se</code> and the residual localizer</td>
+</tr>
+<tr>
+<td><code>pip install "fdia-analysis[torch]"</code></td>
+<td>adds torch, for the learned localizers</td>
+</tr>
+<tr>
+<td><code>pip install "fdia-analysis[federated]"</code></td>
+<td>adds torch and scikit-learn, for <code>fdia_analysis.federated</code></td>
+</tr>
+<tr>
+<td><code>pip install "fdia-analysis[all]"</code></td>
+<td>every analysis extra above</td>
+</tr>
+</tbody>
+</table>
+<p>Data is pinned per package version and cached in <code>~/.cache/fdia_graph</code>. <code>fg.load(..., release="v0.8.1")</code>
+reads another data release, any timeline release from v0.8.0; <code>pip install --upgrade fdia-graph</code> moves
+the pin forward.</p>
 <h2 id="the-two-paths">The two paths<a class="headerlink" href="#the-two-paths" title="Permanent link">&para;</a></h2>
-<p><img alt="fg.generate from ISO load series through the AC pool, the timeline walk and one scan per frame to one registered HDF5 file, and fg.load from registry.resolve through the cached download to FdiaGraph in random or time order" src="../figures/diagrams/roadmap_generate_load.png" /></p>
+<p><img alt="the two paths as one column: a pool of operating points (the released pool, or your own from profiles.generate_states) feeds fg.generate, whose walk places attack episodes and benign frames; one scan is made per frame (sensing: meters and noise; engine: attacks); the result is one registered HDF5 file (data, benign, clean, episodes, attack); fg.load resolves the name and release in the registry, download.ensure_local caches and checks the file, and FdiaGraph gives records and batches in random order, windows and episodes in time order" src="../figures/diagrams/roadmap_generate_load.png" /></p>
 <h2 id="files">Files<a class="headerlink" href="#files" title="Permanent link">&para;</a></h2>
 <p>Every package has one page that says what each of its files does, and <code>tools/layout.py</code> checks that the page
 names them all. The one-line summary of every file of the repository is
@@ -1741,7 +1827,7 @@ names them all. The one-line summary of every file of the repository is
 </tr>
 </tbody>
 </table>
-<p>The analysis toolkit, <code>analysis/src/fdia_analysis/</code> (<a href="../analysis/README.md"><code>../analysis/README.md</code></a>):</p>
+<p>The analysis toolkit, <code>analysis/src/fdia_analysis/</code> (<a href="https://github.com/myersben9/fdia-graph/blob/main/analysis/README.md"><code>analysis/README.md</code></a>):</p>
 <table>
 <thead>
 <tr>
@@ -1760,7 +1846,7 @@ names them all. The one-line summary of every file of the repository is
 </tr>
 <tr>
 <td><code>results/</code></td>
-<td>the results store's code: <a href="../results/README.md"><code>../results/README.md</code></a></td>
+<td>the results store's code: <a href="https://github.com/myersben9/fdia-graph/blob/main/results/README.md"><code>results/README.md</code></a></td>
 </tr>
 <tr>
 <td><code>models/</code></td>
@@ -1849,6 +1935,10 @@ tool; the generated table opens <a href="../reference/MODULES/"><code>reference/
 <tr>
 <td><code>figures/</code></td>
 <td>shared images with their data sidecars</td>
+</tr>
+<tr>
+<td><code>stylesheets/</code></td>
+<td>the docs site's stylesheet: the display width of the phone diagrams</td>
 </tr>
 </tbody>
 </table>
