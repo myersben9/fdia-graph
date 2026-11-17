@@ -1751,7 +1751,7 @@ and converts them on load.</p>
 </tr>
 <tr>
 <td>Meter model (hybrid SCADA and PMU, the plan's D10)</td>
-<td><code>MeasurementMixin.meter_masks</code> (the angle at the PMU buses only), <code>current_mask</code> and <code>_emit_currents</code> (the PMU branch currents <code>I_f = Y_f V</code>, <code>I_t = Y_t V</code>, <code>formulas.network.branch_currents</code>, noise <code>formulas.noise.current_sigma</code>); chosen by <code>generate_timeline(..., redundancy={"meter_model": ...})</code> through <code>models.MeterSettings</code></td>
+<td><code>MeasurementMixin.meter_masks</code> (the angle at the PMU buses only), <code>current_mask</code> and <code>_emit_currents</code> (the PMU branch currents <code>I_f = Y_f V</code>, <code>I_t = Y_t V</code>, <code>formulas.network.branch_currents</code>, noise <code>formulas.noise.current_sigma</code>); chosen by <code>generate_timeline(..., redundancy={"meter_model": ...})</code> through <code>models.config.MeterSettings</code></td>
 </tr>
 <tr>
 <td>PMU pseudo-measurements <code>V_f = (I_n − y_nn V_n)/y_nf</code> [WU26, eq. (3)]</td>

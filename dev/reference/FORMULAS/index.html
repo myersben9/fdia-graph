@@ -1620,7 +1620,7 @@ objects); one test checks it on a case small enough to verify by hand.</p>
 <tbody>
 <tr>
 <td>regional subspace prior</td>
-<td><code>formulas.federated.block_diagonal_basis</code>, through <code>federated.RegionalPrior</code></td>
+<td><code>formulas.federated.block_diagonal_basis</code>, through <code>federated.se.RegionalPrior</code></td>
 <td>V[cols_k, block k] = V_k from each client's own <code>whitened_svd_basis</code>, zero elsewhere; orthonormal for disjoint column sets</td>
 <td>[EST26], [FED26]</td>
 <td>the federated fit of the estimator's prior</td>
@@ -1634,7 +1634,7 @@ objects); one test checks it on a case small enough to verify by hand.</p>
 </tr>
 <tr>
 <td>the buses of each client</td>
-<td><code>formulas.federated.interior_boundary</code>, <code>cut_edge_count</code>, <code>attackable_affinity</code>, <code>hop_distance</code>, <code>halo_nodes</code>, through <code>federated.spectral_partition</code> and <code>compute_nodes</code></td>
+<td><code>formulas.federated.interior_boundary</code>, <code>cut_edge_count</code>, <code>attackable_affinity</code>, <code>hop_distance</code>, <code>halo_nodes</code>, through <code>federated.partition.spectral_partition</code> and <code>compute_nodes</code></td>
 <td>interior: every neighbour in the same client; cut edges: ends in different clients; W = A ⊙ √(m mᵀ), m = heavy at attackable buses; halo: other clients' buses within h hops, own buses first</td>
 <td>[VLX07], [FED26]</td>
 <td>the federated partition</td>
@@ -1809,7 +1809,7 @@ objects); one test checks it on a case small enough to verify by hand.</p>
 </tr>
 <tr>
 <td>greedy trusted meters</td>
-<td><code>fdia_analysis.formulas.trust.greedy_trusted_meters</code>, called by <code>trust.TrustedMeters</code></td>
+<td><code>fdia_analysis.formulas.trust.greedy_trusted_meters</code>, called by <code>trust.base.TrustedMeters</code></td>
 <td>secure, on the cheapest open attack, the meter whose protection leaves the costliest cheapest attack; ties to the meter the most basis attacks pass through</td>
 <td>[WU26], the row-reduction selection</td>
 <td><code>TrustedMeters</code></td>

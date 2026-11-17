@@ -1,6 +1,5 @@
 flowchart TB
     subgraph fdia_graph["fdia-graph, the generation toolkit: src/fdia_graph"]
-        _lazy["_lazy"]
         dataset["dataset/"]
         download["download.py"]
         engine["engine/"]
@@ -20,15 +19,12 @@ flowchart TB
     dataset --> engine
     dataset --> generation
     download --> registry
-    engine --> _lazy
     engine --> generation
     engine --> ratings
     engine --> registry
     federated --> dataset
     federated --> localization
     federated --> se
-    generation --> _lazy
-    generation --> dataset
     generation --> download
     generation --> engine
     generation --> profiles

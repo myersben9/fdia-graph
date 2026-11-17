@@ -1721,6 +1721,81 @@
 the public API, the generated files and the numbers are the same as the previous release.</p>
 <h2 id="unreleased">Unreleased<a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
 <ul>
+<li><strong>The analysis toolkit's names are imported from the module that defines them: the eight tables of
+  re-exported names in <code>fdia_analysis</code> are removed (breaking for these import paths; no behaviour, no
+  stored byte and no result number changed).</strong> The same change as the generation toolkit's, below. Each
+  package's <code>__init__.py</code> is now its docstring; <code>import fdia_analysis</code> and <code>fdia_analysis.__version__</code>
+  are unchanged.</li>
+<li><code>fdia_analysis.se</code> exports no name: <code>WLS</code>, <code>AdaptiveWeighting</code>, <code>ResidualRemoval</code>, <code>SubspacePrior</code>,
+    <code>JacobianWeighting</code> and <code>GatedPrior</code> come from <code>fdia_analysis.se.methods</code>, <code>SEBase</code> from <code>se.base</code>,
+    <code>JacobianFeatures</code> from <code>se.jacobian</code>. <code>fdia_analysis.se.detect</code> exports none either: <code>AlarmRule</code> and
+    <code>PersistenceRule</code> come from <code>se.detect.rules</code>.</li>
+<li><code>fdia_analysis.localization</code>: <code>SwingThreshold</code>, <code>DeltaThreshold</code> and <code>ResidualLocalizer</code> come from
+    <code>localization.methods</code>, <code>BusCNN</code>, <code>BusMLP</code>, <code>LearnedLocalizer</code>, <code>full14</code> and <code>kcl_residual</code> from
+    <code>localization.learned</code>, <code>LocalizerBase</code> from <code>localization.base</code>.</li>
+<li><code>fdia_analysis.federated</code>: <code>FedBusCNN</code>, <code>FedBusMLP</code> and <code>FederatedLocalizer</code> come from
+    <code>federated.localizer</code>, <code>spectral_partition</code>, <code>partition_from_assignment</code>, <code>bus_adjacency</code> and
+    <code>compute_nodes</code> from <code>federated.partition</code>, <code>RegionalPrior</code> from <code>federated.se</code>; <code>Partition</code> and
+    <code>RoundLog</code> from <code>fdia_analysis.models.federated</code>, which defines them.</li>
+<li><code>fdia_analysis.trust</code>: <code>TrustedMeters</code> and <code>TrustSelector</code> come from <code>trust.base</code>, <code>TrustedMetersDQN</code>
+    from <code>trust.meter_dqn</code>, <code>secured_copy</code> from <code>trust.secured</code>.</li>
+<li><code>fdia_analysis.results</code>: <code>Run</code> comes from <code>results.run</code>, <code>Store</code> from <code>results.store</code>, <code>QUERIES</code>,
+    <code>fill</code>, <code>query</code> and <code>stale</code> from <code>results.docs</code>, <code>cell</code>, <code>figure_data</code>, <code>pivot</code> and <code>table</code> from
+    <code>results.render</code>; <code>METRICS</code>, <code>Better</code>, <code>Metric</code>, <code>Provenance</code> and <code>Record</code> from
+    <code>fdia_analysis.models.results</code>, which defines them.</li>
+<li><code>fdia_analysis.models</code> exports no name (<code>__all__</code> and <code>PUBLIC</code> are gone): <code>from fdia_analysis.models
+    import PriorConfig</code> becomes <code>from fdia_analysis.models.config import PriorConfig</code>, and likewise
+    <code>models.inputs</code>, <code>models.scores</code>, <code>models.data</code>, <code>models.grid</code>, <code>models.federated</code>, <code>models.training</code>
+    and <code>models.results</code>. The bundles the data dictionary lists for this toolkit are the ones
+    <code>models/scores.py</code> defines, now in that file's order (the same eleven tables, each unchanged).</li>
+<li><code>fdia_analysis.formulas</code> exports no name: a formula is imported from <code>formulas.estimation</code>,
+    <code>formulas.federated</code>, <code>formulas.linalg</code>, <code>formulas.measurement</code>, <code>formulas.metrics</code>,
+    <code>formulas.projection</code> or <code>formulas.trust</code>.</li>
+<li>As for any package, <code>fdia_analysis.se.methods</code> (or any other submodule) is an attribute of its package
+    only once that submodule has been imported.</li>
+<li><strong>Names only the tests reached are removed (breaking for these names; no behaviour and no stored byte
+  changed).</strong> None was named in the docs or used by either toolkit.</li>
+<li><code>FdiaGraph.edge_attr_np</code> is gone: <code>ds.edge_attr.numpy()</code> holds the same values.</li>
+<li><code>fdia_graph.engine.records.stealthy_state</code>, <code>with_region</code> and <code>is_feasible</code> are gone: they were
+    aliases of the <code>FalseStateMixin</code> methods of the same names, which every caller already used.</li>
+<li><code>fdia_graph.schema.ATTR_KEYS</code> and <code>fdia_graph.schema.CURRENT_LAYERS</code> are gone (the tests that compared
+    a file against them build the two sets themselves, from <code>schema.Attr</code> and the four <code>PMU_I*</code> paths).</li>
+<li><code>fdia_graph.timeline.DEFAULT_FAMILIES</code> is gone: it was <code>models.choices.GENERATED_FAMILIES</code>.</li>
+<li><code>fdia_graph.generation.nygrid.loads.SWITCH_INDUSTRIAL_MW</code> is gone: a constant no code read.</li>
+<li><strong>A name is imported from the module that defines it: the tables of re-exported names are removed
+  (breaking for these import paths; no behaviour and no stored byte changed).</strong> <code>fg.load</code>, <code>fg.generate</code>,
+  the profile helpers, <code>fg.FdiaGraph</code> and the rest of <code>import fdia_graph as fg</code> are unchanged, and so is
+  <code>fdia_graph.timeline.generate_timeline</code>.</li>
+<li><code>fdia_graph.models</code> exports no name (<code>__all__</code> and <code>PUBLIC</code> are gone): <code>from fdia_graph.models import
+    RecordBundle</code> becomes <code>from fdia_graph.models.data import RecordBundle</code>, and likewise <code>models.base</code>
+    (<code>Bundle</code>), <code>models.config</code> (the settings), <code>models.inputs</code>, <code>models.fields</code>, <code>models.frames</code>,
+    <code>models.grid</code> (<code>NODE</code>, <code>EDGE</code>, <code>CURRENT</code>, <code>MeterPlan</code>, ...), <code>models.plan</code> and <code>models.assets</code>. The
+    bundles the data dictionary lists are the ones <code>models/data.py</code> defines.</li>
+<li><code>fdia_graph.formulas</code> exports no name: a formula is imported from <code>formulas.network</code>, <code>formulas.noise</code>,
+    <code>formulas.attacks</code>, <code>formulas.temporal</code> or <code>formulas.trust</code>.</li>
+<li><code>fdia_graph.generation.nygrid</code> exports no name: <code>nygrid_case</code>, <code>Case</code> and <code>ZONES</code> come from
+    <code>generation.nygrid.case</code>, <code>Network</code> from <code>.network</code>, <code>read_pool</code> and <code>write_pool</code> from <code>.io</code>, <code>Pool</code>,
+    <code>PoolBuilder</code>, <code>peak_ratings</code> and the solve kinds from <code>.pool</code>, <code>NewYorkSource</code>, <code>SingleEpisodeSource</code> and
+    <code>Survey</code> from <code>.source</code>, <code>Settings</code> and <code>rng</code> from <code>.config</code>, and so on by module; <code>Dataset</code> and
+    <code>ClientView</code> from <code>fdia_graph.dataset.clients</code>, <code>ipopt</code> from <code>fdia_graph.engine.solvers</code>.</li>
+<li><code>fdia_graph.engine.sensing</code> exports no name (<code>meters.MeterPlan</code>, <code>meters.plan_meters</code>, <code>meters.KINDS</code>,
+    <code>measure.Measurement</code>, <code>noise.NoiseModel</code>), and <code>fdia_graph.engine</code> none: <code>FdiaGenerator</code> is
+    <code>fdia_graph.engine.core.FdiaGenerator</code>.</li>
+<li><code>fdia_graph.generation</code> no longer serves <code>DesignPool</code>, <code>IeeeSource</code> and <code>TimelineSource</code>: they are
+    <code>generation.design.DesignPool</code>, <code>generation.ieee.IeeeSource</code> and <code>generation.source.TimelineSource</code>.</li>
+<li>The module <code>fdia_graph._lazy</code> (<code>attach</code>) is removed with the tables it served.</li>
+<li>The errors have one home, <code>fdia_graph.errors</code>, which now defines them: the module
+    <code>fdia_graph.models.errors</code> is removed, and <code>ConfigError</code> and <code>MissingCapability</code> are no longer names of
+    <code>fdia_graph.models.validation</code>. The classes are the same ones, so an <code>except</code> clause is unaffected;
+    their <code>__module__</code> is now <code>fdia_graph.errors</code>, which is what a traceback, a <code>repr</code> and a pickle name.</li>
+<li><code>fdia_graph.formulas.&lt;module&gt;</code> and <code>fdia_graph.models.&lt;module&gt;</code> are attributes of the package only once
+    that submodule has been imported, as for any package: <code>import fdia_graph.formulas</code> alone no longer
+    makes <code>fdia_graph.formulas.network</code> reachable; <code>import fdia_graph.formulas.network</code> does.</li>
+<li>The module-level <code>__all__</code> lists of <code>models.fields</code>, <code>formulas.trust</code>, <code>engine.solvers</code>,
+    <code>generation.nygrid.tables</code> and <code>fdia_analysis.se.detect.rules</code> are removed. Nothing star-imported
+    these modules; <code>from fdia_graph import *</code> keeps its list.</li>
+<li><code>import fdia_graph</code> loads six fewer modules than before (four formula modules, <code>models.frames</code> and
+    <code>models.plan</code>, which only the tables pulled in) and, as before, neither pandapower, torch, pandas, scipy nor Pyomo.</li>
 <li><strong>One file layout: a New York timeline is written in the layout of every timeline (breaking for New York
   files; IEEE files are unchanged).</strong> The New York grid wrote its own layout with its own writer and reader.
   It now writes the groups, datasets and attributes named in <code>fdia_graph.schema</code>, through the writer the IEEE
@@ -1815,7 +1890,7 @@ the public API, the generated files and the numbers are the same as the previous
   number changes (no results block of the docs changed). No alias is kept for a moved name.</p>
 </li>
 <li>What a caller sees, in short. The imports of the analysis packages change from <code>fdia_graph.*</code> to
-    <code>fdia_analysis.*</code> (<code>from fdia_graph.se import WLS</code> becomes <code>from fdia_analysis.se import WLS</code>). The <code>se</code>
+    <code>fdia_analysis.*</code> (<code>from fdia_graph.se import WLS</code> becomes <code>from fdia_analysis.se.methods import WLS</code>). The <code>se</code>
     and <code>federated</code> extras move to <code>fdia-analysis</code> (<code>pip install "fdia-graph[se]"</code> becomes
     <code>pip install "fdia-analysis[se]"</code>). The two toolkits share one version and are released together:
     <code>fdia-analysis</code> X.Y.Z requires exactly <code>fdia-graph==X.Y.Z</code>, so upgrading one upgrades the other.</li>
@@ -1823,7 +1898,8 @@ the public API, the generated files and the numbers are the same as the previous
     <code>fdia_graph.localization</code> is <code>fdia_analysis.localization</code>, <code>fdia_graph.federated</code> is
     <code>fdia_analysis.federated</code>, <code>fdia_graph.trust</code> is <code>fdia_analysis.trust</code>, and <code>fdia_graph.results</code> (the
     results store's code) is <code>fdia_analysis.results</code>. Their classes and functions keep their names and
-    behaviour: <code>from fdia_analysis.se import WLS</code>, <code>from fdia_analysis.localization import SwingThreshold</code>.</li>
+    behaviour: <code>from fdia_analysis.se.methods import WLS</code>,
+    <code>from fdia_analysis.localization.methods import SwingThreshold</code>.</li>
 <li>What stays in <code>fdia_graph</code>: <code>fg.load</code>, <code>fg.generate</code>, <code>FdiaGraph</code>, the profiles, the registry and the
     download, the file protocol (<code>schema</code>), <code>generation</code> (the New York grid included), <code>engine</code>, <code>dataset</code>,
     <code>ratings</code>, <code>errors</code> (every named error, the ones the analysis packages raise too), and the models and
@@ -1845,7 +1921,8 @@ the public API, the generated files and the numbers are the same as the previous
     <code>OptimConfig</code> (all of <code>models.training</code>), and the results store's records (all of <code>models.results</code>:
     <code>Record</code>, <code>Provenance</code>, <code>RunRecords</code>, <code>Metric</code>, <code>METRICS</code>, <code>Better</code>, <code>Leaf</code>, <code>KEYS</code>, <code>leaves</code>,
     <code>as_values</code>). Each is in the module of the same name (<code>fdia_analysis.models.config</code>, and so on).
-    <code>fdia_graph.models.PUBLIC</code> names the loader's bundles and <code>fdia_analysis.models.PUBLIC</code> the score tables.</li>
+    The loader's bundles are the ones <code>fdia_graph.models.data</code> defines; the score tables are the ones
+    <code>fdia_analysis.models.scores</code> defines.</li>
 <li>The formulas only the analysis packages use are in <code>fdia_analysis.formulas</code>. Whole modules:
     <code>formulas.estimation</code> (<code>normal_matrix</code>, <code>wls_step</code>, <code>wls_step_batched</code>, <code>weighted_objective</code>,
     <code>residual_covariance_diag</code>, <code>critical_measurements</code>, <code>floored_covariance</code>, <code>normalized_residual</code>,
@@ -2008,7 +2085,7 @@ the public API, the generated files and the numbers are the same as the previous
     release, as before.</li>
 <li>The dataset accessors <code>edge_status</code>, <code>edge_is_trafo</code>, <code>bus_type</code>, <code>bus_vmin</code>, <code>bus_vmax</code>, <code>bus_base_kv</code>,
     <code>bus_is_zero_inj</code>, <code>bus_has_gen</code>, <code>bus_base_pd</code>, <code>bus_base_qd</code> and <code>bus_attackable</code> are removed.
-    <code>ds.edge_attr</code>, <code>ds.edge_attr_np</code>, the <code>ds.branch_*</code> columns and <code>ds.bus_shunt_g</code> / <code>ds.bus_shunt_b</code> stay.</li>
+    <code>ds.edge_attr</code>, the <code>ds.branch_*</code> columns and <code>ds.bus_shunt_g</code> / <code>ds.bus_shunt_b</code> stay.</li>
 <li><code>models.TimelineKnobs</code> is removed: <code>TimelineSettings</code> holds the same settings and is what
     <code>generate_timeline</code> reads.</li>
 <li><code>models.BranchColumns</code>, <code>models.BranchIndex</code>, <code>models.BRANCH</code> and <code>models.CurrentColumns</code> are removed. The

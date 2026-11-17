@@ -1833,10 +1833,6 @@
 <td>fdia-graph — load &amp; generate ML-only dangerous FDIA localization datasets (realistic measurement graphs).</td>
 </tr>
 <tr>
-<td><code>_lazy</code></td>
-<td>Public names that load on first use, for the nygrid packages and <code>fdia_graph.generation</code>.</td>
-</tr>
-<tr>
 <td><code>dataset</code></td>
 <td>FdiaGraph: a PyTorch-ready dataset over one HDF5 file, a timeline (one row per frame in time order, <code>kind="timeline"</code>).</td>
 </tr>
@@ -1974,11 +1970,11 @@
 </tr>
 <tr>
 <td><code>errors</code></td>
-<td>Every error the package raises on purpose, in one place.</td>
+<td>Every error the package raises on purpose, defined in this one module.</td>
 </tr>
 <tr>
 <td><code>formulas</code></td>
-<td>The mathematics of the generation toolkit as named, pure functions: numpy in, numpy out, no files, no dataset objects, no torch. Each function carries its equation and a source key from docs/reference/REFERENCES.md; docs/reference/FORMULAS.md is the catalogue. The formulas of estimation, localization, federated training and trust selection are the analysis toolkit's (<code>fdia_analysis.formulas</code>).</td>
+<td>The mathematics of the generation toolkit as named, pure functions: numpy in, numpy out, no files, no dataset objects, no torch. Each function carries its equation and a source key from docs/reference/REFERENCES.md; docs/reference/FORMULAS.md is the catalogue. Import a formula from its module (<code>formulas.network</code>, <code>formulas.noise</code>, <code>formulas.attacks</code>, <code>formulas.temporal</code>, <code>formulas.trust</code>). The formulas of estimation, localization, federated training and trust selection are the analysis toolkit's (<code>fdia_analysis.formulas</code>).</td>
 </tr>
 <tr>
 <td><code>formulas.attacks</code></td>
@@ -2094,7 +2090,7 @@
 </tr>
 <tr>
 <td><code>models</code></td>
-<td>Every data model of the generation toolkit in one place.</td>
+<td>Every data model of the generation toolkit, one module per subject; import a model from its module.</td>
 </tr>
 <tr>
 <td><code>models.assets</code></td>
@@ -2115,10 +2111,6 @@
 <tr>
 <td><code>models.data</code></td>
 <td>What a user gets back: one record, a batch, a whole split, a summary, the episode table, and the per-record truth an estimator is scored against. Each is a Bundle, so it is still the dict it always was.</td>
-</tr>
-<tr>
-<td><code>models.errors</code></td>
-<td>The named errors of conditions only the data reveals, beside <code>ConfigError</code> so a model can raise one (<code>Validated.error</code>), and the one error of an environment that cannot run a step (<code>SolverUnavailable</code>). <code>fdia_graph.errors</code> re-exports every one.</td>
 </tr>
 <tr>
 <td><code>models.fields</code></td>
@@ -2201,7 +2193,7 @@
 </tr>
 <tr>
 <td><code>formulas</code></td>
-<td>The mathematics of the analysis toolkit as named, pure functions: numpy in, numpy out, no files, no dataset objects, no torch. Each function carries its equation and a source key from docs/reference/REFERENCES.md; docs/reference/FORMULAS.md is the catalogue. The network model, the meter noise and the attack shapes are the generation toolkit's (<code>fdia_graph.formulas</code>).</td>
+<td>The mathematics of the analysis toolkit as named, pure functions: numpy in, numpy out, no files, no dataset objects, no torch. Each function carries its equation and a source key from docs/reference/REFERENCES.md; docs/reference/FORMULAS.md is the catalogue. The network model, the meter noise and the attack shapes are the generation toolkit's (<code>fdia_graph.formulas</code>). Import a formula from its module (<code>formulas.estimation</code>, <code>formulas.federated</code>, <code>formulas.linalg</code>, <code>formulas.measurement</code>, <code>formulas.metrics</code>, <code>formulas.projection</code>, <code>formulas.trust</code>).</td>
 </tr>
 <tr>
 <td><code>formulas.estimation</code></td>
@@ -2475,7 +2467,7 @@
 </tr>
 <tr>
 <td><code>tests/nygrid/test_public.py</code></td>
-<td>The public surface of the New York code: every package's names resolve, reading a dataset stays light, and the names that became public keep their old spelling for one release (no data needed).</td>
+<td>The public surface of the New York code: every module of its packages imports, a package exports no name of its own, and reading a dataset stays light (no data needed).</td>
 </tr>
 <tr>
 <td><code>tests/nygrid/test_release_source.py</code></td>
@@ -2543,7 +2535,7 @@
 </tr>
 <tr>
 <td><code>tests/test_models_package.py</code></td>
-<td>Every data model of a toolkit lives in its <code>models</code> package: the package names them all, they are defined nowhere else, and its own modules depend on nothing but numpy and the standard library. The checks are functions of the package (tests/helpers.py), so the analysis toolkit holds its own <code>fdia_analysis.models</code> to them (analysis/tests/test_models_package.py).</td>
+<td>Every data model of a toolkit lives in its <code>models</code> package: they are defined nowhere else, each is imported from the module that defines it, and the package's own modules depend on nothing but numpy, the standard library and the named errors (<code>fdia_graph.errors</code>). The checks are functions of the package (tests/helpers.py), so the analysis toolkit holds its own <code>fdia_analysis.models</code> to them (analysis/tests/test_models_package.py).</td>
 </tr>
 <tr>
 <td><code>tests/test_namespace.py</code></td>
@@ -2650,7 +2642,7 @@
 <tbody>
 <tr>
 <td><code>analysis/tests/test_detect.py</code></td>
-<td>The detection building block: the persistence rule and its calibration, the package's public names, the rule's golden snapshot (<code>golden/persistence_rule.json</code>: a change of behavior fails here and has to say why), and the alarm-rule example of docs/guides/extending_new_york.md run as published (no data needed).</td>
+<td>The detection building block: the persistence rule and its calibration, the package that exports no name, the rule's golden snapshot (<code>golden/persistence_rule.json</code>: a change of behavior fails here and has to say why), and the alarm-rule example of docs/guides/extending_new_york.md run as published (no data needed).</td>
 </tr>
 <tr>
 <td><code>analysis/tests/test_edges.py</code></td>
@@ -2686,7 +2678,7 @@
 </tr>
 <tr>
 <td><code>analysis/tests/test_models_package.py</code></td>
-<td>Every data model of the analysis toolkit lives in <code>fdia_analysis.models</code>: the package names them all, they are defined nowhere else, no name of it is also a name of <code>fdia_graph.models</code>, and its own modules depend on nothing but numpy, the standard library and the generation toolkit's models. The checks are the generation toolkit's (tests/test_models_package.py), run on this package.</td>
+<td>Every data model of the analysis toolkit lives in <code>fdia_analysis.models</code>: they are defined nowhere else, each is imported from the module that defines it (no package of the toolkit exports a name), no name of it is also a name of <code>fdia_graph.models</code>, and its own modules depend on nothing but numpy, the standard library and the generation toolkit's models. The checks are the generation toolkit's (tests/test_models_package.py), run on this package.</td>
 </tr>
 <tr>
 <td><code>analysis/tests/test_old_releases.py</code></td>

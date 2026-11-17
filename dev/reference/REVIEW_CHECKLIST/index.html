@@ -1797,7 +1797,7 @@ A kind of finding that keeps coming up becomes a checklist item or a mechanical 
 <li>A removed or renamed public name is a changelog entry; no alias, shim or warning period is kept
      (old behaviour lives in the released versions).</li>
 <li>Dataclass field order does not change.</li>
-<li>New public names are exported.</li>
+<li>A new public name is imported from its defining module; no package <code>__init__.py</code> re-exports it.</li>
 <li><strong>Tooling and CI.</strong></li>
 <li>Workflow inputs reach a shell through <code>env:</code>, never through <code>${{ }}</code> inside <code>run:</code>.</li>
 <li>List endpoints are paginated.</li>

@@ -1684,12 +1684,8 @@ names them all. The one-line summary of every file of the repository is
 <td>the public API; the heavy helpers resolve lazily so <code>load()</code> never imports torch or pandapower</td>
 </tr>
 <tr>
-<td><code>_lazy.py</code></td>
-<td>the public names of the New York packages, loaded on first use</td>
-</tr>
-<tr>
 <td><code>errors.py</code></td>
-<td>every error the package raises on purpose</td>
+<td>every error the package raises on purpose, defined there</td>
 </tr>
 <tr>
 <td><code>registry.py</code>, <code>download.py</code></td>
@@ -1713,7 +1709,7 @@ names them all. The one-line summary of every file of the repository is
 </tr>
 <tr>
 <td><code>models/</code></td>
-<td>every value bundle the toolkit passes or returns, one module per subject: <code>fdia_graph/models/base.py</code> (<code>Bundle</code>), <code>fields.py</code> (the field groups bundles share), <code>fdia_graph/models/grid.py</code>, <code>frames.py</code>, <code>plan.py</code> (a timeline's plan and design records), <code>fdia_graph/models/data.py</code>, <code>assets.py</code>; the settings in <code>fdia_graph/models/config.py</code> and the parser inputs in <code>fdia_graph/models/inputs.py</code>, checked by the one engine in <code>fdia_graph/models/validation.py</code>; the fixed-set arguments in <code>fdia_graph/models/choices.py</code> and the data-condition errors in <code>models/errors.py</code>. <a href="../reference/DATA_DICTIONARY/"><code>reference/DATA_DICTIONARY.md</code></a> lists every field</td>
+<td>every value bundle the toolkit passes or returns, one module per subject: <code>fdia_graph/models/base.py</code> (<code>Bundle</code>), <code>fields.py</code> (the field groups bundles share), <code>fdia_graph/models/grid.py</code>, <code>frames.py</code>, <code>plan.py</code> (a timeline's plan and design records), <code>fdia_graph/models/data.py</code>, <code>assets.py</code>; the settings in <code>fdia_graph/models/config.py</code> and the parser inputs in <code>fdia_graph/models/inputs.py</code>, checked by the one engine in <code>fdia_graph/models/validation.py</code>; and the fixed-set arguments in <code>fdia_graph/models/choices.py</code>. A model is imported from its module; the package's <code>__init__.py</code> exports no name. <a href="../reference/DATA_DICTIONARY/"><code>reference/DATA_DICTIONARY.md</code></a> lists every field</td>
 </tr>
 <tr>
 <td><code>ratings/</code></td>

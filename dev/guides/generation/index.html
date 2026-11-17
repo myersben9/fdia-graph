@@ -2005,7 +2005,7 @@ timeline is pool timestep <code>t</code> (<code>data/timestep</code>).</p>
 default, <code>"hybrid"</code>, is a SCADA and PMU plan as in [WU26]: a SCADA voltmeter reads <code>|V|</code> only, a PMU
 reads <code>|V|</code>, the angle and the current phasor of every in-service branch at its bus [WU26, eqs.
 17-20]. The released files up to v0.8.3 wrote an angle at every voltmeter bus and read no
-currents; the loader reads them, the generator no longer writes them (<code>models.MeterSettings</code>, the
+currents; the loader reads them, the generator no longer writes them (<code>models.config.MeterSettings</code>, the
 plan's D12).</p>
 <p>Injection buses are those with a generator, a load, the external grid, a shunt or a producing static
 generator; every other bus is zero-injection (<code>FdiaGenerator._load_tables</code>). The two sets cover every
@@ -2651,7 +2651,7 @@ recent change on every frame, so its swing stays near the benign level (<code>fo
 <td>evaluation: what a secured meter reads</td>
 </tr>
 <tr>
-<td><code>trust.secured_copy</code></td>
+<td><code>trust.secured.secured_copy</code></td>
 <td><code>benign</code>, the tamper masks</td>
 <td>builds a counterfactual file, then rewrites the temporal features from its observed frames</td>
 </tr>

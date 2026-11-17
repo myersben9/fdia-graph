@@ -1717,7 +1717,7 @@ checks a docs change locally.</p>
 </tr>
 <tr>
 <td>no measured number is typed into markdown</td>
-<td>a harness writes what it measures through <code>fdia_analysis.results.Run</code> into the results store (<code>results/</code>, see its README); a doc shows a number or a table through a results block (<code>&lt;!-- results: &lt;query&gt; ... --&gt;</code>, queries in <code>results/queries.py</code>), a CHANGELOG entry names the experiment; settings and published values from papers stay as text</td>
+<td>a harness writes what it measures through <code>fdia_analysis.results.run.Run</code> into the results store (<code>results/</code>, see its README); a doc shows a number or a table through a results block (<code>&lt;!-- results: &lt;query&gt; ... --&gt;</code>, queries in <code>results/queries.py</code>), a CHANGELOG entry names the experiment; settings and published values from papers stay as text</td>
 <td><code>python tools/results_docs.py --write</code>, <code>--check</code>; <code>--lint</code> lists typed decimals</td>
 </tr>
 <tr>
