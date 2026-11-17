@@ -1665,7 +1665,8 @@ false alarms on benign days of other months beside its detection rate.</p>
   the checks). A study on another grid passes its own <code>Case</code> (<code>Case.from_matpower</code> of its own file) wherever the
   package takes one; that file must follow this file's conventions: area 1 on every bus, and the zone codes
   of the legend in its header (1 to 11 the NYISO load zones, 12 to 15 the neighbors). A change to the file moves generated numbers, so it comes with the goldens and digests below.</li>
-<li>The golden snapshots (<code>tests/nygrid/test_golden.py</code>) pin what the persistence rule and the
+<li>The golden snapshots (<code>tests/nygrid/test_golden.py</code>, and <code>analysis/tests/test_detect.py</code> for the
+  persistence rule) pin what the persistence rule and the
   interface attack return on fixed inputs. A change that should not move a number must pass them unchanged; one
   that should must rewrite them (<code>NYGRID_UPDATE_GOLDEN=1</code>) and say in the pull request which numbers moved and why.</li>
 <li>The timeline digests (<code>tests/nygrid/test_timeline_digests.py</code>) pin every dataset and attribute of a built

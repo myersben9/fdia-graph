@@ -1758,15 +1758,15 @@ number the design decisions.</p>
 <p>Each box is a subpackage, one stage, and each stage reads what the one before it wrote. <code>grid</code> turns NYgrid's case into
 the network and the clients; <code>scenario</code> solves the year of true operating points (the slow step, built once into the
 pool); <code>sensing</code> places the meters; <code>attacks</code> designs each attack on a window of true states; <code>timeline</code> writes the
-noisy, labelled year. Beside the stages, <code>se/detect</code> holds the alarm rules. Each package's <code>__init__.py</code> opens with what
-its stage does.</p>
+noisy, labelled year. Beside the stages, <code>se/detect</code> holds the alarm rules, in the analysis toolkit
+(<code>fdia_analysis.se.detect</code>). Each package's <code>__init__.py</code> opens with what its stage does.</p>
 <h2 id="principles">Principles<a class="headerlink" href="#principles" title="Permanent link">&para;</a></h2>
 <ol>
 <li>A setting is an argument of the function or constructor that uses it. Code never changes a library object's
    settings, or a shared record's arrays, after it is built: a variant is a copy (<code>with_overshoot</code>,
    <code>with_voltage_margin</code>).</li>
 <li>Each package's <code>__init__.py</code> lists its public names (<code>__all__</code>), imported on first use, so reading a dataset never
-   loads pandapower or Pyomo. A name outside <code>__all__</code> is internal and may change; a public name that is renamed is a
+   loads pandapower or Pyomo (<code>se.detect</code> imports its two names directly: they need only numpy). A name outside <code>__all__</code> is internal and may change; a public name that is renamed is a
    changelog entry, with no alias kept.</li>
 <li>A class owns state, cached work, or a shared interface. A plain function is stateless math. Data records are
    frozen dataclasses of numpy arrays.</li>
@@ -1794,38 +1794,38 @@ its stage does.</p>
 <a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    tables.py           read_rows (the input CSV tables, read whole and closed)
 <a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    case.py             Case (from_matpower, check), nygrid_case, ZONES, REGIONS (Region), FILE_AREA, NY_AREA, HQ_BUS
 <a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    network.py          Network
-<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>    case_nygrid.m       the New York grid, one MATPOWER case file (140 buses, 227 branches, 271 units)
-<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>    fixes.py            externals_at_base, hvdc_links
-<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>    interfaces.py       Interface, hourly_interfaces, NYISO_INTERFACES (N48)
-<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>    ny_bus_locations.csv each NY bus located on the territories (N12)
-<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>    inputs.py           ZoneLoad, NygridHour, read_nygrid, fetch_nyiso, download_once, fetch_inputs (every input at its pinned version)
-<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>    loads.py            LoadSeries, LoadModel (the bus profiles, with their within-hour terms)
-<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>    load_sources.py     the building-stock, EIA-861, census and IAC inputs the profiles come from, downloaded once
-<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>    dispatch.py         Dispatch, hourly_dispatch
-<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>    solver.py           AcSolver, Compensation
-<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>    pool.py             Pool, PoolBuilder, peak_ratings
-<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a>    source.py           NewYorkSource (the grid as a timeline source; production() is the release's), SingleEpisodeSource, Survey
-<a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a>  engine/
-<a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a>    solvers.py          ipopt (the checked Ipopt every OPF runs on; SolverUnavailable when it cannot run)
-<a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a>  engine/sensing/
-<a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a>    __init__.py         what the stage does, and its public names
-<a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a>    meters.py           MeterPlan, plan_meters
-<a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a>    measure.py          Measurement
-<a id="__codelineno-0-26" name="__codelineno-0-26" href="#__codelineno-0-26"></a>    noise.py            NoiseModel
-<a id="__codelineno-0-27" name="__codelineno-0-27" href="#__codelineno-0-27"></a>  engine/attacks/
-<a id="__codelineno-0-28" name="__codelineno-0-28" href="#__codelineno-0-28"></a>    family.py           Episode, AttackFamily (design, design_explained), the miss reasons
-<a id="__codelineno-0-29" name="__codelineno-0-29" href="#__codelineno-0-29"></a>    attacker.py         Attacker, natural_steps, generator_ramps, generator_band, generator_q_capability, wrap_angles
-<a id="__codelineno-0-30" name="__codelineno-0-30" href="#__codelineno-0-30"></a>    opf.py              OpfFdia (the base of the OPF attacks: the support search and the per-scan local AC OPF, N35)
-<a id="__codelineno-0-31" name="__codelineno-0-31" href="#__codelineno-0-31"></a>    interface.py        InterfaceFdia (Am against a NYISO interface, N48, N49; overshoot and max_overshoot, N58)
-<a id="__codelineno-0-32" name="__codelineno-0-32" href="#__codelineno-0-32"></a>    ramp.py             Ramp
-<a id="__codelineno-0-33" name="__codelineno-0-33" href="#__codelineno-0-33"></a>  se/detect/
-<a id="__codelineno-0-34" name="__codelineno-0-34" href="#__codelineno-0-34"></a>    __init__.py         what the stage does, and its public names
-<a id="__codelineno-0-35" name="__codelineno-0-35" href="#__codelineno-0-35"></a>    rules.py            AlarmRule (protocol), PersistenceRule (k of the last n past a fitted threshold, N79)
-<a id="__codelineno-0-36" name="__codelineno-0-36" href="#__codelineno-0-36"></a>  federated/
-<a id="__codelineno-0-37" name="__codelineno-0-37" href="#__codelineno-0-37"></a>    utilities.py        Ownership, assign_clients
-<a id="__codelineno-0-38" name="__codelineno-0-38" href="#__codelineno-0-38"></a>  dataset/
-<a id="__codelineno-0-39" name="__codelineno-0-39" href="#__codelineno-0-39"></a>    clients.py          Dataset, ClientView
-<a id="__codelineno-0-40" name="__codelineno-0-40" href="#__codelineno-0-40"></a>  _lazy.py            attach: the public names of a package, imported on first use
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>    ownership.py        Ownership, assign_clients (the utility that owns each bus)
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>    case_nygrid.m       the New York grid, one MATPOWER case file (140 buses, 227 branches, 271 units)
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>    fixes.py            externals_at_base, hvdc_links
+<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>    interfaces.py       Interface, hourly_interfaces, NYISO_INTERFACES (N48)
+<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>    ny_bus_locations.csv each NY bus located on the territories (N12)
+<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>    inputs.py           ZoneLoad, NygridHour, read_nygrid, fetch_nyiso, download_once, fetch_inputs (every input at its pinned version)
+<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>    loads.py            LoadSeries, LoadModel (the bus profiles, with their within-hour terms)
+<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>    load_sources.py     the building-stock, EIA-861, census and IAC inputs the profiles come from, downloaded once
+<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>    dispatch.py         Dispatch, hourly_dispatch
+<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>    solver.py           AcSolver, Compensation
+<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a>    pool.py             Pool, PoolBuilder, peak_ratings
+<a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a>    source.py           NewYorkSource (the grid as a timeline source; production() is the release's), SingleEpisodeSource, Survey
+<a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a>  engine/
+<a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a>    solvers.py          ipopt (the checked Ipopt every OPF runs on; SolverUnavailable when it cannot run)
+<a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a>  engine/sensing/
+<a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a>    __init__.py         what the stage does, and its public names
+<a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a>    meters.py           MeterPlan, plan_meters
+<a id="__codelineno-0-26" name="__codelineno-0-26" href="#__codelineno-0-26"></a>    measure.py          Measurement
+<a id="__codelineno-0-27" name="__codelineno-0-27" href="#__codelineno-0-27"></a>    noise.py            NoiseModel
+<a id="__codelineno-0-28" name="__codelineno-0-28" href="#__codelineno-0-28"></a>  engine/attacks/
+<a id="__codelineno-0-29" name="__codelineno-0-29" href="#__codelineno-0-29"></a>    family.py           Episode, AttackFamily (design, design_explained), the miss reasons
+<a id="__codelineno-0-30" name="__codelineno-0-30" href="#__codelineno-0-30"></a>    attacker.py         Attacker, natural_steps, generator_ramps, generator_band, generator_q_capability, wrap_angles
+<a id="__codelineno-0-31" name="__codelineno-0-31" href="#__codelineno-0-31"></a>    opf.py              OpfFdia (the base of the OPF attacks: the support search and the per-scan local AC OPF, N35)
+<a id="__codelineno-0-32" name="__codelineno-0-32" href="#__codelineno-0-32"></a>    interface.py        InterfaceFdia (Am against a NYISO interface, N48, N49; overshoot and max_overshoot, N58)
+<a id="__codelineno-0-33" name="__codelineno-0-33" href="#__codelineno-0-33"></a>    ramp.py             Ramp
+<a id="__codelineno-0-34" name="__codelineno-0-34" href="#__codelineno-0-34"></a>  dataset/
+<a id="__codelineno-0-35" name="__codelineno-0-35" href="#__codelineno-0-35"></a>    clients.py          Dataset, ClientView
+<a id="__codelineno-0-36" name="__codelineno-0-36" href="#__codelineno-0-36"></a>  _lazy.py            attach: the public names of a package, imported on first use
+<a id="__codelineno-0-37" name="__codelineno-0-37" href="#__codelineno-0-37"></a>analysis/src/fdia_analysis/
+<a id="__codelineno-0-38" name="__codelineno-0-38" href="#__codelineno-0-38"></a>  se/detect/
+<a id="__codelineno-0-39" name="__codelineno-0-39" href="#__codelineno-0-39"></a>    __init__.py         what the stage does, and its public names
+<a id="__codelineno-0-40" name="__codelineno-0-40" href="#__codelineno-0-40"></a>    rules.py            AlarmRule (protocol), PersistenceRule (k of the last n past a fitted threshold, N79)
 <a id="__codelineno-0-41" name="__codelineno-0-41" href="#__codelineno-0-41"></a>pipelines/newyork/
 <a id="__codelineno-0-42" name="__codelineno-0-42" href="#__codelineno-0-42"></a>  build_timeline.py    the release timeline from a pool (--fetch downloads the inputs)
 <a id="__codelineno-0-43" name="__codelineno-0-43" href="#__codelineno-0-43"></a>  make_case.py         the recipe of the case file and its writer: case_nygrid.m made again from NYgrid's Data/ folder
@@ -1837,10 +1837,12 @@ its stage does.</p>
 <a id="__codelineno-0-49" name="__codelineno-0-49" href="#__codelineno-0-49"></a>tests/nygrid/
 <a id="__codelineno-0-50" name="__codelineno-0-50" href="#__codelineno-0-50"></a>  inputs.py      where the tests find their inputs, and which tests each input lets run
 <a id="__codelineno-0-51" name="__codelineno-0-51" href="#__codelineno-0-51"></a>  test_{grid,scenario,sensing,attacks,timeline,dataset}.py
-<a id="__codelineno-0-52" name="__codelineno-0-52" href="#__codelineno-0-52"></a>  test_{solvers,misses,tables,configs,detect,public}.py   checks that need no data
-<a id="__codelineno-0-53" name="__codelineno-0-53" href="#__codelineno-0-53"></a>  test_golden.py, golden/   snapshots of the persistence rule and the interface attack
+<a id="__codelineno-0-52" name="__codelineno-0-52" href="#__codelineno-0-52"></a>  test_{solvers,misses,tables,configs,public}.py   checks that need no data
+<a id="__codelineno-0-53" name="__codelineno-0-53" href="#__codelineno-0-53"></a>  test_golden.py, golden/   snapshots of the interface attack
 <a id="__codelineno-0-54" name="__codelineno-0-54" href="#__codelineno-0-54"></a>  data/matlab_ref/     operating points from dump_hours.m that the Python port must match
 <a id="__codelineno-0-55" name="__codelineno-0-55" href="#__codelineno-0-55"></a>  data/days/           the pool's frames of two days, which the timeline digests build on (README inside)
+<a id="__codelineno-0-56" name="__codelineno-0-56" href="#__codelineno-0-56"></a>analysis/tests/
+<a id="__codelineno-0-57" name="__codelineno-0-57" href="#__codelineno-0-57"></a>  test_detect.py       the alarm rules, the snapshot of the persistence rule (golden/) and the alarm-rule example (no data)
 </code></pre></div>
 <p><code>tools/</code>, <code>results/</code> and <code>tests/data/</code> follow the fdia_graph_sdk layout, so the move into the SDK
 copies them as they are.</p>
@@ -1880,7 +1882,7 @@ copies them as they are.</p>
 </tr>
 <tr>
 <td><code>Ownership</code></td>
-<td><code>federated/utilities.py</code></td>
+<td><code>generation/nygrid/ownership.py</code></td>
 <td><code>names [K]</code> (the 7 utilities), <code>bus_client [N]</code> (-1 for external buses), <code>tie_lines [L]</code></td>
 </tr>
 <tr>
@@ -2139,7 +2141,7 @@ copies them as they are.</p>
 </tr>
 <tr>
 <td><code>assign_clients(case, territories, locations)</code></td>
-<td><code>federated/utilities.py</code></td>
+<td><code>generation/nygrid/ownership.py</code></td>
 <td><code>Case</code>, territory polygons, path to <code>data/territories/ny_bus_locations.csv</code> (substation location or zone-chosen utility per NY bus)</td>
 <td><code>Ownership</code>, one client per utility</td>
 </tr>
@@ -2344,7 +2346,7 @@ Unsolved pool frames keep their place with NaN state and readings and no labels.
 </tr>
 <tr>
 <td>G5</td>
-<td><code>federated/utilities.py</code>, <code>data/territories/ny_bus_locations.csv</code></td>
+<td><code>generation/nygrid/ownership.py</code>, <code>data/territories/ny_bus_locations.csv</code></td>
 </tr>
 <tr>
 <td>P1</td>

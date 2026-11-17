@@ -78,7 +78,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#federated-localization-with-fdia_graphfederated" class="md-skip">
+        <a href="#federated-localization-with-fdia_analysisfederated" class="md-skip">
           Skip to content
         </a>
       
@@ -1613,15 +1613,15 @@
   
 
 
-<h1 id="federated-localization-with-fdia_graphfederated">Federated localization with <code>fdia_graph.federated</code><a class="headerlink" href="#federated-localization-with-fdia_graphfederated" title="Permanent link">&para;</a></h1>
+<h1 id="federated-localization-with-fdia_analysisfederated">Federated localization with <code>fdia_analysis.federated</code><a class="headerlink" href="#federated-localization-with-fdia_analysisfederated" title="Permanent link">&para;</a></h1>
 <blockquote>
 <p><strong>Status.</strong> The results on this page are on data release v0.8.1 and predate the measurements-only feature rules (swing from observed frames, the Jacobian block against the previous frame's estimate, measured calibration) and the one-frame <code>Aq</code> and <code>Al</code>. They are not yet rerun on v0.8.3; the centralized numbers in <a href="../localization/"><code>../localization/README.md</code></a> are current.</p>
 </blockquote>
 <p>The federated localization papers' protocol, run by the SDK on the v0.8.1 timelines with
 the 14-dim per-bus vector plus the Jacobian block.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">fdia_graph</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">fg</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fdia_graph.federated</span><span class="w"> </span><span class="kn">import</span> <span class="n">FedBusCNN</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fdia_graph.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">FederatedSettings</span><span class="p">,</span> <span class="n">LearnedConfig</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fdia_analysis.federated</span><span class="w"> </span><span class="kn">import</span> <span class="n">FedBusCNN</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fdia_analysis.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">FederatedSettings</span><span class="p">,</span> <span class="n">LearnedConfig</span>
 <a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>
 <a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="n">rel</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">release</span><span class="o">=</span><span class="s2">"v0.8.1"</span><span class="p">)</span>  <span class="c1"># the release these results are on</span>
 <a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="n">zs</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">families</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">],</span> <span class="o">**</span><span class="n">rel</span><span class="p">)</span>  <span class="c1"># benign + Aq + Ad</span>
@@ -1679,10 +1679,6 @@ and the study did not fit otherwise.</p>
 <tr>
 <td><code>federated/partition.py</code></td>
 <td>the split of a system's buses into K clients by spectral partition of the bus graph</td>
-</tr>
-<tr>
-<td><code>federated/utilities.py</code></td>
-<td>the New York clients: each bus belongs to the utility whose service territory holds it</td>
 </tr>
 <tr>
 <td><code>federated/aggregate.py</code></td>

@@ -1653,17 +1653,24 @@
 
 
 <h1 id="repo-roadmap">Repo roadmap<a class="headerlink" href="#repo-roadmap" title="Permanent link">&para;</a></h1>
-<p>Two halves. The <strong>SDK</strong> loads and serves data and runs on the base install; the <strong>engine</strong> is the
-theory (power flow, meters, attacks) and needs <code>[generate]</code>. The public surface is <code>fg.*</code>, the
-analysis packages <code>fdia_graph.se</code>, <code>fdia_graph.localization</code>, <code>fdia_graph.trust</code> and
-<code>fdia_graph.federated</code>, and the New York grid (<code>fdia_graph.generation.nygrid</code>, behind <code>[ny]</code>); everything else serves them.</p>
-<p><img alt="the package map: the public API over dataset, timeline, registry, se, localization and trust in the base install, generation and engine behind the generate extra, models and formulas read by every package" src="../figures/diagrams/roadmap_modules.png" /></p>
+<p>Two toolkits in one repository. The <strong>generation toolkit</strong>, the distribution <code>fdia-graph</code> and the
+package <code>fdia_graph</code> (under <code>src/</code>), generates a timeline and loads it: its loader runs on the base
+install, and its engine (power flow, meters, attacks) needs <code>[generate]</code>. The <strong>analysis toolkit</strong>, the
+distribution <code>fdia-analysis</code> and the package <code>fdia_analysis</code> (under <code>analysis/</code>), is what is measured
+on a timeline: state estimation, localization, federated training, trusted-meter selection and the
+results store's code. It depends on <code>fdia-graph</code>; nothing in <code>fdia_graph</code> imports it
+(<code>tests/test_toolkit_boundary.py</code>). The public surface is <code>fg.*</code> and the New York grid
+(<code>fdia_graph.generation.nygrid</code>, behind <code>[ny]</code>) in the first, and <code>fdia_analysis.se</code>,
+<code>fdia_analysis.localization</code>, <code>fdia_analysis.trust</code> and <code>fdia_analysis.federated</code> in the second;
+everything else serves them.</p>
+<p><img alt="the package map in two boxes: the analysis toolkit fdia_analysis with federated over localization, localization and trust over se, the results store, and its own models and formulas; the generation toolkit fdia_graph with the public API over the dataset loader and the timeline writer, the loader over the registry and download, the writer over the engine, and its own models and formulas; one arrow, from the analysis toolkit to the generation toolkit: it reads timelines and uses the formulas and records" src="../figures/diagrams/roadmap_modules.png" /></p>
 <h2 id="the-two-paths">The two paths<a class="headerlink" href="#the-two-paths" title="Permanent link">&para;</a></h2>
 <p><img alt="fg.generate from ISO load series through the AC pool, the timeline walk and one scan per frame to one registered HDF5 file, and fg.load from registry.resolve through the cached download to FdiaGraph in random or time order" src="../figures/diagrams/roadmap_generate_load.png" /></p>
 <h2 id="files">Files<a class="headerlink" href="#files" title="Permanent link">&para;</a></h2>
 <p>Every package has one page that says what each of its files does, and <code>tools/layout.py</code> checks that the page
 names them all. The one-line summary of every file of the repository is
 <a href="../reference/MODULES/"><code>reference/MODULES.md</code></a>, generated from the docstrings.</p>
+<p>The generation toolkit, <code>src/fdia_graph/</code>:</p>
 <table>
 <thead>
 <tr>
@@ -1706,7 +1713,7 @@ names them all. The one-line summary of every file of the repository is
 </tr>
 <tr>
 <td><code>models/</code></td>
-<td>every value bundle the package passes or returns, one module per subject: <code>models/base.py</code> (<code>Bundle</code>), <code>fields.py</code> (the field groups bundles share), <code>grid.py</code>, <code>frames.py</code>, <code>plan.py</code> (a timeline's plan and design records), <code>data.py</code>, <code>scores.py</code>, <code>results.py</code>, <code>training.py</code>, <code>federated.py</code>, <code>assets.py</code>; the settings in <code>config.py</code> and the parser inputs in <code>inputs.py</code>, checked by <code>validation.py</code>; the fixed-set arguments in <code>choices.py</code> and the data-condition errors in <code>models/errors.py</code>. <a href="../reference/DATA_DICTIONARY/"><code>reference/DATA_DICTIONARY.md</code></a> lists every field</td>
+<td>every value bundle the toolkit passes or returns, one module per subject: <code>fdia_graph/models/base.py</code> (<code>Bundle</code>), <code>fields.py</code> (the field groups bundles share), <code>fdia_graph/models/grid.py</code>, <code>frames.py</code>, <code>plan.py</code> (a timeline's plan and design records), <code>fdia_graph/models/data.py</code>, <code>assets.py</code>; the settings in <code>fdia_graph/models/config.py</code> and the parser inputs in <code>fdia_graph/models/inputs.py</code>, checked by the one engine in <code>fdia_graph/models/validation.py</code>; the fixed-set arguments in <code>fdia_graph/models/choices.py</code> and the data-condition errors in <code>models/errors.py</code>. <a href="../reference/DATA_DICTIONARY/"><code>reference/DATA_DICTIONARY.md</code></a> lists every field</td>
 </tr>
 <tr>
 <td><code>ratings/</code></td>
@@ -1714,23 +1721,46 @@ names them all. The one-line summary of every file of the repository is
 </tr>
 <tr>
 <td><code>formulas/</code></td>
-<td>the mathematics as pure functions with source keys: <a href="../reference/FORMULAS/"><code>reference/FORMULAS.md</code></a></td>
+<td>the mathematics of generation as pure functions with source keys: <a href="../reference/FORMULAS/"><code>reference/FORMULAS.md</code></a></td>
 </tr>
 <tr>
 <td><code>engine/</code>, <code>generation/</code></td>
 <td>the generator: the AC physics, the meters and the attacks, and the stages that walk a timeline: <a href="../guides/generation/"><code>guides/generation.md</code></a></td>
 </tr>
 <tr>
-<td><code>generation/nygrid/</code>, <code>engine/sensing/</code>, <code>se/detect/</code></td>
-<td>the New York grid, its meters and the alarm rules: <a href="../concepts/new_york_grid/"><code>concepts/new_york_grid.md</code></a></td>
+<td><code>generation/nygrid/</code>, <code>engine/sensing/</code></td>
+<td>the New York grid and its meters: <a href="../concepts/new_york_grid/"><code>concepts/new_york_grid.md</code></a></td>
 </tr>
+</tbody>
+</table>
+<p>The analysis toolkit, <code>analysis/src/fdia_analysis/</code> (<a href="../analysis/README.md"><code>../analysis/README.md</code></a>):</p>
+<table>
+<thead>
+<tr>
+<th>file or folder</th>
+<th>what it is</th>
+</tr>
+</thead>
+<tbody>
 <tr>
 <td><code>se/</code>, <code>localization/</code>, <code>trust/</code>, <code>federated/</code></td>
 <td>the analysis packages, each with its page: <a href="../analysis/estimation/"><code>analysis/estimation/README.md</code></a>, <a href="../analysis/localization/"><code>analysis/localization/README.md</code></a>, <a href="../analysis/trust/"><code>analysis/trust/README.md</code></a>, <a href="../analysis/federated/"><code>analysis/federated/README.md</code></a></td>
 </tr>
 <tr>
+<td><code>se/detect/</code></td>
+<td>the alarm rules of the New York grid: <a href="../concepts/new_york_grid/"><code>concepts/new_york_grid.md</code></a></td>
+</tr>
+<tr>
 <td><code>results/</code></td>
 <td>the results store's code: <a href="../results/README.md"><code>../results/README.md</code></a></td>
+</tr>
+<tr>
+<td><code>models/</code></td>
+<td>the value bundles only the analysis packages use, on the generation toolkit's <code>Bundle</code> and validation engine: the settings in <code>fdia_analysis/models/config.py</code>, what the analysis formulas accept in <code>fdia_analysis/models/inputs.py</code>, the one rule only they declare in <code>fdia_analysis/models/validation.py</code>, the fixed-set arguments in <code>fdia_analysis/models/choices.py</code>; the score tables in <code>scores.py</code>, the truth an estimator is scored against in <code>fdia_analysis/models/data.py</code>, the estimator's pseudo-measurement records in <code>fdia_analysis/models/grid.py</code>, <code>federated.py</code> (a partition, a round's log), <code>training.py</code> and the results store's records in <code>fdia_analysis.models.results</code></td>
+</tr>
+<tr>
+<td><code>formulas/</code></td>
+<td>the mathematics of analysis as pure functions with source keys: <a href="../reference/FORMULAS/"><code>reference/FORMULAS.md</code></a></td>
 </tr>
 </tbody>
 </table>
@@ -1747,11 +1777,15 @@ tool; the generated table opens <a href="../reference/MODULES/"><code>reference/
 <tbody>
 <tr>
 <td><code>src/fdia_graph/</code></td>
-<td>the package</td>
+<td>the generation toolkit's package</td>
+</tr>
+<tr>
+<td><code>analysis/</code></td>
+<td>the analysis toolkit: its package under <code>analysis/src/fdia_analysis/</code>, its tests under <code>analysis/tests/</code>, its own <code>pyproject.toml</code></td>
 </tr>
 <tr>
 <td><code>tests/</code></td>
-<td>the test suite</td>
+<td>the generation toolkit's test suite, and the helpers both suites share (<code>tests/helpers.py</code>; the fixtures both share are in the root <code>conftest.py</code>)</td>
 </tr>
 <tr>
 <td><code>examples/</code></td>
@@ -1824,12 +1858,16 @@ tool; the generated table opens <a href="../reference/MODULES/"><code>reference/
 <td>every CI gate, the test suite and the checks CI does not run, on this checkout's source; run before a review is requested (<code>docs/reference/REVIEW_CHECKLIST.md</code>)</td>
 </tr>
 <tr>
-<td><code>pytest tests</code></td>
-<td>builds a tiny IEEE-14 timeline in a throwaway cache (about a minute) and checks the documented contracts</td>
+<td><code>pytest</code></td>
+<td>both suites from the repository root, on this checkout's source (the root <code>pyproject.toml</code> puts <code>src</code> and <code>analysis/src</code> on the path): builds a tiny IEEE-14 timeline in a throwaway cache (about a minute) and checks the documented contracts</td>
 </tr>
 <tr>
-<td><code>FDIA_SLOW=1 pytest tests</code></td>
-<td>adds a sanity test on the published IEEE-118 file</td>
+<td><code>pytest tests</code>, <code>pytest analysis/tests</code></td>
+<td>one toolkit's suite: the generation toolkit's, which runs with <code>fdia_analysis</code> blocked (<code>tests/test_toolkit_boundary.py</code>), or the analysis toolkit's, on the same tiny timeline (the root <code>conftest.py</code>)</td>
+</tr>
+<tr>
+<td><code>FDIA_SLOW=1 pytest</code></td>
+<td>adds the slow checks: the estimator sanity test on the published IEEE-118 file (the analysis suite) and the longer attack searches (the generation suite)</td>
 </tr>
 <tr>
 <td>CI</td>
@@ -1898,22 +1936,22 @@ tool; the generated table opens <a href="../reference/MODULES/"><code>reference/
 </tr>
 <tr>
 <td>9</td>
-<td><code>analysis/estimation/README.md</code>, <code>guides/state_estimation.md</code></td>
+<td><code>docs/analysis/estimation/README.md</code>, <code>guides/state_estimation.md</code></td>
 <td>measurements in, better-than-WLS state out</td>
 </tr>
 <tr>
 <td>10</td>
-<td><code>analysis/localization/README.md</code></td>
+<td><code>docs/analysis/localization/README.md</code></td>
 <td>which buses are under attack, and why the slow ramp is open</td>
 </tr>
 <tr>
 <td>11</td>
-<td><code>analysis/trust/README.md</code></td>
+<td><code>docs/analysis/trust/README.md</code></td>
 <td>which meters to secure so a stealthy attack stops being stealthy</td>
 </tr>
 <tr>
 <td>12</td>
-<td><code>analysis/federated/README.md</code></td>
+<td><code>docs/analysis/federated/README.md</code></td>
 <td>the localizers and the prior trained across clients that never pool their records</td>
 </tr>
 </tbody>

@@ -1721,12 +1721,96 @@
 the public API, the generated files and the numbers are the same as the previous release.</p>
 <h2 id="unreleased">Unreleased<a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
 <ul>
-<li><strong>One path generates a timeline, for the IEEE cases and for the New York grid (breaking for the New York
+<li><strong>Two toolkits in one repository (breaking for the imports of the analysis packages).</strong> The package was
+  generation and analysis in one; it is now two distributions that live side by side here. <code>fdia-graph</code>
+  (the package <code>fdia_graph</code>, under <code>src/</code>) generates a timeline and loads it. <code>fdia-analysis</code> (the package
+  <code>fdia_analysis</code>, under <code>analysis/</code>, with its own <code>pyproject.toml</code>, tests and README) is what is measured
+  on a timeline. The analysis toolkit depends on the generation toolkit (it reads the files through
+  <code>fdia_graph.dataset</code> and uses its formulas and records); nothing in <code>fdia_graph</code> imports <code>fdia_analysis</code>,
+  which <code>tests/test_toolkit_boundary.py</code> checks in the source and by generating and loading a timeline in an
+  interpreter where <code>fdia_analysis</code> cannot be imported. No generated file changes (the timeline digests of
+  the IEEE cases and of New York are the same, the settings hash stored in a file included) and no result
+  number changes (no results block of the docs changed). No alias is kept for a moved name.</li>
+<li>What a caller sees, in short. The imports of the analysis packages change from <code>fdia_graph.*</code> to
+    <code>fdia_analysis.*</code> (<code>from fdia_graph.se import WLS</code> becomes <code>from fdia_analysis.se import WLS</code>). The <code>se</code>
+    and <code>federated</code> extras move to <code>fdia-analysis</code> (<code>pip install "fdia-graph[se]"</code> becomes
+    <code>pip install "fdia-analysis[se]"</code>). The two toolkits share one version and are released together:
+    <code>fdia-analysis</code> X.Y.Z requires exactly <code>fdia-graph==X.Y.Z</code>, so upgrading one upgrades the other.</li>
+<li>What moved, package by package: <code>fdia_graph.se</code> is <code>fdia_analysis.se</code> (with <code>fdia_analysis.se.detect</code>),
+    <code>fdia_graph.localization</code> is <code>fdia_analysis.localization</code>, <code>fdia_graph.federated</code> is
+    <code>fdia_analysis.federated</code>, <code>fdia_graph.trust</code> is <code>fdia_analysis.trust</code>, and <code>fdia_graph.results</code> (the
+    results store's code) is <code>fdia_analysis.results</code>. Their classes and functions keep their names and
+    behaviour: <code>from fdia_analysis.se import WLS</code>, <code>from fdia_analysis.localization import SwingThreshold</code>.</li>
+<li>What stays in <code>fdia_graph</code>: <code>fg.load</code>, <code>fg.generate</code>, <code>FdiaGraph</code>, the profiles, the registry and the
+    download, the file protocol (<code>schema</code>), <code>generation</code> (the New York grid included), <code>engine</code>, <code>dataset</code>,
+    <code>ratings</code>, <code>errors</code> (every named error, the ones the analysis packages raise too), and the models and
+    formulas the generator or the loader use. <code>import fdia_graph as fg</code> and everything under <code>fg.</code> are
+    unchanged.</li>
+<li>The models only the analysis packages use are in <code>fdia_analysis.models</code>. The settings (from
+    <code>models.config</code>): <code>SolveConfig</code>, <code>FitOptions</code>, <code>HuberConfig</code>, <code>RemovalConfig</code>, <code>PriorConfig</code>,
+    <code>JacobianWeightingConfig</code>, <code>GateConfig</code>, <code>LocalizerConfig</code>, <code>LearnedConfig</code>, <code>TrainerConfig</code>,
+    <code>PerBusReport</code>, <code>TrustConfig</code>, <code>DqnConfig</code>, <code>FederatedSettings</code>, with the field types <code>Fraction</code>, <code>Share</code>,
+    <code>Norm</code> and <code>Tolerance</code>. The fixed sets (from <code>models.choices</code>): <code>Calibrate</code>, <code>Reweight</code>, <code>Features</code>,
+    <code>FrOver</code>, <code>Buses</code>, <code>Kcl</code>, <code>Reduce</code>. What the analysis formulas accept (from <code>models.inputs</code>):
+    <code>ShapedArray</code>, <code>SubBatch</code>, <code>EdgeList</code>, <code>ClientCount</code>, <code>ClientGraph</code>, <code>Halo</code>, <code>AssignmentSpec</code>,
+    <code>PartitionOnGrid</code>, <code>ClientUpdates</code>, <code>MomentParts</code>, <code>FeatureBlock</code>, <code>Affinity</code>, <code>StateBlocks</code>,
+    <code>LabelGrids</code>, <code>TauSearch</code>, <code>RankedLabels</code>, <code>Aggregation</code>, and the rule <code>IntegerDtype</code> (from
+    <code>models.validation</code>, now beside the models that declare it in <code>fdia_analysis.models.inputs</code>). The score tables (all of <code>models.scores</code>): <code>ErrorPair</code>, <code>EstimatorScores</code>,
+    <code>OverallMetrics</code>, <code>BenignMetrics</code>, <code>FamilyMetrics</code>, <code>LocalizerScores</code>, <code>PerBusMetrics</code>, <code>PerBusScores</code>,
+    <code>GridScores</code>, <code>TrustScores</code>, <code>JacobianOutputs</code>. And <code>TrueState</code> (from <code>models.data</code>), <code>PseudoLinks</code> and
+    <code>PseudoVoltages</code> (from <code>models.grid</code>), <code>Partition</code> and <code>RoundLog</code> (all of <code>models.federated</code>),
+    <code>OptimConfig</code> (all of <code>models.training</code>), and the results store's records (all of <code>models.results</code>:
+    <code>Record</code>, <code>Provenance</code>, <code>RunRecords</code>, <code>Metric</code>, <code>METRICS</code>, <code>Better</code>, <code>Leaf</code>, <code>KEYS</code>, <code>leaves</code>,
+    <code>as_values</code>). Each is in the module of the same name (<code>fdia_analysis.models.config</code>, and so on).
+    <code>fdia_graph.models.PUBLIC</code> names the loader's bundles and <code>fdia_analysis.models.PUBLIC</code> the score tables.</li>
+<li>The formulas only the analysis packages use are in <code>fdia_analysis.formulas</code>. Whole modules:
+    <code>formulas.estimation</code> (<code>normal_matrix</code>, <code>wls_step</code>, <code>wls_step_batched</code>, <code>weighted_objective</code>,
+    <code>residual_covariance_diag</code>, <code>critical_measurements</code>, <code>floored_covariance</code>, <code>normalized_residual</code>,
+    <code>huber_weights</code>, <code>whitened_svd_basis</code>, <code>gate_weights</code>, <code>pmu_pseudo_links</code>, <code>pmu_pseudo_phasors</code>,
+    <code>pmu_pseudo_voltages</code>), <code>formulas.linalg</code> (<code>guarded_inverse</code>, <code>condition_number</code>,
+    <code>batched_normal_matrices</code>), <code>formulas.metrics</code> (<code>perbus_counts</code>, <code>perbus_counts_at</code>,
+    <code>perbus_f1_from_counts</code>, <code>tau_from_counts</code>, <code>perbus_rates</code>, <code>micro_prf</code>, <code>sample_f1</code>, <code>strict_accuracy</code>,
+    <code>average_precision</code>), <code>formulas.projection</code> (<code>bus_incidence</code>, <code>weighted_pseudoinverse</code>, <code>leverage</code>,
+    <code>weak_directions</code>, <code>explained_unexplained</code>, <code>direction_coefficients</code>, <code>weak_move</code>, <code>meters_to_buses</code>,
+    <code>meter_positions</code>) and <code>formulas.federated</code> (<code>Moments</code>, <code>channel_moments</code>, <code>pool_moments</code>, <code>fedavg</code>,
+    <code>attackable_affinity</code>, <code>interior_boundary</code>, <code>cut_edge_count</code>, <code>hop_distance</code>, <code>halo_nodes</code>,
+    <code>block_diagonal_basis</code>). Parts of modules: the estimator's measurement function and its Jacobian,
+    <code>ac_measurement</code> and <code>ac_jacobian</code>, left <code>formulas.network</code> for the new
+    <code>fdia_analysis.formulas.measurement</code>; <code>attack_subspace</code>, <code>sparse_basis</code>, <code>attack_cost</code> and
+    <code>greedy_trusted_meters</code> left <code>formulas.trust</code> for <code>fdia_analysis.formulas.trust</code>, which builds on the
+    <code>rref</code> that stays in <code>fdia_graph.formulas.trust</code> beside <code>sparsest_rows</code> (the attack generator uses both);
+    that module's tolerance is now the public <code>TOL</code>.</li>
+<li>Three names moved inside <code>fdia_graph</code>, to where the generation code that uses them is.
+    <code>accuracy_class_sigma</code> is in <code>formulas.noise</code> (it was in <code>formulas.estimation</code>; the meter noise model
+    uses it). <code>Ownership</code> and <code>assign_clients</code>, which utility owns which New York bus, are in
+    <code>generation.nygrid.ownership</code> (the module was <code>federated.utilities</code>). <code>config_hash</code>, the hash of the
+    settings a timeline stores (<code>settings_hash</code>), is in <code>schema</code> (it was in <code>results.run</code>, which now imports
+    it); the hash of a given settings record is the same.</li>
+<li>Install: <code>pip install fdia-graph</code> for the loader, with <code>[torch]</code>, <code>[pyg]</code>, <code>[generate]</code>, <code>[iso]</code>, <code>[ny]</code>
+    and <code>[all]</code> as before; <code>pip install fdia-analysis</code> for the analysis toolkit, which installs <code>fdia-graph</code>,
+    with the extras <code>[se]</code> (pandapower, scipy), <code>[torch]</code>, <code>[federated]</code> (torch, scikit-learn) and <code>[all]</code>.
+    The <code>[se]</code> and <code>[federated]</code> extras of <code>fdia-graph</code> are gone, and its <code>[all]</code> no longer brings
+    scikit-learn; the install hints in the analysis toolkit's error messages name <code>fdia-analysis</code>.</li>
+<li>
+<p>In the repository: each toolkit has its tests (<code>tests/</code>, <code>analysis/tests/</code>), which share the tiny generated
+    timeline through the fixtures of the root <code>conftest.py</code> and the helpers of <code>tests/helpers.py</code>; <code>pytest</code> at
+    the root runs both on this checkout's source.
+    <code>tools/prereview.py</code> is still the one command for every gate, now over both packages (<code>tools/sources.py</code>
+    names them once for every tool), the file map and the data dictionary list both, the module diagram
+    draws both with every arrow between them pointing from analysis to generation, and <code>tools/layout.py</code>
+    resolves a cited name in the toolkit it says (<code>fdia_analysis.se.base</code>) or, with none said, in either.
+    CI installs both and tests both; <code>publish.yml</code> (which runs on a version tag only) builds both
+    distributions and uploads both, since they share the tag's version (<code>tests/test_versions.py</code>, and
+    <code>tools/release.py</code> before it tags).</p>
+</li>
+<li>
+<p><strong>One path generates a timeline, for the IEEE cases and for the New York grid (breaking for the New York
   build's callers).</strong> <code>TimelineSource.generate(out)</code> (<code>generation/source.py</code>) makes every timeline in the same
   order: start the file, prepare, cut the splits, then split by split place the episodes (<code>generation/plan.py</code>),
   design them and walk the frames in time order, then finish the file. The New York grid no longer has a driver of
   its own. No generated value changes: the five pinned timelines (two IEEE-14, the New York days, two single
-  episodes) are the same, dataset by dataset, and their snapshots were not rewritten.</li>
+  episodes) are the same, dataset by dataset, and their snapshots were not rewritten.</p>
+</li>
 <li>The grid is a class hierarchy. <code>TimelineSource</code> is the system a timeline is generated on, and a subclass
     owns only what differs between the grids: the pool, what it must know before the splits (<code>prepare</code>), how the
     splits are cut (<code>cut_splits</code>), which onsets a family may take (<code>onset_masks</code>), the stream the onsets are drawn

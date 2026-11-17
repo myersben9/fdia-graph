@@ -78,7 +78,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#state-estimation-with-fdia_graphse" class="md-skip">
+        <a href="#state-estimation-with-fdia_analysisse" class="md-skip">
           Skip to content
         </a>
       
@@ -1657,12 +1657,12 @@
   
 
 
-<h1 id="state-estimation-with-fdia_graphse">State estimation with <code>fdia_graph.se</code><a class="headerlink" href="#state-estimation-with-fdia_graphse" title="Permanent link">&para;</a></h1>
+<h1 id="state-estimation-with-fdia_analysisse">State estimation with <code>fdia_analysis.se</code><a class="headerlink" href="#state-estimation-with-fdia_analysisse" title="Permanent link">&para;</a></h1>
 <p>Given a scan of noisy, possibly attacked measurements, estimate the true bus voltages and angles.
 Every timeline ships a noiseless <code>clean</code> layer, so the estimate is scored against exact ground truth.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">fdia_graph</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">fg</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fdia_graph.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">PriorConfig</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fdia_graph.se</span><span class="w"> </span><span class="kn">import</span> <span class="n">WLS</span><span class="p">,</span> <span class="n">AdaptiveWeighting</span><span class="p">,</span> <span class="n">SubspacePrior</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fdia_analysis.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">PriorConfig</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fdia_analysis.se</span><span class="w"> </span><span class="kn">import</span> <span class="n">WLS</span><span class="p">,</span> <span class="n">AdaptiveWeighting</span><span class="p">,</span> <span class="n">SubspacePrior</span>
 <a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>
 <a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="n">train</span> <span class="o">=</span> <span class="n">fg</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">"ieee14"</span><span class="p">,</span> <span class="n">split</span><span class="o">=</span><span class="s2">"train"</span><span class="p">)</span>
 <a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="n">test</span> <span class="o">=</span> <span class="n">fg</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">"ieee14"</span><span class="p">,</span> <span class="n">split</span><span class="o">=</span><span class="s2">"test"</span><span class="p">)</span>
@@ -1676,7 +1676,7 @@ Every timeline ships a noiseless <code>clean</code> layer, so the estimate is sc
 <thead>
 <tr>
 <th>needs</th>
-<th><code>pip install "fdia-graph[se]"</code>, a timeline (data release v0.8.3), <code>units="physical"</code></th>
+<th><code>pip install "fdia-analysis[se]"</code>, a timeline (data release v0.8.3), <code>units="physical"</code></th>
 </tr>
 </thead>
 <tbody>

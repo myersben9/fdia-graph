@@ -1631,14 +1631,25 @@
 
 
 <h1 id="contributing">Contributing<a class="headerlink" href="#contributing" title="Permanent link">&para;</a></h1>
-<p>Other groups load this package in their experiments, so the rules keep their numbers stable. Every
+<p>Other groups load these packages in their experiments, so the rules keep their numbers stable. Every
 rule is a command you can run.</p>
+<p>The repository holds two toolkits, and every rule below covers both. The generation toolkit is the
+distribution <code>fdia-graph</code>, the package <code>fdia_graph</code> under <code>src/</code>, with its tests in <code>tests/</code>: it
+generates a timeline and loads it. The analysis toolkit is the distribution <code>fdia-analysis</code>, the
+package <code>fdia_analysis</code> under <code>analysis/src/</code>, with its tests in <code>analysis/tests/</code> and its own
+<code>analysis/pyproject.toml</code>: state estimation, localization, federated training, trusted-meter selection
+and the results store's code. The dependency points one way: <code>fdia_analysis</code> imports <code>fdia_graph</code>,
+and nothing in <code>fdia_graph</code> imports <code>fdia_analysis</code> (<code>tests/test_toolkit_boundary.py</code>). A model or a
+formula the generator or the loader uses lives in <code>fdia_graph</code> (<code>models/</code>, <code>formulas/</code>); one only
+the analysis packages use lives in <code>fdia_analysis</code>; no name is exported by both.</p>
 <h2 id="setup">Setup<a class="headerlink" href="#setup" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/myersben9/fdia-graph
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nb">cd</span><span class="w"> </span>fdia-graph
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span><span class="s2">".[generate,se,torch,dev]"</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>pytest<span class="w"> </span>-n<span class="w"> </span>auto<span class="w"> </span>tests<span class="w">                          </span><span class="c1"># in parallel (pytest-xdist, in the dev and test extras);</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">                                              </span><span class="c1"># each worker builds its own tiny timeline and pool download</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span><span class="s2">".[generate,torch,dev]"</span><span class="w"> </span>-e<span class="w"> </span><span class="s2">"./analysis[se,federated]"</span><span class="w">   </span><span class="c1"># both toolkits, from this checkout</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>pytest<span class="w"> </span>-n<span class="w"> </span>auto<span class="w">                                </span><span class="c1"># both suites (tests, analysis/tests) in parallel (pytest-xdist,</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">                                              </span><span class="c1"># in the dev and test extras); each worker builds its own tiny</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="w">                                              </span><span class="c1"># timeline and pool download. Always from the repository root:</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="w">                                              </span><span class="c1"># its conftest.py holds the fixtures of both suites</span>
 </code></pre></div>
 <p><code>docs/ROADMAP.md</code> is the map and the reading order.</p>
 <p>Every diagram is a rendered image, never a Mermaid block: the README is also the PyPI page, and the
@@ -1650,7 +1661,8 @@ Chromium), which writes both images, then commit all three. The class and module
 the code (CI fails when they are stale), then render them the same way. README images use the
 raw.githubusercontent.com URL so PyPI shows them; docs pages use relative paths.</p>
 <p>The Models section of <code>docs/reference/DATA_DICTIONARY.md</code> is generated too: <code>python tools/models_doc.py</code>
-rewrites it from the dataclasses in <code>src/fdia_graph/models/</code> and the comment beside each field. Edit
+rewrites it from the dataclasses in the two <code>models/</code> packages (<code>src/fdia_graph/models/</code>,
+<code>analysis/src/fdia_analysis/models/</code>) and the comment beside each field. Edit
 the comment in the source, never the section, and rerun the tool; the tests fail when it is stale.</p>
 <p>The docs site is built from <code>docs/</code> plus the three root pages by <code>mkdocs.yml</code>: the Vercel build serves
 the main branch at the custom domain, and <code>.github/workflows/docs.yml</code> deploys one copy per package
@@ -1696,7 +1708,7 @@ checks a docs change locally.</p>
 <tr>
 <td>typed, formatted, linted</td>
 <td>pyright at zero, ruff format and check clean</td>
-<td><code>pyright src/fdia_graph</code>, <code>ruff format --check src/fdia_graph tests tools pipelines</code>, <code>ruff check src tests tools pipelines</code></td>
+<td><code>pyright src/fdia_graph analysis/src/fdia_analysis</code>, <code>ruff format --check src/fdia_graph analysis/src/fdia_analysis conftest.py tests analysis/tests tools pipelines</code>, <code>ruff check src analysis/src conftest.py tests analysis/tests tools pipelines</code></td>
 </tr>
 <tr>
 <td>generated docs match the code</td>
@@ -1705,7 +1717,7 @@ checks a docs change locally.</p>
 </tr>
 <tr>
 <td>no measured number is typed into markdown</td>
-<td>a harness writes what it measures through <code>fdia_graph.results.Run</code> into the results store (<code>results/</code>, see its README); a doc shows a number or a table through a results block (<code>&lt;!-- results: &lt;query&gt; ... --&gt;</code>, queries in <code>results/queries.py</code>), a CHANGELOG entry names the experiment; settings and published values from papers stay as text</td>
+<td>a harness writes what it measures through <code>fdia_analysis.results.Run</code> into the results store (<code>results/</code>, see its README); a doc shows a number or a table through a results block (<code>&lt;!-- results: &lt;query&gt; ... --&gt;</code>, queries in <code>results/queries.py</code>), a CHANGELOG entry names the experiment; settings and published values from papers stay as text</td>
 <td><code>python tools/results_docs.py --write</code>, <code>--check</code>; <code>--lint</code> lists typed decimals</td>
 </tr>
 <tr>
@@ -1760,12 +1772,24 @@ needs no gh CLI. Commit as yourself, with a message that says what the change do
 start on a push, check the account's Actions minutes first.</p>
 <h2 id="releasing">Releasing<a class="headerlink" href="#releasing" title="Permanent link">&para;</a></h2>
 <p><img alt="the release flow: bump PR, merge on green, tag on main, GitHub release, publish.yml to PyPI" src="../figures/diagrams/contributing_release_flow.png" /></p>
+<p>The two toolkits are released together at one version: the root <code>pyproject.toml</code>,
+<code>fdia_graph.__version__</code>, <code>analysis/pyproject.toml</code> and <code>fdia_analysis.__version__</code> say the same
+number, and <code>fdia-analysis</code> requires exactly <code>fdia-graph==&lt;version&gt;</code> (<code>tests/test_versions.py</code>;
+<code>tools/release.py</code> refuses a tag where it does not hold). The bump PR changes all five lines, and a tag
+<code>vX.Y.Z</code> publishes both distributions (<code>publish.yml</code>).</p>
+<p>Before the first tag that publishes <code>fdia-analysis</code>, the project needs a pending trusted publisher on
+PyPI (pypi.org, Your account, Publishing: owner <code>myersben9</code>, repository <code>fdia-graph</code>, workflow
+<code>publish.yml</code>); without it the upload of <code>fdia-analysis</code> is refused after <code>fdia-graph</code> is already out.
+A publish run that failed part-way can be run again: each upload skips the files PyPI already has.</p>
 <p>A released version is never re-cut; fix forward. Data releases (timelines, pools) have their own
 tags, <code>data-v&lt;x.y.z&gt;</code> (the bare <code>v0.x.y</code> tags belong to package versions), and do not move the
 package version. The
 registry maps the short name (<code>fg.load(..., release="v0.8.0")</code>) to the tag, and
 <code>tools/upload_assets.py v0.8.0 &lt;files&gt;</code> refuses to touch a package tag.</p>
 <h2 id="where-things-live">Where things live<a class="headerlink" href="#where-things-live" title="Permanent link">&para;</a></h2>
+<p>The first four rows are the generation toolkit (<code>src/fdia_graph/</code>), the next four the analysis toolkit
+(<code>analysis/src/fdia_analysis/</code>); a record or a formula is in the <code>models/</code> or <code>formulas/</code> of the toolkit
+that uses it.</p>
 <table>
 <thead>
 <tr>
@@ -1800,7 +1824,7 @@ registry maps the short name (<code>fg.load(..., release="v0.8.0")</code>) to th
 </tr>
 <tr>
 <td>the trusted-meter selectors</td>
-<td><code>trust/</code>, its algebra in <code>formulas/trust.py</code></td>
+<td><code>trust/</code>, its algebra in <code>fdia_analysis/formulas/trust.py</code> (the row reduction it builds on, which the attack search also uses, in <code>fdia_graph/formulas/trust.py</code>)</td>
 </tr>
 <tr>
 <td>the federated localizers and prior</td>

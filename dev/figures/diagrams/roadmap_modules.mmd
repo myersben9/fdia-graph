@@ -1,25 +1,29 @@
 flowchart TB
-    subgraph SDK["src/fdia_graph, the base install"]
+    subgraph GEN["fdia-graph, the generation toolkit: src/fdia_graph"]
         init["__init__.py<br/>fg.* public API"]
-        ds["dataset/<br/>FdiaGraph"]
-        st["timeline.py · torch_data.py<br/>the timeline writer, sequence forms"]
+        ds["dataset/<br/>FdiaGraph, the loader"]
         reg["registry.py · download.py<br/>versions, cache"]
+        gen["generation/ · timeline.py · profiles.py<br/>the timeline writer (the generate extra)"]
+        eng["engine/<br/>FdiaGenerator: physics, meters, attacks"]
+        base["models/ and formulas/<br/>the records and the equations of generation"]
+        init --> ds
+        init --> gen
+        ds --> reg
+        gen --> eng
+        ds --> base
+        eng --> base
+    end
+    subgraph ANA["fdia-analysis, the analysis toolkit: analysis/src/fdia_analysis"]
         se["se/<br/>state estimation"]
         loc["localization/<br/>per-bus localization"]
+        fed["federated/<br/>training across clients"]
         trust["trust/<br/>trusted meters"]
-        init --> ds
-        init --> st
-        ds --> reg
-        se --> ds
-        loc --> ds
-        trust --> ds
+        res["results/<br/>the results store"]
+        abase["models/ and formulas/<br/>the settings, scores and equations of analysis"]
+        loc --> se
+        fed --> loc
+        trust --> se
+        se --> abase
+        res --> abase
     end
-    subgraph GEN["the generate extra"]
-        gen["generation.py · profiles.py<br/>drivers"]
-        eng["engine/<br/>FdiaGenerator"]
-        gen --> eng
-    end
-    base["models/ and formulas/<br/>every returned record, the equations cited<br/>read by every package above"]
-    init --> gen
-    SDK --> base
-    GEN --> base
+    ANA -- "reads timelines, uses the formulas and records" --> GEN

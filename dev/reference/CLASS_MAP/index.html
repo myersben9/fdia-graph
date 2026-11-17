@@ -1724,7 +1724,8 @@
 
 
 <h1 id="class-map">Class map<a class="headerlink" href="#class-map" title="Permanent link">&para;</a></h1>
-<p>How the pieces of <code>fdia_graph</code> connect: one module diagram and six class diagrams, all drawn from
+<p>How the pieces of the two toolkits connect, the generation toolkit <code>fdia_graph</code> and the analysis
+toolkit <code>fdia_analysis</code>: one module diagram of both and eight class diagrams, all drawn from
 the source by <code>tools/class_diagrams.py</code> (the AST gives each class's public methods, its bases and the
 classes of other modules it names), so they cannot drift from the code. CI checks that the committed
 sources match; <code>python tools/class_diagrams.py</code> rewrites them and <code>tools/render_mermaid.py</code> renders.
@@ -1734,12 +1735,14 @@ Read with <a href="../../ROADMAP/"><code>ROADMAP.md</code></a> (what each file i
 type or a collaborator it builds), and a box marked with another package's name is a participant that
 lives there.</p>
 <h2 id="modules">Modules<a class="headerlink" href="#modules" title="Permanent link">&para;</a></h2>
-<p>Which module imports which. Four foundations are read by nearly every module and are left out so the
-real dependencies show: <code>models/</code> (every returned record, every config model and the one validation
-engine), <code>formulas/</code> (the equations), <code>schema.py</code> (the file protocol) and <code>errors.py</code> (the named
-errors). <code>__init__.py</code>, the <code>fg.*</code> public API, imports everything and is left out for the
-same reason.</p>
-<p><img alt="Module diagram: federated over localization, se, dataset and generation; trust over se, dataset, generation and registry; localization over se and dataset; se over dataset; generation over engine, dataset, federated, profiles, timeline, download and registry; engine over generation, federated, ratings and registry; dataset over generation; timeline over engine, generation, registry and results; profiles over engine; download over registry. The New York code's imports make generation, engine, dataset and federated read each other in both directions" src="../../figures/diagrams/modules.png" /></p>
+<p>Which module imports which, in one picture with a box per toolkit: every arrow between the boxes
+runs from the analysis toolkit to the generation toolkit, never back. Four foundations are read by
+nearly every module and are left out so the real dependencies show: each toolkit's <code>models/</code> (the
+returned records and the settings; the one validation engine is <code>fdia_graph.models.validation</code>) and
+<code>formulas/</code> (the equations), and the generation toolkit's <code>schema.py</code> (the file protocol) and
+<code>errors.py</code> (the named errors). Each package's own <code>__init__.py</code> (for <code>fdia_graph</code>, the <code>fg.*</code>
+public API, which imports everything) is left out for the same reason.</p>
+<p><img alt="Module diagram in two boxes. The analysis toolkit, fdia_analysis: federated over localization and se; localization over se; trust over se; results beside them. The generation toolkit, fdia_graph: generation over engine, dataset, profiles, timeline, download and registry; engine over generation, ratings and registry; dataset over generation; timeline over generation; profiles over engine; download over registry. Between the boxes every arrow points from analysis to generation: federated, localization, se and trust read dataset; trust reads generation and registry" src="../../figures/diagrams/modules.png" /></p>
 <h2 id="the-dataset">The dataset<a class="headerlink" href="#the-dataset" title="Permanent link">&para;</a></h2>
 <p><code>FdiaGraph</code> is the file. Five mixins over <code>DatasetBase</code> give it its faces: the static graph physics
 (<code>GraphMixin</code>), the admittance matrices (<code>AdmittanceMixin</code>), records and batches (<code>RecordsMixin</code>), the
@@ -1784,12 +1787,14 @@ each client trains its own copy with the shared <code>LocalTrainer</code> on its
 forms share seven field-group mixins, one per group of keys, so a record, a batch and an exported split
 carry the same names. An exported split adds an eighth, export-only group,
 <code>PreviousFrameFields</code> (the previous frame's readings on a timeline).</p>
-<p><img alt="Class diagram of the record bundles: Bundle, the seven shared field-group mixins as one node, and RecordBundle, BatchBundle and ArraysBundle inheriting both; ArraysBundle also takes an eighth, export-only group, PreviousFrameFields; EpisodeTable, Summary and TrueState under Bundle" src="../../figures/diagrams/classes_models.png" /></p>
+<p><img alt="Class diagram of the record bundles: Bundle, the seven shared field-group mixins as one node, and RecordBundle, BatchBundle and ArraysBundle inheriting both; ArraysBundle also takes an eighth, export-only group, PreviousFrameFields; EpisodeTable and Summary under Bundle" src="../../figures/diagrams/classes_models.png" /></p>
 <h2 id="the-scores">The scores<a class="headerlink" href="#the-scores" title="Permanent link">&para;</a></h2>
-<p>The result of every <code>score()</code> is a <code>Bundle</code> too: <code>ErrorPair</code> and <code>EstimatorScores</code> for the estimators,
+<p>The result of every <code>score()</code> is a <code>Bundle</code> too, defined in the analysis toolkit
+(<code>fdia_analysis.models.scores</code>) on the generation toolkit's <code>Bundle</code>: <code>ErrorPair</code> and <code>EstimatorScores</code> for the estimators,
 <code>OverallMetrics</code>, <code>BenignMetrics</code>, <code>FamilyMetrics</code> and <code>LocalizerScores</code> for the localizers, <code>TrustScores</code>
-for the trusted meters, <code>JacobianOutputs</code> for the feature block.</p>
-<p><img alt="Class diagram of the score bundles: ErrorPair, EstimatorScores, OverallMetrics, BenignMetrics, FamilyMetrics, LocalizerScores, PerBusMetrics, PerBusScores, GridScores, TrustScores and JacobianOutputs all under Bundle" src="../../figures/diagrams/classes_scores.png" /></p>
+for the trusted meters, <code>JacobianOutputs</code> for the feature block; <code>TrueState</code> (<code>fdia_analysis.models.data</code>)
+is the truth an estimator is scored against.</p>
+<p><img alt="Class diagram of the score bundles: ErrorPair, EstimatorScores, OverallMetrics, BenignMetrics, FamilyMetrics, LocalizerScores, PerBusMetrics, PerBusScores, GridScores, TrustScores, JacobianOutputs and TrueState all under Bundle" src="../../figures/diagrams/classes_scores.png" /></p>
 <p>The named tuples of <code>models/frames.py</code> (<code>Scan</code>, <code>Frame</code>, <code>OperatingLimits</code>, <code>FrameKnobs</code>),
 <code>models/grid.py</code> (the column indices, <code>BranchModel</code>, <code>Admittances</code>, <code>MeterPlan</code>, <code>MeterBias</code>,
 <code>Outage</code>) and <code>models/assets.py</code> (<code>AssetSpec</code>) are plain
