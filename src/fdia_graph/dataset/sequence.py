@@ -36,15 +36,14 @@ class SequenceMixin(DatasetBase):
         per_bus: bool = False,
         copy: bool = True,
     ) -> tuple[np.ndarray, np.ndarray]:
-        """Slide a length-W window over this view's frames. Returns (Xw [n, W, N, 4], yw) in self.units.
+        """Length-W windows over this view's frames: (Xw [n, W, N, 4], yw) in self.units.
 
-        label: "frame" -> per-frame per-bus labels yw [n, W, N]; "any" -> window-level per-bus label
-        yw [n, N] (bus attacked at ANY frame in the window); "last" -> the label at the final frame.
-        layer: the measurement layer windowed, "node_x" (observed), "benign" or "clean".
-        per_bus: one sequence per bus instead, Xw [n*N, W, 4] and yw [n*N] (or [n*N, W] per frame),
-        what a per-bus recurrent model consumes; wrap in torch.as_tensor for PyTorch.
-        copy: False returns Xw as a read-only strided view of the frames, no memory per window (a
-        72k-frame IEEE-118 timeline at W=60 is about 8 GB as a copy); per_bus always copies.
+        label   : "frame" gives yw [n, W, N]; "any" gives yw [n, N], a bus attacked at any frame of
+                  the window; "last" gives the label at the final frame.
+        layer   : "node_x" (observed), "benign" or "clean".
+        per_bus : one sequence per bus, Xw [n*N, W, 4] and yw [n*N] (or [n*N, W]); always a copy.
+        copy    : False returns Xw as a read-only view of the frames, with no memory per window (a copy
+                  of a 72k-frame IEEE-118 timeline at W=60 is about 8 GB).
         """
         self._check_timeline("windows")
         T = len(self.idx)

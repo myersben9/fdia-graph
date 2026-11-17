@@ -1,9 +1,8 @@
 """The optimization solver every nygrid OPF runs on, found and checked in one place.
 
-Ipopt comes from conda-forge into the environment's `Library/bin` folder on Windows, and it needs the DLLs in that
-folder on PATH to start. When it cannot start, Pyomo reports a failed solve rather than a missing program, so a
-caller that reads a failed solve as "infeasible" would quietly build nothing. `ipopt` therefore puts the folder on
-PATH, checks that the solver runs, and raises `SolverUnavailable` with the fix when it does not.
+On Windows, Ipopt needs the DLLs of the environment's `Library/bin` folder on PATH to start. When it cannot
+start, Pyomo reports a failed solve, which a caller would read as "infeasible". `ipopt` therefore puts the
+folder on PATH, checks that the solver runs, and raises `SolverUnavailable` with the fix when it does not.
 """
 
 from __future__ import annotations
@@ -16,11 +15,8 @@ from fdia_graph.errors import SolverUnavailable
 
 
 def ipopt(**options: Any) -> Any:
-    """A Pyomo `SolverFactory` for Ipopt with `options` set, checked to run.
-
-    Raises:
-        SolverUnavailable: Pyomo is not installed, or Ipopt is not found or does not start.
-    """
+    """A Pyomo `SolverFactory` for Ipopt with `options` set, checked to run. Raises `SolverUnavailable`
+    when Pyomo is not installed, or Ipopt is not found or does not start."""
     try:
         import pyomo.environ as pe
     except ImportError as err:  # the [ny] extra brings Pyomo

@@ -4,13 +4,10 @@
 defaults to `None`, since which ones are filled depends on the file and the request. The columns of a
 measurement array are named in `constants.channels` (`node_x[..., NodeChannel.THETA]`). A field's
 trailing shape is fixed here; the leading axis (none for a record, `B` for a batch, `n` for a
-split) belongs to the bundle and is stated in its docstring. A bundle names the fields it cannot do
-without in `_required` and its dict-key order in `_order` (see `Bundle`).
+split) belongs to the bundle.
 
-Types: the same field serves a numpy split (`to_numpy`) and a torch record or batch (`FdiaGraph[i]`,
-`collate`), so an array field is `Array` (a numpy array or a torch tensor) and a per-record scalar
-is `Scalars` (one int on a record, a vector on a batch or a split).
-"""
+An array field is `Array` (a numpy array or a torch tensor) and a per-record scalar is `Scalars`
+(one int on a record, a vector on a batch or a split)."""
 
 from __future__ import annotations
 

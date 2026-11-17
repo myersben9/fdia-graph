@@ -1,23 +1,12 @@
 """The system a timeline is generated on, and the one path that generates it.
 
-`TimelineSource.generate` makes every timeline, on an IEEE case or on the New York grid, in the same
-order: the file is started, the source prepares what it must know before the splits, the splits are cut,
-then split by split the episodes are placed, designed and the frames walked in time order, and the file
-is finished. The steps that depend on the grid are the methods a subclass writes, and the grids are the
-subclasses: `generation.ieee.IeeeSource` (a pandapower case and its pool of operating points),
-`generation.nygrid.source.NewYorkSource` (the New York grid and its year of five-minute states) and,
-under it, `SingleEpisodeSource` (one episode alone, placed by hand).
-
-    step             IEEE case                              New York grid
-    prepare          nothing                                the families' onset masks; the onset survey
-    cut_splits       three blocks in time order             whole weeks, stratified
-    onset_masks      none: any onset of the split           the masks, or the onsets the survey found
-    placement_rng    the generator's one stream             the build's "place" stream
-    design           Am before the walk; no design: moved   every family; no design: left benign
-    walk             a scan per frame, At designed here     the noisy scan plus the attack vector
-    open, finish     the one file layout (`schema`), by the one writer (`generation.write.TimelineWriter`)
-
-The placement itself (`place`) is the same code for both: `generation.plan.place_split`.
+`TimelineSource.generate` makes every timeline in the same order: open the file, prepare, cut the
+splits, then split by split place the episodes, design them and walk the frames in time order, and
+finish the file. The steps that depend on the grid are the methods a subclass writes:
+`generation.ieee.IeeeSource` (a pandapower case and its pool) and
+`generation.nygrid.source.NewYorkSource` (the New York grid and its year of five-minute states).
+The placement (`place`) and the writer (`generation.write.TimelineWriter`) are shared by both.
+docs/guides/generation.md has the step-by-step table of what each grid does.
 """
 
 from __future__ import annotations
@@ -38,14 +27,12 @@ OutPath = Union[str, "os.PathLike[str]"]  # where a timeline file is written
 
 
 class TimelineSource(ABC, Generic[Family, Design]):
-    """A grid a timeline is generated on: its pool of operating points and the steps of `generate`
-    that depend on the grid (the table in this module's docstring). `Family` is how the grid names an
-    attack family (the IEEE files' integer code, a New York family's name) and `Design` the record its
-    design stage finds for one episode.
+    """A grid a timeline is generated on: its pool of operating points and the grid-dependent steps
+    of `generate`. `Family` is how the grid names an attack family (an integer code on IEEE files, a
+    name on New York) and `Design` the record its design stage finds for one episode.
 
-    A subclass sets `attacked_frac` (the share of each split's frames to place under an episode) and,
-    in `open`, a fresh `rec` (what the placement asked for and got, per split and family) and the
-    `_writer` of the file."""
+    A subclass sets `attacked_frac` and, in `open`, a fresh `rec` (what the placement asked for and
+    got) and the `_writer` of the file."""
 
     attacked_frac: float
     rec: Placement[Family]
@@ -58,10 +45,9 @@ class TimelineSource(ABC, Generic[Family, Design]):
         return self._writer
 
     def generate(self, out: Optional[OutPath] = None) -> str:
-        """Generate the timeline and write it as one HDF5 file at `out`; returns the path.
-
-        The file is written beside `out` under a `.part` name and takes the name `out` only when it
-        is whole, so a run that fails leaves no file (and a file already at `out` is left as it was)."""
+        """Generate the timeline, write it as one HDF5 file at `out` and return the path. The file is
+        written under a `.part` name and renamed only when whole, so a failed run leaves no file and
+        a file already at `out` is left as it was."""
         path = self.out_path(out)
         os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
         finished = False
@@ -102,7 +88,7 @@ class TimelineSource(ABC, Generic[Family, Design]):
 
     def prepare(self) -> None:
         """What the source must work out before the splits are cut. Nothing by default; the New York
-        grid finds here the onsets its families may take (the onset survey)."""
+        grid finds here the onsets its families may take."""
 
     @abstractmethod
     def cut_splits(self) -> list[SplitSpan]:
@@ -122,16 +108,16 @@ class TimelineSource(ABC, Generic[Family, Design]):
         mask may start anywhere in its split."""
 
     def place(self, span: SplitSpan) -> list[Slot[Family]]:
-        """The episodes of the split `span` at uniform random onsets, never overlapping and never cut
-        (`generation.plan.place_split`), with what was requested and dropped recorded in `rec`."""
+        """The episodes of the split `span` at uniform random onsets, never overlapping and never cut.
+        What was requested and dropped is recorded in `rec`."""
         return place_split(
             self.placement_rng(), self.lengths(), self.attacked_frac, span, self.rec, self.onset_masks()
         )
 
     @abstractmethod
     def design(self, span: SplitSpan, slots: list[Slot[Family]]) -> None:
-        """Design the placed episodes of `span` and keep them for the walk; decides what happens to an
-        episode no design exists for."""
+        """Design the placed episodes of `span` and keep them for the walk. The source decides what
+        happens to an episode with no feasible design."""
 
     @abstractmethod
     def walk(self, until: int) -> None:
@@ -141,13 +127,13 @@ class TimelineSource(ABC, Generic[Family, Design]):
 
     @abstractmethod
     def finish(self) -> None:
-        """After the walk: what the file carries besides its frames (the columns, the episode table
-        and the attributes, `TimelineWriter.finish`; on an IEEE file also the temporal features)."""
+        """After the walk, write what the file carries besides its frames: the columns, the episode
+        table and the attributes (`TimelineWriter.finish`)."""
 
     @abstractmethod
     def record(self) -> dict[str, object]:
-        """What identifies the timeline, as nested plain values: the settings it was generated with. The
-        file records them as JSON with their hash (`Attr.SETTINGS`, `Attr.SETTINGS_HASH`)."""
+        """The settings the timeline is generated with, as nested plain values. The file records them
+        as JSON with their hash (`Attr.SETTINGS`, `Attr.SETTINGS_HASH`)."""
 
     def close(self, finished: bool) -> None:
         """Close the file. A subclass also stops its design processes: cleanly after a `finished`

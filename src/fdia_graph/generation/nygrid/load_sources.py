@@ -53,9 +53,8 @@ def _quarter_per_unit(key: str) -> tuple[str, str, str, float, np.ndarray]:
 
 
 def _building_stock(cache: Path) -> dict[str, np.ndarray]:
-    """All NY county ResStock (AMY2018 release 1) and ComStock (AMY2018 release 1) profiles at their native
-    15 minutes, reduced to total electricity per unit and cached, since the full files are about 11 GB
-    (N31; the hourly cache `building_stock_ny.npz` of the first build is left in place)."""
+    """All NY county ResStock and ComStock profiles (both AMY2018 release 1) at their native 15 minutes,
+    reduced to total electricity per unit and cached, since the full files are about 11 GB."""
     path = cache / "building_stock_ny_15min.npz"
     if not path.exists():
         keys = [
@@ -78,7 +77,7 @@ def _building_stock(cache: Path) -> dict[str, np.ndarray]:
 
 
 def _sector_mix(cache: Path) -> dict[str, np.ndarray]:
-    """II-B: each utility's residential, commercial and industrial share of its 2019 MWh sales to ultimate
+    """[LI21, II-B]: each utility's residential, commercial and industrial share of its 2019 MWh sales to ultimate
     customers, bundled (Part A) plus delivery (Part C). Transportation sales count as commercial."""
     with zipfile.ZipFile(download_once(EIA_861_URL, cache / "f8612019.zip")) as z:
         s = pd.read_excel(io.BytesIO(z.read("Sales_Ult_Cust_2019.xlsx")), sheet_name="States", header=2)
@@ -109,14 +108,11 @@ def _county_centroids(cache: Path) -> dict[str, tuple[float, float]]:
 
 
 def _plants(cache: Path) -> dict[str, np.ndarray]:
-    """II-C2: every IAC plant with usable electricity data, as the parameters of its yearly curve.
-
-    The ORNL curves of [26] in [2] are figures, not tables, so they are rebuilt from the report's own rule
-    (ORNL/TM-2013/407, Sec. 2 and App. B): a weekday at 1 p.u. from 9 AM to 4 PM, the other hours at the
-    level that gives the sector's load factor over a 5-day week, and the weekend at the weekday minimum.
-    That level is held flat, the simplest of the third-order fits App. B allows. The load factor of a
-    4-digit SIC is the mean over its IAC plants of yearly kWh over (peak kW x 8760), the peak being the
-    yearly kW-months over 12. Plants with a load factor above 1 or more than 8760 hours are data errors."""
+    """[LI21, II-C2]: every IAC plant with usable electricity data, as the parameters of its yearly curve. The
+    curve follows ORNL/TM-2013/407 (Sec. 2, App. B): 1 p.u. on weekdays 9 AM to 4 PM, else the flat level that
+    gives the SIC's load factor, the mean over its plants of yearly kWh / (yearly kW-months / 12 x 8760).
+    Ours: [LI21]'s ORNL curves are figures only, so they are rebuilt from the report's rule; weekends sit at
+    the weekday minimum; a plant with a load factor above 1 or more than 8760 hours is a data error."""
     path = cache / "iac_plants.npz"
     if not path.exists():
         with zipfile.ZipFile(download_once(IAC_URL, cache / "ITAC_Database.zip")) as z:

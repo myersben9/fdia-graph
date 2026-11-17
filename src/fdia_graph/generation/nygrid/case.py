@@ -84,23 +84,18 @@ class Case:
     unit_on: np.ndarray
 
     def with_voltage_margin(self, margin: float) -> Case:
-        """A copy with every bus's voltage limits widened by `margin` (p.u.), this case unchanged. The attacker's
-        sensitivity case of N71: the reduced network pins New York City buses at their upper limit."""
+        """A copy with every bus's voltage limits widened by `margin` (p.u.). It is the attacker's sensitivity
+        case: the reduced network pins New York City buses at their upper limit."""
         return replace(self, vmin=self.vmin - margin, vmax=self.vmax + margin)
 
     # ---- reading a MATPOWER case file ----
 
     @classmethod
     def from_matpower(cls, path: str | Path) -> Case:
-        """The `Case` of the MATPOWER case file at `path`, checked (`check`).
-
-        The matrices keep MATPOWER's columns. The bus `zone` column says where each bus is, as a number
-        (`ZONE_LEGEND`): `zone` and `area` of the `Case` both come from it (`NY_AREA` in New York, the neighbor's
-        area in `REGIONS` outside), and the bus `area` column must be `FILE_AREA` on every row. A branch out of
-        service is left out, and a tap ratio of 0 (MATPOWER's mark of a line) is 1. Beyond MATPOWER's own fields the file
-        has `mpc.bus_latlon` (degrees) and `mpc.gen_ramp` (MW/min, NaN where unknown). A statement the reader
-        would pass over without a word (an indexed assignment, a field it does not know) raises
-        `DataConditionError`."""
+        """The checked `Case` of the MATPOWER case file at `path`. A branch out of service is left out and a
+        tap ratio of 0 (MATPOWER's mark of a line) is 1. Beyond MATPOWER's fields the file has `mpc.bus_latlon`
+        (degrees) and `mpc.gen_ramp` (MW/min, NaN where unknown). A statement the reader would silently skip
+        (an indexed assignment, an unknown field) raises `DataConditionError`."""
         from matpowercaseframes import CaseFrames  # here, so that a Case can be used without the [ny] extra
 
         text = Path(path).read_text(encoding="utf-8")
@@ -120,8 +115,8 @@ class Case:
 
     @classmethod
     def _from_frames(cls, frames: CaseFrames, text: str, path: str | Path) -> Case:
-        """The `Case` of the tables matpowercaseframes read, each column taken by MATPOWER's name for it. The
-        two lists of strings come from `text`, the file itself."""
+        """The `Case` of the tables matpowercaseframes read, each column by MATPOWER's name. The two lists of
+        strings come from `text`, the file itself."""
         bus, gen = frames.bus, frames.gen
         branch = frames.branch[frames.branch["BR_STATUS"] > 0]
         links = frames.dcline if newyork.DCLINE in frames.attributes else None
@@ -154,8 +149,8 @@ class Case:
         )
 
     def check(self, source: str) -> None:
-        """Refuse a case whose parts disagree, naming `source` (the file it came from) and what is wrong: one name
-        and one place per bus, one fuel and one ramp per unit, bus types that are MATPOWER's, one reference bus."""
+        """Refuse a case whose parts disagree, naming `source` (its file): one name and one place per bus,
+        one fuel and one ramp per unit, bus types that are MATPOWER's, one reference bus."""
         buses, units = len(self.bus_id), len(self.unit_bus)
         counts = {
             f"mpc.{newyork.BUS_NAME}": (len(self.name), buses),
@@ -179,8 +174,8 @@ class Case:
 
     @staticmethod
     def _check_statements(text: str, source: str | Path) -> None:
-        """Refuse what the reader would pass over without a word: an indexed assignment, a field it does not know
-        and a field assigned twice. Refuse a file that lacks a field a `Case` needs."""
+        """Refuse what the reader would silently skip (an indexed assignment, an unknown field, a field
+        assigned twice) and a file that lacks a field a `Case` needs."""
         seen: list[str] = []
         known = (*newyork.CASE_FIELDS_NEEDED, newyork.DCLINE, *newyork.CASE_FIELDS_PASSED_OVER)
         for number, line in enumerate(text.splitlines(), 1):
@@ -239,9 +234,9 @@ class Case:
     def _zones_and_areas(
         codes: np.ndarray, file_area: np.ndarray, source: str | Path
     ) -> tuple[np.ndarray, np.ndarray]:
-        """`(zone, area)` of every bus from the bus `zone` column (`ZONE_LEGEND`): the zone letter, "" outside New
-        York, and the area (`NY_AREA`, or the neighbor's area in `REGIONS`). The file's own `area` column is not where
-        a bus's region is read from, and must be `FILE_AREA` on every row."""
+        """`(zone, area)` of every bus from the file's `zone` column (`ZONE_LEGEND`): the zone letter ("" outside
+        New York) and the area (`NY_AREA`, or the neighbor's in `REGIONS`). The file's own `area` column must be
+        `FILE_AREA` on every row."""
         if not (file_area == newyork.FILE_AREA).all():
             raise DataConditionError(
                 f"{source}: mpc.bus: the area (BUS_AREA) must be {newyork.FILE_AREA} on every row: the case is one "

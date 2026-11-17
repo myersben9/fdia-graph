@@ -1,11 +1,10 @@
 """An IEEE case as the source of a timeline: its pool of operating points and its steps of the driver.
 
-`IeeeSource` is one of the two `generation.source.TimelineSource` subclasses. Its splits are three
-blocks in time order; any onset of a split may hold an episode; placements, ramp designs and the
-moves of an infeasible ramp all draw from the generator's one random stream, in the order the driver
-reaches them (so each split is placed after the split before it is walked); an overload Am is designed
-before its split is walked and moved when it has no design. The file is the one layout of every
-timeline (`schema`), written through `generation.write.TimelineWriter`.
+`IeeeSource` is a `generation.source.TimelineSource`. Its splits are three blocks in time order and
+any onset of a split may hold an episode. Placements, ramp designs and the moves of an infeasible
+ramp all draw from the generator's one random stream, in the order the driver reaches them, so each
+split is placed only after the split before it is walked. An overload Am is designed before its
+split is walked and moved when it has no design.
 """
 
 from __future__ import annotations
@@ -34,12 +33,12 @@ from .write import TimelineWriter
 
 
 class IeeeSource(TimelineSource[int, AmOverloadDesign]):
-    """The IEEE case `system` with its pool of AC operating points (`states`, as `fg.generate` takes
-    them), the `settings` of the walk and the `seed` of the generator. Building it checks the settings
-    against the case (the families have a target, the lines have ratings) before any file is made.
+    """The IEEE case `system` with its pool of AC operating points (`states`), the `settings` of the
+    walk and the `seed` of the generator. Building it checks the settings against the case (every
+    family has a target, the lines have ratings) before any file is made.
 
-    One source generates one timeline: the generator's random stream is used up by the walk, and a
-    second `generate` is refused."""
+    One source generates one timeline: the walk uses up the generator's random stream, so a second
+    `generate` is refused."""
 
     def __init__(
         self,
@@ -57,7 +56,7 @@ class IeeeSource(TimelineSource[int, AmOverloadDesign]):
         self.g = FdiaGenerator.from_spec(GeneratorSpec(system, seed, s.max_load_mw, s.meters, None))
         self.X = _load_states(system, states)
         self._check_targets(fams)
-        self.limits = self.g.operating_limits(self.X)  # what every false state must satisfy [WU26 eqs. 21-23]
+        self.limits = self.g.operating_limits(self.X)  # every false state must satisfy [WU26 eqs. 21-23]
         self.knobs = self._knobs()
         self.schedule = Schedule(list(fams), s.ramp.length, s.ramp.rate, s.am_frames, s.attacked_frac)
         self.attacked_frac = s.attacked_frac
@@ -69,8 +68,8 @@ class IeeeSource(TimelineSource[int, AmOverloadDesign]):
         self._planned: Optional[tuple[SplitSpan, list[AmEpisode]]] = None
 
     def _check_targets(self, fams: tuple[int, ...]) -> None:
-        """Before any frame is walked: every family has a target on this case, and the overload Am
-        its line ratings (pglib: NoLineRatings here, not mid-walk)."""
+        """Check, before any frame is walked, that every family has a target on this case and that
+        the overload Am has its line ratings (NoLineRatings is raised here, not mid-walk)."""
         if round(self.settings.attacked_frac * len(self.X)) <= 0:
             return  # a timeline placing no attacked frame needs no target
         # the overload Am is not checked here: its targets are the rated, metered lines of each
@@ -96,10 +95,9 @@ class IeeeSource(TimelineSource[int, AmOverloadDesign]):
         return knobs._replace(load_cap=o.load_cap, n_lines=o.n_lines, support_method=o.support_method)
 
     def _recorded(self) -> dict[str, object]:
-        """The knobs a file records as attributes: the walk's, and, only when they apply, those of the
-        fewest-tamper search, of the Am attack (its rating source and margin), the stealth scale of
-        At's search (Am has no stealth bound: an Am-only file records the scale it was given, which
-        nothing used) and, on a hybrid-meter file, its meter model and the legend of its currents."""
+        """The knobs a file records as attributes: the walk's and, only when they apply, those of the
+        fewest-tamper search, of the Am attack and of the hybrid meters. An Am-only file records the
+        stealth scale it was given, which nothing used (Am has no stealth bound)."""
         s, limits, o = self.settings, self.limits, self.settings.overload
         red = s.meters.coverage
         out: dict[str, object] = {
@@ -125,15 +123,15 @@ class IeeeSource(TimelineSource[int, AmOverloadDesign]):
             out[Attr.SUPPORT_METHOD] = o.support_method
         if s.search.min_tamper or self.am_runs:
             out[Attr.STEALTH_SCALE] = s.ramp.stealth_scale
-        if self.g.current_mask() is not None:  # a hybrid-meter file, which reads PMU currents
+        if self.g.current_mask() is not None:  # a hybrid-meter file
             out[Attr.METER_MODEL] = s.meters.meter_model
             out[Attr.CURRENT_FEAT] = schema.CURRENT_FEAT_LEGEND[schema.CURRENT_RECTANGULAR]
             out[Attr.CURRENT_UNITS] = schema.CURRENT_UNITS_LEGEND[schema.CURRENT_RECTANGULAR]
         return out
 
     def _topology(self) -> dict[str, object]:
-        """The topology a file records: "base" = intact, "n1_line" = one line out for every frame,
-        with the contingency's size (outage_base_flow_mw) so a file is self-describing."""
+        """The topology a file records: "base" (intact) or "n1_line" (one line out for every frame),
+        with the outaged line and its base flow in MW."""
         c = self.g.contingency
         return {
             Attr.TOPOLOGY: ("base" if c.line is None else "n1_line"),
@@ -175,7 +173,7 @@ class IeeeSource(TimelineSource[int, AmOverloadDesign]):
 
     def _clean(self, a: int, b: int) -> tuple[np.ndarray, np.ndarray]:
         """The noiseless truth of frames a..b-1: the states as float32 and the exact flows on metered
-        branches (one batched matmul, the engine's physics primitive)."""
+        branches."""
         return self.X[a:b].astype(np.float32), self.g.clean_flows_from_states(self.X[a:b])
 
     @property
@@ -188,15 +186,13 @@ class IeeeSource(TimelineSource[int, AmOverloadDesign]):
         return os.fspath(out) if out else os.path.join(CACHE_DIR, f"timeline_ieee{system_id(self.system)}.h5")
 
     def open(self, path: str) -> None:
-        """Start the file: the graph and the per-frame layers at full length, empty until the walk
-        fills them; and the design processes. A source generates once: the generator's random stream
-        is used up by the walk, so a second timeline would not be the first."""
+        """Start the file (the graph and the empty per-frame layers) and the design processes. A
+        second call is refused: the walk uses up the generator's random stream."""
         if self._designer is not None:
             raise ConfigError("an IeeeSource generates one timeline; build a new source for another")
         g, T = self.g, self.frames
         self._designer = AmDesigner(g, self._spec(), self.settings.workers if self.am_runs else 1)
         spec = LayerSet(currents=g.current_mask() is not None)
-        # open for the whole walk: frames flush in batches
         self._writer = TimelineWriter(path, (T, g.C, g.E), self._clean, spec)
         self._writer.write_graph(g.ei, self._graph())
         self._frames = Walk(FrameContext(g, self.X, self.knobs), self._writer)
@@ -221,25 +217,22 @@ class IeeeSource(TimelineSource[int, AmOverloadDesign]):
         return {}
 
     def design(self, span: SplitSpan, slots: list[Slot[int]]) -> None:
-        """Every overload Am of the split designed before it is walked (`generation.design`), one
-        with no design at its onset moved to another free onset of the split until it has one, or
-        given up. A ramp At is kept without a design: the walk designs it as it reaches it."""
+        """Design every overload Am of the split before it is walked (`generation.design`); one with
+        no design moves to another free onset or is given up. A ramp At is designed by the walk."""
         assert self._designer is not None, "open() starts the design processes"
         episodes = self._designer.design_split(self.X, self.knobs, span, slots, self.rec)
         self._planned = (span, episodes)
 
     def walk(self, until: int) -> None:
-        """The frames of the split just designed, each a scan of its operating point, benign or under
-        its episode (`generation.emit.Walk.walk_split`). The splits are blocks in time order, so the frames
-        not yet written before `until` are exactly that split's."""
+        """Walk the frames of the split just designed (`generation.emit.Walk.walk_split`). The splits
+        are blocks in time order, so the frames not yet written before `until` are exactly that split's."""
         assert self._frames is not None and self._planned is not None, "design() comes before walk()"
         span, episodes = self._planned
         assert until == span.stop, "a block split ends where the next split to plan begins"
         self._frames.walk_split(self.schedule, span, episodes, self.rec)
 
     def finish(self) -> None:
-        """After the walk: the columns, the episodes, the attributes (the recorded knobs and what the
-        placement asked for and got) and the temporal features."""
+        """After the walk, write the columns, the episodes, the attributes and the temporal features."""
         w, frac = self.writer, self.settings.split.fractions
         self.g.scan_key = None
         columns = {schema.SPLIT: split_column(self.bounds, self.frames)}

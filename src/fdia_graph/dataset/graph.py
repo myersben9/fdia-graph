@@ -45,8 +45,7 @@ class GraphMixin(DatasetBase):
         return self._p(Static.EDGE_G)  # charging conductance, transformer iron losses
 
     def _series_adm(self, imag: bool) -> torch.Tensor:
-        # Series admittance 1/(r+jx). Stored on v0.7.0+ shards; derived from r,x for older ones so edge_attr
-        # keeps working on every physics shard.
+        # Series admittance 1/(r+jx): read when the file stores it, else derived from r and x.
         key = "edge_bs" if imag else "edge_gs"
         v = self._phys.get(key)
         if v is None:
@@ -73,7 +72,7 @@ class GraphMixin(DatasetBase):
     def branch_shift(self) -> torch.Tensor:
         return self._p(Static.EDGE_SHIFT)  # phase shift, degrees
 
-    # Shunts are a BUS property, on the Ybus diagonal, so they were not expressible in an edge schema.
+    # Shunts are a bus property, on the Ybus diagonal.
     @property
     def bus_shunt_g(self) -> torch.Tensor:
         return self._p(Static.BUS_SHUNT_G)  # shunt conductance, MW at 1.0 pu

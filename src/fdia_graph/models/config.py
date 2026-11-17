@@ -1,8 +1,7 @@
 """The settings every consumer accepts, one model each, checked when built (`models.validation`).
 
-The public signatures do not change: a constructor or function takes its keyword arguments as
-before, builds its model here and reads the checked values from it. What a value may be is stated
-once, on the field, and nowhere in the consumer.
+A constructor or function takes keyword arguments, builds its model here and reads the checked
+values from it. What a value may be is stated once, on the field.
 """
 
 from __future__ import annotations
@@ -73,7 +72,8 @@ def field_names(fields: object) -> tuple[str, ...]:
 
 @dataclass(frozen=True)
 class ExportRequest(Validated):
-    """What `export` is asked for."""
+    """What `export` is asked for: the format ("numpy", "torch", "tf" or "pandas") and the per-record
+    fields to read (None: every field). A pandas frame carries every field and refuses `fields`."""
 
     format: Annotated[str, OneOf(Format)] = "torch"
     fields: Annotated[
@@ -89,7 +89,8 @@ class ExportRequest(Validated):
 
 @dataclass(frozen=True)
 class WindowSpec(Validated):
-    """A sliding-window request over a view of T frames."""
+    """A sliding-window request over a view of T frames: the window length W (1 to T), the stride, how
+    a window is labelled and which layer it reads."""
 
     T: Count
     W: Annotated[int, Integer()]
@@ -124,11 +125,9 @@ class SplitSettings(Validated):
 @dataclass(frozen=True)
 class OverloadSettings(Validated):
     """The overload attack's settings, as `generate_timeline(am_attack=OverloadSettings(...))` takes them
-    (the string "overload" is these defaults): the line ratings, S_max
-    of each branch `rating_margin` times its peak true apparent flow over the operating pool
-    ("pool", every system) or PGLib-OPF's `rate_a` ("pglib", IEEE-14, 118 and 300); the
-    load-plausibility cap `load_cap` on every load bus the attack moves and `n_lines`, the
-    lines one episode overloads at once."""
+    (the string "overload" is these defaults). The line rating S_max of each branch is
+    `rating_margin` times its peak true apparent flow over the operating pool ("pool", every
+    system) or PGLib-OPF's `rate_a` ("pglib", IEEE-14, 118 and 300)."""
 
     rating_source: Annotated[str, OneOf(RatingSource)] = "pool"
     rating_margin: Annotated[float, Finite(), InRange(1.0, math.inf)] = 1.25  # > 1
@@ -148,13 +147,12 @@ class OverloadSettings(Validated):
 @dataclass(frozen=True)
 class TrustSchedule(Validated):
     """[WU26]'s dynamic trusted-PMU configuration (eqs. 26-32) as a constraint on the attack window: the
-    PMU at bus `buses[i]` (the generator's bus index) is trusted from snapshot `slots[i]` of the window
-    on. Trust accumulates (eqs. 30-31: h^S_t = h^S_t-1 + dh^S_t), so at snapshot t every PMU trusted at
-    a slot <= t is pinned and a PMU trusted later can still be tampered with. A trusted PMU pins its
-    own |V| and angle rows (eqs. 27, 32: two rows per trusted PMU, "the rank of hS becomes 2n x 2"),
-    so the attack's state deviation is zero there (eq. 29); its branch currents stay in the nonsecure
-    set h^S' (eq. 27). One support is held for the window, a trusted bus dropping out of it from its
-    slot (E13's support per slot never changed an answer in any run and was removed)."""
+    PMU at bus `buses[i]` (the generator's bus index) is trusted from snapshot `slots[i]` on. Trust
+    accumulates (eqs. 30-31: h^S_t = h^S_t-1 + dh^S_t): at snapshot t every PMU with a slot <= t is
+    pinned, and a PMU trusted later can still be tampered with. A trusted PMU pins its own |V| and angle
+    rows (eqs. 27, 32: two rows per trusted PMU), so the attack's state deviation
+    is zero there (eq. 29); its branch currents stay in the nonsecure set h^S' (eq. 27). One support is
+    held for the window; a trusted bus drops out of it from its slot."""
 
     buses: Annotated[Sequence[int], AsTuple()]
     slots: Annotated[Sequence[int], AsTuple()]
@@ -174,8 +172,8 @@ class TrustSchedule(Validated):
 @dataclass(frozen=True)
 class MeterSettings(Validated):
     """The meter plan a timeline walks, as `generate_timeline(redundancy=...)` takes it: the coverage
-    fractions of the voltage meters, the PMUs and the flow meters, and what the meters measure (the
-    plan's D10, D12): "hybrid" (angles at the PMUs only, PMU branch currents)."""
+    fractions of the voltage meters, the PMUs and the flow meters, and what the meters measure:
+    "hybrid" (angles at the PMUs only, PMU branch currents)."""
 
     vbus_frac: float = 0.6
     pmu_frac: float = 0.2
@@ -191,8 +189,8 @@ class MeterSettings(Validated):
 @dataclass(frozen=True)
 class RampSettings(Validated):
     """The slow ramp At: its per-frame growth `rate`, the episode `length` in frames and `stealth_scale`,
-    a multiplier on its stealth bound whose unit is the meters' rated accuracy (the
-    overload Am has no such bound, D11)."""
+    a multiplier on its stealth bound whose unit is the meters' rated accuracy (the overload Am has
+    no such bound)."""
 
     rate: Scale = 0.002
     length: Annotated[int, Integer(), AtLeast(1)] = 60
@@ -227,13 +225,11 @@ _TOP = ("attacked_frac", "families", "am_len", "max_load_mw", "workers")
 
 @dataclass(frozen=True)
 class TimelineSettings(Validated):
-    """Everything one timeline walk is built from, nested by subject (the plan's S2 item 4):
-    `attacked_frac` of each split's frames under an episode, the `families` generated (At and Am),
-    the ramp (`RampSettings`), the overload Am's length `am_len` (None: the ramp's) and settings
-    (`OverloadSettings`), the meter plan (`MeterSettings`), the train/val/test cut (`SplitSettings`),
-    the search (`SearchSettings`), the load cap `max_load_mw` (None: off) and the processes the Am
-    designs run on (`workers`, the result does not depend on it). `generate_timeline` also takes every
-    field as a flat keyword (`TimelineSettings.of`)."""
+    """Everything one timeline walk is built from, nested by subject: `attacked_frac` of each split's
+    frames under an episode, the `families` generated (At and Am), the overload Am's length `am_len`
+    (None: the ramp's), the load cap `max_load_mw` (None: off) and the processes the Am designs run on
+    (`workers`; the result does not depend on it). `generate_timeline` also takes every field as a
+    flat keyword (`TimelineSettings.of`)."""
 
     attacked_frac: Annotated[float, InRange(0.0, 1.0, lo_closed=True, hi_closed=True)] = 0.5
     families: Annotated[Sequence[str], AsTuple()] = GENERATED_FAMILIES
@@ -259,11 +255,9 @@ class TimelineSettings(Validated):
 
     @classmethod
     def of(cls, settings: Optional[TimelineSettings] = None, **knobs: object) -> TimelineSettings:
-        """The settings `generate_timeline` walks: `settings` (default the defaults) with each flat
-        keyword applied over it, every name `generate_timeline` has always taken: attacked_frac,
-        families, ramp_rate, ramp_len, am_len, hops, redundancy (a `MeterSettings`), split (fractions or
-        a `SplitSettings`), max_load_mw, min_tamper, min_budget, am_attack ("overload" or an
-        `OverloadSettings`), stealth_scale, workers."""
+        """`settings` (default the defaults) with each flat keyword of `generate_timeline` applied over
+        it. Three keywords take a model: redundancy (a `MeterSettings`), split (fractions or a
+        `SplitSettings`) and am_attack ("overload" or an `OverloadSettings`)."""
         base = settings or cls()
         unknown = sorted(set(knobs) - set(_FLAT) - set(_TOP) - {"redundancy", "split", "am_attack"})
         if unknown:
@@ -368,21 +362,17 @@ FolderPath = Union[str, os.PathLike[str]]
 class NewYorkSettings(Validated):
     """The settings of a timeline on the New York grid (`NewYorkSource`).
 
-    `length` frames per episode, one number for every family or `{family: frames}` (16 five-minute
-    scans by default); `attacked_frac`, the share of each split's frames placed under an episode;
-    `split`, the train, val and test shares of the year; `split_by`, whole weeks ("week") or three
-    blocks in time order ("time"); `workers`, the processes the designs run on (1 runs them in the
-    caller's); `block`, the frames written at a time; `verbose` prints progress; `survey` (frames, 0
-    off) designs every waiting family's allowed onsets on that grid first and places its episodes only
-    among those with an attack, each chunk of designs saved under `survey_cache` when given, so a
-    stopped build resumes."""
+    `length` is the frames per episode, one number for every family or `{family: frames}` (16
+    five-minute scans by default). `survey` (frames, 0 off) first designs every waiting family's
+    allowed onsets on that grid and places its episodes only among those with an attack; each chunk
+    of designs is saved under `survey_cache` when given, so a stopped build resumes."""
 
     length: Union[int, Mapping[str, int]] = 16
-    attacked_frac: Annotated[float, InRange(0.0, 1.0, lo_closed=True, hi_closed=True)] = 0.2
+    attacked_frac: Annotated[float, InRange(0.0, 1.0, lo_closed=True, hi_closed=True)] = 0.2  # per split
     split: SplitSettings = field(default_factory=lambda: SplitSettings((0.7, 0.15, 0.15)))
-    split_by: Annotated[str, OneOf(SplitBy)] = "week"
-    workers: Count = 1
-    block: Count = 2016
+    split_by: Annotated[str, OneOf(SplitBy)] = "week"  # whole weeks, or three blocks in time order ("time")
+    workers: Count = 1  # the processes the designs run on (1: the caller's)
+    block: Count = 2016  # the frames written at a time
     verbose: Annotated[bool, Boolean()] = False
     survey: SurveyGrid = 0
     survey_cache: Optional[FolderPath] = None
@@ -412,25 +402,24 @@ class NewYorkRelease(Validated):
     """What the New York release's source is built from (`NewYorkSource.production`).
 
     `families`, each one of Am and At: Am targets the NYISO `interfaces` (at least one), At is the
-    slow ramp. `workers` processes design the episodes; `survey` is the onset survey's grid in frames
-    (0 off), saved by chunk under `survey_cache` when given. `root` is the folder whose `data/` holds
-    the fetched inputs and that the pool's path is relative to. The attacker's sensitivities:
-    `hold_external` keeps every bus outside New York at its true injection (N62); `v_margin` (p.u.)
-    widens the voltage limits the attacker must respect, on its own copy of the case (N71);
-    `gen_v_tol` (p.u.) holds each generator bus's false voltage that close to its schedule (N75);
-    `load_cap` replaces the cap on a pretended load change (None keeps the family's own, 0.1, N28);
-    `band` is the share of a unit's upper limit in its basepoint band (None keeps 0.03, N33)."""
+    slow ramp. `survey` is the onset survey's grid in frames (0 off), saved by chunk under
+    `survey_cache` when given. `root` is the folder whose `data/` holds the fetched inputs and that
+    the pool's path is relative to. The last five fields are the attacker's sensitivities."""
 
     families: Annotated[Sequence[str], AsTuple()] = NEW_YORK_FAMILIES
     interfaces: Annotated[Sequence[str], AsTuple()] = (RELEASE_INTERFACE,)
-    workers: Count = 12
+    workers: Count = 12  # the processes that design the episodes
     survey: SurveyGrid = 12
     survey_cache: Optional[FolderPath] = None
     root: FolderPath = "."
-    hold_external: Annotated[bool, Boolean()] = False
+    hold_external: Annotated[bool, Boolean()] = False  # keep every bus outside New York at its true injection
+    # (p.u.) widens the voltage limits the attacker must respect, on its own copy of the case
     v_margin: Annotated[float, Finite(), AtLeast(0)] = 0.0
+    # (p.u.) holds each generator bus's false voltage that close to its schedule
     gen_v_tol: Annotated[Optional[float], Finite(), AtLeast(0)] = None
+    # the cap on a pretended load change (None keeps the family's own, 0.1)
     load_cap: Annotated[Optional[float], Finite(), Positive()] = None
+    # the share of a unit's upper limit in its basepoint band (None keeps 0.03)
     band: Annotated[Optional[float], Finite(), Positive()] = None
 
     def invariants(self) -> Iterable[tuple[bool, str]]:
@@ -447,9 +436,8 @@ class NewYorkRelease(Validated):
         yield isinstance(self.root, (str, os.PathLike)), f"root must be a folder path, got {self.root!r}"
 
     def as_record(self) -> dict[str, object]:
-        """The knobs as nested plain values (JSON-ready), what a file records. Left out is what the
-        timeline does not depend on (`workers`, `survey_cache`, `root`) and `survey`, which the settings
-        of the timeline record."""
+        """The knobs as nested plain values (JSON-ready), what a file records. Left out: what the timeline
+        does not depend on (`workers`, `survey_cache`, `root`) and `survey`, which `NewYorkSettings` records."""
         return _record(self, "workers", "survey", "survey_cache", "root")
 
 

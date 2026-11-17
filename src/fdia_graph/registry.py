@@ -1,10 +1,9 @@
-"""Dataset registry: built-in (downloadable) datasets + locally generated ones.
+"""The dataset registry: the built-in (downloadable) datasets and the locally generated ones.
 
-Built-in datasets live as assets on a GitHub Release: one timeline per system and its operating-point
-pool as HDF5, from data release v0.8.0 (the record shards of earlier releases are read by fdia-graph
-0.21 and earlier). The ladder names them and the registry knows the sha256 of the releases it pins. Locally generated datasets (via
-`fdia_graph.generate()`) are recorded in a small JSON under the cache dir so they are loadable by
-name exactly like the built-ins.
+A built-in dataset is an asset of a GitHub Release: one timeline per system and its operating-point
+pool, as HDF5. The registry knows the sha256 of the releases it pins. A dataset made by
+`fdia_graph.generate()` is recorded in a small JSON file under the cache directory, so it loads by
+name like a built-in.
 """
 
 from __future__ import annotations
@@ -18,18 +17,14 @@ from .constants.releases import ALIASES, BUILTIN, DATA_TAG_PREFIX, PINNED_RELEAS
 from .models.assets import AssetSpec
 from .models.inputs import DatasetName, ReleaseName, SystemRef
 
-# Cache dir for downloaded shards + the local-datasets JSON; override via FDIA_GRAPH_CACHE.
+# where downloads and the local-datasets JSON are kept; FDIA_GRAPH_CACHE overrides
 CACHE_DIR = os.environ.get("FDIA_GRAPH_CACHE", os.path.join(os.path.expanduser("~"), ".cache", "fdia_graph"))
-# The pinned data release that `load(release=None)` reads; FDIA_GRAPH_RELEASE overrides.
+# the data release `load(release=None)` reads; FDIA_GRAPH_RELEASE overrides
 _RELEASE = os.environ.get("FDIA_GRAPH_RELEASE", PINNED_RELEASE)
 
 
 def system_id(system: Union[str, int]) -> int:
-    """Bus count of a ladder system from either spelling: "ieee118", "IEEE118", "118" or 118 -> 118.
-
-    Every public entry point accepts both forms, so this is the one place that parses them; the
-    engine, generators and profiles all go through it.
-    """
+    """The bus count of a ladder system from any spelling: "ieee118", "IEEE118", "118" or 118 -> 118."""
     return SystemRef(system).number
 
 
@@ -45,8 +40,8 @@ def release_name(release: str) -> str:
 
 
 def release_tag(release: str) -> str:
-    """The GitHub tag that carries a data release's assets. Package versions own the bare "v0.x.y"
-    tags (PyPI 0.8.0 is `v0.8.0`), so a data release lives at "data-v0.8.0"."""
+    """The GitHub tag that carries a data release's assets: "data-v0.8.0". The bare "v0.x.y" tags
+    belong to the package versions."""
     return DATA_TAG_PREFIX + release_name(release)
 
 
@@ -62,12 +57,12 @@ def pool_spec(system: Union[str, int], release: Optional[str] = None) -> AssetSp
     return AssetSpec("builtin", f"pool{C}", file=f"pool_ieee{C}.h5", release=tag, repo=REPO, system=C)
 
 
-# On-disk index of locally generated datasets (name -> path + meta), alongside the cached shards.
+# the index of locally generated datasets: name -> path and meta
 _LOCAL_JSON = os.path.join(CACHE_DIR, LOCAL_INDEX)
 
 
 def _load_local() -> dict[str, dict]:
-    # Read the local-datasets index; missing/corrupt -> {} (degrade to "no local datasets", never crash load()).
+    # a missing or corrupt index reads as no local datasets, so load() never fails on it
     if os.path.exists(_LOCAL_JSON):
         try:
             return json.load(open(_LOCAL_JSON))
@@ -77,7 +72,6 @@ def _load_local() -> dict[str, dict]:
 
 
 def _save_local(d: dict[str, dict]) -> None:
-    # Persist the local-datasets index, ensuring the cache dir exists first.
     os.makedirs(CACHE_DIR, exist_ok=True)
     json.dump(d, open(_LOCAL_JSON, "w"), indent=2)
 
@@ -85,33 +79,27 @@ def _save_local(d: dict[str, dict]) -> None:
 def register_local(name: str, path: str, meta: Optional[dict] = None) -> str:
     """Register a locally generated .h5 under `name` so load(name) finds it."""
     local = _load_local()
-    # Absolute path so load() works regardless of CWD.
+    # absolute, so load() works from any working directory
     local[name] = {"path": os.path.abspath(path), "meta": meta or {}}
     _save_local(local)
     return name
 
 
 def list_datasets() -> dict[str, str]:
-    """Return {name: 'builtin'|'local'} for everything loadable by name."""
+    """{name: "builtin" or "local"} of everything loadable by name."""
     out = {k: "builtin" for k in BUILTIN}
     out.update({k: "local" for k in _load_local()})  # local entries may shadow a builtin name
     return out
 
 
 def resolve(name: Union[str, int], release: Optional[str] = None) -> AssetSpec:
-    """Map a name/alias to its AssetSpec (kind "builtin" or "local").
-
-    A local registration wins over a built-in of the same name (`fg.generate(system, "ieee14")`
-    then serves as "ieee14"), as `list_datasets` reports. A built-in name is one name in any case,
-    so "IEEE14" is shadowed exactly like "ieee14"; other local names are matched exactly. For built-ins, `release`: None -> the
-    pinned _RELEASE; an explicit name ("v0.8.0", or its tag "data-v0.8.0") -> that exact release
-    (reproducible pin), with its sha256 when
-    the registry knows it, and the GitHub tag the assets live under (`release_tag`) in `release`.
-    Local datasets live at a fixed path, so `release` is ignored for them.
-    """
+    """The AssetSpec of a name or alias (kind "builtin" or "local"). A built-in name matches in any letter
+    case and is shadowed by a local registration of it; any other local name matches exactly. For a
+    built-in, `release` None is the pinned release and a name ("v0.8.0" or "data-v0.8.0") that exact one,
+    and the spec's `release` is its GitHub tag (`release_tag`); a local dataset ignores `release`."""
     local = _load_local()
     name = DatasetName(name, frozenset(local), frozenset(BUILTIN), ALIASES).key  # "118"/118 -> "ieee118"
-    if name in local:  # a local registration shadows a built-in name, as list_datasets says
+    if name in local:
         return AssetSpec("local", name, path=local[name]["path"], meta=local[name].get("meta"))
     if name in BUILTIN:
         C = BUILTIN[name]["system"]

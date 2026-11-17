@@ -16,15 +16,13 @@ class PhysicsMixin(GridBase):
     """Read a scan's load and generation. Mixed into FdiaGenerator."""
 
     def true_load(self, Xt: np.ndarray) -> np.ndarray:
-        """This scan's active load per load element [n_loads] (MW), `formulas.attacks.bus_load`: the
-        stored injection plus the co-located generation at this scan's scale, not the base case's.
+        """This scan's active load per load element [n_loads] (MW), `formulas.attacks.bus_load`.
         Not the load at the slack bus (see `bus_load`), which no attack targets."""
         return element_loads(bus_load(Xt, self.load_base, self.gen_base), self.load_bus, self.load_p0)
 
     def true_reactive_load(self, Xt: np.ndarray) -> np.ndarray:
-        """This scan's reactive load per load element [n_loads] (MVAr): the bus's stored reactive
-        injection plus its generators' reactive output (`scan_reactive_generation`), split over the
-        bus's load elements by base reactive share (`formulas.attacks.element_loads`)."""
+        """This scan's reactive load per load element [n_loads] (MVAr): the bus's reactive injection plus
+        its generators' reactive output, split over the bus's load elements by base reactive share."""
         bus_q = Xt[:, NodeChannel.Q_INJ] + self.scan_reactive_generation(Xt)
         return element_loads(bus_q, self.load_bus, self.load_q0)
 

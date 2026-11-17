@@ -44,6 +44,42 @@ python $FG/pipelines/newyork/run_pool.py 2019-01-01 2020-01-01 out/pool_2019.h5 
 The year is dispatched in weekly chunks in parallel, then each seam between chunks is solved again until
 the dispatch is continuous. The pool holds the true state and injections of every five-minute frame.
 
+### How the within-hour load terms are fitted
+
+The load model (`generation/nygrid/loads.py`) gives each bus two five-minute terms of its own, so a
+bus's steps are not its zone's. Their constants are in `constants/newyork.py`.
+
+- **Fluctuation** (`FLUCT_C`, `FLUCT_BETA`, `FLUCT_PHI`). An AR(1) factor on the bus's load,
+  `p (1 + e)`, with `e` of standard deviation `FLUCT_C size^-FLUCT_BETA` (size is the bus's mean load,
+  MW) and lag-1 coefficient `FLUCT_PHI`. The constants are fitted on the real NYISO zones of 2018, so
+  2019 is not fitted to itself. A zone's fluctuation is its regulation component in the sense of Kirby
+  and Hirst (ORNL/TM-2001/13): the 5-minute load less its 30-minute rolling mean of L(t-3) .. L(t+2),
+  relative to that mean. Its spread is the robust standard deviation (1.4826 MAD), so large industrial
+  steps do not inflate it. The spread is fitted against zone mean load as `c size^-beta` across the
+  zones. Zone H (Millwood, 320 MW) is left out: its residual is four times what the other ten zones'
+  fit predicts at its size, and its near-white steps suggest a metering artifact. One `phi` is the
+  median lag-1 autocorrelation of the zones' residuals, read through the filter: white noise already
+  gives -0.23 after the rolling mean, so the residual's autocorrelation is mapped back to the AR(1)
+  coefficient that produces it, and `c` is scaled to the AR(1)'s own spread the same way. With beta
+  near 0.5, independent bus terms add up to the zone's own fluctuation, so the final rescaling leaves
+  each bus its own spread and the zone its real load.
+- **Industrial switching** (`SWITCH_*`). Zone D's real five-minute steps above 5% of its mean load
+  (2,799 in 2019, up to 314 MW) are taken as large plants switching. Same-sign steps in consecutive
+  frames are merged into one event. A pulse starts at an event and ends at the next event of opposite
+  sign. Pulses arrive as a Poisson process at `SWITCH_RATE` per MW of the bus's mean industrial load
+  and hour (zone D's pulses, half its events, over the model's industrial load of zone D). A pulse's
+  size relative to the bus's mean industrial load is the threshold `SWITCH_U` (5% of zone D's mean
+  load, which is 0.22 of its mean industrial load) plus a generalized Pareto excess (shape
+  `SWITCH_XI`, scale `SWITCH_SCALE`), truncated at `SWITCH_MAX`, the largest step seen. Its duration is
+  lognormal (`SWITCH_DUR_MU`, `SWITCH_DUR_SIGMA`, log minutes), from the times between opposite-sign
+  events. A share `SWITCH_OFF` of pulses start with a drop, and a drop never takes more than the bus's
+  industrial load at that frame.
+
+Last, each zone's buses are rescaled to sum exactly to the zone's real 5-minute load.
+
+The two fit functions (`_fluctuation_fit`, `_switching_fit`) are not in the package; the constants are
+their results. They can be read and run in release 0.21.0, `fdia_graph/nyfed/scenario/loads.py`.
+
 ## 3. The timeline
 
 ```bash

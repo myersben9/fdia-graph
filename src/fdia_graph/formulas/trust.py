@@ -2,12 +2,10 @@
 a matrix, and the sparsest rows of a row space, which the attack generator searches for an attack
 vector the trusted meters leave open.
 
-A stealthy false-data injection on a linearized state estimator is a = H c for some state change
-c: it moves every measurement the way a real state change would, so the residual does not see it
-[AE04, ch. 5]. Meters the attacker cannot write (secured, trusted) pin their rows: a_S = 0, so
-H_S c = 0 and c lies in the null space of H_S. The selection of the meters to trust, and the cost
-of the attacks a selection leaves open, are the analysis toolkit's (`fdia_analysis.formulas.trust`),
-built on `rref` here and on `constants.numerics.ZERO_TOL`.
+A stealthy injection on a linearized estimator is a = H c for some state change c, so the residual
+does not see it [AE04, ch. 5]. Meters the attacker cannot write pin their rows: a_S = 0, so c lies
+in the null space of H_S. Selecting the meters to trust is the analysis toolkit's
+(`fdia_analysis.formulas.trust`), built on `rref` here.
 """
 
 from __future__ import annotations
@@ -21,11 +19,8 @@ from fdia_graph.constants.numerics import ZERO_TOL
 
 
 def rref(A: np.ndarray, tol: float = ZERO_TOL) -> tuple[np.ndarray, list[int]]:
-    """Reduced row echelon form of A and its pivot columns (Gauss-Jordan with partial pivoting).
-
-    A       : [r, n]
-    returns : ([r, n] the reduced rows, zero rows last; the pivot column of every nonzero row)
-    """
+    """Reduced row echelon form of A [r, n] and its pivot columns (Gauss-Jordan with partial
+    pivoting): (the reduced rows, zero rows last; the pivot column of every nonzero row)."""
     R = np.array(A, dtype=np.float64, copy=True)
     rows, cols = R.shape
     pivots: list[int] = []
@@ -52,21 +47,11 @@ def sparsest_rows(
     rounds: int = 50,
     eligible: Optional[Callable[[np.ndarray], bool]] = None,
 ) -> np.ndarray:
-    """The rows of M's row space in the sparsest reduced echelon form row reduction with column
-    exchanges reaches ([WU26] Sec. IV-D1 steps 2-5, after [YAN17]): reduce M to RREF, take the row with the
-    fewest nonzeros, move its nonzero columns to the end (the column order is the tracking matrix),
-    reduce again, and repeat until the fewest nonzeros stops falling; the rows come back in M's own
-    column order (the inverse of the tracking matrix), sparsest first. With M the transpose of an
-    attack-area Jacobian, each row is an attack vector h c, the first the sparsest found. The first
-    exchange moves the sparsest row of M itself to the end (step 1's transpose, whose rows are the
-    single-variable attacks; a choice of ours, the paper starts from the first reduction). `eligible`
-    restricts the row the exchanges chase to rows it accepts (an attack that reaches a goal); the
-    eligible rows then come first, sparsest first.
-
-    M        : [n, m] (rows: a basis of the space; columns: the measurements)
-    eligible : which rows count, or None for every row
-    returns  : [r, m] the rows of the last improving reduction, r the rank of M
-    """
+    """A sparse basis [r, m] of M's row space, the one row reduction with column exchanges reaches
+    ([WU26] Sec. IV-D1 steps 2-5, after [YAN17]). Each round reduces M to RREF and moves the sparsest
+    row's nonzero columns to the end, until the count stops falling; `eligible` restricts that row.
+    Rows come back in M's own column order, eligible rows first, sparsest first. Ours, not the
+    paper's: the first exchange starts from M's sparsest row, where [WU26] starts from the first reduction."""
     M = np.asarray(M, np.float64)
     ok = eligible if eligible is not None else (lambda row: True)
     # step 1 is the transpose itself, whose rows are attacks too (one state variable each): the chase

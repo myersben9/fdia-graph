@@ -1,29 +1,14 @@
-"""`Am`, the multi-snapshot overload attack of [WU26]: the reported flows of its target branches (two
-by default, as the paper's case studies overload two lines at once, or one; `OverloadSettings.n_lines`) driven to their ratings over the window, with the fewest devices tampered.
+"""`Am`, the multi-snapshot overload attack of [WU26]: the reported flows of its target branches (one
+or two, `OverloadSettings.n_lines`) driven to their ratings S_max (`use_line_ratings`) over the window,
+with the fewest devices tampered.
 
-[WU26 eqs. 24-25] asks that the apparent flow the tampered measurements carry on a target line grow
-snapshot by snapshot until it reaches the line's rating S_max. The rating is by default 1.25 times the
-branch's peak true flow over the operating pool (`use_line_ratings`), or on request the
-branch's PGLib-OPF `rate_a` (`fdia_graph.ratings`; the IEEE cases pandapower ships rate every branch
-9,900 MVA, which no flow comes near). A branch is a target for a window only when it is rated, its flow is metered
-(the goal is what the operator sees) and its true flow stays below the rating at every snapshot of
-the window (otherwise the goal is met with no attack). The window's T snapshots are kappa+1 ... kappa+T, kappa the untouched reference
-snapshot before it (eq. 25 sums the increments from kappa+1), and the goal at snapshot t (the plan's
-D9) is
+Goal [WU26 eqs. 24-25], on the noiseless reading of the false state, with kappa the untouched reference
+snapshot before the window's T snapshots:
 
     S_{l,t} = S_true_{l,t} + (t - kappa)/T (S_max - S_true_{l,kappa+T}),   t = kappa+1 ... kappa+T
 
-on the noiseless reading of the false state: the true flow plus a share of what separates the last
-snapshot's true flow from the rating, so the attack adds a steady ramp on top of the load's own
-drift instead of cancelling it, and reaches S_max at the window's last snapshot (eq. 25). As in
-[WU26], nothing bounds how far the attack moves between snapshots: the paper's noise only decides
-which changes its tamper count ignores (`formulas.noise.paper_sigma`), and the
-attack is stealthy because every snapshot's readings are those of one AC state. Each snapshot's false
-state frees the attackable loads and the generators of the support (the latter within their limits,
-eqs. 22-23) and holds every other bus's injection
-(`FalseStateMixin.solve_flow_local`), and the fewest-tamper search (`MinimizeMixin.min_tamper`)
-chooses the support held for the window. The labels of every frame are the free-injection buses of the support: the loads and
-generator outputs the attacker pretends.
+a steady ramp on top of the load's own drift that reaches S_max at the last snapshot. Nothing bounds
+the move between snapshots: each snapshot's readings are those of one AC state, which is the stealth.
 """
 
 from __future__ import annotations
@@ -40,20 +25,17 @@ from ...models.frames import AmOverloadDesign, FlowGoal, Frame, FrameKnobs
 from ...ratings import pglib_branches
 from .minimize import MinimizeMixin
 
-# How many target sets (one line, or two, D17) an Am episode tries, drawn from one random order of the
-# eligible branches drawn once at onset. A bounded heuristic, not a search over every set: each try is
-# a full fewest-tamper search (about 13 s on IEEE-118), so an episode whose first eight sets admit no
-# attack is moved to another onset by the walk (`generation.emit.Walk.relocate_later`) even if a later set would have
-# served.
+# How many target sets (one line, or two) an Am episode tries, from one random order of the eligible
+# branches drawn at onset. A bound, not a search over every set: each try is a full fewest-tamper search
+# (about 13 s on IEEE-118). After eight misses the walk moves the episode to another onset
+# (`generation.emit.Walk.relocate_later`).
 AM_LINE_TRIES = 8
 
 
 def _schedule(flows: np.ndarray, rating: float) -> tuple[float, ...]:
-    """One branch's goal over a window from its true flows [T, 2] (MW, MVAr): the true flow plus a
-    linear share of what separates the last true flow from the rating. The window's
-    snapshots are kappa+1 ... kappa+T after the untouched reference kappa [WU26 eq. 25], so snapshot
-    k of the window (k = 1 ... T) carries the share k/T: every snapshot moves the flow and the last
-    reaches the rating."""
+    """One branch's goal (MVA) over a window from its true flows [T, 2] (MW, MVAr): the true flow plus
+    the share k/T (k = 1 ... T) of what separates the last true flow from the rating [WU26 eq. 25], so
+    every snapshot moves the flow and the last reaches the rating."""
     true = np.hypot(flows[:, 0], flows[:, 1])
     share = np.arange(1, len(true) + 1) / len(true)
     return tuple(float(x) for x in true + share * (rating - true[-1]))
@@ -66,10 +48,9 @@ class OverloadMixin(MinimizeMixin):
     _rating_delta: Optional[float] = None  # the step of the per-window "delta" ratings, MVA
 
     def use_line_ratings(self, settings: OverloadSettings, X: np.ndarray) -> None:
-        """Set the ratings the overload attack drives its lines to: with "pool", each
-        branch's `rating_margin` times its peak true apparent flow over the pool X [T, N, 4], at the
-        from end as the goal reads it (a static rating per line, every system); with "pglib", the
-        PGLib-OPF ratings (`line_ratings`, NoLineRatings on a case without them)."""
+        """Set the ratings the overload attack drives its lines to. "pool": `rating_margin` times each
+        branch's peak true from-end apparent flow over the pool X [T, N, 4]. "pglib": the PGLib-OPF
+        ratings (`NoLineRatings` on a case without them). "delta": set per window (`window_ratings`)."""
         self._rating_delta = None
         if settings.rating_source == "pglib":
             self._line_ratings = None
@@ -103,9 +84,8 @@ class OverloadMixin(MinimizeMixin):
 
     def eligible_lines(self, window: list[np.ndarray], hops: int) -> np.ndarray:
         """The branches an overload attack may target over the snapshots `window`: in service, rated, flow
-        metered, true apparent flow below the rating at every snapshot, and an area around its ends
-        holding a free injection (an attackable load or a generator). An out-of-service branch (an N-1 outage) keeps its row with a zero
-        admittance, so its flow reads zero and no false state can drive it to its rating."""
+        metered (the goal is what the operator sees), true apparent flow below the rating at every
+        snapshot, and a free injection (an attackable load or a generator) in the area around its ends."""
         flows = self.clean_flows_from_states(np.stack(window))  # [T, E, 2], unmetered zeroed
         rating = self.window_ratings(flows)  # finite per window under "delta"
         # [E] the window's largest true flow
@@ -124,10 +104,8 @@ class OverloadMixin(MinimizeMixin):
         return area is not None and bool(free & {int(b) for b in area})
 
     def overload_goal(self, window: list[np.ndarray], line: int, *more: int) -> FlowGoal:
-        """The per-snapshot flow the attack must reach on `line`, the first target, over `window`
-        (module docstring), and on each branch of `more` at once, each toward its own rating. The
-        generator's episodes pass `OverloadSettings.n_lines` targets: two by default, as the paper's
-        case studies overload two lines at once, or one."""
+        """The per-snapshot flow the attack must reach on `line` over `window` (module docstring), and on
+        each branch of `more` at once, each toward its own rating."""
         flows = self.clean_flows_from_states(np.stack(window))  # [T, E, 2] MW, MVAr
         rating = self.window_ratings(flows)
         first = _schedule(flows[:, line], float(rating[line]))
@@ -143,10 +121,8 @@ class OverloadMixin(MinimizeMixin):
         return np.hypot(flows[-1, :, 0], flows[-1, :, 1]) + self._rating_delta
 
     def _target_sets(self, order: np.ndarray, n_lines: int, hops: int) -> list[tuple[int, ...]]:
-        """At most `AM_LINE_TRIES` target sets from the eligible branches in `order`: single
-        branches, or pairs one held support can reach, each first branch taken in order with the
-        first other branch whose ends lie inside the first one's attack area (the buses within
-        `hops` of its ends), each pair once."""
+        """At most `AM_LINE_TRIES` target sets from the eligible branches in `order`: single branches,
+        or pairs one held support can reach (each branch with its `_partner`), each pair once."""
         if n_lines == 1:
             return [(int(b),) for b in order[:AM_LINE_TRIES]]
         pairs: list[tuple[int, ...]] = []
@@ -173,10 +149,9 @@ class OverloadMixin(MinimizeMixin):
     def overload_step(
         self, design: AmOverloadDesign, Xt: np.ndarray, i: int, k: FrameKnobs
     ) -> tuple[Optional[Frame], np.ndarray]:
-        """Frame i of the episode on its state `Xt`: the false state on the held support that reaches
-        the goal's flow there, emitted on the true scan, labelled at the pretended loads; and the
-        noiseless apparent flow it reaches on each target branch (MVA, `goal.lines` order, NaN when
-        the frame could not be built)."""
+        """Frame i of the episode on its state `Xt`: the false state on the held support that reaches the
+        goal's flow, emitted on the true scan; and the noiseless apparent flow it reaches on each target
+        branch (MVA, `goal.lines` order). (None, NaN) when the frame cannot be built."""
         Xa = self.goal_state(design.goal, i, Xt, design.support, k)
         if Xa is None:
             return None, np.full(len(design.goal.lines), np.nan)
@@ -188,10 +163,8 @@ class OverloadMixin(MinimizeMixin):
         return frame, np.hypot(flow[:, 0], flow[:, 1])
 
     def pretended_change(self, Xt: np.ndarray, Xa: np.ndarray, buses: np.ndarray) -> np.ndarray:
-        """The relative change the false state pretends at each free-injection bus of `buses`: at a
-        generator bus (a bus with a load as well included, whose change the model gives the
-        generator) the apparent power change against the true generator output, |dP + j dQ| /
-        |P_gen + j Q_gen|; at a load bus the active change against the true load, |dP| / |P_load|."""
+        """The relative change the false state pretends at each bus of `buses`: at a generator bus (with
+        or without a load) |dP + j dQ| / |P_gen + j Q_gen|; at a load bus |dP| / |P_load|."""
         gen = generator_output(Xt, self.load_base, self.gen_base)  # [N, 2] MW, MVAr
         load = self.true_load_by_bus(Xt)
         dP = Xa[:, NodeChannel.P_INJ] - Xt[:, NodeChannel.P_INJ]

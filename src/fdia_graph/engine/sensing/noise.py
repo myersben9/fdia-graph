@@ -10,11 +10,10 @@ from fdia_graph.formulas.noise import accuracy_class_sigma
 
 
 class NoiseModel:
-    """Holds each meter's accuracy class (`sigma_rel`, `sigma_abs`) and constant bias from a MeterPlan.
+    """Each meter's accuracy class (`sigma_rel`, `sigma_abs`) and constant bias, from a MeterPlan.
     A reading is the exact value with its bias (a gain on relative meters, an offset on absolute ones)
-    plus a fresh Gaussian jitter, drawn once per scan, of `JITTER_FRAC` times the class; the floor of a
-    relative meter is not scaled, so a near-zero reading keeps its noise. Readings are heteroscedastic:
-    a relative meter's noise grows with its reading."""
+    plus a Gaussian jitter, drawn once per scan, of `JITTER_FRAC` times the class. The floor of a
+    relative meter is not scaled, so a near-zero reading keeps its noise."""
 
     def __init__(self, plan: MeterPlan):
         self.sigma_rel, self.sigma_abs, self.bias = plan.sigma_rel, plan.sigma_abs, plan.bias

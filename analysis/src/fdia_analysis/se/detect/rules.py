@@ -24,7 +24,7 @@ class AlarmRule(Protocol):
 
 @dataclass(frozen=True)
 class PersistenceRule:
-    """Alarm when `k` of the last `n` statistics exceed `theta` (N79). A NaN statistic (a scan that could not be
+    """Alarm when `k` of the last `n` statistics exceed `theta`. A NaN statistic (a scan that could not be
     evaluated) counts as below the threshold."""
 
     theta: float
@@ -45,7 +45,7 @@ class PersistenceRule:
     @classmethod
     def fit(cls, benign: np.ndarray, q: float = 99.9, k: int = 2, n: int = 3) -> PersistenceRule:
         """The rule whose threshold is the `q`th percentile of the benign statistics `benign` (any shape, NaN
-        ignored): the calibration of N79 on whole benign January to March days.
+        ignored), as calibrated in the New York study on whole benign January to March days.
 
         Raises:
             NoBenignRecords: `benign` holds no evaluated statistic, so there is nothing to calibrate on (a rule

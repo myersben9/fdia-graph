@@ -2,18 +2,18 @@
 
 Two kinds. An input a model does not allow is a `ConfigError` (and a dataset view lacking what a
 consumer needs a `MissingCapability`), raised by the validation engine in `models.validation` when
-the model is built. A condition that only the data can reveal (no benign records in a split, no
-room left for an episode, an outage that islands the grid) is one of the named errors below, raised
-where the data is read, or by a model that names it in `Validated.error`. Every one subclasses ValueError,
-the type these checks raised before, so a caller's `except ValueError` keeps working. `SolverUnavailable`
-is the exception: a RuntimeError for an environment that cannot run the optimization at all.
+the model is built. A condition only the data can reveal (no benign records in a split, no room
+left for an episode) is one of the named errors below, raised where the data is read, or by a model
+that names it in `Validated.error`. Every one is a ValueError, so a caller's `except ValueError`
+catches it. `SolverUnavailable` is the exception: a RuntimeError for an environment that cannot run
+the optimization at all.
 """
 
 from __future__ import annotations
 
 
 class ConfigError(ValueError):
-    """An input that its model does not allow. A ValueError, so callers catching that keep working."""
+    """An input that its model does not allow."""
 
 
 class MissingCapability(ConfigError):
@@ -25,8 +25,8 @@ class DataConditionError(ValueError):
 
 
 class NotATimeline(DataConditionError):
-    """The file is not a timeline (its `kind` attribute says so): a record shard of a data release before
-    v0.8.0, or no fdia-graph file at all."""
+    """The file is not a timeline (its `kind` attribute says so): a record shard of a data release
+    before v0.8.0, or no fdia-graph file at all."""
 
 
 class NoBenignRecords(DataConditionError):
@@ -46,8 +46,8 @@ class NoAdmissibleTarget(DataConditionError):
 
 
 class NoRoomForEpisode(DataConditionError):
-    """The attacked fraction cannot be placed: no free span is long enough for an episode. `family` names the
-    episode's family when the placement knows it."""
+    """The attacked fraction cannot be placed: no free span is long enough for an episode. `family`
+    names the episode's family when the placement knows it."""
 
     def __init__(self, message: str, family: object = None) -> None:
         super().__init__(message)
@@ -80,5 +80,5 @@ class NoSuchResult(DataConditionError, LookupError):
 
 
 class SolverUnavailable(RuntimeError):
-    """The optimization solver a step needs (Ipopt, through Pyomo) is not installed or does not start. Not a
-    property of the data, so not a `DataConditionError`: the run cannot go on until the environment is fixed."""
+    """The optimization solver a step needs (Ipopt, through Pyomo) is not installed or does not start.
+    Not a property of the data, so not a `DataConditionError`."""

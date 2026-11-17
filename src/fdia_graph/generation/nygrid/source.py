@@ -1,35 +1,13 @@
 """The New York grid as the source of a timeline: the year of pool states and its steps of the one path.
 
-`NewYorkSource` is a `generation.source.TimelineSource`: `source.generate(path)` makes its timeline by the
-path every timeline takes (`TimelineSource.generate`), in the same order as an IEEE one. What is the New York
-grid's own:
-
-- **Before the splits** (`prepare`): the onsets a family may take. An overload family that waits for a loaded
-  grid allows only near-limit onsets (its `onset_mask`, N36). With `survey` (N42), a waiting family's allowed
-  onsets on a grid of that many frames are all designed first, and its episodes are placed uniformly among
-  those with an attack, reusing their designs. What is found is kept in one record, `Survey`.
-- **The splits** (`cut_splits`) are whole weeks stratified on the loaded frames (`split_weeks`, N41; after a
-  survey, on the onsets where an attack exists, N46), or three blocks in time order (`split_by="time"`).
-- **The design**: every placed episode is designed on its own window of true pool states by its family
-  (`AttackFamily.design`), from a stream keyed by family and onset, so the result does not depend on the worker
-  count. A window the family finds no stealthy attack for, or one that touches an unsolved pool frame, stays
-  benign: nothing is moved.
-- **A frame** (`walk`): its benign scan is the exact reading of the true state with accuracy-class noise
-  (`NoiseModel.sample`, one noise stream over the file's frames in time order). An attacked frame is that same
-  noisy scan plus the episode's attack vector a = h(x_false) - h(x_true), never a fresh scan of the false state,
-  so `z - z_benign` is exactly the attack. The labels come from the meters the attack moves beyond their noise
-  (`Attacker.tampered`): the tampered meters `[T, M]`, and a bus is attacked when a meter at that
-  bus is tampered, so a client's labels follow from its own meters alone. The weekly splits interleave in time,
-  so the frames are written in stretches, each as soon as every week before it is planned; the values do not
-  depend on where a stretch ends.
-- **The file** is the one layout of every timeline (`fdia_graph.schema`), written by the writer the IEEE
-  cases use (`generation.write.TimelineWriter`). A value per meter becomes the file's layers by `MeterPlan.scatter`: the
-  readings, the benign readings and the tampered meters. What differs from an IEEE file is declared in it:
-  the flow layers hold both branch ends, the PMU currents are magnitude and angle, and the temporal features
-  are left out (`LAYERS`).
-
-`SingleEpisodeSource` is the same grid with one episode placed by hand, for studying one attack.
-"""
+`NewYorkSource` is a `generation.source.TimelineSource`, so `source.generate(path)` takes the same steps in
+the same order as an IEEE timeline. Its own steps: `prepare` finds the onsets a family may take (optionally
+by a survey that designs them all first), `cut_splits` cuts whole weeks stratified on those onsets, each
+placed episode is designed on its own window of true pool states from a stream keyed by family and onset
+(so the result does not depend on the worker count), and `walk` writes each frame as a noisy benign scan
+plus the episode's attack vector a = h(x_false) - h(x_true), so `z - z_benign` is exactly the attack. The
+file has the one layout of every timeline (`fdia_graph.schema`); `LAYERS` says what differs from an IEEE
+file. `SingleEpisodeSource` is the same grid with one episode placed by hand."""
 
 from __future__ import annotations
 
@@ -78,12 +56,12 @@ from fdia_graph.models.frames import Frame, LayerSet
 from fdia_graph.models.plan import Episode, Placement, Slot, SplitSpan
 from fdia_graph.schema import NEW_YORK_GRAPH_LEGEND, NEW_YORK_TAMPER_RULE, Attr, Static
 
-# weeks per stratum of the split when the weight is the surveyed attacks (N46): they sit in about 9 weeks, one
+# weeks per stratum of the split when the weight is the surveyed attacks: they sit in about 9 weeks, one
 # of them holding 40%, so a 20-week stratum can leave a split one episode; 5 draws 3/1/1 per stratum
 HIT_STRATUM = 5
 SURVEY_CHUNK = 240  # onsets designed and saved at a time with `survey_cache`
 LOG_EVERY = 50  # designs between two progress lines of a verbose build
-AM_RISE = 16  # Am's rise scans; its window adds as many exit scans (N37)
+AM_RISE = 16  # Am's rise scans; its window adds as many exit scans
 AT_LENGTH = 16  # the slow ramp's window (scans)
 RELEASE_LENGTH = {AM: 2 * AM_RISE, AT: AT_LENGTH}  # the release's episode lengths (scans)
 # what a New York file carries per frame: PMU currents, the flows at both branch ends, no temporal features
@@ -139,11 +117,10 @@ def _design(state: _Designing, task: _Task) -> _Tried:
 class Survey:
     """What a source knows about the onsets before its splits are cut (`NewYorkSource.prepare`).
 
-    `masks` are the onsets each waiting family may take, [T] bool by family: its own `onset_mask`, or,
-    after the onset survey (N42), the surveyed onsets where it found an attack. The survey also leaves
-    the `designs` it found, by (family, onset), for the design stage to reuse; the onsets it `tried` per
-    family; why the ones without an attack have none, counted per family (`missed`); and the weeks per
-    `stratum` the splits are then stratified in (N46)."""
+    `masks` [T] bool by family: the onsets it may take (its `onset_mask`, or after a survey the onsets where
+    an attack was found). A survey also leaves its `designs` by (family, onset) for the design stage to
+    reuse, the onsets it `tried`, the miss reasons counted per family (`missed`), and the weeks per
+    `stratum` of the splits."""
 
     masks: dict[str, np.ndarray] = field(default_factory=dict)
     designs: dict[tuple[str, int], _Tried] = field(default_factory=dict)
@@ -189,8 +166,8 @@ def _ownership(case: Case, root: Path) -> Ownership:
 
 
 def _interface_family(att: Attacker, pool: Pool, release: NewYorkRelease, nygrid: Path) -> InterfaceFdia:
-    """The release's Am: the OPF attacker against the NYISO interfaces (N48, N49) with the units' output
-    (N42) and every realism bound (N27 to N37)."""
+    """The release's Am: the OPF attacker against the NYISO interfaces, with the units' output and every
+    realism bound."""
     case = att.meas.net.case
     if pool.unit_p is None:
         raise DataConditionError(
@@ -201,7 +178,7 @@ def _interface_family(att: Attacker, pool: Pool, release: NewYorkRelease, nygrid
     steps = natural_steps(pool.time, pool.p, pool.solve_kind == SolveKind.SOLVED)
     steps[:, att.gen_bus] = generator_ramps(case)[att.gen_bus]
     q_lo, q_hi = generator_q_capability(case)
-    gen_output = np.zeros((len(pool.time), len(case.bus_id)))  # the units' output at each bus (N42)
+    gen_output = np.zeros((len(pool.time), len(case.bus_id)))  # the units' output at each bus
     np.add.at(gen_output.T, case.unit_bus, np.nan_to_num(pool.unit_p).T)
     fam = InterfaceFdia(
         att,
@@ -217,7 +194,7 @@ def _interface_family(att: Attacker, pool: Pool, release: NewYorkRelease, nygrid
         loads_only=False,
         gen_v_tol=release.gen_v_tol,
     )
-    if release.load_cap is not None:  # otherwise the family keeps its own cap (N28)
+    if release.load_cap is not None:  # otherwise the family keeps its own cap
         fam.load_cap = release.load_cap
     return fam
 
@@ -225,12 +202,9 @@ def _interface_family(att: Attacker, pool: Pool, release: NewYorkRelease, nygrid
 class NewYorkSource(TimelineSource[str, Episode]):
     """The New York grid a timeline is generated on: the `pool` of five-minute states, the `attacker` (with
     its `Measurement`), the attack `families` by name ("Am", "At"), the `Ownership` of the buses, the
-    `settings` of the timeline (`NewYorkSettings`) and the `build` settings whose seed keys every draw.
-    `production` builds the one of a release.
-
-    `source.generate(path)` writes the timeline; `source.summary()` then says what was placed and built. A
-    family with an `onset_mask` (an overload family waiting for a loaded grid, N36) has its episodes start
-    only where the mask allows."""
+    timeline's `settings` and the `build` settings whose seed keys every draw. `production` builds the one
+    of a release. `generate(path)` writes the timeline; `summary()` then says what was placed and built. A
+    family with an `onset_mask` (an overload family waiting for a loaded grid) starts only where it allows."""
 
     def __init__(
         self,
@@ -272,23 +246,19 @@ class NewYorkSource(TimelineSource[str, Episode]):
     def production(
         cls, pool_path: str | Path, release: NewYorkRelease = NewYorkRelease(), build: Settings = Settings()
     ) -> NewYorkSource:
-        """The source of the release, with every decided bound (N8, N27 to N49) in one place: the case,
-        clients, meters and the pool at `pool_path` (relative to `release.root`, whose `data/` holds
-        `fetch_inputs`'s files), with the families `release` names: Am targets the NYISO interfaces (N48,
-        N49) from the OPF attacker with the units' output (N42), At is the slow ramp. The Am window is 32
-        scans, the At window 16, and the share of each split's frames placed under an episode is the
-        default of `NewYorkSettings.attacked_frac`, 20%. The attacker's sensitivities are the fields of
-        `NewYorkRelease`."""
+        """The source of a release: the case, clients, meters and the pool at `pool_path` (relative to
+        `release.root`, whose `data/` holds `fetch_inputs`'s files). Am targets the NYISO interfaces from the
+        OPF attacker (32 scans), At is the slow ramp (16 scans). The attacker's knobs are `NewYorkRelease`'s."""
         root = Path(release.root)
         case = nygrid_case()
         own = _ownership(case, root)
         pool = read_pool(root / pool_path)
-        case = peak_ratings(case, pool)  # production ratings over the whole pool (N8)
+        case = peak_ratings(case, pool)  # production ratings over the whole pool
         net = Network(case)
         meas = Measurement(net, plan_meters(net, own, rng(build, "meters")))
-        # N71: a voltage margin widens the attacker's limits on its own copy of the case
+        # a voltage margin widens the attacker's limits on its own copy of the case
         att_net = Network(case.with_voltage_margin(release.v_margin)) if release.v_margin else net
-        # N62: True keeps the interchange true
+        # True keeps the interchange true
         att = Attacker(att_net, meas, hold_external=release.hold_external)
         families: dict[str, AttackFamily] = {}
         for name in release.families:
@@ -331,12 +301,10 @@ class NewYorkSource(TimelineSource[str, Episode]):
         self._writer.write_graph(edges, self._graph(), NEW_YORK_GRAPH_LEGEND)
 
     def _graph(self) -> dict[str, np.ndarray]:
-        """The static graph a file carries, by `Static` name: the branch model and bus shunts that give the
-        admittance matrix, the line ratings the attacks were designed against (the case file's, and the
-        pool's peak flow on a branch it leaves unrated, N8), what the case says of each bus, and the client
-        that owns it. It is the true case, not the attacker's (a voltage margin, N71, widens only the
-        attacker's limits). The units, HVDC links, names and places are not written: they are the case
-        file's. Integers are int32 whatever the platform's own."""
+        """The static graph a file carries, by `Static` name: the branch model, bus shunts, line ratings (the
+        case file's, or the pool's peak flow on an unrated branch), bus facts and owning client. It is the
+        true case, not the attacker's widened copy. The units, HVDC links, names and places are not written:
+        they are the case file's. Integers are int32 on every platform."""
         case = self.meas.net.case
         series = 1.0 / (case.r + 1j * case.x)
         has_gen = np.zeros(len(case.bus_id), np.uint8)
@@ -399,19 +367,15 @@ class NewYorkSource(TimelineSource[str, Episode]):
         }
 
     def prepare(self) -> None:
-        """Before the splits are cut: the onsets each waiting family may take (its `onset_mask`, N36). With
-        `survey` (N42, N46), every such onset whose window lies in one week, on a grid of `survey` frames,
-        is designed here (hours of work on a year), and the family is then held to the onsets where an
-        attack was found, so every split gets its share of the weeks an attack can happen in (the
-        near-limit hours of N41 left the test split one Am of 21, since most near-limit hours hold no
-        attack). What is found is kept in `Survey`."""
+        """Before the splits are cut: the onsets each waiting family may take (its `onset_mask`). With `survey`,
+        every such onset on a grid of `survey` frames is designed here (hours on a year) and the family is held
+        to the onsets with an attack: most near-limit hours hold none, so a split could get almost no episode."""
         masks = self._family_masks()
         self._survey = self._surveyed(masks) if self.settings.survey else Survey(masks)
 
     def cut_splits(self) -> list[SplitSpan]:
         """The three splits, each with its frames: whole weeks stratified on the frames some waiting family
-        may start at (N41; after a survey, on the onsets with an attack, N46), or three blocks in time
-        order."""
+        may start at (after a survey, on the onsets with an attack), or three blocks in time order."""
         T, frac = len(self.pool.time), self.settings.split.fractions
         if self.settings.split_by == SplitBy.TIME:
             self._split = split_column(split_bounds(T, frac), T)
@@ -439,14 +403,13 @@ class NewYorkSource(TimelineSource[str, Episode]):
         return self._place_rng
 
     def onset_masks(self) -> dict[str, np.ndarray]:
-        """Each waiting family's allowed onsets [T] over the year (`onset_mask`, N36), or, after a survey,
-        the onsets where it found an attack (N42): `Survey.masks`."""
+        """Each waiting family's allowed onsets [T] over the year, or after a survey the onsets where it found
+        an attack: `Survey.masks`."""
         return self._survey.masks
 
     def design(self, span: SplitSpan, slots: list[Slot[str]]) -> None:
         """Every placed episode of the split designed by its family, the survey's designs reused. A slot
-        with no attack keeps no episode: its frames stay benign and nothing is moved (`summary` counts
-        why)."""
+        with no attack keeps no episode: its frames stay benign (`summary` counts why)."""
         self._keep(span, slots, self._designs(slots))
 
     def _keep(self, span: SplitSpan, slots: list[Slot[str]], tried: list[_Tried]) -> None:
@@ -459,10 +422,8 @@ class NewYorkSource(TimelineSource[str, Episode]):
         self._episodes = sorted(self._episodes + found, key=lambda ep: ep.onset)
 
     def walk(self, until: int) -> None:
-        """Write the frames from the last one written up to `until`, a block at a time: each the noisy
-        benign scan of its pool state, plus the attack vector and the labels of the episode it lies in.
-        The noise stream runs over the frames in time order, so the scans are the same wherever a stretch
-        or a block ends."""
+        """Write the frames from the last one written up to `until`, a block at a time. The noise stream runs
+        over the frames in time order, so the scans are the same wherever a stretch or a block ends."""
         for t0 in range(self._cursor, until, self.settings.block):
             self._write_block(t0, min(until, t0 + self.settings.block))
         self._cursor = max(self._cursor, until)
@@ -531,8 +492,8 @@ class NewYorkSource(TimelineSource[str, Episode]):
             print(msg, flush=True)
 
     def _family_masks(self) -> dict[str, np.ndarray]:
-        """Each waiting family's allowed onsets [T] over the year (`onset_mask`, N36); a family that may
-        start anywhere has none."""
+        """Each waiting family's allowed onsets [T] over the year (`onset_mask`); a family that may start
+        anywhere has none."""
         masks = {}
         for f, fam in self.families.items():
             mask = fam.onset_mask(self.pool.vm, self.pool.va, self.lengths()[f])
@@ -556,8 +517,8 @@ class NewYorkSource(TimelineSource[str, Episode]):
         return ok
 
     def _surveyed(self, masks: dict[str, np.ndarray]) -> Survey:
-        """N42: every allowed onset of each waiting family whose window lies in one week, on a grid of
-        `survey` frames, designed; the `Survey` of what was found."""
+        """The `Survey` of every allowed onset of each waiting family whose window lies in one week, on a grid
+        of `survey` frames, each designed."""
         weeks = week_index(self.pool.time)
         ok = self._onsets_ok(weeks, masks)
         grid = np.arange(len(weeks)) % self.settings.survey == 0
@@ -574,9 +535,8 @@ class NewYorkSource(TimelineSource[str, Episode]):
 
     def _survey_chunk(self, cands: list[Slot[str]], i: int, chunk: int) -> list[_Tried]:
         """The designs of the surveyed onsets `cands[i : i + chunk]`. With `survey_cache`, each chunk is
-        saved on its own (episodes, seconds, miss reasons), so a stopped build resumes. The chunks are
-        named `_v2`: they pickle `models.plan.Episode`, and a chunk saved before that record moved there
-        is not read."""
+        saved on its own (episodes, seconds, miss reasons), so a stopped build resumes. The `_v2` in a chunk's
+        name is the pickled record's version (`models.plan.Episode`)."""
         cache = self.settings.survey_cache
         part = None if cache is None else Path(cache) / f"{i:06d}_{len(cands)}_v2.pkl"
         if part is not None and part.exists():
@@ -599,9 +559,8 @@ class NewYorkSource(TimelineSource[str, Episode]):
         return _Task(slot.family, slot.onset, self.pool.vm[w], self.pool.va[w])
 
     def _designs(self, slots: list[Slot[str]]) -> list[_Tried]:
-        """What the design of each slot came to: an episode, or none where the family finds no attack or
-        the window touches an unsolved frame (then it is not designed at all). A slot the survey already
-        designed reuses that design."""
+        """What the design of each slot came to: an episode, or none where the family finds no attack or the
+        window touches an unsolved frame (then it is not designed). A surveyed slot reuses its design."""
         assert self._designers is not None, "open() starts the design processes"
         known = self._survey.designs
         out = [known.get((s.family, s.onset), _Tried(designed=False)) for s in slots]
@@ -624,11 +583,9 @@ class NewYorkSource(TimelineSource[str, Episode]):
     # ---- the frames ----------------------------------------------------------------------------------
 
     def _write_block(self, t0: int, t1: int) -> None:
-        """Write the pool frames t0..t1 (file frames count from `first`): the noisy benign scans, the attack
-        vector of every episode that overlaps them added on top, and the labels. An episode's row in the file
-        is its place among the designed episodes in onset order; every episode that starts before a frame
-        being written is known by then. Each value per meter is laid out as the file's layers
-        (`MeterPlan.scatter`), and a bus is labelled attacked when a meter at it is tampered."""
+        """Write the pool frames t0..t1 (file frames count from `first`): the noisy benign scans, plus the
+        attack vector and labels of every overlapping episode. An episode's row in the file is its place in
+        onset order. A bus is labelled attacked when a meter at it is tampered beyond its noise."""
         pool, meas, plan, masks = self.pool, self.meas, self.meas.plan, self._meter_m
         M, (N, E) = len(plan.kind), self._size
         vm, va = pool.vm[t0:t1], pool.va[t0:t1]
@@ -676,18 +633,12 @@ class NewYorkSource(TimelineSource[str, Episode]):
 
 
 class SingleEpisodeSource(NewYorkSource):
-    """The New York grid with one episode alone, placed by hand, for studying one attack: `family` designed
-    at pool frame `onset` on its own window, the file covering the pool frames lo..hi (default the window
-    itself), every frame in the train split. It is `source` (its pool, attacker, families and noise) with
-    these steps of `generate` its own: no onset mask or survey, one split, the one slot in place of a random
-    placement, and a design that must exist.
-
-    `using` designs the episode in place of the source's own family of that name (a variant, such as
-    `InterfaceFdia.with_overshoot`). With `lag` (frames) the attacker knows each scan only as it was `lag`
-    frames earlier, a persistence forecast: the attack is designed on the window at `onset - lag` (its
-    states, hours and headroom) and its vector added to the true scans from `onset`. The one design runs in
-    this process. Building it raises if a frame of either window is unsolved; `generate` raises
-    NoAdmissibleTarget if the family finds no attack there, and then leaves no file."""
+    """`source` with one episode placed by hand, for studying one attack: `family` designed at pool frame
+    `onset`, the file covering pool frames lo..hi (default the window), every frame in train. `using`
+    designs it in place of the source's family of that name. With `lag` (frames) the attacker knows each
+    scan as it was `lag` frames earlier: the attack is designed on the window at `onset - lag` and added to
+    the true scans from `onset`. Building raises on an unsolved frame; `generate` raises
+    NoAdmissibleTarget, and leaves no file, when the family finds no attack."""
 
     def __init__(
         self,

@@ -2,8 +2,8 @@
 condition number without an eigen-decomposition, and per-record normal matrices in sub-batches.
 
 These carry no equation from a source; they are the numerical guards the estimation kernel
-needs, kept here so `formulas.estimation` reads as mathematics. Every function keeps the exact
-expression the estimator used before it existed.
+needs, kept here so `formulas.estimation` reads as mathematics. The order of each floating-point
+expression is fixed: the estimators' results depend on it to the last bit.
 """
 
 from __future__ import annotations

@@ -1,37 +1,13 @@
-"""Bundle: a typed record that still IS the dict it used to be.
+"""Bundle: a typed record that is also a dict.
 
-The package's public functions have always returned dicts of arrays (records, batches, streams,
-score tables). A Bundle is a frozen dataclass whose fields are those keys, so a reader sees them
-in one place and pyright checks them, and it is also a real ``dict`` subclass, so every existing
-use keeps working unchanged: ``out["node_x"]``, ``**out``, ``for k in out``, ``"swing" in out``,
-``json.dump(out)``, ``isinstance(out, dict)``, pickling, and PyTorch's default collate. Fields set
-to None are absent from the dict view, which is how optional layers behave today.
+A Bundle is a frozen dataclass whose fields are the keys of a returned record (a batch, a stream, a
+score table), so pyright checks them. It is also a real ``dict`` subclass: ``out["node_x"]``,
+``**out``, ``"swing" in out``, pickling and PyTorch's default collate all work. A field set to None
+is absent from the dict view.
 
-    @dataclass(frozen=True, eq=False)
-    class TrueState(Bundle):
-        x: np.ndarray      # the 2N-1 state per record
-        thsl: np.ndarray   # the slack angle reference per record
-
-A bundle can inherit shared fields (``models/fields.py``), which all default to None; it then
-names the fields it cannot do without in ``_required`` (a None there raises ``TypeError`` at
-construction, as a missing argument does) and its dict-key order in ``_order`` (the order the old
-dict had), since dataclass inheritance fixes the field order.
-
-A field whose dict key is not a valid attribute name (``"global"``) is declared with a trailing
-underscore and mapped through ``_keys``:
-
-    @dataclass(frozen=True, eq=False)
-    class JacobianOutputs(Bundle):
-        _keys = {"global_": "global"}
-        bus: np.ndarray
-        global_: np.ndarray
-
-A required field the old dict listed last (a score table's ``geo`` row) is named in ``_tail`` so
-the dict view keeps the old key order; dataclasses need required fields before optional ones.
-
-Treat a bundle as read-only: the dataclass side is frozen, and the dict side mirrors it at
-construction.
-"""
+A bundle that inherits shared fields (``models/fields.py``, all default None) names the fields it
+needs in ``_required`` and its dict-key order in ``_order``. A dict key that is no valid attribute
+name (``"global"``) maps through ``_keys``. A bundle is read-only."""
 
 from __future__ import annotations
 
@@ -48,7 +24,7 @@ class Bundle(dict):
     fields. Subclass with ``@dataclass(frozen=True, eq=False)``."""
 
     _keys: ClassVar[dict[str, str]] = {}  # field name -> dict key, only where they differ
-    _tail: ClassVar[tuple[str, ...]] = ()  # fields the dict view lists last, where the old dict put them last
+    _tail: ClassVar[tuple[str, ...]] = ()  # required fields the dict view lists last
     _order: ClassVar[tuple[str, ...]] = ()  # the full dict-key order, when it differs from the field order
     _required: ClassVar[tuple[str, ...]] = ()  # fields that may not be None (construction raises TypeError)
     _names_cache: ClassVar[tuple[str, ...]] = ()

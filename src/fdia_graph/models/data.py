@@ -1,10 +1,8 @@
-"""What a user gets back: one record, a batch, a whole split, a summary, the episode
-table, and the per-record truth an estimator is scored against. Each is a Bundle, so it is still
-the dict it always was.
+"""What a user gets back: one record, a batch, a whole split, a summary and the episode table.
+Each is a Bundle, so it is also a dict.
 
 The record-shaped bundles share the fields of `fields.RecordFields`, so each field's meaning
-is written once; what a bundle adds is its leading axis, which fields it requires, and the order
-its dict view keeps (the order the old dict had)."""
+is written once; a bundle adds its leading axis, the fields it requires and its dict-key order."""
 
 from __future__ import annotations
 
@@ -23,7 +21,7 @@ class RecordBundle(RecordFields):
     """One record as `FdiaGraph[i]` returns it (format="torch"): tensors in self.units with no
     leading axis, the static graph shared by every record, the label and provenance, and the
     optional layers the file carries (the benign layer on a timeline file). A dict as well, so
-    DataLoaders, `**item` and `item["node_x"]` keep working."""
+    DataLoaders, `**item` and `item["node_x"]` work."""
 
     _required = ("edge_index", *SCAN_FIELDS, "y", *ID_FIELDS)
     _order = ("edge_index", *SCAN_FIELDS, "y", *ID_FIELDS, "edge_attr", *LAYER_FIELDS, *CURRENT_FIELDS)

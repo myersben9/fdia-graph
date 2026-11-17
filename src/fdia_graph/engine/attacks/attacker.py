@@ -1,28 +1,13 @@
-"""The attacker: the local subnetwork it re-solves, the false state a pretended load implies, and the bounds
-the grid's own behaviour puts on a pretended change (`natural_steps`, `generator_ramps`, `generator_band`,
-`generator_q_capability`).
+"""The attacker: the local subnetwork it re-solves, the false state a pretended load implies, and the
+bounds the grid's own behaviour puts on a pretended change (`natural_steps`, `generator_ramps`,
+`generator_band`, `generator_q_capability`).
 
-An attacker knows one connected local subnetwork (the interior) and re-solves it with every bus
-outside it held at its true voltage, so only the interior's and its boundary's meters change and the
-measurement stays consistent with one AC state [1]. The subnetwork may span utilities: the operator
-runs one residual test over every meter, so stealth is global, not per client. The boundary buses
-hold their true voltage and absorb the changed power, so their injection moves too. The slack bus (the
-estimator's angle reference) never moves.
-
-The load goal of At (`false_state`) prescribes a pretended load at chosen buses and re-solves the interior
-(`formulas.network.local_flow_solve`). A New York bus on the interior's edge whose injection may not change (a
-zero-injection bus, a load under the floor) first joins the interior, its voltage free, so the edge moves out
-to buses the attack may change (`absorb`). The attackable loads and generators of the interior and its edge
-are free, every other bus there keeps its true injection (a zero-injection bus keeps reading zero: the
-operator meters P and Q at every New York bus). A bus outside New York carries no meter and absorbs, unless it
-has no unit and no injection (bus 140, radial off Dunkirk, N44), which is held like a New York zero-injection
-bus (`_held_bus`). Then the least-norm Gauss-Newton moves the interior voltages; an active set holds each free
-injection inside its bounds, generator limits (22)-(23) and the load plausibility cap on P and Q, pinning one
-at a bound and releasing it when the solve without the pin leaves it inside. The solve is plain numpy, never
-pandapower. The OPF attacks (`opf.OpfFdia`) use the attacker's area and edge rules with their own solve.
-
-Angle readings (kinds va and ia) wrap at +-180 degrees, so a difference of two of them is wrapped
-back to (-180, 180] before it is compared (`wrap_angles`); the stored readings stay raw.
+An attacker knows one connected local subnetwork (the interior) and re-solves it with every bus outside
+it held at its true voltage, so only the interior's and its boundary's meters change and the measurement
+stays consistent with one AC state [WU26]. The subnetwork may span utilities: the operator runs one residual
+test over every meter, so stealth is global. The boundary buses absorb the changed power; the slack
+never moves. `false_state` (the load goal of At) re-solves the interior in plain numpy
+(`formulas.network.local_flow_solve`); the OPF attacks (`opf.OpfFdia`) use the same area and edge rules.
 """
 
 from __future__ import annotations
@@ -42,11 +27,8 @@ from fdia_graph.generation.nygrid.network import Network
 
 def natural_steps(time: np.ndarray, p: np.ndarray, solved: np.ndarray, pct: float = 95.0) -> np.ndarray:
     """Each bus's natural five-minute step by hour of day [24, N] (MW): the `pct` percentile of
-    |p(t) - p(t-1)| over every pair of consecutive solved frames, grouped by the clock hour of the later
-    frame. `time [T]` the frame times (local clock), `p [T, N]` the net injections (MW, NaN where
-    unsolved), `solved [T]` which frames hold a state. A load bus's step is its load's, a generator bus's
-    its dispatch's. This is what the attacker is assumed to know of typical load behaviour, the bound on each
-    scan of an OPF attack's exit; an hour with no pair keeps 0."""
+    |p(t) - p(t-1)| over consecutive solved frames, by the clock hour of the later frame; 0 for an hour
+    with no pair. `time` is local clock, `p [T, N]` the net injections. It bounds an OPF attack's exit."""
     hours = (np.asarray(time).astype("datetime64[s]").astype(np.int64) // 3600) % 24
     ok = np.asarray(solved, bool)
     pair = ok[1:] & ok[:-1]
@@ -72,12 +54,10 @@ def _per_bus(case: Case, per_unit: np.ndarray) -> np.ndarray:
 
 
 def generator_ramps(case: Case, minutes: float = 5.0) -> np.ndarray:
-    """Each bus's generator ramp capability over `minutes` [N] (MW), summed over its units, each unit
-    bounded on its own (N34): the load-following (AGC) ramp `case.ramp` (MW/min, NYgrid's
-    maxRampAgc); a nuclear unit 0, since it does not follow load; a hydro unit with no ramp data 10
-    percent of its nameplate per minute; an import 300 MW per 15 minutes; any other unit with no ramp
-    data (external units) unbounded. A bus with no unit is inf. Every family bounds a generator bus's
-    per-scan change of reported output by this (N33)."""
+    """Each bus's generator ramp capability over `minutes` [N] (MW), summed over its units; inf at a
+    bus with no unit. It bounds a generator bus's per-scan change of reported output in every family."""
+    # per unit: the AGC ramp `case.ramp` (MW/min, NYgrid's maxRampAgc); nuclear 0 (it does not follow
+    # load); hydro and imports with no ramp data a default; any other unit with no data unbounded
     ramp = np.asarray(case.ramp, float).copy()
     ramp = np.where((case.fuel == "Hydro") & np.isnan(ramp), HYDRO_RAMP_PER_MIN * case.pmax, ramp)
     ramp = np.where((case.fuel == "Import") & np.isnan(ramp), IMPORT_RAMP_MW_PER_MIN, ramp)
@@ -86,23 +66,23 @@ def generator_ramps(case: Case, minutes: float = 5.0) -> np.ndarray:
 
 
 def generator_band(case: Case, share: float = BASEPOINT_BAND) -> np.ndarray:
-    """[N] MW: the largest pretended deviation of a generator bus's output from its basepoint (N33), `share` of
-    its units' upper operating limit, 3 percent by default, NYISO's tolerance for a unit's output against its
-    real-time dispatch basepoint; inf at a bus with no unit. Another `share` is a sensitivity of the band."""
+    """[N] MW: the largest pretended deviation of a generator bus's output from its basepoint, `share` of
+    its units' upper operating limit (default 3 percent, NYISO's tolerance for a unit's output against its
+    real-time dispatch basepoint); inf at a bus with no unit."""
     return _per_bus(case, share * np.asarray(case.pmax, float))
 
 
 def generator_q_capability(case: Case) -> tuple[np.ndarray, np.ndarray]:
-    """[N] MVAr each: the reactive capability of a generator bus (N34), plus or minus 0.312 times its
-    units' Pmax (power factor 0.95 leading and lagging), replacing NYgrid's placeholder limits of plus
-    or minus 9999 MVAr per unit; plus or minus inf at a bus with no unit."""
+    """[N] MVAr each: the reactive capability of a generator bus, plus or minus 0.312 times its units'
+    Pmax (power factor 0.95 leading and lagging), in place of NYgrid's placeholder limits of plus or
+    minus 9999 MVAr per unit; plus or minus inf at a bus with no unit."""
     q = _per_bus(case, Q_SHARE * np.asarray(case.pmax, float))
     return -q, q
 
 
 def wrap_angles(d: np.ndarray, kind: np.ndarray) -> np.ndarray:
-    """A difference of readings `d [..., M]` with each angle reading's (kinds va and ia, degrees) wrapped
-    to (-180, 180]; `kind [M]` the meter kinds. The other readings are returned as they are."""
+    """A difference of readings `d [..., M]` with each angle difference (kinds va and ia, degrees)
+    wrapped to (-180, 180], since angle readings wrap at +-180 degrees; `kind [M]` the meter kinds."""
     d = np.array(d, float, copy=True)
     angle = np.isin(kind, (MeterKind.VA, MeterKind.IA))
     d[..., angle] = wrap_degrees(d[..., angle])
@@ -111,23 +91,21 @@ def wrap_angles(d: np.ndarray, kind: np.ndarray) -> np.ndarray:
 
 class Attacker:
     """Holds a `Network` and a `Measurement`. Finds the local subnetwork of a target (`area`, the
-    connected region of [1], which may span utilities), re-solves it under a pretended load change
-    (`false_state`, the load goal of At), and writes the attack vector a false state moves (`attack_vector`).
-    Meter ownership comes from
-    the measurement's plan, so the attacker needs no separate `Ownership`: a bus's client is the owner
-    of its meters (a bus with no meters is external, N4), used only to label an episode's owners."""
+    connected region of [WU26]), re-solves it under a pretended load change (`false_state`), and writes the
+    attack vector a false state moves (`attack_vector`). A bus's client is the owner of its meters (a
+    bus with no meters is outside New York); it only labels an episode's owners."""
 
     def __init__(
         self, net: Network, meas: Measurement, gen_q_share: float = 0.2, hold_external: bool = False
     ):
         self.net, self.meas = net, meas
-        # N62: every bus outside New York keeps its true injection, so the change lands on New York's own
+        # every bus outside New York keeps its true injection, so the change lands on New York's own
         # loads and units and the net interchange stays true up to losses (each tie on its own may still
         # move where one external bus meets several New York buses, so this is a relaxation of holding
         # every tie, and an attack it rules out is ruled out for the stricter form too)
         self.hold_external = hold_external
-        # a generator's pretended reactive change stays within this share of its units' Q range (N27,
-        # Ben 2026-10-27): without it the cheapest stealthy overload is fake reactive output
+        # a generator's pretended reactive change stays within this share of its units' Q range:
+        # without it the cheapest stealthy overload is fake reactive output
         self.gen_q_share = gen_q_share
         case, plan = net.case, meas.plan
         self.ybus = net.ybus.toarray()  # dense: a ~140-bus local solve indexes and multiplies often
@@ -158,26 +136,21 @@ class Attacker:
 
     def sigma(self, z: np.ndarray) -> np.ndarray:
         """The accuracy-class standard deviation of each meter at readings `z`, the noise a change must
-        exceed to count as tampering (`sigma_rel |z| + sigma_abs`, the rated accuracy of M2)."""
+        exceed to count as tampering (`sigma_rel |z| + sigma_abs`)."""
         return self._noise.sigmas(z)
 
     def _held_bus(self, vm: np.ndarray, va: np.ndarray) -> np.ndarray:
-        """[N] bool: the buses whose injection the attack keeps true unless it is free. Every New York
-        bus (the operator meters P and Q there), and a bus outside New York with no unit and no injection
-        at the state (N44, bus 140 radial off Dunkirk): no meter sees it, but with no load or generation
-        nothing there could take up a change, so it is held like a New York zero-injection bus. Every
-        other bus outside New York absorbs, unless `hold_external` (N62) holds them all."""
+        """[N] bool: the buses whose injection the attack keeps true unless it is free: every New York
+        bus (metered), and a bus outside New York with no unit and no injection (bus 140, radial off
+        Dunkirk), where nothing could take up a change. Other outside buses absorb, unless `hold_external`."""
         v = vm * np.exp(1j * np.deg2rad(va))
         dead = ~self.gen_bus & (np.abs(v * np.conj(self.ybus @ v)) < 1e-6)  # pu, the solver's zero
         return (self.owner >= 0) | dead | (self.hold_external & (self.owner < 0))
 
     def absorb(self, vm: np.ndarray, va: np.ndarray, interior: np.ndarray) -> np.ndarray:
-        """The interior grown over its edge's buses whose injection the attack may not change
-        (zero-injection buses and loads under the floor; N25, the coordinator's decision; outside New York
-        only the dead buses of `_held_bus`, N44): such a bus moves inside, its voltage free and its
-        injection still held, so the edge moves out to the next ring, until every edge bus is a free
-        injection, the slack, or a bus outside New York that absorbs (no meter sees it and the estimator
-        holds it, the limit of the growth)."""
+        """The interior grown over the edge buses whose injection the attack may not change (zero-injection
+        buses, loads under the floor): such a bus moves inside, its voltage free and its injection held,
+        until every edge bus is a free injection, the slack, or a bus outside New York that absorbs."""
         s = np.asarray(interior, int)
         free = np.zeros(len(self.owner), bool)
         free[self.free_injection_buses(vm, va, np.arange(len(self.owner)))] = True
@@ -185,7 +158,7 @@ class Attacker:
         while True:
             edge = self.boundary(s)
             move = edge[held[edge] & ~free[edge] & (edge != self.slack)]
-            if self.hold_external:  # N62: a bus outside New York stays on the edge, its injection held by the
+            if self.hold_external:  # a bus outside New York stays on the edge, its injection held by the
                 move = move[self.owner[move] >= 0]  # solve, so every tie keeps its true flow
             if not len(move):
                 return s
@@ -200,7 +173,7 @@ class Attacker:
         self, vm: np.ndarray, va: np.ndarray, buses: np.ndarray | None = None, floor: float = 1.0
     ) -> np.ndarray:
         """The New York buses carrying load above `floor` MW at a state, the slack and generator buses
-        out (both trivially detectable to attack [1]); restricted to `buses` when given. Load is read
+        out (both trivially detectable to attack [WU26]); restricted to `buses` when given. Load is read
         from the state, not the case, whose base carries none."""
         load = self.bus_load(vm, va)
         ok = (self.owner >= 0) & ~self.gen_bus & (load > floor)
@@ -212,25 +185,24 @@ class Attacker:
         return np.flatnonzero(ok)
 
     def free_injection_buses(self, vm: np.ndarray, va: np.ndarray, buses: np.ndarray) -> np.ndarray:
-        """The buses of `buses` whose injection a flow attacker may change [1]: the attackable loads
+        """The buses of `buses` whose injection a flow attacker may change [WU26]: the attackable loads
         and the generators (the slack out). A zero-injection bus is held at its true injection."""
         gens = np.asarray(buses, int)[self.gen_bus[np.asarray(buses, int)]]
         gens = gens[gens != self.slack]
-        if self.hold_external:  # N62: no unit outside New York takes up the change
+        if self.hold_external:  # no unit outside New York takes up the change
             gens = gens[self.owner[gens] >= 0]
         return np.union1d(self.load_buses(vm, va, buses), gens)
 
     def area(self, center: int, hops: int) -> np.ndarray | None:
-        """The attacker's local subnetwork around `center` [1]: the buses within `hops` branches, over
-        any utility (the subnetwork may span them), the slack excluded, with a non-empty boundary to
-        hold at its true voltage. `hops` is reduced until a bus with a boundary remains; None when even
-        one hop leaves none (the center isolated, or the slack)."""
+        """The attacker's local subnetwork around `center` [WU26]: the buses within `hops` branches, over
+        any utility, the slack excluded, with a non-empty boundary to hold true. `hops` is reduced until a
+        boundary remains; None when even one hop leaves none (the center isolated, or the slack)."""
         if center == self.slack:
             return None
         for h in range(hops, 0, -1):
             interior = self.net.neighbors([center], h)
             interior = interior[interior != self.slack]
-            if self.hold_external:  # N62: no bus outside New York in the area
+            if self.hold_external:  # no bus outside New York in the area
                 interior = interior[self.owner[interior] >= 0]
             if len(interior) and len(self.boundary(interior)):
                 return interior
@@ -239,26 +211,19 @@ class Attacker:
     def false_state(
         self, vm: np.ndarray, va: np.ndarray, area: np.ndarray, load_change: np.ndarray
     ) -> tuple[np.ndarray, np.ndarray] | None:
-        """The false state a pretended load change implies (the load goal of At): each bus where
-        `load_change` is nonzero reads its true injection less that change (extra load, generation
-        negative), the other attackable loads and generators of the `area` and its edge absorb the
-        rest within their bounds, and every other bus there, a zero-injection bus among them, keeps its
-        true injection; every voltage outside the area is held true. The bounds: a generator's reported
-        output inside its limits (22)-(23) and its reactive change within `gen_q_share` of its range (N27),
-        a load's active and reactive change within `ABSORB_CAP` times its true active load and
-        max(|Q|, 0.2 P) (the plausibility cap of Yuan, IEEE TSG 2011; on Q by N24). `load_change [N]` is
-        complex, MW + j MVAr, nonzero only on `area` buses. Returns the false state (`vm` p.u., `va`
-        degrees) [N], or None when no solution inside the bounds is found."""
+        """The false state (`vm` p.u., `va` degrees) a pretended load change implies, the load goal of At,
+        or None when no solution is inside the bounds. `load_change [N]` is complex (MW + j MVAr, positive is
+        extra load), nonzero only on `area` buses; the other free injections of the area and its edge absorb
+        the rest: loads within `ABSORB_CAP` of their true load [YUA11], generators within their limits and
+        `gen_q_share` of their Q range."""
         return self._goal_solve(vm, va, area, -np.asarray(load_change, complex))
 
     def _goal_solve(
         self, vm: np.ndarray, va: np.ndarray, support: np.ndarray, held: np.ndarray
     ) -> tuple[np.ndarray, np.ndarray] | None:
         """The solve behind `false_state`: the injection change `held [N]` (complex MVA, generation
-        positive) prescribed where it is nonzero, the other free injections bounded by the active set
-        (an injection past a bound is pinned at it, and released when the solve without its pin leaves it
-        inside), every other bus of the support and its edge held at its true injection. Holding the edge
-        leaves more equations than unknowns, so the solve is a least-squares Gauss-Newton."""
+        positive) is prescribed where nonzero, and an active set keeps the other free injections inside
+        their bounds. Holding the edge leaves more equations than unknowns: a least-squares Gauss-Newton."""
         case, base = self.net.case, self.base_mva
         v = vm * np.exp(1j * np.deg2rad(va))
         s = self.absorb(vm, va, np.asarray(support, int))  # non-free edge buses join the interior
@@ -269,8 +234,8 @@ class Attacker:
         held_set = set(held_bus.tolist())
         free = np.setdiff1d(free[free != self.slack], held_bus)
         # every New York bus there that is not free holds its true injection (zero-injection ones too),
-        # and so does a dead bus outside New York (N44); any other bus outside New York carries no meter,
-        # so on the edge it absorbs the change as before
+        # and so does a dead bus outside New York; any other bus outside New York carries no meter,
+        # so on the edge it absorbs the change
         rest = np.setdiff1d(touched, np.union1d(free, held_bus))
         rest = rest[self._held_bus(vm, va)[rest]]
         s_true = v * np.conj(self.ybus @ v)  # pu, generation positive, per bus
@@ -290,11 +255,11 @@ class Attacker:
                     min(self.q_lo[bus], gen_q[bus]) - gen_q[bus],
                     max(self.q_hi[bus], gen_q[bus]) - gen_q[bus],
                 )
-                dq = self.gen_q_share * (self.q_hi[bus] - self.q_lo[bus])  # N27
+                dq = self.gen_q_share * (self.q_hi[bus] - self.q_lo[bus])
                 q_b = (max(q_b[0], -dq), min(q_b[1], dq))
             else:  # load cap [YUA11]
-                # P and Q (N24): the reactive cap has a floor of 0.2 times the active load, so a load
-                # near unity power factor may still move its Q (Ben, 2026-10-27)
+                # P and Q: the reactive cap has a floor of 0.2 times the active load, so a load
+                # near unity power factor may still move its Q
                 cap = ABSORB_CAP * true_load[bus]
                 cap_q = ABSORB_CAP * max(abs(gen_q[bus]), 0.2 * true_load[bus])
                 p_b, q_b = (-cap, cap), (-cap_q, cap_q)
@@ -385,22 +350,19 @@ class Attacker:
     def attack_vector(
         self, vm_t: np.ndarray, va_t: np.ndarray, vm_f: np.ndarray, va_f: np.ndarray
     ) -> np.ndarray:
-        """The attack vector a = h(x_false) - h(x_true) [M], in full on every meter it moves, whoever owns
-        it: the operator runs one global residual test, so the scan must read as one AC state (global
-        stealth). A change within a meter's noise is still written, since zeroing it would break that
-        consistency and turn a smooth ramp into steps, but it does not count as tampered (`tampered`, the
-        l0 threshold of [1] eq. 12)."""
+        """The attack vector a = h(x_false) - h(x_true) [M], on every meter it moves, whoever owns it, so
+        the scan reads as one AC state. A change within a meter's noise is still written (zeroing it would
+        break that consistency) but does not count as tampered (`tampered`, [WU26] eq. 12)."""
         return self.meas.h(vm_f, va_f) - self.meas.h(vm_t, va_t)
 
     def tampered(self, vm: np.ndarray, va: np.ndarray, a: np.ndarray) -> np.ndarray:
         """Which meters an attack moves beyond their noise, per frame [L, M] for true states [L, N] and
-        attack vectors [L, M]: the meters [1] eq. 12 counts, the localization labels and their owners.
+        attack vectors [L, M]: the meters [WU26] eq. 12 counts, the localization labels and their owners.
         An angle change is wrapped first, so a reading crossing +-180 degrees counts by its true move."""
         return np.abs(wrap_angles(a, self.meas.plan.kind)) > self.sigma(self.meas.h(vm, va))
 
     def bus_load(self, vm: np.ndarray, va: np.ndarray) -> np.ndarray:
-        """The active load at every bus (MW) for a state: the net injection is generation minus load,
-        and the pool scales a bus's load and generation together, so at a load bus with no generator the
-        load is minus the net injection."""
+        """The active load at every bus (MW) for a state: minus the net injection at a bus with no
+        generator, 0 at a generator bus."""
         p, _ = self.net.injections(vm, va)
         return np.where(self.gen_bus, 0.0, -p)

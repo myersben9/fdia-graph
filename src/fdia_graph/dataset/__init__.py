@@ -1,23 +1,14 @@
 """FdiaGraph: a PyTorch-ready dataset over one HDF5 file, a timeline (one row per frame in time order,
 `kind="timeline"`).
 
-Static graph read once; per-record tensors sliced lazily so the whole file is never loaded. Each item:
-  node_x [N,4]=[|V|,P_inj,Q_inj,theta]  node_m [N,4] availability mask
-  edge_x [E,2]=[P_from,Q_from]          edge_m [E,2] availability mask
-  y [N] per-bus attack label  + family / stealthy / seq_id / timestep
-  and, on a timeline, benign / edge_benign (the attack removed, the noise kept).
-Masked measurements (mask==0) are already zeroed; the model consumes the masks. `order="random"`
-is the same frames in a permutation fixed by `seed`; `order="time"` keeps the file order, which on
-a timeline is chronological, so `ds.windows` and `ds.episodes` work on it.
-
-The class is six mixins, one file each, each owning one kind of question:
-  records.py   RecordsMixin    one record at a time: `ds[i]`, `len(ds)`, `collate`, `loader`
-  export.py    ExportMixin     the whole view at once: `export`, `summary`
-  sequence.py  SequenceMixin   the view as a time series: `windows`, `episodes`
-  graph.py     GraphMixin      the static graph: `edge_index`, `branch_*`, `bus_shunt_*`, `edge_attr`
-  physics.py   AdmittanceMixin the admittances built from it: `ybus`, `yf`, `yt`, the clean flows
-  base.py      DatasetBase     the attributes `__init__` sets and the mixins read, the tables
-`__init__` itself opens the file, reads the header and the static graph, and selects the rows.
+The static graph is read once; records are sliced lazily, so the whole file is never loaded. An item
+holds node_x [N,4] = [|V|, P_inj, Q_inj, theta], edge_x [E,2] = [P_from, Q_from], their masks node_m
+and edge_m (a masked reading is already zero), the per-bus label y [N] and family / stealthy /
+seq_id / timestep (docs/reference/DATA_DICTIONARY.md). The class is one mixin per file: `records.py`
+(one record: `ds[i]`, `loader`), `export.py` (the whole view), `sequence.py` (windows and episodes),
+`graph.py` (the static graph), `physics.py` (admittances and clean flows), over `base.py`.
+`order="time"` keeps the file order (chronological; `windows` and `episodes` need it); `order="random"`
+is the same frames in a permutation fixed by `seed`.
 """
 
 from __future__ import annotations
@@ -85,14 +76,12 @@ class FdiaGraph(GraphMixin, AdmittanceMixin, RecordsMixin, ExportMixin, Sequence
         order: str = "time",
         seed: int = 0,
     ) -> None:
-        # ONE pass over the small metadata arrays (family/gap/split) picks the kept rows;
-        # the big measurement arrays are read only in __getitem__.
+        # One pass over the small metadata arrays (family, split) picks the kept rows; the big
+        # measurement arrays are read only in __getitem__.
         self.path, self.format = path, format  # file + output flavor ("torch"/"pyg")
-        # Unit system for RETURNED measurements. File stores engineering units (V p.u., P/Q MW/MVAr, theta deg);
-        # units="pu" converts losslessly on the fly (P/Q + branch flows / baseMVA, theta deg->rad, V already p.u.),
-        # so one shard serves both physical and normalized views. temporal_delta scales with power (->p.u.);
-        # swing is a dimensionless z-score, never rescaled.
-        # the arguments are converted before the file is opened, so a wrong one never reads the file
+        # The file stores physical units (V pu, P/Q MW/MVAr, theta degrees); units="pu" converts the
+        # returned arrays on the fly (power over baseMVA, theta to radians). The swing z-score is
+        # dimensionless and never rescaled.
         options = LoadOptions(split, units, order, format)  # checked before the file is opened
         split, units, order = options.split, options.units, options.order
         format = options.format
@@ -137,23 +126,22 @@ class FdiaGraph(GraphMixin, AdmittanceMixin, RecordsMixin, ExportMixin, Sequence
         self.current_form = str(a.get(Attr.CURRENT_FORM, schema.CURRENT_RECTANGULAR))
 
     def _read_static_graph(self, f: h5py.File) -> None:
-        """The static graph, read ONCE and cached as numpy (same for every record): edge index and the
-        per-unit branch physics, bus shunts and per-bus
-        attributes, each None when the file predates the schema."""
+        """The static graph, read once and cached as numpy: the edge index and the per-unit branch
+        physics, bus shunts and per-bus attributes, each None when the file lacks it."""
         self.edge_index_np = f[schema.EDGE_INDEX][:].astype(np.int64)
         self._phys = {}
         for _k in _STATIC_PHYSICS:
             p = schema.path(schema.Group.GRAPH, _k)
             self._phys[_k] = f[p][:].astype(np.float64) if p in f else None
         self.has_physics = self._phys["edge_x"] is not None
-        # Forward-compat: v0.6.0 PER-RECORD data/edge_status will override static graph/edge_status;
-        # None on v0.5.0 shards, so v0.5.0 loaders already read v0.6.0 shards correctly.
+        # Reserved: a per-record data/edge_status is read (None when absent) but not yet applied; Ybus
+        # and the flows use the static graph/edge_status.
         self.edge_status_per_record = f[schema.EDGE_STATUS][:] if schema.EDGE_STATUS in f else None
 
     def _read_layers(self, f: h5py.File) -> None:
-        """Which optional layers the file carries: the temporal features (v0.3+, v0.4.1+) and the
-        noiseless attack-free truth (v0.7.2+), stored ONCE per pool timestep and resolved per record
-        via data/timestep. The clean layer is small ([Tpool,N,4] / [Tpool,E,2]) so it lives in RAM."""
+        """Which optional layers the file carries. The clean layer (the noiseless attack-free truth)
+        is stored once per pool timestep and resolved per record through data/timestep; it is small
+        ([Tpool,N,4] and [Tpool,E,2]), so it lives in RAM."""
         self.has_temporal = schema.TEMPORAL_DELTA in f
         self.has_swing = schema.SWING in f
         self._clean_np = f[schema.NODE_CLEAN][:] if schema.NODE_CLEAN in f else None
@@ -168,9 +156,9 @@ class FdiaGraph(GraphMixin, AdmittanceMixin, RecordsMixin, ExportMixin, Sequence
         self.has_clean_full = self.has_clean and all(p is not None for p in physics)
 
     def _reference_bus(self) -> Optional[int]:
-        """The slack bus. Explicit bus-type metadata wins when the shard carries it (ppc code 3 =
-        REF); otherwise it is the one bus whose clean angle is pinned across the pool, which needs
-        the clean layer (v0.7.2+) and more than one pool timestep. None when neither applies."""
+        """The slack bus: the one bus of type 3 (REF) when the file carries bus types, otherwise the
+        one bus whose clean angle is pinned across the pool (needs the clean layer and more than one
+        pool timestep). None when neither applies."""
         bt = self._phys.get("bus_type")
         ref = np.where(bt == 3)[0] if bt is not None else np.empty(0, int)
         if len(ref) == 1:
@@ -183,9 +171,9 @@ class FdiaGraph(GraphMixin, AdmittanceMixin, RecordsMixin, ExportMixin, Sequence
         return None
 
     def _preload(self, path: str) -> None:
-        """Optional RAM cache: bulk-read the kept rows once so __getitem__ skips per-record h5py
-        overhead (the real .loader() bottleneck). About 350 MB for an ieee118 split. One contiguous
-        slice plus a numpy subset beats h5py point reads (splits are near-contiguous)."""
+        """Optional RAM cache: the kept rows read once, so __getitem__ skips the per-record h5py
+        overhead. About 350 MB for an ieee118 split. One contiguous slice plus a numpy subset is
+        faster than h5py point reads."""
         with h5py.File(path, "r") as f:
             dg = f[schema.Group.DATA]
             keys = (

@@ -21,22 +21,18 @@ if TYPE_CHECKING:
 class MeasurementMixin(GridBase):
     """Emit measurement graphs from a state or a solved net. Mixed into FdiaGenerator."""
 
-    # Draw one zero-mean Gaussian noise sample with std `s` (the meter-noise primitive).
     def _jitter_stream(self) -> np.random.Generator:
-        """The stream an emission draws its jitter from. With a `scan_key` t (set by the timeline walk),
-        its own stream seeded by (seed, t): frame t's noise is then the same whatever was drawn
-        before it, so the benign frames of two timelines on one seed and pool that place different
-        attacks are identical, and every emission of t (an attacked frame's true scan, any retry)
-        draws the same noise as its benign twin. Without a key, the generator's own stream."""
+        """The stream an emission draws its jitter from. With a `scan_key` t it is seeded by (seed, t), so
+        frame t's noise does not depend on earlier draws: an attacked frame's true scan matches its benign
+        twin, whatever attacks the timeline places. Without a key, the generator's own stream."""
         if self.scan_key is None:
             return self.rng
         return np.random.default_rng([self.seed, JITTER_STREAM, self.scan_key])
 
     def meter_masks(self) -> tuple[np.ndarray, np.ndarray]:
-        """The meter masks of every scan, drawn from the plan with no random draw: node [N, 4] (|V| at
-        the voltage-meter and PMU buses, the angle at the PMU buses under the hybrid meter model and
-        at every voltage-meter bus under the v0.8.3 one, P and Q at the injection and zero-injection
-        buses) and flow [E, 2] (both channels of a metered branch)."""
+        """The meter masks of every scan, from the plan with no random draw: node [N, 4] (|V| at voltmeter
+        and PMU buses; the angle at PMU buses under the hybrid model, at every voltmeter bus under the v0.8.3
+        one; P and Q at injection and zero-injection buses) and flow [E, 2]."""
         C, plan = self.C, self.meters
         buses = np.arange(C)
         pmu = np.isin(buses, list(plan.pmu))
@@ -67,33 +63,28 @@ class MeasurementMixin(GridBase):
         return cm
 
     def emit_from_state(self, X: np.ndarray) -> Scan:
-        # Emit a measurement graph DIRECTLY from a stored state X (no re-solve): exact 0-error flows before
-        # meter noise. X columns = [|V|, Pinj, Qinj, angle], the one column order used everywhere.
+        # The readings of one stored state X ([N, 4] = |V|, Pinj, Qinj, angle), with no re-solve: the flows
+        # are exact before meter noise.
         C, bias, N = self.C, self.bias, NodeChannel
         self._jitter = self._jitter_stream()
-        V, Pi, Qi, TH = (X[..., i] for i in NodeChannel)  # numpy views of the four columns, no copy
-        # The complex bus-voltage phasors in ppc ordering, then the exact from-end flows in MW and MVAr:
-        # one physics primitive (formulas.network) shared with the loader and the estimator.
+        V, Pi, Qi, TH = (X[..., i] for i in NodeChannel)
+        # voltage phasors in ppc ordering, then the exact from-end flows (MW and MVAr)
         Vc = np.zeros(self._n_ppc_buses, complex)
         Vc[self._ppc_row[np.arange(C)]] = complex_voltages(V, TH)
         Sf = branch_flows(Vc, self._Yf, self._from_bus_ppc, self._base_mva)
-        # Each reading = true + constant per-meter bias + per-scan jitter, the jitter's std from the one
-        # noise rule the fewest-tamper objective also counts against (formulas.noise.jitter_sigma).
-        # V-mag/flow biases relative, V/angle biases absolute. va bias/jitter are radians -> degrees to
-        # match TH. The draw order (bus by bus, then branch by branch) is the released files' order.
+        # Each reading = true + constant per-meter bias + per-scan jitter (formulas.noise.jitter_sigma, the
+        # rule the fewest-tamper objective also counts against). |V| and angle biases are absolute, power
+        # biases relative; the angle bias is radians, converted to degrees to match TH.
         sig, sig_f = jitter_sigma(X, np.stack([Sf.real, Sf.imag], axis=1), self.SDj, POWER_NOISE_FLOOR_MW)
         nm, em = self.meter_masks()
-        # node readings: within a bus the draws go |V|, angle, P, Q (the released files' order)
+        # draw order, the released files': bus by bus (|V|, angle, P, Q within a bus), then branch by branch
         jit = self._jitter_in_order(nm, sig, NODE_DRAW_ORDER)
         on = nm.astype(bool)
         nx = np.zeros((C, 4), np.float32)
         nx[:, N.V] = np.where(on[:, N.V], V + bias.v + jit[:, N.V], 0.0)
         nx[:, N.THETA] = np.where(on[:, N.THETA], TH + np.degrees(bias.va) + jit[:, N.THETA], 0.0)
-        # Injection/zero-injection buses emit P/Q: relative bias + jitter (+small floor so ~0 injection
-        # still gets a nonzero std).
         nx[:, N.P_INJ] = np.where(on[:, N.P_INJ], Pi * (1.0 + bias.pi) + jit[:, N.P_INJ], 0.0)
         nx[:, N.Q_INJ] = np.where(on[:, N.Q_INJ], Qi * (1.0 + bias.qi) + jit[:, N.Q_INJ], 0.0)
-        # Edge buffers: cols [P_from, Q_from], zero where no flow meter; relative bias + jitter on P and Q.
         P, Q = EdgeChannel.P_FROM, EdgeChannel.Q_FROM
         jit_f = self._jitter_in_order(em, sig_f, (P, Q))
         fon = em.astype(bool)
@@ -106,10 +97,9 @@ class MeasurementMixin(GridBase):
         return Scan(nx, nm, ex, em, self._emit_currents(Vc, cm), cm)
 
     def _emit_currents(self, Vc: np.ndarray, cm: np.ndarray) -> np.ndarray:
-        """The PMU branch-current readings [E, 4] of one scan (hybrid meters): the exact phasor at each
-        metered end plus its relative bias times the end's phasor magnitude and a per-scan jitter,
-        both on the C37.118 scale of `current_sigma` [C37118] (`biased_current`), drawn branch by
-        branch and column by column after the flows; zero where no PMU reads that end."""
+        """The PMU branch-current readings [E, 4] of one scan (hybrid meters): the exact phasor plus a
+        relative bias and a per-scan jitter on the C37.118 scale of `current_sigma` [C37118]. Drawn branch
+        by branch, column by column, after the flows; zero where no PMU reads that end."""
         true = branch_currents(Vc, self._Yf, self._Yt)
         sig = current_sigma(true, self._i_jitter)
         bias = self.bias.i
@@ -131,12 +121,8 @@ class MeasurementMixin(GridBase):
         return out
 
     def clean_flows_from_states(self, X: np.ndarray) -> np.ndarray:
-        # Batched, noiseless sibling of emit_from_state's Sf: exact from-end branch flows for a whole stack of
-        # states in one matmul (the per-frame version above is O(T) sparse multiplies). Used to build the clean
-        # SE-target edge layer shared by the single-timestamp shards and the streams, so both go through this one
-        # physics primitive instead of re-deriving Ybus flows in the loader/generator.
-        # X is [T, N, 4] = [|V|, Pinj, Qinj, angle]; only |V| (col 0) and angle (col 3) enter.
-        # Returns [T, E, 2] = [P_from MW, Q_from MVAr], unmetered branches zeroed to match emit()'s flow mask.
+        # The exact from-end flows [T, E, 2] (P MW, Q MVAr) of a stack of states [T, N, 4], with no noise:
+        # the clean edge layer an estimator is scored against. Unmetered branches are zero.
         Sf = self.all_flows_from_states(X)
         ec = np.stack([Sf.real, Sf.imag], axis=2).astype(np.float32)
         ec[:, ~np.asarray(self.meters.flow, bool), :] = 0.0
@@ -154,8 +140,7 @@ class MeasurementMixin(GridBase):
 
     def currents_from_states(self, X: np.ndarray) -> np.ndarray:
         """The exact PMU branch-current channels [T, E, 4] (`CurrentChannel` columns, per unit) of a stack of
-        states [T, N, 4], zero where no PMU reads that end (the batched, noiseless sibling of
-        `_emit_currents`); all zero when the meter plan has no currents."""
+        states [T, N, 4], zero where no PMU reads that end; all zero when the plan has no currents."""
         X = np.asarray(X, float)
         cm = self.current_mask()
         if cm is None:

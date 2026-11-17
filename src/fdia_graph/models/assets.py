@@ -1,5 +1,4 @@
-"""How files are found: where a dataset comes from, where its bytes are fetched from, and one line
-of the N-1 candidate list."""
+"""How files are found: where a dataset comes from and where its bytes are fetched from."""
 
 from __future__ import annotations
 
@@ -12,8 +11,8 @@ from .base import Bundle
 @dataclass(frozen=True, eq=False)
 class AssetSpec(Bundle):
     """Where a dataset comes from: a built-in release asset (kind "builtin": file, release, repo,
-    optional pinned sha256) or a locally generated file (kind "local": path, meta). Indexable like
-    the dict it replaces (spec["release"], spec.get("sha256"))."""
+    optional pinned sha256) or a locally generated file (kind "local": path, meta). Indexable as a
+    dict (spec["release"], spec.get("sha256"))."""
 
     kind: str
     name: str

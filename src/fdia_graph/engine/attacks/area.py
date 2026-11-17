@@ -37,11 +37,9 @@ class AreaMixin(MeasurementMixin):
     """Where a stealthy attack acts: the interior buses it may move and the boundary around them."""
 
     def local_region(self, seeds: np.ndarray, hops: int) -> Optional[np.ndarray]:
-        """The attacker's interior around `seeds` [WU26]: the buses within `hops` branches, never the
-        slack (the angle reference the estimator pins, so its voltage stays true), grown to take in
-        any zero-injection bus on the boundary (a boundary bus absorbs the changed power, and a bus
-        known to inject nothing cannot), and shrunk in reach until a boundary of fixed-voltage buses
-        exists at all. None when even the seeds alone leave no boundary."""
+        """The attacker's interior around `seeds` [WU26]: the buses within `hops` branches, never the slack
+        (the estimator pins it), grown over zero-injection boundary buses (they cannot absorb the changed
+        power), with `hops` reduced until a boundary exists. None when the seeds alone leave no boundary."""
         live = self._live_edges()
         for h in range(hops, -1, -1):
             interior, _ = subnetwork(live, seeds, h, self.C)
@@ -57,9 +55,8 @@ class AreaMixin(MeasurementMixin):
         return self.ei if status is None else self.ei[:, status > 0]
 
     def _live_adjacency(self) -> list[frozenset[int]]:
-        """Every bus's neighbours over the live branches, built once per branch status: the searches
-        ask for boundaries thousands of times per window, and a pass over every edge each time cost
-        more than the rest of `_grow_over_zero_injection`."""
+        """Every bus's neighbours over the live branches, cached per branch status: the searches ask
+        for boundaries thousands of times per window."""
         status = self.branch.status
         cached = getattr(self, "_adjacency_cache", None)
         if cached is None or cached[0] is not status:
@@ -72,8 +69,7 @@ class AreaMixin(MeasurementMixin):
         return cached[1]
 
     def _boundary(self, interior: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-        """(the interior sorted, its boundary: the buses one live branch outside it, sorted), what
-        `subnetwork(self._live_edges(), interior, 0, self.C)` returns, from the cached adjacency."""
+        """(the interior sorted, its boundary: the buses one live branch outside it, sorted)."""
         adj = self._live_adjacency()
         inside = {int(b) for b in interior}
         ring = {j for i in inside for j in adj[i]} - inside
@@ -128,8 +124,7 @@ class AreaMixin(MeasurementMixin):
         self, buses: np.ndarray, lines: list[int], states: np.ndarray, spread: Optional[np.ndarray] = None
     ) -> AreaScore:
         """`AreaScore` of the area `buses` for a goal on `lines` (none for a load goal) over the window's
-        true `states` [T, N, 4]; `spread` is `_spread(states)` when the caller already has it (it is the same
-        for every candidate area of a window)."""
+        true `states` [T, N, 4]; `spread` is `_spread(states)` when the caller already has it."""
         if lines and spread is None:
             spread = self._spread(states)
         node_m, _ = self.meter_masks()

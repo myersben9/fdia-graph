@@ -1,8 +1,7 @@
 """The file protocol: every group, dataset and attribute name an fdia-graph HDF5 file carries,
-defined once. The writer (`timeline`, `generation`), the readers (`dataset`) and the tools agree
-through these names and nowhere else; `tools/readability.py` refuses a path-shaped literal
-("data/...", "graph/...") in any other module. Field names (`node_x`, `clean`, ...) are the
-public vocabulary of a record and stay as words in the code; `FIELD_PATH` maps them here.
+defined once. The writer (`generation`) and the readers (`dataset`) agree through these names;
+`tools/readability.py` refuses a path-shaped literal ("data/...", "graph/...") in any other module.
+Field names (`node_x`, `clean`, ...) stay as words in the code; `FIELD_PATH` maps them to paths.
 """
 
 from __future__ import annotations
@@ -46,8 +45,7 @@ SPLIT = path(Group.DATA, "split")
 TEMPORAL_DELTA = path(Group.DATA, "temporal_delta")
 SWING = path(Group.DATA, "swing")
 # Scans of history the scale of `swing` summarizes [FED26]: the catch rate of the rate-of-change feature
-# plateaus near 60 scans. Part of the feature's definition: every released `swing` layer was computed
-# with it, so a different window gives a different file.
+# plateaus near 60 scans. Every released `swing` layer uses it, so another window gives another file.
 SWING_WINDOW_SCANS = 60
 EDGE_STATUS = path(Group.DATA, "edge_status")  # v0.6.0 shards: per-record branch status
 TIME = path(Group.DATA, "time")  # New York: each frame's time, int64 seconds of NYISO's local clock
@@ -61,8 +59,7 @@ EDGE_TAMPER = path(Group.ATTACK, "edge_tamper")
 MAG_PTR = path(Group.ATTACK, "mag_ptr")
 MAG_BUS = path(Group.ATTACK, "mag_bus")
 MAG = path(Group.ATTACK, "mag")
-# the PMU branch-current phasors of a hybrid-meter timeline [WU26 eqs. 19-20] absent
-# from a v0.8.3-meter file
+# the PMU branch-current phasors [WU26 eqs. 19-20], on a hybrid-meter timeline only
 PMU_I = path(Group.DATA, "pmu_i")
 PMU_I_M = path(Group.DATA, "pmu_i_m")
 PMU_I_BENIGN = path(Group.BENIGN, "pmu_i_benign")
@@ -72,8 +69,8 @@ EDGE_INDEX = path(Group.GRAPH, "edge_index")
 
 
 class Static:
-    """The per-unit branch physics and per-bus attributes of graph/ (v0.5.0+), each optional in a
-    file; `STATIC_PHYSICS` is the reader's table of them in order."""
+    """The per-unit branch physics and per-bus attributes of graph/, each optional in a file;
+    `STATIC_PHYSICS` is the reader's table of them in order."""
 
     EDGE_R = "edge_r"
     EDGE_X = "edge_x"  # the series reactance (`ds.branch_x`), not the flow layer data/edge_x
@@ -182,8 +179,8 @@ class Attr:
     ATTACKED_FRAC = "attacked_frac"
     N_EPISODES = "n_episodes"
     FALLBACK_BENIGN = "fallback_benign"
-    # the split-first placement: the splits, the attacked fraction each reached, and per split (rows) and
-    # family (columns, placed_families) the episodes requested, built, moved, dropped and short
+    # the placement: the splits, the attacked fraction each reached, and per split (rows) and family
+    # (columns, placed_families) the episodes requested, built, moved, dropped and short
     SPLIT_FRAC = "split_frac"
     SPLIT_SIZES = "split_sizes"
     SPLIT_ATTACKED_FRAC = "split_attacked_frac"
@@ -230,8 +227,8 @@ class Attr:
 
 
 KIND_TIMELINE = "timeline"
-# The two forms of a PMU current phasor in pmu_i, per branch end: real and imaginary part (the IEEE
-# files, which carry no `Attr.CURRENT_FORM`), or magnitude and angle in degrees (New York).
+# the two forms of a PMU current phasor in pmu_i, per branch end: real and imaginary part (the IEEE
+# files, which carry no `Attr.CURRENT_FORM`), or magnitude and angle in degrees (New York)
 CURRENT_RECTANGULAR, CURRENT_POLAR = "rectangular", "polar"
 
 # ---- the legends a file carries: the values of its legend attributes ------------------------------
@@ -275,8 +272,8 @@ NEW_YORK_GRAPH_LEGEND = {
 
 
 def config_hash(settings: object) -> str:
-    """A stable hash of settings (the value of `Attr.SETTINGS_HASH`, and of a result's provenance):
-    a model's fields, a mapping, or any value's repr."""
+    """A stable 12-character hash of settings (the value of `Attr.SETTINGS_HASH`): of a model's
+    fields, a mapping, or any value's repr."""
     if dataclasses.is_dataclass(settings) and not inspect.isclass(settings):
         settings = dataclasses.asdict(settings)
     blob = json.dumps(settings, sort_keys=True, default=repr)

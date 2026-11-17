@@ -15,10 +15,9 @@ from fdia_graph.models.frames import MeterLayers
 
 @dataclass(frozen=True)
 class MeterPlan:
-    """One row per meter [M]: `kind` (a `MeterKind`), `bus` (the bus it sits at), `branch` and `end`
-    (0 from, 1 to; -1 for bus meters), `owner` (the client of `bus`), the accuracy class `sigma_rel`,
-    `sigma_abs` (sigma = sigma_rel |z| + sigma_abs; on a relative meter `sigma_abs` is its floor) and the
-    constant `bias` (a gain error on a relative meter, an offset on an absolute one)."""
+    """One row per meter [M]. `branch` and `end` (0 from, 1 to) are -1 for bus meters; `owner` is the
+    client of `bus`. The accuracy class is sigma = sigma_rel |z| + sigma_abs (on a relative meter
+    `sigma_abs` is its floor). `bias` is constant: a gain error on a relative meter, an offset otherwise."""
 
     kind: np.ndarray
     bus: np.ndarray
@@ -59,12 +58,9 @@ class MeterPlan:
 
     @classmethod
     def from_masks(cls, masks: MeterLayers, edges: np.ndarray, bus_client: np.ndarray) -> MeterPlan:
-        """The plan a file's meter masks describe (`masks`, each layer of one frame), in the row order of
-        `plan_meters`: kind by kind, the bus meters by bus, the branch meters by branch and then end. So
-        `gather` on that file's layers gives the flat vector the file was written from. `edges [2, E]` are
-        the branch ends and `bus_client [N]` the owner of each bus. The accuracy class is the table's
-        (`KIND_ACCURACY`); the constant `bias` of each meter is not in a file (the generator draws it from its
-        seed) and reads NaN."""
+        """The plan a file's meter masks describe, in the row order of `plan_meters` (kind by kind, bus
+        meters by bus, branch meters by branch then end), so `gather` on the file's layers gives the vector
+        it was written from. `edges` is [2, E]. A file does not store `bias`: it reads NaN."""
         kind, bus, branch, end = [], [], [], []
         for k in MeterKind:
             layer, column = METER_SLOT[k]
@@ -92,9 +88,8 @@ class MeterPlan:
 
 def _min_pmus(adjacency) -> np.ndarray:
     """The smallest bus set whose PMUs see every bus, sorted: each bus has a PMU or a neighbour with one,
-    since a PMU's branch current fixes the voltage at the far end of the branch [1]. Exact, by branch and
-    bound over bitsets: branch on the uncovered bus with the fewest ways to cover it, bound by the most
-    buses one more PMU can newly cover. Ties go to the lower bus position, so the set is deterministic."""
+    since a PMU's branch current fixes the voltage at the far end of the branch [WU26]. Exact, by branch
+    and bound over bitsets. Ties go to the lower bus position, so the set is deterministic."""
     a = adjacency.toarray().astype(bool) | np.eye(adjacency.shape[0], dtype=bool)
     n = len(a)
     cover = [sum(1 << j for j in np.flatnonzero(row)) for row in a]
@@ -121,11 +116,11 @@ def _min_pmus(adjacency) -> np.ndarray:
 
 
 def plan_meters(net: Network, own: Ownership, rng: np.random.Generator, vbus_frac: float = 0.6) -> MeterPlan:
-    """The meters of the New York buses; external buses carry none (N4). SCADA reads P and Q at every NY
-    bus, P and Q flow at every branch end on a NY bus (so each side of a tie line meters its own end), and
-    |V| at a random `vbus_frac` of the NY buses. PMUs sit at the smallest set that sees every NY bus (N7)
-    and read the voltage phasor and the current phasor at their end of each branch [1] eqs. 19 and 20.
-    Each meter is owned by the client of its bus. Draws from `rng`: the voltmeter buses, then the biases."""
+    """The meters of the New York buses (external buses carry none), each owned by the client of its bus.
+    SCADA reads P and Q injection at every NY bus, P and Q flow at every branch end on a NY bus (each side of
+    a tie meters its own end), and |V| at a random `vbus_frac` of the NY buses. PMUs sit at the smallest set
+    that sees every NY bus and read voltage and current phasors [WU26] eqs. 19, 20."""
+    # draws from `rng`, in this order: the voltmeter buses, then the biases
     case = net.case
     ny = np.flatnonzero(own.bus_client >= 0)
     pmu = ny[_min_pmus(net.adjacency[ny][:, ny])]

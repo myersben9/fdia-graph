@@ -26,11 +26,9 @@ if TYPE_CHECKING:
 
 class RecordsMixin(DatasetBase):
     def _to_units(self, arr: np.ndarray, kind: str) -> np.ndarray:
-        """Convert a physical-unit array to self.units (no-op unless units=='pu'). kind:
-        'node' [...,4]=[V,P,Q,theta] -> P,Q divided by baseMVA, theta deg->rad, V left (already p.u.);
-        'edge' [...,2]=[P_from,Q_from] and 'td' [...,2]=[dP,dQ] -> divided by baseMVA (both power);
-        'current' [...,4] PMU currents, per unit already -> the angles of a polar file deg->rad.
-        Returns a float32 copy so on-disk data is never mutated."""
+        """A physical-unit array in self.units: unchanged unless units == "pu", then a float32 copy.
+        `kind` "node": P and Q over baseMVA, theta degrees to radians; "edge" and "td": over baseMVA;
+        "current" (already per unit): the angles of a polar file to radians."""
         if self.units != "pu":
             return arr
         b = self.baseMVA
@@ -67,8 +65,8 @@ class RecordsMixin(DatasetBase):
 
     def _add_frame_layers(self, item: dict[str, Any], pos: int) -> None:
         """The layers a timeline stores per frame beside data/, in self.units: the attack-removed
-        scan (noise kept) and, on a hybrid-meter file, the PMU branch-current phasors [E, 4] (per unit
-        on every view, the angles of a polar file converted), their mask and their attack-removed twin."""
+        scan (noise kept) and, on a hybrid-meter file, the PMU branch-current phasors [E, 4], their
+        mask and their attack-removed twin."""
         torch = _torch()
         for k, path in self._frame_layers().items():
             a = self._mem[k][pos] if self._mem is not None else self._h()[path][int(self.idx[pos])]
@@ -79,7 +77,7 @@ class RecordsMixin(DatasetBase):
         """The fields every record has: the static graph (shared tensors, not copies), the measurements
         in self.units, the masks, the label and the scalar provenance."""
         torch = _torch()
-        # edge_attr needs the v0.5.0+ physics schema, so attach it only when present.
+        # edge_attr needs the branch physics, so it is attached only when the file carries them.
         if not hasattr(self, "_ei_t"):
             self._ei_t = self.edge_index
             self._ea_t = self.edge_attr if self.has_physics else None
@@ -120,16 +118,13 @@ class RecordsMixin(DatasetBase):
         if ecf is not None:  # [E,2] exact true flows on EVERY branch, metered or not
             item["edge_clean_full"] = torch.tensor(self._to_units(ecf[t], "edge"), dtype=torch.float32)
 
-    # Dict-record key -> PyG attribute name. Everything not listed keeps its dict name, so a field
-    # added to __getitem__ shows up in PyG records and batches without touching this method. The
-    # static [E,8] branch physics travel as edge_phys because PyG's edge_attr slot holds the per-record
-    # branch flows, the same contract torch_data.pyg_stream follows.
+    # Dict-record key -> PyG attribute name; a key not listed keeps its name. The static [E,8] branch
+    # physics travel as edge_phys because PyG's edge_attr slot holds the per-record branch flows.
     _PYG_RENAME = {"node_x": "x", "node_m": "node_mask", "edge_m": "edge_mask", "edge_attr": "edge_phys"}
 
     def _to_pyg(self, item: RecordBundle) -> Data:
-        # Repackage the dict record as a torch_geometric Data object, mechanically. PyG batches every
-        # per-node/per-edge tensor along dim 0 and every scalar into a [B] tensor, so masks, temporal
-        # features, clean layers and metadata all ride along.
+        # The dict record as a torch_geometric Data object. PyG batches every per-node and per-edge
+        # tensor along dim 0 and every scalar into a [B] tensor, so every field rides along.
         try:
             from torch_geometric.data import Data
         except ImportError as e:
@@ -142,9 +137,8 @@ class RecordsMixin(DatasetBase):
 
     @staticmethod
     def collate(batch: Sequence[RecordBundle]) -> BatchBundle:
-        """Dict-format collate: every record shares N and E, so per-record tensors stack into a batch
-        dimension, the static graph rides along once, and scalar metadata becomes one long tensor.
-        (PyG has its own loader.)"""
+        """Dict-format collate: per-record tensors stack into a batch dimension, the static graph is
+        kept once, and each scalar field becomes one long tensor [B]. (PyG has its own loader.)"""
         torch = _torch()
         once = ("edge_index", "edge_attr", *ID_FIELDS)  # every other field of a batch is stacked
         stacked = [k for k in BatchBundle._order if k not in once and k in batch[0]]
@@ -159,20 +153,19 @@ class RecordsMixin(DatasetBase):
     def loader(
         self, batch_size: int = 64, shuffle: Optional[bool] = None, num_workers: int = 0, **kw: Any
     ) -> DataLoader:
-        """Return a ready DataLoader. Shuffle defaults on for train-like use; masks/labels included per batch."""
+        """A ready DataLoader (PyG's own with format="pyg"). `shuffle` defaults to True."""
         _torch()
         from torch.utils.data import DataLoader
 
         if shuffle is None:
             shuffle = True  # default on (mostly used for training)
         if self.format == "pyg":
-            # PyG's own DataLoader does graph-aware batching (offsets edge_index); no custom collate needed.
+            # PyG's DataLoader batches graphs itself (it offsets edge_index).
             from torch_geometric.loader import DataLoader as PyGLoader
 
             return PyGLoader(self, batch_size=batch_size, shuffle=shuffle, num_workers=num_workers, **kw)
-        # Plain-dict path: standard torch DataLoader wired to our stacking collate above.
-        # self is a structural Dataset (__len__/__getitem__) but can't inherit torch's Dataset,
-        # since torch is an optional lazy import; pyright can't see the duck-typed conformance.
+        # self has __len__ and __getitem__ but cannot inherit torch's Dataset (torch is an optional,
+        # lazy import), so pyright cannot see that it conforms.
         return DataLoader(
             self,  # type: ignore[reportArgumentType]
             batch_size=batch_size,
