@@ -4,20 +4,18 @@ name: nygrid
 # none of which the per-push suite installs, so tests/conftest.py leaves the folder out there. This job installs
 # Ipopt from conda-forge (as docs/guides/new_york.md does), downloads the inputs with fetch_inputs (NYgrid's Data/ at
 # the pinned commit, the NYS utility territories and NYISO's load archives) into a cache keyed on that commit, and
-# runs the folder. The attack days the golden snapshots read are checked in (tests/nygrid/data/days); the tests that
+# runs the folder. The pool frames the timeline digests build on are checked in (tests/nygrid/data/days); the tests that
 # need the whole 2019 pool (370 MB, built locally) skip here, as tests/nygrid/inputs.py says.
 on:
   push:
     branches: [main]
     paths:
       - "src/fdia_graph/generation/nygrid/**"
-      - "src/fdia_graph/operator/**"
       - "src/fdia_graph/engine/sensing/**"
       - "src/fdia_graph/engine/attacks/**"
       - "src/fdia_graph/se/detect/**"
       - "src/fdia_graph/federated/utilities.py"
       - "src/fdia_graph/dataset/clients.py"
-      - "src/fdia_graph/results/studies.py"
       - "src/fdia_graph/engine/solvers.py"
       - "src/fdia_graph/_lazy.py"
       - "src/fdia_graph/formulas/**"
@@ -34,13 +32,11 @@ on:
   pull_request:
     paths:
       - "src/fdia_graph/generation/nygrid/**"
-      - "src/fdia_graph/operator/**"
       - "src/fdia_graph/engine/sensing/**"
       - "src/fdia_graph/engine/attacks/**"
       - "src/fdia_graph/se/detect/**"
       - "src/fdia_graph/federated/utilities.py"
       - "src/fdia_graph/dataset/clients.py"
-      - "src/fdia_graph/results/studies.py"
       - "src/fdia_graph/engine/solvers.py"
       - "src/fdia_graph/_lazy.py"
       - "src/fdia_graph/formulas/**"

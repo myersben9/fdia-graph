@@ -35,7 +35,6 @@ NEW_YORK = (
     "fdia_graph.engine.attacks.family",
     "fdia_graph.engine.sensing",
     "fdia_graph.federated.utilities",
-    "fdia_graph.operator",
     "fdia_graph.se.detect",
 )
 

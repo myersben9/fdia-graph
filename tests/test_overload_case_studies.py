@@ -13,12 +13,13 @@ import pytest
 pytest.importorskip("pandapower")
 
 from fdia_graph.engine.attacks.minimize import _Window  # noqa: E402
-from fdia_graph.engine.attacks.overload import WU26_ATTACK_AREA, WU26_PMUS, WU26_SCENARIOS  # noqa: E402
 from fdia_graph.engine.core import FdiaGenerator  # noqa: E402
 from fdia_graph.generation import _load_states  # noqa: E402
 from fdia_graph.models.config import OverloadSettings  # noqa: E402
 from fdia_graph.models.frames import FrameKnobs  # noqa: E402
 from fdia_graph.models.grid import CURRENT, NODE  # noqa: E402
+
+from . import case_studies  # noqa: E402
 
 WINDOW = 10  # snapshots, from the pool's first frame
 MARGIN = 1.2  # S_max = MARGIN x each target line's peak true flow over the window
@@ -38,12 +39,14 @@ def _scenario(system: int, scenario: tuple) -> tuple:
     """The generator on the paper's metering, the window, the knobs, the goal and the search result."""
     g = FdiaGenerator(system, seed=1, meter_model="hybrid")
     X = _load_states(system, None)
-    lines = [g.wu26_branch(*pair) for pair in scenario]
+    lines = [case_studies.branch(g, *pair) for pair in scenario]
     flow = np.asarray(g.meters.flow, bool).copy()
     flow[lines] = True  # the operator sees the target lines' flows
     if system == 14:
-        flow[g.wu26_branch(6, 11)] = True  # the paper meters line 6-11
-    g.meters = g.meters._replace(pmu=set(g.wu26_buses(WU26_PMUS[system]).tolist()), flow=flow)
+        flow[case_studies.branch(g, 6, 11)] = True  # the paper meters line 6-11
+    g.meters = g.meters._replace(
+        pmu=set(case_studies.buses(g, case_studies.PMUS[system]).tolist()), flow=flow
+    )
     window = list(X[:WINDOW])
     g.use_line_ratings(OverloadSettings(rating_margin=MARGIN), np.stack(window))
     k = FrameKnobs(2, g.operating_limits(X), True, 4096, 1.0, 0.5, 2)
@@ -86,17 +89,19 @@ def _reaches_both_ratings(g, window, k, goal, support) -> None:
 def test_the_scenario_table_maps_to_our_branches_and_buses():
     g14, g118 = FdiaGenerator(14, seed=1), FdiaGenerator(118, seed=1)
     for g, system in ((g14, 14), (g118, 118)):
-        for scenario in WU26_SCENARIOS[system]:
+        for scenario in case_studies.SCENARIOS[system]:
             for a, b in scenario:
-                e = g.wu26_branch(a, b)
+                e = case_studies.branch(g, a, b)
                 number = g.base.bus["name"].astype(int).to_numpy()
                 assert {int(number[g.ei[0, e]]), int(number[g.ei[1, e]])} == {a, b}
-    assert len(WU26_PMUS[14]) == 4 and len(WU26_PMUS[118]) == 11
-    assert set(WU26_PMUS[118]) <= set(WU26_ATTACK_AREA[118])  # every PMU of Fig. 9 lies in the area
-    assert {84, 85, 99, 100} <= set(WU26_ATTACK_AREA[118])  # and so do the target lines
+    assert len(case_studies.PMUS[14]) == 4 and len(case_studies.PMUS[118]) == 11
+    assert set(case_studies.PMUS[118]) <= set(
+        case_studies.ATTACK_AREA[118]
+    )  # every PMU of Fig. 9 lies in the area
+    assert {84, 85, 99, 100} <= set(case_studies.ATTACK_AREA[118])  # and so do the target lines
 
 
-@pytest.mark.parametrize("scenario", WU26_SCENARIOS[14])
+@pytest.mark.parametrize("scenario", case_studies.SCENARIOS[14])
 def test_the_ieee14_scenarios_match_the_paper_in_kind(scenario):
     g, window, k, goal, result = _scenario(14, scenario)
     assert result is not None and result.devices >= 1, "no stealthy two-line overload"
@@ -110,6 +115,6 @@ def test_the_ieee14_scenarios_match_the_paper_in_kind(scenario):
 
 @pytest.mark.skipif(not os.environ.get("FDIA_SLOW"), reason="set FDIA_SLOW=1: a minutes-long IEEE-118 search")
 def test_the_ieee118_scenario_is_feasible_and_reaches_both_ratings():
-    g, window, k, goal, result = _scenario(118, WU26_SCENARIOS[118][0])
+    g, window, k, goal, result = _scenario(118, case_studies.SCENARIOS[118][0])
     assert result is not None and result.devices >= 1, "no stealthy two-line overload"
     _reaches_both_ratings(g, window, k, goal, result.support)

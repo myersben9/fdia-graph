@@ -25,14 +25,14 @@ def test_all_names_exist_and_dir_lists_them():
 
 
 def test_the_removed_entry_points_are_gone():
-    """No alias is kept for a removed name: the stream functions, their module and the operator's
-    re-export module."""
+    """No alias is kept for a removed name: the stream functions, their module and the operator
+    package."""
     import importlib
 
     import pytest
 
     assert not any(hasattr(fg, n) for n in ("generate_stream", "load_stream", "windows"))
-    for module in ("fdia_graph.streams", "fdia_graph.operator.response"):
+    for module in ("fdia_graph.streams", "fdia_graph.operator"):
         with pytest.raises(ModuleNotFoundError):
             importlib.import_module(module)
 

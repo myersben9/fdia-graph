@@ -10,9 +10,7 @@ no data, and CI runs each of them, so they stay current with the code. For how t
 | You add | It provides | It plugs into | Example |
 |---|---|---|---|
 | An attack family | `design(window, rng) -> Episode \| None` (subclass `AttackFamily`) | `TimelineBuilder` beside the package's families; `design_explained` reports why a window has none | [custom_attack_family.py](../../examples/nygrid/custom_attack_family.py) |
-| An alarm rule | `first_alarm(stat) -> int` (the `AlarmRule` protocol) | anywhere `PersistenceRule` is used, the detection tools included | [custom_alarm_rule.py](../../examples/nygrid/custom_alarm_rule.py) |
-| An operator | `respond(day, *, calib, alarm_at) -> Response` (the `Operator` protocol) | `summarize` and the detection tools, unchanged | [custom_operator.py](../../examples/nygrid/custom_operator.py) |
-| A study | a job over attack windows | `fdia_graph.results.studies`: `study_days`, `run_parallel` | the tools under `pipelines/newyork/` |
+| An alarm rule | `first_alarm(stat) -> int` (the `AlarmRule` protocol) | your own detector, in place of `PersistenceRule`: the package ships the rule and the protocol, and the code that computes the statistic and asks the rule is yours | [custom_alarm_rule.py](../../examples/nygrid/custom_alarm_rule.py) |
 
 ## An attack family
 
@@ -27,18 +25,10 @@ attack the residual test is meant to catch, and is useful as a baseline.
 
 ## An alarm rule
 
-A rule turns a statistic per scan (the residual sum of `wls`, a tie gap, any score) into the first scan it alarms
-on, or -1. Calibrate it on benign days only: `PersistenceRule.fit` takes a percentile of benign statistics, and a
-rule fitted on no statistic at all is an error (`NoBenignRecords`), since it would never alarm. Report its false
-alarms on benign days of other months beside its detection rate, and on other meter fleets (`with_fleet`).
-
-## An operator
-
-An operator runs on an `OperatorDay` and returns a `Response`: its run on the attacked scans and on their benign
-twin, each a `Twin` of per-scan arrays (dispatch, regulation, the imbalance the neighbours supply, the true interface
-changes and margins, and `pf_failed` where the true grid's power flow failed). `summarize` reports the attack's
-consequence as attacked less benign, so an operator only has to produce both runs the same way. The package's own,
-`NyisoOperator(policy)`, takes its choices from an `OperatorPolicy`, which checks every choice when it is built.
+A rule turns a statistic per scan (a residual sum, a gap between two meters, any score) into the first scan it
+alarms on, or -1. Calibrate it on benign days only: `PersistenceRule.fit` takes a percentile of benign statistics,
+and a rule fitted on no statistic at all is an error (`NoBenignRecords`), since it would never alarm. Report its
+false alarms on benign days of other months beside its detection rate.
 
 ## Changing the package itself
 
@@ -49,7 +39,7 @@ consequence as attacked less benign, so an operator only has to produce both run
   the checks). A study on another grid passes its own `Case` (`Case.from_matpower` of its own file) wherever the
   package takes one; that file must follow this file's conventions: area 1 on every bus, and the zone codes
   of the legend in its header (1 to 11 the NYISO load zones, 12 to 15 the neighbors). A change to the file moves generated numbers, so it comes with the goldens and digests below.
-- The golden snapshots (`tests/nygrid/test_golden.py`) pin what the operator, the detection tools and the
+- The golden snapshots (`tests/nygrid/test_golden.py`) pin what the persistence rule and the
   interface attack return on fixed inputs. A change that should not move a number must pass them unchanged; one
   that should must rewrite them (`NYGRID_UPDATE_GOLDEN=1`) and say in the pull request which numbers moved and why.
 - The timeline digests (`tests/nygrid/test_timeline_digests.py`) pin every dataset and attribute of a built

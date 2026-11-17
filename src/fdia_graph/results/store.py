@@ -138,13 +138,6 @@ class Store:
                 best[k] = r
         return list(best.values())
 
-    def newest_run(self, experiment: str, **filters: object) -> Optional[str]:
-        """The id of the newest run holding a record that matches `filters`, or None; query by that
-        `run_id=` to read one run's data whole (an order, a curve) rather than the newest per key."""
-        when = {p.run_id: p.timestamp for p in self.runs()}
-        ids = {r.run_id for r in self.query(experiment, **filters)}
-        return max(ids, key=lambda i: (when.get(i, ""), i)) if ids else None
-
     def one(self, experiment: str, **filters: object) -> Record:
         """The single newest record matching `filters`; `NoSuchResult` when none or several match."""
         found = self.latest(experiment, **filters)

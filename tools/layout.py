@@ -51,7 +51,6 @@ PAGES = {
     "generation": "docs/guides/generation.md",
     "engine/sensing": "docs/concepts/new_york_grid.md",
     "generation/nygrid": "docs/concepts/new_york_grid.md",
-    "operator": "docs/concepts/new_york_grid.md",
     "se": "docs/analysis/estimation/README.md",
     "se/detect": "docs/concepts/new_york_grid.md",
     "localization": "docs/analysis/localization/README.md",

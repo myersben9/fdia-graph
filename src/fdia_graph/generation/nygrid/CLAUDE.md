@@ -10,10 +10,8 @@ hold for them.
 | the timeline written from a pool, and its HDF5 files | `generation/nygrid/timeline.py`, `io.py` (its plan stage is `generation/plan.py`) |
 | the meter table, the measurement function and meter noise | `engine/sensing/` |
 | the attack families (`AttackFamily`, `Attacker`, Am, the OPF and interface attacks, Ac, At) | `engine/attacks/` |
-| the operator under attack | `operator/` |
-| the residual test and its alarm rules | `se/detect/` |
+| the alarm rules | `se/detect/` |
 | the utility clients and their data views | `federated/utilities.py`, `dataset/clients.py` |
-| study helpers | `fdia_graph.results.studies` |
 | the Ipopt every OPF runs on | `engine/solvers.py` |
 
 ## Rules that hold

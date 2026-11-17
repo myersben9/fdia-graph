@@ -24,7 +24,7 @@ from ..base import GridBase
 AREA_HOPS = (1, 2, 3, 4)
 # the score's price per bus, as a share of the system (ours): rules 3 and 4 each grow with the area,
 # so without it the largest region always wins; at 0.5 the rule picks IEEE-118's 3-hop region around
-# [WU26]'s lines 84-85 and 99-100, the closest to its Fig. 9 area (experiment `minlp.area_rules`)
+# [WU26]'s lines 84-85 and 99-100, the closest to its Fig. 9 area
 AREA_SIZE_PENALTY = 0.5
 
 
@@ -106,7 +106,7 @@ class AreaMixin(GridBase):
         return self.local_region(seeds, hops)
 
     def explicit_area(self, buses: np.ndarray) -> Optional[np.ndarray]:
-        """An area given bus by bus (the paper's, `FrameKnobs.area`): sorted, the slack out, grown over
+        """An area the caller gives bus by bus (`FrameKnobs.area`): sorted, the slack out, grown over
         the zero-injection buses of its boundary as every region is; None when no boundary is left."""
         inside = np.setdiff1d(np.asarray(buses, np.int64), [self.slack_bus])
         interior, boundary = self._grow_over_zero_injection(inside)

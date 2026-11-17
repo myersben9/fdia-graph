@@ -160,7 +160,7 @@ class MinimizeMixin(FalseStateMixin):
         return SearchSupport(self)
 
     def window_area(self, states: list[np.ndarray], goal: Goal, k: FrameKnobs) -> Optional[np.ndarray]:
-        """The attacker's area for the window [WU26] Sec. III-A: `k.area` when given (the paper's own),
+        """The attacker's area for the window [WU26] Sec. III-A: `k.area` when the caller gives one,
         else `attack_area` around the goal's buses (`k.hops`, or the rules with `k.area_rule`)."""
         if k.area is not None:
             return self.explicit_area(np.asarray(k.area, np.int64))

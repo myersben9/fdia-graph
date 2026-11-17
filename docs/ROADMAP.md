@@ -3,8 +3,7 @@
 Two halves. The **SDK** loads and serves data and runs on the base install; the **engine** is the
 theory (power flow, meters, attacks) and needs `[generate]`. The public surface is `fg.*`, the
 analysis packages `fdia_graph.se`, `fdia_graph.localization`, `fdia_graph.trust` and
-`fdia_graph.federated`, and the New York grid (`fdia_graph.generation.nygrid` and its operator,
-`fdia_graph.operator`, behind `[ny]`); everything else serves them.
+`fdia_graph.federated`, and the New York grid (`fdia_graph.generation.nygrid`, behind `[ny]`); everything else serves them.
 
 ![the package map: the public API over dataset, timeline, registry, se, localization and trust in the base install, generation and engine behind the generate extra, models and formulas read by every package](figures/diagrams/roadmap_modules.png)
 
@@ -32,7 +31,7 @@ names them all. The one-line summary of every file of the repository is
 | `ratings/` | PGLib-OPF branch ratings of IEEE-14, 118 and 300 |
 | `formulas/` | the mathematics as pure functions with source keys: [`reference/FORMULAS.md`](reference/FORMULAS.md) |
 | `engine/`, `generation/` | the generator: the AC physics, the meters and the attacks, and the stages that walk a timeline: [`guides/generation.md`](guides/generation.md) |
-| `generation/nygrid/`, `operator/`, `engine/sensing/`, `se/detect/` | the New York grid, its operator, its meters and the operator's detector: [`concepts/new_york_grid.md`](concepts/new_york_grid.md) |
+| `generation/nygrid/`, `engine/sensing/`, `se/detect/` | the New York grid, its meters and the alarm rules: [`concepts/new_york_grid.md`](concepts/new_york_grid.md) |
 | `se/`, `localization/`, `trust/`, `federated/` | the analysis packages, each with its page: [`analysis/estimation/README.md`](analysis/estimation/README.md), [`analysis/localization/README.md`](analysis/localization/README.md), [`analysis/trust/README.md`](analysis/trust/README.md), [`analysis/federated/README.md`](analysis/federated/README.md) |
 | `results/` | the results store's code: [`../results/README.md`](../results/README.md) |
 
@@ -57,8 +56,8 @@ tool; the generated table opens [`reference/MODULES.md`](reference/MODULES.md)).
 |---|---|
 | `getting-started/` | tutorials: `new_york_walkthrough.md`, one attack day on the New York grid from start to finish |
 | `guides/` | one task each: `generation.md` (how a timeline is built), `state_estimation.md`, `new_york.md` (building the New York data), `extending_new_york.md`, `troubleshooting_new_york.md` |
-| `concepts/` | explanations: `new_york_grid.md`, how the New York grid, its meters and its operator are built |
-| `analysis/` | one page per study with its figures and their CSV sidecars: `estimation/`, `localization/`, `trust/`, `federated/`, and `defense_reproduction/` (the reproduction of [WU26]'s defense results) |
+| `concepts/` | explanations: `new_york_grid.md`, how the New York grid and its meters are built |
+| `analysis/` | one page per study with its figures and their CSV sidecars: `estimation/`, `localization/`, `trust/` and `federated/` |
 | `reference/` | the file map (`MODULES.md`), data dictionary, glossary, concepts to code, formulas, examples, benchmarks |
 | `figures/` | shared images with their data sidecars |
 

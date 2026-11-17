@@ -5,6 +5,48 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- **The simulated grid operator and the [WU26] defense reproduction are no longer part of the package (breaking
+  for their imports).** Neither was reached by `fg.*`, by a pipeline or by a tool: they served study code, which
+  is not kept in this repository. Both are removed with no alias. The operator was never in a release. Release
+  0.21.0 still holds the reproduction, under its earlier module names (`trust/wu26.py`, `wu26_defense.py`,
+  `defense.py`, `solution1.py`, `wu_dqn.py`) with the `wu` extra and its page in the docs (the `wu26` folder). No generated file
+  changes: the pinned IEEE and New York timelines are the same, byte for byte.
+  - `fdia_graph.operator` is gone: `operator_day`, `OperatorDay`, `PoolFrames`, `pool_frames`, `node_lbmp`,
+    `respond`, `Operator`, `NyisoOperator`, `Twin`, `Response`, `OperatorPolicy`, `OperatorMode`, `AlarmAnswer`,
+    `Entry`, `Dispatch`, `MODES`, `AFTER`, `ENTRY`, `entry_share`, `summarize`, `AcSced`, `Step`, `shortage_usd`,
+    `loss_factors`, `ac_shift`, `ac_power_flow`, `open_branch`, `TrueGrid`, `tie_meters`, `neighbour_reads`,
+    `tie_gap`, `interchange_alarm`, `seen_interfaces`, `area_damage`, `attack_surface`, `zone_levers`,
+    `neighbor_prices`, `FEEDS`, `NEIGHBORS` and `PROXY`. The `Dispatch` removed here is the operator's policy
+    choice (least movement or least cost), not the hourly `Dispatch` record `fdia_graph.generation.nygrid` still
+    exports.
+    `fdia_graph.generation.nygrid` no longer exports `operator_day`, `respond` and `summarize`.
+  - What only the operator used: `OperatorOpf`, `OpfSolution` and `SEGMENTS` in `generation/nygrid/solver.py`
+    (`AcSolver` and `Compensation` stay), `PoolBuilder.frame_limits`, `Interface.model_flow`,
+    `se/detect/estimate.py` (`wls`, `WlsFit`, `exact_state`, `reference_bus`), `se/detect/fleets.py`
+    (`FLEET_STREAM`, `fleet_bias`, `with_fleet`) and `fdia_graph.results.studies` (`study_days`, `variant`, `load_calib`,
+    `add_dispatch_argument`, `add_study_arguments`, `run_parallel`). `fdia_graph.se.detect` keeps the alarm rules,
+    `AlarmRule` and `PersistenceRule`.
+  - `fdia_graph.trust` keeps the trusted-meter selection (`TrustSelector`, `TrustedMeters`, `TrustedMetersDQN`,
+    `secured_copy`). Gone from it: `trust/faithful_attack.py` (`Wu26Network`, `wu26_network`, `wu26_snapshots`,
+    `solve_window`, `incremental_freeze`), `trust/faithful_defense.py` (`Wu26DefenseEnv`, `wu26_solution1`),
+    `trust/pmu_environment.py` (`DefenseEnv`, `WuDefenseEnv`), `trust/pmu_row_reduction.py` (`TrustedPMUs`) and
+    `trust/pmu_dqn.py` (`TrustedPMUsDQN`).
+  - Gone from `fdia_graph.models`: `Wu26Attack`, `WuDefenseConfig`, `WuDqnConfig`, `WindowAttack`, `WindowSlots`,
+    `ChosenAction` and `SameDefense`; the choices `MeterModel.WU26` (`"wu26"`) and `SupportMethod.WU_L1`
+    (`"wu_l1"`), which the generator already refused; the errors `NoSuchBranch` and `SnapshotDrawFailed`.
+  - Gone from `engine/attacks/overload.py`: the case-study tables `WU26_SCENARIOS`, `WU26_PMUS` and
+    `WU26_ATTACK_AREA`, and `OverloadMixin.wu26_area`, `wu26_branch` and `wu26_buses`. The tests that run on the
+    paper's scenarios read them from `tests/case_studies.py`. The overload attack, the trust schedule
+    (`TrustSchedule`) and the row-reduction support (`support_method="rref"`) are unchanged.
+  - The `wu` extra is removed, and `cyipopt` leaves the `all` extra: nothing else needs it.
+  - The analysis page "[WU26] defense reproduced" (the `defense_reproduction` folder) and its figures are
+    removed, with the results it rendered: the experiments `wu26.*`, `wu.*`, `minlp.*` and `search.solver_compare` (their tables under `results/` and
+    their rows in `results/runs.csv`) and their queries in `results/queries.py`. The trusted-meter results
+    (`trust.selection`, `trust.secured_localization`, `trust.secured_estimation`) stay.
+  - The example `custom_operator.py` is removed, and the New York pages no longer describe an operator.
+    `tests/nygrid` loses the operator's tests, its snapshots (`golden/respond_*.json`) and the attack days they
+    read (`data/days/am_48220_*.h5`, `sd_south_2019-07-05.h5`, `loads_2019_v2_days.npz`).
+
 - **Code that only its own tests reached is removed (breaking for imports).** These names were used by nothing
   but their own tests, so they are removed with no alias; released versions keep them. One data-dictionary
   line, one checklist line and one tool list that named them are updated. No generated file and no number
@@ -248,7 +290,7 @@ the public API, the generated files and the numbers are the same as the previous
   `experiments/benchmarks/run.py`) and from tools/experiments/. The New York build tools and the MATLAB reference
   are `pipelines/newyork/` (was tools/nygrid/). The docs are sorted by kind: `docs/getting-started/`,
   `docs/guides/`, `docs/concepts/`, `docs/analysis/` (one page per study with its figures, docs/se/ now
-  `docs/analysis/estimation/`, docs/wu26/ now `docs/analysis/defense_reproduction/`) and `docs/reference/`; the four
+  `docs/analysis/estimation/`, docs/wu26/ then the `defense_reproduction` folder beside it, since removed) and `docs/reference/`; the four
   pages of docs/nygrid/ are `docs/concepts/new_york_grid.md`, `docs/getting-started/new_york_walkthrough.md`,
   `docs/guides/extending_new_york.md` and `docs/guides/troubleshooting_new_york.md`. The run scripts keep their caches
   in `experiments/<study>/cache/` (move a cache from docs/<package>/results/cache/ to keep it).

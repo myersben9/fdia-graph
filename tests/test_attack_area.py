@@ -10,7 +10,6 @@ pytest.importorskip("pandapower")
 
 from fdia_graph.engine.attacks.area import area_score_total  # noqa: E402
 from fdia_graph.engine.attacks.minimize import _Window  # noqa: E402
-from fdia_graph.engine.attacks.overload import WU26_ATTACK_AREA, WU26_PMUS, WU26_SCENARIOS  # noqa: E402
 from fdia_graph.engine.core import FdiaGenerator  # noqa: E402
 from fdia_graph.generation import _load_states  # noqa: E402
 from fdia_graph.models import SearchSettings, TrustSchedule  # noqa: E402
@@ -19,6 +18,8 @@ from fdia_graph.models.frames import FrameKnobs  # noqa: E402
 from fdia_graph.models.grid import NODE  # noqa: E402
 from fdia_graph.models.validation import ConfigError  # noqa: E402
 
+from . import case_studies  # noqa: E402
+
 
 @pytest.fixture(scope="module")
 def g118():
@@ -26,21 +27,12 @@ def g118():
 
 
 def _lines(g, system: int) -> list[int]:
-    return [g.wu26_branch(*pair) for pair in WU26_SCENARIOS[system][0]]
+    return [case_studies.branch(g, *pair) for pair in case_studies.SCENARIOS[system][0]]
 
 
-def test_the_paper_area_is_what_wu26_states():
-    # [WU26] Sec. III-A
-    g = FdiaGenerator(14, seed=1, meter_model="hybrid")
-    assert set(g.wu26_area()) == set(range(14)) - {g.slack_bus}  # p. 659: global knowledge
-    assert FdiaGenerator(30, seed=1).wu26_area() is None
-
-
-def test_the_ieee118_area_is_fig_9_and_the_search_uses_it(g118):
+def test_the_search_uses_the_area_it_is_given(g118):
     # [WU26] Sec. III-A Fig. 9
-    area = g118.wu26_area()
-    number = g118.base.bus["name"].astype(int).to_numpy()
-    assert sorted(int(number[b]) for b in area) == sorted(WU26_ATTACK_AREA[118])
+    area = case_studies.area(g118)
     states = list(_load_states(118, None)[:4])
     goal = g118.overload_goal(states, *_lines(g118, 118))
     k = FrameKnobs(area=area)
@@ -90,16 +82,16 @@ def test_every_attack_the_search_returns_is_valid():
     at both ratings), no untampered channel moves beyond its noise, and a trusted bus is exactly true."""
     g = FdiaGenerator(14, seed=1, meter_model="hybrid")
     X = _load_states(14, None)
-    lines = [g.wu26_branch(*pair) for pair in WU26_SCENARIOS[14][1]]
+    lines = [case_studies.branch(g, *pair) for pair in case_studies.SCENARIOS[14][1]]
     flow = np.asarray(g.meters.flow, bool).copy()
     flow[lines] = True
-    flow[g.wu26_branch(6, 11)] = True
-    g.meters = g.meters._replace(pmu=set(g.wu26_buses(WU26_PMUS[14]).tolist()), flow=flow)
+    flow[case_studies.branch(g, 6, 11)] = True
+    g.meters = g.meters._replace(pmu=set(case_studies.buses(g, case_studies.PMUS[14]).tolist()), flow=flow)
     window = list(X[:8])
     g.use_line_ratings(OverloadSettings(rating_margin=1.1), np.stack(window))
-    k = FrameKnobs(2, g.operating_limits(X), True, 256, 1.0, 0.5, 2, area=g.wu26_area())
+    k = FrameKnobs(2, g.operating_limits(X), True, 256, 1.0, 0.5, 2, area=case_studies.area(g))
     goal = g.overload_goal(window, *lines)
-    trust = TrustSchedule([int(b) for b in g.wu26_buses([4, 6, 1, 13])], [1, 3, 5, 7])
+    trust = TrustSchedule([int(b) for b in case_studies.buses(g, [4, 6, 1, 13])], [1, 3, 5, 7])
     r = g.min_tamper(window, goal, k, trust=trust)
     assert r.devices >= 1
     w = _Window(g, window, goal, k, trust=trust)
