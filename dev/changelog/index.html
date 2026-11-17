@@ -1749,6 +1749,28 @@
 the public API, the generated files and the numbers are the same as the previous release.</p>
 <h2 id="unreleased">Unreleased<a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
 <ul>
+<li><strong>The New York case file has one area; the zone column says where a bus is.</strong> <code>case_nygrid.m</code> is one system
+  for an OPF, with one area: its bus <code>area</code> column is 1 on every row. It used to carry
+  NYgrid's NPCC area numbers (1 New England, 2 and 3 New York, 4 Ontario, 5 MISO, 6 PJM). Existing files are
+  read as before, and no measurement, label, state, episode or operator result changes.</li>
+<li>The region of a bus is its zone code in the file: 1 to 11 for the NYISO load zones A to K as before, then
+    12 New England, 13 Ontario, 14 MISO, 15 PJM (12 used to mean any bus outside New York). The legend is in
+    the file's header and above <code>mpc.bus</code>.</li>
+<li>The <code>Case</code> record keeps its fields. <code>Case.zone</code> is the letter <code>A</code> to <code>K</code>, empty outside New York, and
+    <code>Case.is_ny</code> is unchanged. <code>Case.area</code> is derived from the zone code on read: a neighbor's bus keeps
+    NYgrid's number (New England 1, Ontario 4, MISO 5, PJM 6), and every New York bus is 2. The reader, the
+    recipe's writer and the legend in the file follow one table of codes, names and areas, <code>REGIONS</code>, in
+    <code>generation/nygrid/case.py</code>, with <code>FILE_AREA</code> (1) and <code>NY_AREA</code> (2); <code>OUTSIDE</code> is removed.
+    <code>generation/nygrid/dispatch.py</code> and <code>operator/</code> still tell the neighbors apart by the area numbers and
+    are not changed here. <code>Case.from_matpower</code> refuses a file whose area column is not 1 on every row
+    with a <code>DataConditionError</code> that names the column.</li>
+<li>One stored value differs in a New York timeline file generated from now on: <code>case/area</code> is 2 where it
+    was 3, on the 10 downstate buses (NYgrid's case splits New York into areas 2 and 3; the file does not,
+    and nothing in the package reads the difference). Every other dataset is the same bytes; the three New
+    York digest snapshots were rewritten for that key alone. Files written before, with 3 stored, load and
+    behave as before; the day files under <code>tests/nygrid/data/days</code> are unchanged.</li>
+<li><code>pipelines/newyork/make_case.py</code> is where NYgrid's area numbers become the zone codes; a test checks
+    that each neighbor's buses and units are exactly the ones its area number gives.</li>
 <li><strong>New York code that nothing built is removed (breaking for New York imports).</strong> The release builds Am against
   a NYISO interface (<code>InterfaceFdia</code>) and At (<code>Ramp</code>). The code below was reached by no pipeline, example, tool or
   doc, only by its own tests. It is removed with no alias. Release 0.21.0 still holds it, under
@@ -1783,8 +1805,8 @@ the public API, the generated files and the numbers are the same as the previous
     (the hourly data still does).</li>
 <li><code>Case.from_matpower(path)</code> reads a MATPOWER version-2 case file with matpowercaseframes, the reader
     pandapower uses for <code>.m</code> files (a new dependency of the <code>ny</code> and <code>all</code> extras), taking each column by
-    MATPOWER's name. The bus <code>zone</code> column is the NYISO load zone as a number (1 for A to 11 for K, 12 outside
-    New York), <code>mpc.bus_name</code> and <code>mpc.genfuel</code> are MATPOWER's own, and <code>mpc.bus_latlon</code> and <code>mpc.gen_ramp</code>
+    MATPOWER's name. The bus <code>zone</code> column says where each bus is, as a number (the entry above),
+    <code>mpc.bus_name</code> and <code>mpc.genfuel</code> are MATPOWER's own, and <code>mpc.bus_latlon</code> and <code>mpc.gen_ramp</code>
     hold the coordinates and the ramps. <code>Case.check</code> refuses a file whose parts disagree, and an indexed
     assignment or an unknown field is refused instead of passed over, each a <code>DataConditionError</code> naming the
     file and what is wrong. The file's writer is in <code>pipelines/newyork/make_case.py</code>.</li>

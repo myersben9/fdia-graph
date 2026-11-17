@@ -1823,7 +1823,7 @@ its stage does.</p>
 <a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    build.py            fetch_inputs, production_builder (the release build in one place)
 <a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    io.py               TimelineWriter, open_timeline, read_pool, write_pool, FAMILIES
 <a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    tables.py           read_rows (the input CSV tables, read whole and closed)
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    case.py             Case (from_matpower, check), nygrid_case, ZONES, HQ_BUS
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    case.py             Case (from_matpower, check), nygrid_case, ZONES, REGIONS (Region), FILE_AREA, NY_AREA, HQ_BUS
 <a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>    network.py          Network
 <a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>    case_nygrid.m       the New York grid, one MATPOWER case file (140 buses, 227 branches, 271 units)
 <a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>    fixes.py            externals_at_base, hvdc_links
@@ -2114,9 +2114,53 @@ copies them as they are.</p>
 </table>
 <h2 id="the-case-file">The case file<a class="headerlink" href="#the-case-file" title="Permanent link">&para;</a></h2>
 <p>The New York grid is one MATPOWER case file, <code>src/fdia_graph/generation/nygrid/case_nygrid.m</code>, shipped with the package the way the IEEE test cases ship with pandapower. <code>nygrid_case()</code> reads it, and every build, test and pipeline starts from that <code>Case</code>. A change to the grid is an edit to the file: no code patches the case on the way in.</p>
-<p><code>Case.from_matpower(path)</code> reads the file with matpowercaseframes, the reader pandapower uses for <code>.m</code> files, and takes every column by MATPOWER's own name (<code>BUS_I</code>, <code>PD</code>, <code>RATE_A</code>, <code>TAP</code>). Standard MATPOWER fields carry everything they can: the bus <code>zone</code> column is the NYISO load zone as a number (1 for A to 11 for K, 12 for a bus outside New York), <code>mpc.bus_name</code> the bus names and <code>mpc.genfuel</code> the unit fuels. Two numeric fields are ours: <code>mpc.bus_latlon</code> (latitude and longitude in degrees) and <code>mpc.gen_ramp</code> (MW per minute, <code>NaN</code> where the source gives none). A branch with status 0 is left out, and a tap ratio of 0, MATPOWER's mark of a line, is 1.</p>
-<p><code>Case.check(source)</code> then refuses a file whose parts disagree, with a <code>DataConditionError</code> that names the file and what is wrong: a bus number that is not whole or is on two rows, a bus type other than 1, 2, 3 or not exactly one reference bus, a unit or branch on a bus the case does not have, a zone number outside 1 to 12, or a name, coordinate, fuel or ramp list with the wrong number of rows. Two things the library would pass over without a word are refused as well: an indexed assignment such as <code>mpc.bus(1, 3) = 500;</code> and a field that is not one of the case's (the standard <code>mpc.gencost</code>, <code>mpc.gentype</code>, <code>mpc.areas</code> and <code>mpc.dclinecost</code> are passed over). To change the grid, edit rows in place, one row per line (<code>tests/nygrid/test_case_file.py</code> has one case per rule).</p>
-<p><code>pipelines/newyork/make_case.py</code> is the recipe of the file, outside the package: it makes the file again from NYgrid's <code>Data/</code> folder (the NPCC-140 case at the pinned commit, NYgrid's own <code>modifyMPC.m</code> changes, the fixed unit list of its hourly case, zone J's units split over buses 81 and 82, and the 765 kV line 47-43), and holds the writer. Every number is written with the digits that read back to the same bits, and a test checks that the recipe still reproduces the checked-in file and its <code>Case</code> exactly.</p>
+<p><code>Case.from_matpower(path)</code> reads the file with matpowercaseframes, the reader pandapower uses for <code>.m</code> files, and takes every column by MATPOWER's own name (<code>BUS_I</code>, <code>PD</code>, <code>RATE_A</code>, <code>TAP</code>). Standard MATPOWER fields carry everything they can: the bus <code>zone</code> column says where each bus is, as a number (the table below), <code>mpc.bus_name</code> the bus names and <code>mpc.genfuel</code> the unit fuels. Two numeric fields are ours: <code>mpc.bus_latlon</code> (latitude and longitude in degrees) and <code>mpc.gen_ramp</code> (MW per minute, <code>NaN</code> where the source gives none). A branch with status 0 is left out, and a tap ratio of 0, MATPOWER's mark of a line, is 1.</p>
+<p>The case file is one system, so it has one area: the bus <code>area</code> column is 1 on every row (<code>FILE_AREA</code>), and a file with another number there is refused. The region of a bus is its zone code. The reader, the recipe's writer and the legend in the file follow one table of the codes, their names and the area each gives, in <code>generation/nygrid/case.py</code> (<code>ZONES</code> and <code>REGIONS</code>). <code>generation/nygrid/dispatch.py</code> and <code>operator/</code> still tell the neighbors apart by the area numbers of <code>Case.area</code>.</p>
+<table>
+<thead>
+<tr>
+<th>zone code in the file</th>
+<th>where</th>
+<th><code>Case.zone</code></th>
+<th><code>Case.area</code></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1 to 11</td>
+<td>the NYISO load zones A to K</td>
+<td><code>A</code> to <code>K</code></td>
+<td>2 (<code>NY_AREA</code>)</td>
+</tr>
+<tr>
+<td>12</td>
+<td>New England</td>
+<td><code>""</code></td>
+<td>1</td>
+</tr>
+<tr>
+<td>13</td>
+<td>Ontario</td>
+<td><code>""</code></td>
+<td>4</td>
+</tr>
+<tr>
+<td>14</td>
+<td>MISO</td>
+<td><code>""</code></td>
+<td>5</td>
+</tr>
+<tr>
+<td>15</td>
+<td>PJM</td>
+<td><code>""</code></td>
+<td>6</td>
+</tr>
+</tbody>
+</table>
+<p><code>Case.area</code> is derived from the zone code on read. For the neighbors it keeps NYgrid's NPCC area numbers, the ones the code and every stored file use. New York is area 2 on every bus: NYgrid's case splits it into 2 (upstate) and 3 (downstate), the file does not, and nothing in the package reads the difference. A timeline file written from now on therefore stores <code>case/area</code> 2 where one written before stores 3, on the 10 downstate buses, and nothing else differs. Files written before are read as before.</p>
+<p>A file whose parts disagree is refused with a <code>DataConditionError</code> that names the file and what is wrong. <code>Case.from_matpower</code> refuses, as it reads, a bus number that is not whole or is on two rows, a unit or branch on a bus the case does not have, a zone number outside 1 to 15 and an area other than 1. <code>Case.check(source)</code> then refuses a bus type other than 1, 2, 3 or not exactly one reference bus, and a name, coordinate, fuel or ramp list with the wrong number of rows. Two things the library would pass over without a word are refused as well: an indexed assignment such as <code>mpc.bus(1, 3) = 500;</code> and a field that is not one of the case's (the standard <code>mpc.gencost</code>, <code>mpc.gentype</code>, <code>mpc.areas</code> and <code>mpc.dclinecost</code> are passed over). To change the grid, edit rows in place, one row per line (<code>tests/nygrid/test_case_file.py</code> has one case per rule).</p>
+<p><code>pipelines/newyork/make_case.py</code> is the recipe of the file, outside the package: it makes the file again from NYgrid's <code>Data/</code> folder (the NPCC-140 case at the pinned commit, NYgrid's own <code>modifyMPC.m</code> changes, the fixed unit list of its hourly case, zone J's units split over buses 81 and 82, and the 765 kV line 47-43), and holds the writer. Every number is written with the digits that read back to the same bits, and a test checks that the recipe still reproduces the checked-in file and its <code>Case</code> exactly. The recipe is where NYgrid's area numbers (1 New England, 2 and 3 New York, 4 Ontario, 5 MISO, 6 PJM) become the zone codes, and another test checks that each neighbor's buses and units are the ones its area number gives.</p>
 <h2 id="functions">Functions<a class="headerlink" href="#functions" title="Permanent link">&para;</a></h2>
 <p>Stateless steps, each called once in the build.</p>
 <table>
