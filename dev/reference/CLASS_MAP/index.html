@@ -1751,12 +1751,13 @@ produce records return <code>models</code> bundles (a record, a batch, an export
 summary); the graph properties are tensors or arrays, <code>loader()</code> is a DataLoader and <code>windows()</code> a tuple.</p>
 <p><img alt="Class diagram of the dataset package: DatasetBase with GraphMixin, AdmittanceMixin, RecordsMixin, ExportMixin and SequenceMixin under it and FdiaGraph inheriting all five; the mixins use ArraysBundle, Summary, BatchBundle, RecordBundle, EpisodeTable, Admittances and BranchModel" src="../../figures/diagrams/classes_dataset.png" /></p>
 <h2 id="the-engine">The engine<a class="headerlink" href="#the-engine" title="Permanent link">&para;</a></h2>
-<p><code>FdiaGenerator</code> is the AC model of one system with its meter plan. <code>GridBase</code> declares what the mixins
-provide: <code>MeasurementMixin</code> emits scans, <code>PhysicsMixin</code> re-solves the whole grid under new loads and
-reads a scan's load and generation, and <code>AttackMixin</code> builds every attack (next section).
+<p><code>FdiaGenerator</code> is the AC model of one system with its meter plan. <code>GridBase</code> declares the state the mixins
+share. <code>PhysicsMixin</code> reads a scan's load and generation and <code>MeasurementMixin</code> emits scans; neither calls the
+other, so each has <code>GridBase</code> alone as its base. <code>AttackMixin</code> builds every attack (next section) and calls both.
+A mixin lists as bases the mixins whose methods it calls.
 <code>engine/records.py</code> emits a benign scan and hands an attacked family to the mixin; <code>timeline.py</code>
 decides when and where each episode runs.</p>
-<p><img alt="Class diagram of the engine package: GridBase with MeasurementMixin and PhysicsMixin under it, AttackMixin composed of EpisodeDesignMixin and StealthyMixin, and FdiaGenerator inheriting MeasurementMixin, PhysicsMixin and AttackMixin; the mixins use Scan, AttackDesign, Frame and FrameKnobs, and the generator holds a BranchModel, a MeterPlan, a MeterBias, an Outage, a PandapowerNet and its PpcTables" src="../../figures/diagrams/classes_engine.png" /></p>
+<p><img alt="Class diagram of the engine package: GridBase, PhysicsMixin and MeasurementMixin each under it, AttackMixin composed of EpisodeDesignMixin and StealthyMixin, and FdiaGenerator inheriting AttackMixin; the mixins use Scan, AttackDesign, Frame and FrameKnobs, and the generator holds a BranchModel, a MeterPlan, a MeterBias, a PandapowerNet and its PpcTables" src="../../figures/diagrams/classes_engine.png" /></p>
 <h2 id="the-attacks">The attacks<a class="headerlink" href="#the-attacks" title="Permanent link">&para;</a></h2>
 <p>Every attack is built in <code>engine/attacks/</code>, one module per concern, composed into <code>AttackMixin</code>:
 <code>AreaMixin</code> finds the attacker's area, <code>FalseStateMixin</code> solves and checks its false state and the
@@ -1764,7 +1765,7 @@ attack vector, <code>StealthyMixin</code> builds the ramp frames, <code>Minimize
 the fewest devices over an attack window [WU26, eq. 12], <code>OverloadMixin</code> builds the overload <code>Am</code>,
 and <code>EpisodeDesignMixin</code> draws what an <code>At</code> episode attacks at its onset. <code>AttackMixin.attack_frame</code>
 is the one entry for an attacked <code>At</code> scan; an <code>Am</code> frame comes from <code>overload_step</code>.</p>
-<p><img alt="Class diagram of the attack package: GridBase with AreaMixin under it, FalseStateMixin under AreaMixin, StealthyMixin and MinimizeMixin under FalseStateMixin, RrefMixin under MinimizeMixin, OverloadMixin under RrefMixin, EpisodeDesignMixin under OverloadMixin, and AttackMixin inheriting EpisodeDesignMixin and StealthyMixin; the mixins use AttackDesign, RampDesign, LoadGoal, FlowGoal, MinimizerResult, Frame, FrameKnobs, OperatingLimits and Scan" src="../../figures/diagrams/classes_attacks.png" /></p>
+<p><img alt="Class diagram of the attack package: MeasurementMixin with AreaMixin under it, FalseStateMixin under AreaMixin and PhysicsMixin, StealthyMixin and MinimizeMixin under FalseStateMixin, OverloadMixin under MinimizeMixin, EpisodeDesignMixin under OverloadMixin, and AttackMixin inheriting EpisodeDesignMixin and StealthyMixin; the mixins use AttackDesign, RampDesign, LoadGoal, FlowGoal, MinimizerResult, Frame, FrameKnobs, OperatingLimits and Scan" src="../../figures/diagrams/classes_attacks.png" /></p>
 <h2 id="state-estimation">State estimation<a class="headerlink" href="#state-estimation" title="Permanent link">&para;</a></h2>
 <p><code>SEBase</code> holds the shared solve: the measurement function, the chord Jacobian, the meter weights and the
 chord-Newton loop. Each estimator overrides one hook. <code>GatedPrior</code> takes a fitted localizer as its gate;
@@ -1784,10 +1785,10 @@ each client trains its own copy with the shared <code>LocalTrainer</code> on its
 <p><img alt="Class diagram of the federated package: FederatedLocalizer under LearnedLocalizer, FedBusMLP under FederatedLocalizer and BusMLP, FedBusCNN under FederatedLocalizer and BusCNN; the federated localizer uses LocalTrainer, Partition, RoundLog and JacobianFeatures; RegionalPrior under SubspacePrior uses Partition" src="../../figures/diagrams/classes_federated.png" /></p>
 <h2 id="the-records">The records<a class="headerlink" href="#the-records" title="Permanent link">&para;</a></h2>
 <p>Everything a call returns is a <code>Bundle</code>, a dict with attribute access and a fixed key order. The record
-forms share seven field-group mixins, one per group of keys, so a record, a batch and an exported split
-carry the same names. An exported split adds an eighth, export-only group,
-<code>PreviousFrameFields</code> (the previous frame's readings on a timeline).</p>
-<p><img alt="Class diagram of the record bundles: Bundle, the seven shared field-group mixins as one node, and RecordBundle, BatchBundle and ArraysBundle inheriting both; ArraysBundle also takes an eighth, export-only group, PreviousFrameFields; EpisodeTable and Summary under Bundle" src="../../figures/diagrams/classes_models.png" /></p>
+forms share one base, <code>RecordFields</code>, which declares every field once, so a record, a batch and an exported split
+carry the same names. An exported split adds the export-only <code>prev_*</code> fields
+(the previous frame's readings on a timeline).</p>
+<p><img alt="Class diagram of the record bundles: Bundle, RecordFields under it, and RecordBundle, BatchBundle and ArraysBundle under RecordFields; EpisodeTable and Summary under Bundle" src="../../figures/diagrams/classes_models.png" /></p>
 <h2 id="the-scores">The scores<a class="headerlink" href="#the-scores" title="Permanent link">&para;</a></h2>
 <p>The result of every <code>score()</code> is a <code>Bundle</code> too, defined in the analysis toolkit
 (<code>fdia_analysis.models.scores</code>) on the generation toolkit's <code>Bundle</code>: <code>ErrorPair</code> and <code>EstimatorScores</code> for the estimators,

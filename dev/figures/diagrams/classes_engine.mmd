@@ -1,14 +1,5 @@
 classDiagram
     class GridBase {
-        +emit_from_state()
-        +meter_masks()
-        +current_mask()
-        +clean_flows_from_states()
-        +all_flows_from_states()
-        +currents_from_states()
-        +true_load()
-        +true_reactive_load()
-        ... and 2 more
     }
     class MeasurementMixin {
         +meter_masks()
@@ -57,9 +48,6 @@ classDiagram
     class MeterPlan {
         <<models>>
     }
-    class Outage {
-        <<models>>
-    }
     class OverloadMixin {
         <<engine>>
     }
@@ -79,9 +67,7 @@ classDiagram
     EpisodeDesignMixin <|-- AttackMixin
     GridBase <|-- MeasurementMixin
     GridBase <|-- PhysicsMixin
-    MeasurementMixin <|-- FdiaGenerator
     OverloadMixin <|-- AttackMixin
-    PhysicsMixin <|-- FdiaGenerator
     StealthyMixin <|-- AttackMixin
     AttackMixin ..> AttackDesign : uses
     AttackMixin ..> Frame : uses
@@ -96,7 +82,5 @@ classDiagram
     GridBase ..> BranchModel : uses
     GridBase ..> MeterBias : uses
     GridBase ..> MeterPlan : uses
-    GridBase ..> Outage : uses
     GridBase ..> PandapowerNet : uses
-    GridBase ..> Scan : uses
     MeasurementMixin ..> Scan : uses
