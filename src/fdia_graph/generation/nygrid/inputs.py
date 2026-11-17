@@ -1,8 +1,10 @@
-"""Historical inputs: NYgrid's hourly 2019 tables and NYISO's 5-minute zonal load."""
+"""Historical inputs: NYgrid's hourly 2019 tables and NYISO's 5-minute zonal load, and `fetch_inputs`, which
+downloads everything the build reads at its pinned version."""
 
 from __future__ import annotations
 
 import shutil
+import zipfile
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
@@ -12,9 +14,15 @@ import numpy as np
 import pandas as pd
 
 from fdia_graph.generation.nygrid.case import ZONES
+from fdia_graph.generation.nygrid.config import Settings
 from fdia_graph.generation.nygrid.tables import read_rows
 from fdia_graph.profiles import nyiso_zone_load
 
+NYGRID_COMMIT = "47698b6c7823ae7b1bc6935e5601d5b64b8f918e"
+NYGRID_ZIP = f"https://codeload.github.com/AndersonEnergyLab-Cornell/NYgrid/zip/{NYGRID_COMMIT}"
+TERRITORIES = "https://data.ny.gov/api/geospatial/awza-4vgu?method=export&format=GeoJSON"  # NYS DPS
+GEOJSON = "nys_electric_territories.geojson"
+LOCATIONS = "ny_bus_locations.csv"  # each NY bus located on the territories (N12), shipped with the package
 FUELS = ("Dual Fuel", "Hydro", "Natural Gas", "Nuclear", "Other Fossil Fuels", "Other Renewables", "Wind")
 # Interfaces NYgrid reads (updateOpCond.m L248-262 and L445-451), schedules into NY are positive.
 INTERFACES = (
@@ -232,3 +240,34 @@ _ZONE_NAME = {
     "N.Y.C.": "J",
     "LONGIL": "K",
 }
+
+
+def _nygrid(data: Path) -> None:
+    """NYgrid's `Data/` folder at the pinned commit, under `data/NYgrid/Data`."""
+    dest = data / "NYgrid" / "Data"
+    if dest.exists():
+        return
+    archive = download_once(NYGRID_ZIP, data / f"NYgrid_{NYGRID_COMMIT[:7]}.zip")
+    with zipfile.ZipFile(archive) as z:
+        for name in z.namelist():
+            parts = name.split("/")
+            if len(parts) > 2 and parts[1] == "Data" and not name.endswith("/"):
+                out = dest.joinpath(*parts[2:])
+                out.parent.mkdir(parents=True, exist_ok=True)
+                with z.open(name) as src, open(out, "wb") as f:
+                    shutil.copyfileobj(src, f)
+
+
+def fetch_inputs(root: str | Path) -> Path:
+    """Download the build's inputs under `root/data` and return that folder: NYgrid's `Data/` at commit
+    47698b6, NYISO's five-minute zonal load ('pal') for the year, the NYS DPS utility territories, and the
+    bus locations shipped with the package. A file already present is kept. The building-stock load
+    profiles, EIA-861 and the industrial database are fetched by `LoadModel` the first time the pool is built."""
+    data = Path(root) / "data"
+    _nygrid(data)
+    terr = data / "territories"
+    download_once(TERRITORIES, terr / GEOJSON)
+    if not (terr / LOCATIONS).exists():
+        shutil.copyfile(Path(__file__).parent / LOCATIONS, terr / LOCATIONS)
+    fetch_nyiso(Settings().year, data / "nyiso")
+    return data

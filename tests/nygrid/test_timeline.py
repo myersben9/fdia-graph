@@ -12,15 +12,15 @@ from fdia_graph.engine.attacks.attacker import Attacker
 from fdia_graph.engine.attacks.ramp import Ramp
 from fdia_graph.engine.sensing.measure import Measurement
 from fdia_graph.engine.sensing.meters import plan_meters
-from fdia_graph.engine.sensing.noise import NoiseModel
 from fdia_graph.federated.utilities import assign_clients
 from fdia_graph.generation.nygrid.case import nygrid_case
 from fdia_graph.generation.nygrid.config import Settings, rng
 from fdia_graph.generation.nygrid.io import FAMILIES, read_pool
 from fdia_graph.generation.nygrid.network import Network
 from fdia_graph.generation.nygrid.pool import SOLVED, Pool, peak_ratings
-from fdia_graph.generation.nygrid.timeline import TimelineBuilder
+from fdia_graph.generation.nygrid.source import NewYorkSource
 from fdia_graph.generation.plan import WEEK, place_episodes, split_weeks
+from fdia_graph.models.config import NewYorkSettings
 
 from .inputs import DATA, POOL, TERRITORIES
 
@@ -28,7 +28,7 @@ START, FRAMES = 50000, 288  # one day of the 2019 pool (June), short enough to b
 
 
 def _placed(n, lengths, name, allowed=None):
-    """One split's placement at an attacked share of 0.2, as the builder's slots."""
+    """One split's placement at an attacked share of 0.2, as the plan stage's slots."""
     placed, _, _ = place_episodes(rng(Settings(), name), lengths, 0.2, n, allowed)
     return placed
 
@@ -88,7 +88,7 @@ def test_place_episodes_only_at_allowed_onsets_and_capped():
 
 
 class _RampAs(Ramp):
-    """A ramp written under another family's name: a second family for the builder that needs no solver."""
+    """A ramp written under another family's name: a second family for the source that needs no solver."""
 
     def __init__(self, attacker, family):
         super().__init__(attacker)
@@ -114,15 +114,15 @@ def built(tmp_path_factory):
     plan = plan_meters(net, own, rng(Settings(), "meters"))
     meas = Measurement(net, plan)
     att = Attacker(net, meas)
-    noise = NoiseModel(plan)
     # two families of different window lengths; the release's Am (`InterfaceFdia`) is built and pinned in
     # test_timeline_digests.py, here any second family serves
     fams = {"Am": _RampAs(att, "Am"), "At": Ramp(att)}
     lengths = {"Am": 32, "At": 16}
     path = tmp_path_factory.mktemp("timeline") / "timeline.h5"
-    summary = TimelineBuilder(
-        pool, meas, noise, att, fams, own, Settings(), length=lengths, attacked_frac=0.3, split_by="time"
-    ).build(path)  # one day sits in one week, so the contiguous split
+    settings = NewYorkSettings(length=lengths, attacked_frac=0.3, split_by="time")
+    source = NewYorkSource(pool, att, fams, own, settings)  # one day sits in one week: the contiguous split
+    source.generate(path)
+    summary = source.summary()
     print(summary)
     with h5py.File(path, "r") as h:
         arrays = {
@@ -142,7 +142,7 @@ def built(tmp_path_factory):
                 "episodes/length",
             )
         }
-    return pool, att, noise, fams, summary, arrays
+    return pool, att, source.noise, fams, summary, arrays
 
 
 def test_episodes_stay_inside_their_split(built):

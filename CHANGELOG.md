@@ -5,6 +5,68 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- **One path generates a timeline, for the IEEE cases and for the New York grid (breaking for the New York
+  build's callers).** `TimelineSource.generate(out)` (`generation/source.py`) makes every timeline in the same
+  order: start the file, prepare, cut the splits, then split by split place the episodes (`generation/plan.py`),
+  design them and walk the frames in time order, then finish the file. The New York grid no longer has a driver of
+  its own. No generated value changes: the five pinned timelines (two IEEE-14, the New York days, two single
+  episodes) are the same, dataset by dataset, and their snapshots were not rewritten.
+  - The grid is a class hierarchy. `TimelineSource` is the system a timeline is generated on, and a subclass
+    owns only what differs between the grids: the pool, what it must know before the splits (`prepare`), how the
+    splits are cut (`cut_splits`), which onsets a family may take (`onset_masks`), the stream the onsets are drawn
+    from (`placement_rng`), how an episode is designed and what happens when no design exists (`design`), how the
+    frames are emitted (`walk(until)`) and the file layout (`open`, `finish`, `close`). The subclasses are
+    `IeeeSource` (`generation/ieee.py`: blocks in time order, no mask, an Am with no design is moved),
+    `NewYorkSource` (`generation/nygrid/source.py`: whole weeks, the families' masks and the onset survey, an
+    episode with no design is left benign) and, under it, `SingleEpisodeSource` (one episode placed by hand).
+    The placement itself is one function for both, `place_split`. The two file layouts are unchanged.
+  - What a caller of the New York build now calls: `NewYorkSource.production(pool_path,
+    NewYorkRelease(...)).generate(path)`, then `source.summary()` for what was placed and built. The arguments
+    `production_builder` took are the fields of `NewYorkRelease` (`models/config.py`: `families`, `interfaces`,
+    `workers`, `survey`, `survey_cache`, `root`, `hold_external`, `v_margin`, `gen_v_tol`, `load_cap`, `band`),
+    checked when it is built; the build `Settings` (the seed) is the third argument. One episode alone:
+    `SingleEpisodeSource(source, onset, family, lo, hi, using=..., lag=...).generate(path)`, then its
+    `summary()`. `pipelines/newyork/build_timeline.py` and `build_single_episodes.py` do exactly that.
+  - `NewYorkSource(pool, attacker, families, own, settings, build)` takes the timeline's settings as a
+    `NewYorkSettings` (`length`, `attacked_frac`, `split`, `split_by`, `workers`, `block`, `verbose`, `survey`,
+    `survey_cache`); the measurement is the attacker's and the noise model is made from its meter plan.
+    `AttackFamily.onset_mask` is part of the family interface (None by default: the family may start anywhere).
+  - Removed, with no alias: `TimelineBuilder` and its module `generation/nygrid/timeline.py` (its `build`,
+    `build_episode`, `_slots`, `_designs`, `_write` and its worker pool), `production_builder`,
+    `TimelineBuilder.episode_lengths` (now `NewYorkSource.lengths`), and the module `generation/nygrid/build.py`:
+    `fetch_inputs` and the pinned URLs are in `generation/nygrid/inputs.py`. `timeline.py` no longer holds the
+    IEEE set-up (`_generator`, `_knobs`, `_recorded`, `_write`): it is in `IeeeSource`.
+  - `fg.generate` and `generate_timeline("ieee14", ...)` are unchanged: `generate_timeline` is
+    `IeeeSource(system, states, settings, seed).generate(out)`. An `IeeeSource` generates one timeline (its
+    generator's random stream is used up); a second `generate` is a `ConfigError`.
+  - Behaviour that changed:
+    - **A failed run leaves no file, on either grid.** A timeline is written beside `out` as `<out>.part` and
+      takes the name `out` only when it is whole. Before, the file was created at the start of the run: a rerun
+      destroyed the file already there at once, and a run that failed left a stub that opened as a timeline.
+    - **Design workers are spawned on every OS** (`generation.design.DesignPool`, one pool for both grids,
+      started once per timeline). A script that passes `workers` above 1 must start under
+      `if __name__ == "__main__":`, on Linux too (before, IEEE workers were forked there). After a failed run
+      the workers are stopped at once instead of finishing the designs in flight. A single episode is designed
+      in the caller's process.
+    - **New York frames are written in stretches**, each as soon as every week before it is planned, instead
+      of one pass after every design. The noise stream still runs over the frames in time order, so no value
+      depends on where a stretch or a block ends; `tests/nygrid/test_stretches.py` pins that against a
+      one-pass build on a synthetic pool, with no data and no solver.
+    - `NewYorkSource.generate()` with no path is a `ConfigError` (the IEEE default path is unchanged).
+    - The warning for an episode dropped by a jammed placement reads the same on both grids: "split train:
+      placements jammed 10 times, 1 Am episode(s) dropped" (the New York one did not give the count of tries).
+    - A single episode with no attack still raises `NoAdmissibleTarget`, now from `generate`; an unsolved window
+      or a window outside the file's frames is refused when the `SingleEpisodeSource` is built.
+    - The release build asks for each unit's output in the pool (`unit_p`) only when it builds Am.
+  - Records (`models/plan.py`): `SplitSpan` may list its frames (a split of whole weeks) and says where an
+    episode fits (`onsets_fit`); `Designed` and `Placement` serve both grids' families; `Schedule.lengths`.
+    `place_split(rng, lengths, frac, span, rec, masks)` takes the lengths and the fraction instead of a
+    `Schedule`; `AmDesigner.design_split` returns the split's episodes as `Designed` records and `walk_split`
+    takes them; `planned_until` says how far the walk may run once a split is planned.
+  - `generation/nygrid/source.py` is no longer in `DEFERRED` of `tools/readability.py`: it meets the limits of
+    the SDK's own code. `fdia_graph.generation` exports `TimelineSource`, `IeeeSource` and `DesignPool`;
+    `fdia_graph.generation.nygrid` exports `NewYorkSource`, `SingleEpisodeSource` and `Survey`.
+
 - **The simulated grid operator and the [WU26] defense reproduction are no longer part of the package (breaking
   for their imports).** Neither was reached by `fg.*`, by a pipeline or by a tool: they served study code, which
   is not kept in this repository. Both are removed with no alias. The operator was never in a release. Release
@@ -186,7 +248,7 @@ the public API, the generated files and the numbers are the same as the previous
     the default, are unaffected, and so are the New York lengths (16, 16 and 96 frames).
   - The whole-timeline digests, IEEE and New York, are unchanged.
   - `capacity` (the most windows a family's allowed onsets can hold) is public in `generation/plan.py`, with
-    `WEEK` and `STRATUM`; `HIT_STRATUM` is in `generation/nygrid/timeline.py`.
+    `WEEK` and `STRATUM`; `HIT_STRATUM` is in `generation/nygrid/source.py`.
 
 - **The study scripts leave the repository.** The folder `experiments/` (the estimation, localization, trust,
   federated and defense-reproduction studies, the data-release statistics, the design-speed measurement, and the

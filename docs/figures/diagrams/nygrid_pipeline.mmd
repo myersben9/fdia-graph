@@ -23,7 +23,7 @@ flowchart TB
         fam["AttackFamily.design: an Episode"]
     end
     subgraph timeline["timeline: the dataset"]
-        builder["TimelineBuilder: timeline.h5"]
+        source["NewYorkSource.generate: timeline.h5"]
         ds["Dataset, ClientView"]
     end
     nygrid --> case
@@ -40,7 +40,7 @@ flowchart TB
     meas --> att
     att --> fam
     ifaces --> fam
-    pool --> builder
-    fam --> builder
-    meas --> builder
-    builder --> ds
+    pool --> source
+    fam --> source
+    meas --> source
+    source --> ds

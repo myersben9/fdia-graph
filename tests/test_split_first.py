@@ -14,7 +14,7 @@ from fdia_graph import schema
 from fdia_graph import timeline as tl
 from fdia_graph.generation import plan as plan_stage
 from fdia_graph.models.choices import FAMILY_CODE
-from fdia_graph.models.plan import Placement, Schedule, Slot, SplitSpan
+from fdia_graph.models.plan import Designed, Placement, Schedule, Slot, SplitSpan
 from fdia_graph.schema import Attr
 
 AT, AM = FAMILY_CODE["At"], FAMILY_CODE["Am"]
@@ -99,7 +99,7 @@ def test_episodes_lie_whole_inside_their_split_and_never_overlap():
     plan = _plan()
     for bounds in plan_stage.split_bounds(2000, (0.6, 0.2, 0.2)):
         rec = Placement.empty(plan.families)
-        placed = plan_stage.place_split(rng, plan, SplitSpan(0, *bounds), rec)
+        placed = plan_stage.place_split(rng, plan.lengths, plan.attacked_frac, SplitSpan(0, *bounds), rec)
         assert len(placed) == rec.requested[0].sum()
         assert all(s.length == 60 for s in placed)  # full length, none clipped
         assert _occupancy(placed, *bounds).max() <= 1
@@ -123,7 +123,9 @@ def test_a_jammed_split_retries_then_drops_one_episode_and_records_it(monkeypatc
     plan = _plan()
     rec = Placement.empty(plan.families)
     with pytest.warns(RuntimeWarning, match="dropped"):
-        placed = plan_stage.place_split(np.random.default_rng(1), plan, SplitSpan(0, 0, 480), rec)
+        placed = plan_stage.place_split(
+            np.random.default_rng(1), plan.lengths, plan.attacked_frac, SplitSpan(0, 0, 480), rec
+        )
     assert rec.requested[0].tolist() == [2, 2] and rec.dropped[0].tolist() == [1, 0]  # At jammed
     assert calls == [4] * plan_stage.PLACE_TRIES + [3] and len(placed) == 3
     assert _occupancy(placed, 0, 480).max() <= 1
@@ -137,7 +139,9 @@ def test_the_full_sized_splits_never_jam():
             rng = np.random.default_rng(seed)
             for split, bounds in enumerate(plan_stage.split_bounds(72000, (0.6, 0.2, 0.2))):
                 rec = Placement.empty(plan.families)
-                placed = plan_stage.place_split(rng, plan, SplitSpan(split, *bounds), rec)
+                placed = plan_stage.place_split(
+                    rng, plan.lengths, plan.attacked_frac, SplitSpan(split, *bounds), rec
+                )
                 assert len(placed) == rec.requested[split].sum() and not rec.dropped.any()
 
 
@@ -148,7 +152,8 @@ def test_onsets_are_uniform_over_the_split():
     onsets = []
     for _ in range(4000):
         rec = Placement.empty(plan.families)
-        onsets += [s.onset for s in plan_stage.place_split(rng, plan, SplitSpan(0, 0, 600), rec)]
+        placed = plan_stage.place_split(rng, plan.lengths, plan.attacked_frac, SplitSpan(0, 0, 600), rec)
+        onsets += [s.onset for s in placed]
     hist, _ = np.histogram(onsets, bins=10, range=(0, 541))
     expected = len(onsets) / 10
     chi2 = float(((hist - expected) ** 2 / expected).sum())
@@ -164,7 +169,7 @@ class _Design:
 
         self.tried: list[tuple[int, int]] = []  # (slot index, onset) of every design attempted
         designer = object.__new__(AmDesigner)
-        designer.g, designer.seed, designer._pool = None, 3, None
+        designer.g, designer.seed = None, 3
 
         def run(_self, tasks):
             out = []
@@ -181,7 +186,9 @@ class _Design:
         X = np.arange(span[1], dtype=float)[:, None, None] * np.ones((1, 1, 4))  # X[t] carries t
         plan = Schedule.build([AT, AM], 10, 0.002, 10, 0.1)
         rec = Placement.empty(plan.families)
-        placed, designs = self.designer.design_split(X, None, SplitSpan(0, *span), slots, rec)
+        episodes = self.designer.design_split(X, None, SplitSpan(0, *span), slots, rec)
+        placed = [e.slot for e in episodes]
+        designs = {e.slot.onset: e.design for e in episodes if e.design is not None}
         return placed, designs, rec
 
 
@@ -245,8 +252,8 @@ def _walk_ramp(monkeypatch, fails: int, bounds=(0, 600)):
     plan = Schedule.build([AT], 10, 0.002, 10, 10 / 600)  # one 10-frame episode
     rec = Placement.empty(plan.families)
     span = SplitSpan(0, *bounds)
-    slots = plan_stage.place_split(np.random.default_rng(1), plan, span, rec)
-    emit.walk_split(w, plan, span, slots, {}, rec)
+    slots = plan_stage.place_split(np.random.default_rng(1), plan.lengths, plan.attacked_frac, span, rec)
+    emit.walk_split(w, plan, span, [Designed(s, None) for s in slots], rec)
     return rec, tries
 
 

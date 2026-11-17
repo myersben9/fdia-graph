@@ -5,10 +5,11 @@ A family implements one method, `design(window, rng) -> Episode | None`: given t
 returns the attack vector to add to every scan, or None when it finds nothing to attack there. The package's
 families (`InterfaceFdia`, `Ramp`) do this with an attacker that keeps the false readings consistent with a state;
 this one does not, which is the naive kind of attack the residual test is meant to catch. `design_explained` says
-why a design found nothing, and the timeline builder counts those reasons.
+why a design found nothing, and the timeline's source counts those reasons (`NewYorkSource.summary`).
 
 The example runs on synthetic window states, so it needs no data. In a real build you pass the family to the
-`TimelineBuilder` under a name of your own, beside the package's families.
+`NewYorkSource` under a name of your own, beside the package's families, and `source.generate(path)` places,
+designs and writes its episodes like theirs.
 
 Run: python examples/nygrid/custom_attack_family.py
 """

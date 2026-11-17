@@ -24,7 +24,6 @@ import numpy as np
 import scipy.io
 
 from fdia_graph.errors import DataConditionError
-from fdia_graph.generation.nygrid.build import NYGRID_COMMIT
 from fdia_graph.generation.nygrid.case import (
     CASE_FILE,
     FILE_AREA,
@@ -38,6 +37,7 @@ from fdia_graph.generation.nygrid.case import (
     ZONES,
     Case,
 )
+from fdia_graph.generation.nygrid.inputs import NYGRID_COMMIT
 from fdia_graph.generation.nygrid.tables import read_rows
 
 # NYgrid's NPCC case has two New York areas, 2 upstate and 3 downstate. The case file does not tell them apart:

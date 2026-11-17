@@ -24,116 +24,29 @@ attack of its episode applied (or none), and the file carries everything a user 
 Temporal features are taken against the previous EMITTED frame, so a stealthy ramp reads as a
 small per-step change and a spike as an abrupt jump (the signal the dataset is built on).
 
-The walk is a pipeline of stages with typed hand-offs, each in its own module of `generation`: plan
-(`generation.plan`: the splits, the episode counts and onsets), design (`generation.design`: each
-split's overload Am, in parallel across `workers` processes, before the split is walked), emit
-(`generation.emit`: the frames in time order, the ramp At designed as the walk reaches it) and write
-(`generation.write`: the datasets, episodes and attributes). This module orchestrates them.
+The one path that generates a timeline, on an IEEE case or on the New York grid, is
+`generation.source.TimelineSource.generate`: the splits are cut, then split by split the episodes are
+placed (`generation.plan`), designed and the frames walked in time order, then the file is finished.
+The steps that depend on the grid are the methods of the source's subclasses:
+`generation.ieee.IeeeSource` (design in `generation.design`, the frames in `generation.emit`, the file
+in `generation.write`) and `generation.nygrid.source.NewYorkSource` (whose file layout
+docs/concepts/new_york_grid.md gives). `generate_timeline` below builds the IEEE source of a system
+and generates it.
 """
 
 from __future__ import annotations
 
-import json
-import os
-from collections.abc import Sequence
-from functools import partial
 from typing import Optional, Union
 
-import h5py
 import numpy as np
 
-from .engine import FdiaGenerator
-from .engine.attacks.stealthy import AM_FAMILY
-from .generation import _load_states, _write_graph
-from .generation.design import AmDesigner
-from .generation.emit import TimelineBuffers, Walk, clean_slice, walk_split
-from .generation.plan import place_split, split_bounds
-from .generation.write import (
-    create_layers,
-    finish_timeline,
-    placement_attrs,
-    search_attrs,
-    timeline_attrs,
-    write_temporal_layers,
-)
+from .generation.ieee import IeeeSource
+from .generation.source import OutPath
 from .models.choices import GENERATED_FAMILIES
 from .models.config import TimelineSettings
-from .models.frames import FrameContext, FrameKnobs, OperatingLimits
-from .models.inputs import AdmissibleTargets, GeneratedFamilies
-from .models.plan import GeneratorSpec, Placement, Schedule, SplitSpan
-from .registry import CACHE_DIR, system_id
-from .results.run import config_hash
-from .schema import Attr
 
 # the generator makes the multi-snapshot families [WU26]: the ramp At and the overload Am
 DEFAULT_FAMILIES = GENERATED_FAMILIES
-
-
-def _generator(system: Union[int, str], seed: int, s: TimelineSettings) -> FdiaGenerator:
-    """The walk's generator on the meter plan of `s`."""
-    m = s.meters
-    return FdiaGenerator(
-        system,
-        seed=seed,
-        max_load_mw=s.max_load_mw,
-        meter_model=m.meter_model,
-        vbus_frac=m.vbus_frac,
-        pmu_frac=m.pmu_frac,
-        flow_frac=m.flow_frac,
-    )
-
-
-def _recorded(
-    s: TimelineSettings, g: FdiaGenerator, limits: OperatingLimits, am_runs: bool
-) -> dict[str, object]:
-    """The knobs a file records as attributes, and the settings themselves as JSON with their hash."""
-    red = s.meters.coverage
-    record = s.as_record()
-    out: dict[str, object] = {
-        Attr.TARGET_ATTACKED_FRAC: s.attacked_frac,
-        Attr.RAMP_RATE: s.ramp.rate,
-        Attr.RAMP_LEN: s.ramp.length,
-        Attr.AM_LEN: s.am_frames,
-        Attr.HOPS: s.search.hops,
-        Attr.MAX_LOAD_MW: s.max_load_mw,
-        Attr.V_LO: float(limits.v_lo.min()),
-        Attr.V_HI: float(limits.v_hi.max()),
-        Attr.VBUS_FRAC: red["vbus_frac"],
-        Attr.PMU_FRAC: red["pmu_frac"],
-        Attr.FLOW_FRAC: red["flow_frac"],
-    }
-    out.update(search_attrs(s, s.overload if am_runs else None, g.current_mask() is not None))
-    out.update({Attr.SETTINGS: json.dumps(record, sort_keys=True), Attr.SETTINGS_HASH: config_hash(record)})
-    return out
-
-
-def _knobs(s: TimelineSettings, limits: OperatingLimits, am_runs: bool) -> FrameKnobs:
-    """The settings every scan shares (`FrameKnobs`): the subnetwork, the operating limits every
-    false state must satisfy [WU26 eqs. 21-23], the search, and the overload attack's bounds."""
-    o = s.overload if am_runs else None
-    return FrameKnobs(
-        s.search.hops,
-        limits,
-        s.search.min_tamper,
-        s.search.min_budget,
-        s.ramp.stealth_scale,
-        getattr(o, "load_cap", None),  # the overload attack's cap; none without it
-        getattr(o, "n_lines", 1),  # the lines an overload episode drives
-        getattr(o, "support_method", "search"),  # how its support is chosen
-        area_rule=s.search.area_rule,  # how the attacker's area is chosen [WU26] Sec. III-A
-    )
-
-
-def _walk(w: Walk, schedule: Schedule, bounds: list[tuple[int, int]], designer: AmDesigner) -> Placement:
-    """Walk the timeline split by split (the splits are cut first): place the split's episodes, design
-    its overload Am episodes, then emit its frames."""
-    rec = Placement.empty(list(schedule.families))
-    for code, (start, stop) in enumerate(bounds):
-        span = SplitSpan(code, start, stop)
-        slots = place_split(w.rng, schedule, span, rec)
-        slots, designs = designer.design_split(w.ctx.X, w.ctx.knobs, span, slots, rec)
-        walk_split(w, schedule, span, slots, designs, rec)
-    return rec
 
 
 def generate_timeline(
@@ -141,11 +54,13 @@ def generate_timeline(
     states: Optional[Union[str, np.ndarray]] = None,
     settings: Optional[TimelineSettings] = None,
     seed: int = 123,
-    out: Optional[str] = None,
+    out: Optional[OutPath] = None,
     **knobs: object,
 ) -> str:
-    """Walk one attacked timeline over the operating-point pool of `system` and write it as one
-    HDF5 file. Returns the path (default: `timeline_ieee{N}.h5` under the cache directory).
+    """Walk one attacked timeline over the operating-point pool of the IEEE `system` and write it as
+    one HDF5 file. Returns the path (default: `timeline_ieee{N}.h5` under the cache directory). It is
+    `IeeeSource(system, states, settings, seed).generate(out)`: the path every timeline takes
+    (`TimelineSource.generate`), on this grid.
 
     The walk is set by `settings` (`TimelineSettings`, nested by subject) and any flat keyword over
     it, each name the function has always taken (`TimelineSettings.of`):
@@ -206,63 +121,4 @@ def generate_timeline(
 
     The file records the settings as JSON (attribute `settings`) with their hash (`settings_hash`).
     """
-    s = TimelineSettings.of(settings, **knobs)
-    # one column per family: a family named twice adds nothing
-    fams = tuple(dict.fromkeys(GeneratedFamilies(s.families).codes))
-    am_runs = AM_FAMILY in fams
-    g = _generator(system, seed, s)
-    X = _load_states(system, states)
-    if round(s.attacked_frac * len(X)) > 0:  # a timeline placing no attacked frame needs no target
-        # the overload Am is not checked here: its targets are the rated, metered lines of each
-        # window, decided per episode (a window with none stays benign)
-        AdmissibleTargets(tuple(f for f in fams if f != AM_FAMILY), g.target_counts())
-        if am_runs:  # the ratings, before any frame is walked (pglib: NoLineRatings early)
-            g.use_line_ratings(s.overload, X)
-    limits = g.operating_limits(X)  # the constraints every false state must satisfy [WU26 eqs. 21-23]
-    frame_knobs = _knobs(s, limits, am_runs)
-    schedule = Schedule.build(list(fams), s.ramp.length, s.ramp.rate, s.am_frames, s.attacked_frac)
-    out = out or os.path.join(CACHE_DIR, f"timeline_ieee{system_id(system)}.h5")
-    recorded = _recorded(s, g, limits, am_runs)
-    spec = GeneratorSpec(
-        system,
-        seed,
-        s.max_load_mw,
-        s.meters,
-        getattr(g, "_line_ratings", None),
-        getattr(g, "_rating_delta", None),
-    )
-    designer = AmDesigner(g, spec, s.workers if am_runs else 1)
-    os.makedirs(os.path.dirname(out) or ".", exist_ok=True)
-    try:
-        ctx = FrameContext(g, X, frame_knobs)
-        _write(out, ctx, schedule, designer, s.split.fractions, seed, recorded)
-    finally:
-        designer.close()
-    return out
-
-
-def _write(
-    out: str,
-    ctx: FrameContext,
-    schedule: Schedule,
-    designer: AmDesigner,
-    fractions: Sequence[float],
-    seed: int,
-    recorded: dict[str, object],
-) -> None:
-    """The file: the graph, the per-frame layers filled by the walk of `ctx` (the generator, the pool
-    and the knobs), then everything after it: the columns, the episodes and the attributes (the
-    `recorded` knobs and what the placement of the split `fractions` asked for and got)."""
-    g, X = ctx.g, ctx.X
-    with h5py.File(out, "w") as f:  # the file is open for the whole walk: frames flush in batches
-        _write_graph(f, g)
-        currents = g.current_mask() is not None
-        sink = create_layers(f, len(X), g.C, g.E, currents)
-        buf = TimelineBuffers((len(X), g.C, g.E), partial(clean_slice, g, X), sink=sink, currents=currents)
-        bounds = split_bounds(len(X), fractions)
-        rec = _walk(Walk(ctx, buf), schedule, bounds, designer)
-        g.scan_key = None
-        finish_timeline(f, buf, bounds)
-        f.attrs.update(timeline_attrs(g, seed, buf, recorded))
-        f.attrs.update(placement_attrs(rec, bounds, fractions, buf.seq_id))
-        write_temporal_layers(f)
+    return IeeeSource(system, states, TimelineSettings.of(settings, **knobs), seed).generate(out)

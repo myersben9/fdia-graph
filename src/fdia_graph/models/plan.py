@@ -1,22 +1,22 @@
 """The records of a timeline's plan and design stages: a placed episode (`Slot`), a split and its
-frames (`SplitSpan`), an episode not yet written (`Pending`) or designed (`Designed`), what is placed
-(`Schedule`) and what the placement asked for and got (`Placement`), and what a design worker
+frames (`SplitSpan`), an episode not yet written (`Pending`) or with its design (`Designed`), what is
+placed (`Schedule`) and what the placement asked for and got (`Placement`), and what a design worker
 rebuilds its generator from (`GeneratorSpec`)."""
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Generic, Optional, TypeVar, Union
 
 import numpy as np
 
 from .choices import FAMILY_CODE, SPLITS
 from .config import MeterSettings
-from .frames import AmOverloadDesign
 
 Family = TypeVar(
     "Family", int, str
 )  # an episode's family: the timeline's code, or the New York family's name
+Design = TypeVar("Design")  # what a design stage finds for one episode (each grid has its own record)
 
 
 @dataclass(frozen=True, order=True)
@@ -36,11 +36,34 @@ class Slot(Generic[Family]):
 @dataclass(frozen=True)
 class SplitSpan:
     """One split of the timeline: its code (0 train, 1 val, 2 test, the row of `SPLITS`) and its
-    frames [start, stop)."""
+    frames. A split cut as one block in time order is every frame of [start, stop). A split made of
+    whole weeks lists its frames in `frames` (in time order), and [start, stop) is then only the stretch
+    of the timeline they lie in. Two spans are equal when their code and stretch are."""
 
     code: int
     start: int
     stop: int
+    frames: Optional[np.ndarray] = field(default=None, compare=False)
+
+    def index(self) -> np.ndarray:
+        """The split's frames on the timeline, in time order."""
+        return np.arange(self.start, self.stop) if self.frames is None else self.frames
+
+    @property
+    def size(self) -> int:
+        """How many frames the split holds."""
+        return len(self.index())
+
+    def onsets_fit(self, length: int) -> np.ndarray:
+        """[size] bool: the positions in the split where an episode of `length` frames may start, its
+        frames being consecutive on the timeline (so it never crosses from one week block into the
+        next, and never runs past the split's end)."""
+        index = self.index()
+        fits = np.zeros(len(index), bool)
+        n = len(index) - length + 1
+        if n > 0:
+            fits[:n] = index[length - 1 :] - index[:n] == length - 1
+        return fits
 
 
 @dataclass(frozen=True)
@@ -59,11 +82,13 @@ class Pending:
 
 
 @dataclass(frozen=True)
-class Designed:
-    """An Am episode with its design: where it sits and the design found at that onset."""
+class Designed(Generic[Family, Design]):
+    """A placed episode after the design stage: where it sits and the design found at that onset.
+    `design` is None for an episode the walk designs itself as it reaches it (the IEEE ramp At, whose
+    stealth bound reads the frame written just before its onset)."""
 
-    slot: Slot[int]
-    design: AmOverloadDesign
+    slot: Slot[Family]
+    design: Optional[Design]
 
 
 @dataclass
@@ -88,28 +113,33 @@ class Schedule:
         """The frames an episode of `fid` takes: the ramp length for At, `am_len` for Am."""
         return self.ramp_len if fid == FAMILY_CODE["At"] else self.am_len
 
+    @property
+    def lengths(self) -> dict[int, int]:
+        """The episode length of every family, in the schedule's family order."""
+        return {f: self.length_of(f) for f in self.families}
+
 
 @dataclass
-class Placement:
+class Placement(Generic[Family]):
     """What the placement asked for and got, per split (rows, `SPLITS`) and family (columns, the
-    schedule's families): episodes requested, dropped because they would not fit, moved to
+    timeline's families): episodes requested, dropped because they would not fit, moved to
     another onset because no design was feasible, and built."""
 
-    families: list[int]
+    families: list[Family]
     requested: np.ndarray
     dropped: np.ndarray
     redraws: np.ndarray
     built: np.ndarray
 
     @classmethod
-    def empty(cls, families: list[int]) -> Placement:
+    def empty(cls, families: list[Family]) -> Placement[Family]:
         """The record of `families` with every count at zero."""
         shape = (len(SPLITS), len(families))
         return cls(
             families, np.zeros(shape, int), np.zeros(shape, int), np.zeros(shape, int), np.zeros(shape, int)
         )
 
-    def col(self, fid: int) -> int:
+    def col(self, fid: Family) -> int:
         """The column of family `fid`."""
         return self.families.index(fid)
 

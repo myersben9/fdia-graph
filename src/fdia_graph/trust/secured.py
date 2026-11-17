@@ -1,6 +1,6 @@
 """A copy of a timeline with a set of meters secured: the attacker locked out of them, so on every
 frame their observed reading is the benign one, and the stored temporal features recomputed from
-the pinned observed frames (`timeline.write_temporal_layers`). The estimators and the localizers then read the copy like any timeline, which is
+the pinned observed frames (`generation.write.write_temporal_layers`). The estimators and the localizers then read the copy like any timeline, which is
 how a trusted-meter selection is measured on state estimation and localization rather than on the
 residual test alone (`TrustSelector.score`). The copy is rewritten in blocks of frames, so a
 72,000-frame timeline of any ladder system fits in bounded memory."""
