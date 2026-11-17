@@ -793,6 +793,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="2. The operating-point pool">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#how-the-within-hour-load-terms-are-fitted" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How the within-hour load terms are fitted
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -1602,6 +1619,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="2. The operating-point pool">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#how-the-within-hour-load-terms-are-fitted" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How the within-hour load terms are fitted
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -1688,6 +1722,39 @@ Every step keeps a file that is already there.</p>
 </code></pre></div>
 <p>The year is dispatched in weekly chunks in parallel, then each seam between chunks is solved again until
 the dispatch is continuous. The pool holds the true state and injections of every five-minute frame.</p>
+<h3 id="how-the-within-hour-load-terms-are-fitted">How the within-hour load terms are fitted<a class="headerlink" href="#how-the-within-hour-load-terms-are-fitted" title="Permanent link">&para;</a></h3>
+<p>The load model (<code>generation/nygrid/loads.py</code>) gives each bus two five-minute terms of its own, so a
+bus's steps are not its zone's. Their constants are in <code>constants/newyork.py</code>.</p>
+<ul>
+<li><strong>Fluctuation</strong> (<code>FLUCT_C</code>, <code>FLUCT_BETA</code>, <code>FLUCT_PHI</code>). An AR(1) factor on the bus's load,
+  <code>p (1 + e)</code>, with <code>e</code> of standard deviation <code>FLUCT_C size^-FLUCT_BETA</code> (size is the bus's mean load,
+  MW) and lag-1 coefficient <code>FLUCT_PHI</code>. The constants are fitted on the real NYISO zones of 2018, so
+  2019 is not fitted to itself. A zone's fluctuation is its regulation component in the sense of Kirby
+  and Hirst (ORNL/TM-2001/13): the 5-minute load less its 30-minute rolling mean of L(t-3) .. L(t+2),
+  relative to that mean. Its spread is the robust standard deviation (1.4826 MAD), so large industrial
+  steps do not inflate it. The spread is fitted against zone mean load as <code>c size^-beta</code> across the
+  zones. Zone H (Millwood, 320 MW) is left out: its residual is four times what the other ten zones'
+  fit predicts at its size, and its near-white steps suggest a metering artifact. One <code>phi</code> is the
+  median lag-1 autocorrelation of the zones' residuals, read through the filter: white noise already
+  gives -0.23 after the rolling mean, so the residual's autocorrelation is mapped back to the AR(1)
+  coefficient that produces it, and <code>c</code> is scaled to the AR(1)'s own spread the same way. With beta
+  near 0.5, independent bus terms add up to the zone's own fluctuation, so the final rescaling leaves
+  each bus its own spread and the zone its real load.</li>
+<li><strong>Industrial switching</strong> (<code>SWITCH_*</code>). Zone D's real five-minute steps above 5% of its mean load
+  (2,799 in 2019, up to 314 MW) are taken as large plants switching. Same-sign steps in consecutive
+  frames are merged into one event. A pulse starts at an event and ends at the next event of opposite
+  sign. Pulses arrive as a Poisson process at <code>SWITCH_RATE</code> per MW of the bus's mean industrial load
+  and hour (zone D's pulses, half its events, over the model's industrial load of zone D). A pulse's
+  size relative to the bus's mean industrial load is the threshold <code>SWITCH_U</code> (5% of zone D's mean
+  load, which is 0.22 of its mean industrial load) plus a generalized Pareto excess (shape
+  <code>SWITCH_XI</code>, scale <code>SWITCH_SCALE</code>), truncated at <code>SWITCH_MAX</code>, the largest step seen. Its duration is
+  lognormal (<code>SWITCH_DUR_MU</code>, <code>SWITCH_DUR_SIGMA</code>, log minutes), from the times between opposite-sign
+  events. A share <code>SWITCH_OFF</code> of pulses start with a drop, and a drop never takes more than the bus's
+  industrial load at that frame.</li>
+</ul>
+<p>Last, each zone's buses are rescaled to sum exactly to the zone's real 5-minute load.</p>
+<p>The two fit functions (<code>_fluctuation_fit</code>, <code>_switching_fit</code>) are not in the package; the constants are
+their results. They can be read and run in release 0.21.0, <code>fdia_graph/nyfed/scenario/loads.py</code>.</p>
 <h2 id="3-the-timeline">3. The timeline<a class="headerlink" href="#3-the-timeline" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>python<span class="w"> </span><span class="nv">$FG</span>/pipelines/newyork/build_timeline.py<span class="w"> </span>out/timeline_2019.h5<span class="w"> </span>--pool<span class="w"> </span>out/pool_2019.h5<span class="w"> </span>--workers<span class="w"> </span><span class="m">8</span>
 </code></pre></div>

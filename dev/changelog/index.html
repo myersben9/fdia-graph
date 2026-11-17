@@ -1721,14 +1721,24 @@
 the public API, the generated files and the numbers are the same as the previous release.</p>
 <h2 id="unreleased">Unreleased<a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
 <ul>
-<li><strong>Less code to read in <code>fdia_graph</code> (breaking for the internal names below; no behaviour and no stored
+<li>
+<p><strong>Shorter docstrings and comments in <code>fdia_graph</code> (no user-visible change: no line of code changed).</strong>
+  A module docstring is at most about 10 lines, a class's 6, a function's 1 to 3 (CONTRIBUTING.md); each
+  keeps its equation, source key, units and the invariants a caller must respect. By
+  <code>python tools/count_lines.py</code>, <code>fdia_graph</code> goes from 14,897 to 13,850 lines with its 9,194 lines of
+  code unchanged. The file layout and knobs that the docstring of <code>timeline.py</code> listed are in
+  <code>docs/guides/generation.md</code>, and the fit of the within-hour load terms is in <code>docs/guides/new_york.md</code>.</p>
+</li>
+<li>
+<p><strong>Less code to read in <code>fdia_graph</code> (breaking for the internal names below; no behaviour and no stored
   byte changed: the five whole-file digests are unchanged, an IEEE timeline is byte for byte the file the
   previous code writes, and every refused input raises the same error with the same message).</strong>
   <code>fg.load</code>, <code>fg.generate</code> and every flat keyword of <code>generate_timeline</code> are used as before. The rules for
   inputs are as they were: every check is declared on a model and run by the one engine, and
   <code>models.inputs</code>, <code>models.validation</code> and the settings models of <code>models.config</code> are unchanged. By <code>python tools/count_lines.py</code>,
   <code>fdia_graph</code> goes from 15,107 to 14,897 lines (column "lines") and from 9,404 to 9,194 lines of code
-  (column "code"); <code>fdia_analysis</code> is unchanged.</li>
+  (column "code"); <code>fdia_analysis</code> is unchanged.</p>
+</li>
 <li><strong>The record bundles share one base.</strong> <code>models.fields.RecordFields</code> declares every field of a record,
     a batch and an exported split once; it replaces the nine field-group mixins. The keys, their order
     and what each bundle requires are unchanged, and the data dictionary no longer names a group per row.</li>

@@ -1830,7 +1830,7 @@
 <tbody>
 <tr>
 <td><code>fdia_graph</code></td>
-<td>fdia-graph — load &amp; generate ML-only dangerous FDIA localization datasets (realistic measurement graphs).</td>
+<td>fdia-graph: load and generate datasets for locating false data injection attacks on a power grid.</td>
 </tr>
 <tr>
 <td><code>constants</code></td>
@@ -1914,7 +1914,7 @@
 </tr>
 <tr>
 <td><code>download</code></td>
-<td>Fetch built-in shards from the GitHub Release and cache them under ~/.cache/fdia_graph.</td>
+<td>Fetch the built-in datasets from the GitHub Release and cache them under ~/.cache/fdia_graph.</td>
 </tr>
 <tr>
 <td><code>engine</code></td>
@@ -1946,7 +1946,7 @@
 </tr>
 <tr>
 <td><code>engine.attacks.interface</code></td>
-<td>Am, the overload attack on a NYISO interface (N48, N49, ours): over a window of scans the reported flow across an interface rises to its limit, each scan the reading of one AC false state from <code>OpfFdia</code>'s local OPF under every one of its bounds, so the operator's residual test stays quiet.</td>
+<td>Am, the overload attack on a NYISO interface (ours): over a window of scans the reported flow across an interface rises to its limit, each scan the reading of one AC false state from <code>OpfFdia</code>'s local OPF.</td>
 </tr>
 <tr>
 <td><code>engine.attacks.minimize</code></td>
@@ -1954,11 +1954,11 @@
 </tr>
 <tr>
 <td><code>engine.attacks.opf</code></td>
-<td>The attacker's false states from a local AC optimal power flow (N35): the support search and the per-scan OPF every OPF attack shares. <code>OpfFdia</code> is their base class; a subclass adds the goal and <code>design</code> (<code>interface.InterfaceFdia</code>, the one the release builds).</td>
+<td>The attacker's false states from a local AC optimal power flow: the support search and the per-scan OPF every OPF attack shares. <code>OpfFdia</code> is the base class; a subclass adds the goal and <code>design</code> (<code>interface.InterfaceFdia</code>, the one the release builds).</td>
 </tr>
 <tr>
 <td><code>engine.attacks.overload</code></td>
-<td><code>Am</code>, the multi-snapshot overload attack of [WU26]: the reported flows of its target branches (two by default, as the paper's case studies overload two lines at once, or one; <code>OverloadSettings.n_lines</code>) driven to their ratings over the window, with the fewest devices tampered.</td>
+<td><code>Am</code>, the multi-snapshot overload attack of [WU26]: the reported flows of its target branches (one or two, <code>OverloadSettings.n_lines</code>) driven to their ratings S_max (<code>use_line_ratings</code>) over the window, with the fewest devices tampered.</td>
 </tr>
 <tr>
 <td><code>engine.attacks.ramp</code></td>
@@ -1966,7 +1966,7 @@
 </tr>
 <tr>
 <td><code>engine.attacks.rref</code></td>
-<td>[WU26]'s own construction of the attack's support: row reduction of the transposed attack-area Jacobian with column exchanges.</td>
+<td>[WU26]'s construction of the attack's support: row reduction of the transposed area Jacobian.</td>
 </tr>
 <tr>
 <td><code>engine.attacks.stealthy</code></td>
@@ -1978,7 +1978,7 @@
 </tr>
 <tr>
 <td><code>engine.core</code></td>
-<td>Dataset generation engine (attack simulation + realistic measurement emission).</td>
+<td>The dataset generation engine: attack simulation and realistic meter readings on an IEEE case.</td>
 </tr>
 <tr>
 <td><code>engine.measurement</code></td>
@@ -2110,7 +2110,7 @@
 </tr>
 <tr>
 <td><code>generation.nygrid.pool</code></td>
-<td>The pool: one AC operating state per 5-minute frame, from a ramp-constrained real-time dispatch (N32).</td>
+<td>The pool: one AC operating state per 5-minute frame, from a ramp-constrained real-time dispatch.</td>
 </tr>
 <tr>
 <td><code>generation.nygrid.solver</code></td>
@@ -2122,7 +2122,7 @@
 </tr>
 <tr>
 <td><code>generation.nygrid.tables</code></td>
-<td>The CSV tables of the inputs, read whole and closed: the NYgrid checkout's bus, unit and renewable tables and the bus locations. One reader, so no input file is left open (each was a ResourceWarning before).</td>
+<td>The CSV tables of the inputs, read whole and closed: the NYgrid checkout's bus, unit and renewable tables and the bus locations. One reader, so no input file is left open.</td>
 </tr>
 <tr>
 <td><code>generation.plan</code></td>
@@ -2142,11 +2142,11 @@
 </tr>
 <tr>
 <td><code>models.assets</code></td>
-<td>How files are found: where a dataset comes from, where its bytes are fetched from, and one line of the N-1 candidate list.</td>
+<td>How files are found: where a dataset comes from and where its bytes are fetched from.</td>
 </tr>
 <tr>
 <td><code>models.base</code></td>
-<td>Bundle: a typed record that still IS the dict it used to be.</td>
+<td>Bundle: a typed record that is also a dict.</td>
 </tr>
 <tr>
 <td><code>models.choices</code></td>
@@ -2158,7 +2158,7 @@
 </tr>
 <tr>
 <td><code>models.data</code></td>
-<td>What a user gets back: one record, a batch, a whole split, a summary, the episode table, and the per-record truth an estimator is scored against. Each is a Bundle, so it is still the dict it always was.</td>
+<td>What a user gets back: one record, a batch, a whole split, a summary and the episode table. Each is a Bundle, so it is also a dict.</td>
 </tr>
 <tr>
 <td><code>models.fields</code></td>
@@ -2186,7 +2186,7 @@
 </tr>
 <tr>
 <td><code>profiles</code></td>
-<td>Load-profile ingestion + operating-state generation — the FRONT of the pipeline.</td>
+<td>Load profiles and operating states: the front of the pipeline.</td>
 </tr>
 <tr>
 <td><code>ratings</code></td>
@@ -2194,11 +2194,11 @@
 </tr>
 <tr>
 <td><code>registry</code></td>
-<td>Dataset registry: built-in (downloadable) datasets + locally generated ones.</td>
+<td>The dataset registry: the built-in (downloadable) datasets and the locally generated ones.</td>
 </tr>
 <tr>
 <td><code>schema</code></td>
-<td>The file protocol: every group, dataset and attribute name an fdia-graph HDF5 file carries, defined once. The writer (<code>timeline</code>, <code>generation</code>), the readers (<code>dataset</code>) and the tools agree through these names and nowhere else; <code>tools/readability.py</code> refuses a path-shaped literal ("data/...", "graph/...") in any other module. Field names (<code>node_x</code>, <code>clean</code>, ...) are the public vocabulary of a record and stay as words in the code; <code>FIELD_PATH</code> maps them here.</td>
+<td>The file protocol: every group, dataset and attribute name an fdia-graph HDF5 file carries, defined once. The writer (<code>generation</code>) and the readers (<code>dataset</code>) agree through these names; <code>tools/readability.py</code> refuses a path-shaped literal ("data/...", "graph/...") in any other module. Field names (<code>node_x</code>, <code>clean</code>, ...) stay as words in the code; <code>FIELD_PATH</code> maps them to paths.</td>
 </tr>
 <tr>
 <td><code>timeline</code></td>

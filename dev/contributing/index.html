@@ -1742,6 +1742,12 @@ checks a docs change locally.</p>
 </tr>
 </tbody>
 </table>
+<p>Docstrings are short, and say what the signature does not:</p>
+<ul>
+<li>a module docstring is at most about 10 lines: what the module is for and where it fits, no history;</li>
+<li>a class docstring is at most about 6 lines: what the class represents;</li>
+<li>a function or method docstring is 1 to 3 lines (a few more when an equation or an argument table needs them): what it returns or does, the units, the equation with its source key, and the one thing a caller would not guess.</li>
+</ul>
 <h2 id="the-pull-request">The pull request<a class="headerlink" href="#the-pull-request" title="Permanent link">&para;</a></h2>
 <p><img alt="the pull request flow: branch, the pre-review gate and the checklist review, create as a draft, one review by review agents and one round of fixes, the pre-review again, mark ready and post the summary, merge on green CI and the owner's approval" src="../figures/diagrams/contributing_pr_flow.png" /></p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>python<span class="w"> </span>tools/prereview.py<span class="w">                                      </span><span class="c1"># every gate, locally, on this checkout's source</span>

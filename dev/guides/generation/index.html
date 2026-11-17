@@ -2549,8 +2549,26 @@ any program using <code>multiprocessing</code> must. An Am-only IEEE-14 timeline
 <tr>
 <td><code>episodes/</code></td>
 <td><code>onset</code>, <code>length</code>, <code>family</code>, <code>bus_ptr</code>, <code>bus_idx</code></td>
-<td>one row per episode</td>
+<td>one row per episode; the attacked buses are ragged (<code>bus_ptr [K+1]</code> points into <code>bus_idx</code>)</td>
 <td><code>TimelineWriter.finish</code></td>
+</tr>
+<tr>
+<td><code>episodes/</code></td>
+<td><code>min_episode</code>, <code>min_devices</code>, <code>min_channels</code>, <code>min_evaluated</code>, <code>min_support_ptr</code>, <code>min_support_idx</code></td>
+<td>with <code>min_tamper</code> on: what the fewest-tamper search chose for each episode it ran on</td>
+<td><code>TimelineWriter.finish</code></td>
+</tr>
+<tr>
+<td><code>graph/</code></td>
+<td><code>edge_index [2, E]</code>, the per-unit branch physics and the bus shunts</td>
+<td>the static topology, the same for every frame; enough to rebuild Ybus</td>
+<td><code>TimelineWriter.write_graph</code></td>
+</tr>
+<tr>
+<td>file attributes</td>
+<td><code>system</code>, <code>N</code>, <code>E</code>, <code>baseMVA</code>, <code>seed</code>, <code>T</code>, <code>families</code>, <code>kind</code> (<code>"timeline"</code>), <code>attacked_frac</code>, the knobs, <code>v_lo</code> and <code>v_hi</code> (the widest bus voltage limits of the case), <code>settings</code>, <code>settings_hash</code></td>
+<td>what identifies the file and how it was generated</td>
+<td><code>TimelineWriter.header</code>, <code>TimelineWriter.finish</code></td>
 </tr>
 </tbody>
 </table>
@@ -2771,7 +2789,12 @@ under <code>name</code>. Without <code>states</code>, it reads <code>$FDIA_GRAPH
 <tr>
 <td><code>min_tamper</code></td>
 <td>True</td>
-<td>hold each episode on the support that tampers the fewest devices [WU26, eq. 12]</td>
+<td>hold each episode on the support that tampers the fewest devices [WU26, eq. 12]; a change under a meter's noise is not counted. Off: the whole region within <code>hops</code></td>
+</tr>
+<tr>
+<td><code>min_budget</code></td>
+<td>256</td>
+<td>candidate supports the search solves per episode before it settles on the best found (recorded as not proven)</td>
 </tr>
 <tr>
 <td><code>am_attack</code></td>
@@ -2816,7 +2839,7 @@ under <code>name</code>. Without <code>states</code>, it reads <code>$FDIA_GRAPH
 <tr>
 <td><code>max_load_mw</code></td>
 <td>2000.0</td>
-<td>a larger load is never a target; None disables</td>
+<td>a larger load (MW) is never a target: it is an area equivalent, not a substation (IEEE-145 lumps regions into loads of 4 to 58 GW); None disables</td>
 </tr>
 <tr>
 <td><code>seed</code></td>
