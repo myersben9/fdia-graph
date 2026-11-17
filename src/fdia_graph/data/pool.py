@@ -15,13 +15,15 @@ import numpy as np
 from fdia_graph.constants.newyork import HQ_BUS, POOL_ARRAYS, SolveKind
 from fdia_graph.constants.time import HALF_HOUR
 from fdia_graph.errors import DataConditionError, NotFitted
+from fdia_graph.models.config import NewYorkSolve, SolveSettings
+from fdia_graph.models.grid import OperatingPoint
 from fdia_graph.systems.case import Case
 from fdia_graph.systems.network import Network
 
-if TYPE_CHECKING:  # the pool record is read without pandapower, so the solver is only a type here
+if TYPE_CHECKING:  # the pool record is read without pandapower or Pyomo, so the solvers are only types here
     from fdia_graph.data.dispatch import Dispatch
+    from fdia_graph.data.ipopt_solver import IpoptSolver
     from fdia_graph.data.loads import LoadSeries
-    from fdia_graph.data.solver import AcSolver
 
 
 @dataclass(frozen=True)
@@ -43,25 +45,28 @@ class Pool:
 
 class PoolBuilder:
     """Solves every frame of `loads` as NYISO's real-time dispatch would, in time order: a least-cost AC OPF
-    (`AcSolver.dispatch`, at `dispatch.unit_cost`) on the frame's bus loads less NYgrid's netted renewables
-    `renew [H, N]`, then an AC power flow at the OPF's basepoints. Thermal units move within their limits and
+    (`IpoptSolver.dispatch`, at `dispatch.unit_cost`) on the frame's bus loads less NYgrid's netted renewables
+    `renew [H, N]`, then an AC power flow at the OPF's basepoints (`PandapowerSolver.power_flow`). Thermal units move within their limits and
     within `ramp [G]` (MW per frame, inf where unbounded) of the previous basepoint; nuclear, hydro and
-    external units follow NYgrid's hourly AC points (`AcSolver.project`), since hydro is energy limited and
+    external units follow NYgrid's hourly AC points (`IpoptSolver.project`), since hydro is energy limited and
     interchange is scheduled. Unit Q stays within `q_cap [G]` (MVAr) or the solver's `Compensation`, under
     which the pool's `q` includes the banks' output `shunt_q`."""
 
     def __init__(
         self,
-        solver: AcSolver,
+        solver: IpoptSolver,
         loads: LoadSeries,
         dispatch: Dispatch,
         renew: np.ndarray,
         ramp: np.ndarray,
         q_cap: np.ndarray | None = None,
     ):
+        from fdia_graph.data.pandapower_solver import PandapowerSolver  # here: reading a pool needs no solver
+
         self.solver, self.loads, self.dispatch, self.renew = solver, loads, dispatch, renew
+        self.flow = PandapowerSolver(solver.case)  # the power flow at each OPF's basepoints
         self.ramp, self.q_cap = np.asarray(ramp, float), q_cap
-        self.hour_points: dict[int, dict | None] = {}  # projected hours
+        self.hour_points: dict[int, OperatingPoint | None] = {}  # projected hours
         self.pool: Pool | None = None
         self.seconds = 0.0
         T = len(loads.time)
@@ -79,6 +84,24 @@ class PoolBuilder:
         self.anchor_dev = np.full(T, np.nan)  # MW, the anchored units' total |output - schedule|
         self.final: tuple[np.ndarray, ...] | None = None  # last solved (unit_p, unit_q, vm, va)
 
+    @classmethod
+    def from_settings(
+        cls,
+        case: Case,
+        loads: LoadSeries,
+        dispatch: Dispatch,
+        renew: np.ndarray,
+        ramp: np.ndarray,
+        solve: SolveSettings | None = None,
+    ) -> PoolBuilder:
+        """The builder of the New York pool under `solve` (None: its own choice, an OPF in Ipopt). Any
+        other choice is refused by `NewYorkSolve` (`ConfigError`), with the reason."""
+        if solve is not None:
+            NewYorkSolve(method=solve.method, engine=solve.engine)
+        from fdia_graph.data.ipopt_solver import IpoptSolver
+
+        return cls(IpoptSolver(case), loads, dispatch, renew, ramp)
+
     def _brackets(self) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         """For every frame, the hour before, the hour after and the weight of the hour after."""
         mid = (self.dispatch.hour.astype("datetime64[s]") + HALF_HOUR).astype(np.int64).astype(float)
@@ -88,7 +111,7 @@ class PoolBuilder:
         hi = np.minimum(lo + 1, len(mid) - 1)
         return lo, hi, pos - lo
 
-    def _project(self, h: int) -> dict | None:
+    def _project(self, h: int) -> OperatingPoint | None:
         if h not in self.hour_points:
             d = self.dispatch
             self.hour_points[h] = self.solver.project(
@@ -105,7 +128,7 @@ class PoolBuilder:
         sp = (1 - w) * a + w * b
         pa, pb = self.hour_points.get(lo), self.hour_points.get(hi)
         if pa is not None and pb is not None:
-            sp = np.where(self._held, (1 - w) * pa["unit_p"] + w * pb["unit_p"], sp)
+            sp = np.where(self._held, (1 - w) * pa.unit_p + w * pb.unit_p, sp)
         both, either = (a != 0) & (b != 0), (a != 0) | (b != 0)
         p_lo = np.where(both, np.minimum(case.pmin, sp), np.where(either, np.minimum(0.0, sp), 0.0))
         p_hi = np.where(either, np.maximum(case.pmax, sp), 0.0)
@@ -135,10 +158,10 @@ class PoolBuilder:
             s.vm, s.va = np.array(start[2], float), np.array(start[3], float)
         else:
             first = self._project(int(lo[0]))
-            prev = None if first is None else first["unit_p"].copy()
-            prev_q = None if first is None else first["unit_q"].copy()
+            prev = None if first is None else first.unit_p.copy()
+            prev_q = None if first is None else first.unit_q.copy()
             if first is not None:
-                s.vm, s.va = first["vm"].copy(), first["va"].copy()
+                s.vm, s.va = first.vm.copy(), first.va.copy()
         if prev is None or prev_q is None:  # the first hour's AC point seeds the dispatch
             raise DataConditionError(
                 f"frame {int(lo[0])}: the span's first hour has no AC point to start from"
@@ -176,33 +199,34 @@ class PoolBuilder:
                 r = s.dispatch(pd_f, qd_f, cost, p_lo, p_hi, q_min, q_max, on, hvdc_p, init=x0, anchor=anchor)
             if r is None:
                 continue
-            pf = s.power_flow(
+            pf = self.flow.power_flow(
                 pd_f,
-                self.loads.q[f] - r["shunt_q"],  # a bank's output as a reactive injection at its bus
-                r["unit_p"],
+                self.loads.q[f] - r.shunt_q,  # a bank's output as a reactive injection at its bus
+                r.unit_p,
                 on,
-                r["vm"][case.unit_bus],
+                r.vm[case.unit_bus],
                 hvdc_p,
-                start=(r["vm"], r["va"]),
+                start=(r.vm, r.va),
             )
             if pf is None:
                 continue
+            s.vm, s.va = pf.vm, pf.va  # the next frame's OPF starts from the power flow's state
             kind[f] = SolveKind.SOLVED
-            vm[f], va[f] = pf["vm"], pf["va"]
-            p[f], q[f] = s.network.injections(pf["vm"], pf["va"])
-            unit_p[f] = r["unit_p"]
-            self.shunt_q[f] = r["shunt_q"]
-            self.slack_mw[f] = float(s.net.res_ext_grid.p_mw.sum())
-            self.cost[f] = r["cost"]
-            self.anchor_dev[f] = float(np.abs(r["unit_p"] - sp)[anchored].sum())
+            vm[f], va[f] = pf.vm, pf.va
+            p[f], q[f] = s.network.injections(pf.vm, pf.va)
+            unit_p[f] = r.unit_p
+            self.shunt_q[f] = r.shunt_q
+            self.slack_mw[f] = float(self.flow.net.res_ext_grid.p_mw.sum())
+            self.cost[f] = r.cost
+            self.anchor_dev[f] = float(np.abs(r.unit_p - sp)[anchored].sum())
             free = on & np.isfinite(self.ramp) & (p_hi - p_lo > 1e-6)
             at_ramp = free & (
-                ((p_lo > base_lo + 1e-6) & (r["unit_p"] < p_lo + 1e-3))
-                | ((p_hi < base_hi - 1e-6) & (r["unit_p"] > p_hi - 1e-3))
+                ((p_lo > base_lo + 1e-6) & (r.unit_p < p_lo + 1e-3))
+                | ((p_hi < base_hi - 1e-6) & (r.unit_p > p_hi - 1e-3))
             )
             self.ramp_bound[f] = at_ramp.sum() / max(free.sum(), 1)
-            prev, prev_q = r["unit_p"], r["unit_q"]
-            self.final = (prev.copy(), prev_q.copy(), pf["vm"].copy(), pf["va"].copy())
+            prev, prev_q = r.unit_p, r.unit_q
+            self.final = (prev.copy(), prev_q.copy(), pf.vm.copy(), pf.va.copy())
         self.seconds = time.perf_counter() - clock
         self.pool = Pool(time=self.loads.time, vm=vm, va=va, p=p, q=q, solve_kind=kind, unit_p=unit_p)
         return self.pool

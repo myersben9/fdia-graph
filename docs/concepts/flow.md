@@ -44,9 +44,12 @@ The solve:
 - IEEE cases: `generate_states` in `data/ieee_pool.py` scales the loads along a load profile and
   solves one power flow per step.
 - New York grid: `data/dispatch.py` sets each hour's dispatch. `PoolBuilder` in `data/pool.py`
-  then solves one optimal power flow per five-minute frame, with `AcSolver` (`data/solver.py`),
-  which runs on the Ipopt that `data/ipopt.py` finds and checks. `data/pool.py` also reads and
-  writes the pool file.
+  then solves one optimal power flow per five-minute frame, with `IpoptSolver`
+  (`data/ipopt_solver.py`), which runs on the Ipopt that `data/ipopt.py` finds and checks, and
+  one power flow at its outputs, with `PandapowerSolver` (`data/pandapower_solver.py`).
+  `data/pool.py` also reads and writes the pool file.
+- Both solvers are engines of one interface, `Solver` (`data/solver.py`). A `SolveSettings`
+  passed to either builder picks the kind of solve and the engine ([Solving](solving.md)).
 
 The IEEE pools are released, so `fg.generate` downloads one and you do not build it.
 [Solving](solving.md) explains the two kinds of solve, and what happens to a frame that does

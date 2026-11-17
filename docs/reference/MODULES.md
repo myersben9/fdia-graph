@@ -47,11 +47,13 @@ What every folder of the repository holds, then what every Python file does, in 
 | `data.ieee_pool` | The pool of an IEEE case: one AC operating state per step of a load profile. |
 | `data.inputs` | Historical inputs: NYgrid's hourly 2019 tables and NYISO's 5-minute zonal load, and `fetch_inputs`, which downloads everything the build reads at its pinned version. |
 | `data.ipopt` | The optimization solver every OPF of the New York grid runs on, found and checked in one place. |
+| `data.ipopt_solver` | The package's own OPF engine: one polar AC-OPF model of a Case in Pyomo, solved by Ipopt. |
 | `data.load_sources` | Where the bottom-up load profiles come from ([LI21]), each downloaded once into a cache: the NREL ResStock and ComStock county profiles, each utility's EIA-861 sector sales, the census county centroids and the IAC industrial plants, with the clock rules the plants run on. `LoadModel` (`loads.py`) builds the bus profiles from these. |
 | `data.loads` | Per-bus load profiles by the bottom-up method of [LI21], scaled to the real zone load. |
+| `data.pandapower_solver` | pandapower as a solve engine of a Case: its Newton AC power flow and its interior-point AC OPF. |
 | `data.pool` | The pool: one AC operating state per 5-minute frame, from a ramp-constrained real-time dispatch, and the pool file of the build, HDF5. A timeline is written by the writer every grid uses (`fdia_graph.generation.write`) and read through `fdia_graph.dataset`. |
 | `data.profiles` | Load profiles: a real load time series as a load-scaling vector, read from a file or fetched from an operator's feed. |
-| `data.solver` | AC solutions of a Case: the hourly projection (an AC-OPF in Pyomo, solved by Ipopt) and the power flows between hours (pandapower). |
+| `data.solver` | The AC solves of a Case, behind one interface with two engines. |
 | `dataset` | FdiaGraph: a PyTorch-ready dataset over one HDF5 file, a timeline (one row per frame in time order, `kind="timeline"`). |
 | `dataset.base` | The loader's shared state and the constants its concerns read. |
 | `dataset.clients` | The timeline as federated clients: each utility sees only its own meters, buses and labels. |
@@ -103,7 +105,7 @@ What every folder of the repository holds, then what every Python file does, in 
 | `models.data` | What a user gets back: one record, a batch, a whole split, a summary and the episode table. Each is a Bundle, so it is also a dict. |
 | `models.fields` | The fields the record bundles share, each one's meaning written once. |
 | `models.frames` | What the generator passes around per scan: a measurement scan, the emitted frame with its labels, the run's attack knobs, the design of an At ramp and of an Am overload episode, and what the fewest-tamper search returns. |
-| `models.grid` | The static description of a system: the per-branch pi model and the admittance matrices built from it. Nothing here changes from one scan to the next. |
+| `models.grid` | The static description of a system (the per-branch pi model and the admittance matrices built from it, which never change from one scan to the next) and one solved operating point of it. |
 | `models.inputs` | What the formulas and the parsers accept, one model each, checked when built (`models.validation`). |
 | `models.plan` | The records of a timeline's plan and design stages: a placed episode (`Slot`), a split and its frames (`SplitSpan`), a placed episode on its way through the design stage (`Planned`), the attack as it is written (`Episode`, `EpisodeRecord`), what the placement asked for and got (`Placement`), and what a design worker rebuilds its generator from (`GeneratorSpec`). |
 | `models.validation` | The one place inputs are checked (CONTRIBUTING.md, "an input is checked in one place"). |
@@ -214,6 +216,7 @@ What every folder of the repository holds, then what every Python file does, in 
 | `tests/nygrid/test_release_source.py` | The release source's attacker sensitivities stay with the attacker: a timeline built with `v_margin` records the case's true voltage limits, while the attacker designs against the widened ones. Needs the public inputs and the whole 2019 pool (inputs.py). |
 | `tests/nygrid/test_scenario.py` | The hourly operating points against NYgrid's own MATLAB output: the inputs, the dispatch, the AC projection and the pool, and the bottom-up load profiles with their within-hour calibration. |
 | `tests/nygrid/test_sensing.py` | The New York meter plan and its readings: the fewest PMUs on small graphs, the plan, the measurement Jacobian against finite differences, observability and the meter noise. |
+| `tests/nygrid/test_solve_engines.py` | The two OPF engines against each other: the package's (Pyomo and Ipopt) and pandapower's, on the same case, loads and costs. Also the choices the New York pool refuses. The comparisons read no NYgrid data and are skipped where Ipopt cannot start. |
 | `tests/nygrid/test_solvers.py` | The checked Ipopt every OPF of the New York grid runs on: a solver that is missing, or found but unable to start, raises `SolverUnavailable` with the fix, instead of reading as an infeasible model downstream. |
 | `tests/nygrid/test_stretches.py` | The New York source on a synthetic pool, with no NYgrid data and no solver: the frames written in stretches as the weekly splits are planned are the frames written in one pass, one source generates the same file twice, a single episode is the design of its (lagged) window on the true scans, and a failed run leaves no file. |
 | `tests/nygrid/test_tables.py` | The input tables are read whole and closed: no ResourceWarning, a byte-order mark dropped (no data needed). |
@@ -244,6 +247,7 @@ What every folder of the repository holds, then what every Python file does, in 
 | `tests/test_schema.py` | The file protocol lives in one module: the fixture file carries exactly the names it spells, and no other module spells a dataset path. |
 | `tests/test_sdk.py` | Behavioral tests for the SDK surface: the contracts the docs promise, checked on a tiny timeline. |
 | `tests/test_search_speed.py` | The fewest-tamper search's speed-ups change nothing it finds: exhaustive searches on fixed IEEE-14 windows return the answers the search returned before them (pinned), and each shortcut equals the computation it replaced (the cached boundary, the reused solve blocks, the attack vector over the support's branches only). |
+| `tests/test_solve_settings.py` | The solve setting of the pool-building step (`SolveSettings`) on the IEEE cases, with pandapower alone: what the model refuses, the default as the released power flow, and a least-cost OPF pool. |
 | `tests/test_split_first.py` | Split-first generation: the timeline is cut into train, val and test before any episode is placed; each split gets the whole number of episodes closest to its attacked fraction, shared between the families by largest remainder and placed uniformly without overlap or cut; an episode with no feasible design moves to another onset of its split (an Am anywhere in it, a ramp later); and every frame's jitter comes from its own (seed, timestep) stream, so timelines that place different attacks carry the same benign frames. |
 | `tests/test_timeline.py` | The one-file timeline writer: its layout, its episodes and the At and Am frames. |
 | `tests/test_timeline_digests.py` | The generated IEEE timeline, whole: every dataset and attribute of the file against a stored digest. |

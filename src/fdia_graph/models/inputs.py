@@ -229,6 +229,51 @@ class ModelledNet(Validated):
 
 
 @dataclass(frozen=True)
+class UnitCosts(Validated):
+    """Each unit's generation cost, `linear` P + `quadratic` P^2 $/h at an output of P MW: `linear [G]`
+    in $/MWh and `quadratic [G]` in $/MW^2h. A constant term is not held: it does not move the optimum.
+    `unpriced` names the units the source gave no cost for ("gen 3"); any is a `DataConditionError`."""
+
+    error: ClassVar[type[ValueError]] = DataConditionError
+
+    linear: Annotated[np.ndarray, AsArray(np.float64), Dims(1)]
+    quadratic: Annotated[np.ndarray, AsArray(np.float64), Dims(1)]
+    unpriced: tuple[str, ...] = ()
+
+    def invariants(self) -> Iterable[tuple[bool, str]]:
+        yield (
+            not self.unpriced,
+            f"an OPF needs a cost for every generator, and {len(self.unpriced)} have none in the net's "
+            f"poly_cost table: {', '.join(self.unpriced)}",
+        )
+        yield len(self.linear) == len(self.quadratic), "linear and quadratic must hold one value per unit"
+
+    def of(self, unit_p: np.ndarray) -> float:
+        """The cost ($/h) of the outputs `unit_p [G]` (MW)."""
+        return float(self.linear @ unit_p + self.quadratic @ unit_p**2)
+
+
+@dataclass(frozen=True)
+class OpfPool(Validated):
+    """What an OPF pool of an IEEE case came to: `solved` of its `steps` have an optimum. A pool with
+    none is a `DataConditionError`: the case's own limits admit no operating point at these loads."""
+
+    error: ClassVar[type[ValueError]] = DataConditionError
+
+    system: Annotated[int, Integer()]
+    steps: Annotated[int, Integer()]
+    solved: Annotated[int, Integer()]
+
+    def invariants(self) -> Iterable[tuple[bool, str]]:
+        yield (
+            self.solved > 0,
+            f"IEEE-{self.system}: none of the {self.steps} steps has an optimum within the case's limits "
+            "(each unit's P and Q range, each bus's voltage range), so an OPF builds no pool of this case "
+            "at these loads; the power flow (the default solve setting) does",
+        )
+
+
+@dataclass(frozen=True)
 class AdmissibleTargets(Validated):
     """The families a timeline attacks, against the number of targets the case offers each family
     code; a family with none is `NoAdmissibleTarget`, found before any frame is walked."""

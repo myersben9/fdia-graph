@@ -26,8 +26,8 @@ hold for them.
 - The grid is the MATPOWER case file `case_nygrid.m` in `systems/`, read by `nygrid_case()`
   (`systems/case.py`, with matpowercaseframes). A change to the grid is an edit to that file; no code assembles or patches the case on the way
   in. `pipelines/newyork/make_case.py` is the recipe that first made the file from NYgrid's `Data/` folder.
-- Among the New York modules, pandapower is imported only in `data/solver.py`. Optimization problems are Pyomo models solved by
-  `data.ipopt.ipopt()`. h5py only in the timeline writer every grid shares (`TimelineWriter`, `generation/write.py`), the pool readers (`generation/__init__.py`, `data/pool.py`) and `dataset/`; a source holds the writer (`source.writer`), never the open file. Random generators of the New York build come from
+- pandapower is imported only in `data/pandapower_solver.py` and, lazily, in `data/ieee_pool.py` and `Case.from_ieee` (`systems/case.py`). Optimization problems are Pyomo models solved by
+  `data.ipopt.ipopt()` (`data/ipopt_solver.py`, `engine/attacks/opf.py`); the one exception is `PandapowerSolver.opf`, pandapower's own OPF, kept as the second engine of the solve setting. h5py only in the timeline writer every grid shares (`TimelineWriter`, `generation/write.py`), the pool readers (`generation/__init__.py`, `data/pool.py`) and `dataset/`; a source holds the writer (`source.writer`), never the open file. Random generators of the New York build come from
   `data.config` and are passed in: `rng()` for the meters, the split and the placement, and `stream_key()` for
   each design, whose generator the design process makes from the key. The shared path keys two streams by the build
   seed itself: a frame's meter jitter (seed, `JITTER_STREAM`, pool frame) and an episode's move

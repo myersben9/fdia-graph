@@ -62,7 +62,7 @@ _DATA_AS_WRITTEN = (  # the New York modules of data/; generation/newyork.py is 
     "load_sources.py",
     "loads.py",
     "pool.py",
-    "solver.py",
+    "ipopt_solver.py",
 )
 _AS_WRITTEN = "the New York code, moved in as written; conformed module by module"
 DEFERRED: dict[str, str] = {

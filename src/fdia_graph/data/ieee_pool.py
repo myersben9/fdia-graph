@@ -3,7 +3,9 @@
     generate_states(system, S)  ->  the pool of states [T, N, 4]
 
 The pool's columns are [|V| (pu), P_inj (MW), Q_inj (MVAr), theta (deg)], in pandapower's
-consumer-positive convention. `S` is a load-scaling vector of `data/profiles.py`.
+consumer-positive convention. `S` is a load-scaling vector of `data/profiles.py`. `solve` (a
+`SolveSettings`) chooses how a step is solved: a power flow in pandapower (the released pools), or
+a least-cost AC OPF in either engine.
 """
 
 from __future__ import annotations
@@ -17,7 +19,9 @@ from fdia_graph.constants.grid import (
     IEEE_CASES,  # bus-count -> pandapower builder; single source of supported systems
 )
 from fdia_graph.constants.time import LOAD_JITTER_RHO
-from fdia_graph.models.inputs import SupportedSystem
+from fdia_graph.models.choices import SolveEngine, SolveMethod
+from fdia_graph.models.config import SolveSettings
+from fdia_graph.models.inputs import OpfPool, SupportedSystem
 
 if TYPE_CHECKING:
     from fdia_graph.systems.pandapower_types import PandapowerNet
@@ -74,6 +78,41 @@ def _solve_states_chunk(key: int, sf_chunk: np.ndarray) -> list[np.ndarray]:
     return out
 
 
+def _states_chunk(key: int, sf_chunk: np.ndarray, solve: SolveSettings) -> list[np.ndarray]:
+    """The AC operating state of each scale-factor row, solved as `solve` says. Module-level, so it can
+    run in a worker process."""
+    if solve.method == SolveMethod.OPF:
+        return _opf_states_chunk(key, sf_chunk, solve.engine)
+    return _solve_states_chunk(key, sf_chunk)
+
+
+def _opf_states_chunk(key: int, sf_chunk: np.ndarray, engine: str) -> list[np.ndarray]:
+    """The AC operating state [N, 4] of each scale-factor row of `sf_chunk` under a least-cost AC OPF on
+    the engine `engine`: the loads scaled, each unit's output chosen within the case's limits at the
+    case's cost (its linear and quadratic terms). A row with no optimum is skipped. Every row is solved
+    from the same start, so the states do not depend on how the rows are cut into chunks."""
+    import pandapower as pp
+    import pandapower.networks as pn
+
+    from fdia_graph.data.solver import Solver
+    from fdia_graph.systems.case import Case
+
+    net = getattr(pn, IEEE_CASES[key])()
+    pp.runpp(net)
+    case, costs = Case.from_pandapower(net), Case.pandapower_costs(net)
+    solver = Solver.from_engine(engine, case)
+    scale = np.ones((len(sf_chunk), len(case.bus_id)))
+    scale[:, _case_buses(key)] = sf_chunk
+    out = []
+    for sf in scale:
+        point = solver.opf(case.pd * sf, case.qd * sf, costs)
+        if point is None:
+            continue  # no optimum within the limits: skip this timestep
+        p, q = solver.network.injections(point.vm, point.va)  # generation minus load, shunts left out
+        out.append(np.column_stack([point.vm, -p, -q, point.va]))
+    return out
+
+
 def _remove_shunt_injections(z: np.ndarray, base: PandapowerNet, pos: dict[int, int]) -> None:
     """Subtract each shunt's draw from its bus's P and Q, in place. State estimation models a shunt in
     the admittance matrix, not as an injection, so the stored injection must exclude it."""
@@ -103,6 +142,15 @@ def _ar1_scale(
     return np.clip(1.0 + k * S[:, None] + jit, clip[0], clip[1])
 
 
+def _as_pool(states: list[np.ndarray], key: int, steps: int, solve: SolveSettings) -> np.ndarray:
+    """The solved states of `steps` steps as the pool [T', N, 4]; a pool without one solved step is refused."""
+    if solve.method == SolveMethod.OPF:
+        OpfPool(system=key, steps=steps, solved=len(states))
+    if not states:
+        raise RuntimeError("no operating points converged; check the profile / scaling knobs")
+    return np.asarray(states, dtype=np.float64)
+
+
 def generate_states(
     system: Union[int, str],
     profile: Union[np.ndarray, Sequence[float]],
@@ -112,11 +160,14 @@ def generate_states(
     n: Optional[int] = None,
     seed: int = 123,
     workers: Optional[int] = None,
+    solve: Optional[SolveSettings] = None,
 ) -> np.ndarray:
     """A pool of AC states [T', N, 4] = [|V| (pu), P_inj (MW), Q_inj (MVAr), theta (deg)] from a profile of
     T steps: each timestep scales the loads and generator setpoints per bus (`_ar1_scale`) and solves the AC
     power flow. One that does not converge is dropped, so T' <= T and the rows no longer align with the
-    profile. `workers` > 1 needs an `if __name__ == "__main__":` guard."""
+    profile. `workers` > 1 needs an `if __name__ == "__main__":` guard. `solve` (None: the power flow in
+    pandapower) with method "opf" scales the loads only and chooses the outputs by a least-cost AC OPF; a
+    case with no optimum at any step raises `DataConditionError`."""
     key = SupportedSystem(system, frozenset(IEEE_CASES)).number
     S = np.asarray(profile, dtype=float).ravel()
     if n is not None:
@@ -124,16 +175,15 @@ def generate_states(
     # the whole scale-factor matrix is built here, so the AR(1) jitter is continuous across chunks
     nbus = len(_case_buses(key))
     SF = _ar1_scale(S, nbus, k, sigma, clip, LOAD_JITTER_RHO, seed)  # [T, nbus]
+    solve = solve or SolveSettings(method=SolveMethod.POWER_FLOW, engine=SolveEngine.PANDAPOWER)
     if workers and workers > 1 and len(S) >= workers:
         import multiprocessing as mp
 
         sf_chunks = np.array_split(SF, workers)  # contiguous rows: concatenating keeps time order
-        args = [(key, sf_chunks[i]) for i in range(len(sf_chunks))]
+        args = [(key, sf_chunks[i], solve) for i in range(len(sf_chunks))]
         with mp.Pool(workers) as pool:
-            parts = pool.starmap(_solve_states_chunk, args)
+            parts = pool.starmap(_states_chunk, args)
         out = [z for part in parts for z in part]
     else:
-        out = _solve_states_chunk(key, SF)
-    if not out:
-        raise RuntimeError("no operating points converged; check the profile / scaling knobs")
-    return np.asarray(out, dtype=np.float64)
+        out = _states_chunk(key, SF, solve)
+    return _as_pool(out, key, len(S), solve)

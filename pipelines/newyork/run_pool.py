@@ -40,7 +40,6 @@ from fdia_graph.data.dispatch import hourly_dispatch
 from fdia_graph.data.inputs import fetch_nyiso, read_nygrid
 from fdia_graph.data.loads import LoadModel, LoadSeries
 from fdia_graph.data.pool import Pool, PoolBuilder, read_pool, write_pool
-from fdia_graph.data.solver import AcSolver
 from fdia_graph.systems.case import nygrid_case
 from fdia_graph.systems.ownership import assign_clients
 
@@ -84,7 +83,7 @@ def _builder(time_, p, q):
     picked = [hours[i] for i in h_idx]
     disp = hourly_dispatch(case, picked)
     renew = np.array([h.renew_mw for h in picked])
-    b = PoolBuilder(AcSolver(case), LoadSeries(time=time_, p=p, q=q), disp, renew, unit_ramps(case))
+    b = PoolBuilder.from_settings(case, LoadSeries(time=time_, p=p, q=q), disp, renew, unit_ramps(case))
     return b, stamps[h_idx]
 
 

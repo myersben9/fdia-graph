@@ -35,6 +35,7 @@ class PandapowerNet(Protocol):
     sgen: pd.DataFrame
     ext_grid: pd.DataFrame
     shunt: pd.DataFrame
+    poly_cost: pd.DataFrame
     res_bus: pd.DataFrame
     res_gen: pd.DataFrame
     res_ext_grid: pd.DataFrame
