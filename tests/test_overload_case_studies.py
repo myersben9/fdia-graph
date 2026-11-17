@@ -1,6 +1,6 @@
 """[WU26]'s case studies on our overload attack: the paper's PMU placement, its two
 lines overloaded at once, the ratings 1.2 times each line's peak true flow over the window (the level
-at which our device counts matched the paper's in the S_max sensitivity study), and the D16 bounds.
+at which our device counts matched the paper's in the S_max sensitivity study), and the load and generator bounds.
 The paper states no line limits, so the ratings are ours and the comparison is of kind, not of value:
 the attack is feasible, reaches both ratings, tampers the paper's devices on IEEE-14, and its largest
 per-device change is of the paper's order (0.22 and 0.17 pu there)."""

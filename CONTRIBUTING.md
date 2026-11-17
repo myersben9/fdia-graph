@@ -25,7 +25,8 @@ pytest -n auto                                # both suites (tests, analysis/tes
                                               # its conftest.py holds the fixtures of both suites
 ```
 
-`docs/ROADMAP.md` is the map and the reading order.
+`docs/concepts/flow.md` is the map and the reading order; `docs/reference/MODULES.md` says what every
+file does.
 
 Every diagram is a rendered image, never a Mermaid block: the README is also the PyPI page, and the
 docs are read in the GitHub mobile app, and neither renders Mermaid. Each diagram's source is a
@@ -56,6 +57,13 @@ version to GitHub Pages with mike (a tag push deploys that version as `latest`, 
 deploys `dev`), so every release's docs stay readable after the next release; the version picker on
 each page switches between them. `python tools/site_index.py && python -m mkdocs build --strict`
 checks a docs change locally.
+
+The pages are sorted by kind, one folder each (`DOCS` in `tools/layout.py`): tutorials in
+`docs/getting-started/`, tasks in `docs/guides/`, explanations in `docs/concepts/`, studies in
+`docs/analysis/` and facts to look up in `docs/reference/`. `python tools/prereview.py` fails a page
+under `docs/`, or the README, that holds a fenced Mermaid block or an internal decision code (a
+capital N or D followed by one to three digits, as a word of its own); the pages not yet cleaned are
+listed in `NOT_YET_PLAIN` in `tools/prereview.py`, each with its reason. `CHANGELOG.md` is not read.
 
 ## The rules
 
@@ -142,6 +150,18 @@ tags, `data-v<x.y.z>` (the bare `v0.x.y` tags belong to package versions), and d
 package version. The
 registry maps the short name (`fg.load(..., release="v0.8.0")`) to the tag, and
 `tools/upload_assets.py v0.8.0 <files>` refuses to touch a package tag.
+
+## Test and release commands
+
+| command | what it runs |
+|---|---|
+| `python tools/prereview.py` | every CI gate, the test suites and the checks CI does not run, on this checkout's source |
+| `pytest` | both suites from the repository root, on this checkout's source; builds a tiny IEEE-14 timeline in a throwaway cache (about a minute) |
+| `pytest tests` | the generation toolkit's suite, which runs with `fdia_analysis` blocked (`tests/test_toolkit_boundary.py`) |
+| `pytest analysis/tests` | the analysis toolkit's suite, on the same tiny timeline (the root `conftest.py`) |
+| `FDIA_SLOW=1 pytest` | adds the slow checks: the estimator test on the published IEEE-118 file and the longer attack searches |
+| CI (`.github/workflows/smoke.yml`) | the tests on Linux (3.12 and 3.9) and Windows, pyright, ruff format and check, the readability gate, the layout gate, the generated-docs checks, the install on 3.9 and 3.12 |
+| `python tools/release.py vX.Y.Z notes.md` | after the bump PR: the tag, the GitHub release and the upload to PyPI |
 
 ## Where things live
 

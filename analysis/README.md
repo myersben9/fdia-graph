@@ -22,7 +22,7 @@ the files through `fdia_graph.dataset` and builds on the generation toolkit's fo
 
 | Install | Adds |
 |---|---|
-| `pip install fdia-analysis` | the toolkit and `fdia-graph` (numpy, h5py): the threshold localizers and the results store |
+| `pip install fdia-analysis` | the toolkit and `fdia-graph`: the threshold localizers and the results store |
 | `pip install "fdia-analysis[se]"` | pandapower and scipy, for `fdia_analysis.se` and the residual localizer |
 | `pip install "fdia-analysis[torch]"` | torch, for the learned localizers and faster per-record inverses |
 | `pip install "fdia-analysis[federated]"` | torch and scikit-learn, for `fdia_analysis.federated` |
