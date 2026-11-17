@@ -5,6 +5,23 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- **Docs: a landing page that says what the package is, and diagrams a phone can read (no change to the
+  code of either package).** `README.md` presents the two toolkits, the test systems (the eight IEEE
+  cases and the New York grid), three steps (load, generate, analyse) and one top-to-bottom picture of
+  the flow, `docs/figures/diagrams/flow.png`. Its loading table moved to `docs/reference/EXAMPLES.md`, the
+  list of extras to `docs/ROADMAP.md`. `tools/render_mermaid.py` draws a hand-written flow diagram for a
+  phone (20 px type, a white card 900 px wide), and `tools/prereview.py` fails one that is not
+  `flowchart TB`, has more than 8 nodes or is wider than 900 px; nine diagrams are drawn that way, seven
+  are exempt on its `NOT_YET_REDRAWN` list (the old `pipeline.png` among them, which the published PyPI
+  page loads until the next release), the docs site shows a phone diagram at most 450 px wide
+  (`docs/stylesheets/extra.css`), and the class and module diagrams keep the wide rendering. The
+  New York walkthrough's snippet reads `SolveKind.SOLVED`, and links to files outside `docs/` are full
+  GitHub addresses. The New York guide names the pool file as the pipeline scripts do
+  (`out/pool_2019_v3.h5`). The generation guide carries no decision codes, and the recipes of its
+  overload table are named in plain words ("with the load and generator bounds"; the labels in
+  `results/queries.py`, the stored runs unchanged). The package description on PyPI follows the new
+  summary.
+
 - **The grid and the meters have their own packages, `fdia_graph.systems` and `fdia_graph.sensing`
   (breaking for the module paths below; a move only: no class is renamed, no logic changes and no stored
   byte changes: the five whole-file digests are unchanged, and thirty-two IEEE timelines are byte for byte

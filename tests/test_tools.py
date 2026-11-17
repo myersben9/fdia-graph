@@ -1,5 +1,6 @@
-"""Two repository tools on small samples: the constants rule of `tools/layout.py` on a temporary tree,
-and `tools/count_lines.py` on a file whose lines are easy to miscount."""
+"""Three repository tools on small samples: the constants rule of `tools/layout.py` on a temporary tree,
+`tools/count_lines.py` on a file whose lines are easy to miscount, and the phone rules of
+`tools/render_mermaid.py` on two flow diagrams."""
 
 import os
 import sys
@@ -7,6 +8,44 @@ import sys
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "tools"))
 import count_lines  # noqa: E402
 import layout  # noqa: E402
+import render_mermaid  # noqa: E402
+
+HOUSE_STYLE = """flowchart TB
+    subgraph box["a box (of two)"]
+        one["`**1. One**
+        a label (with brackets) --> and an arrow`"]
+        two[("a file")]
+    end
+    three("rounded")
+    one -- "a label" --> two
+    box --> three
+"""
+
+
+def test_a_flow_diagram_of_bare_names_fails_and_the_house_style_passes():
+    bare = "flowchart TB\n    " + " --> ".join("abcdefghij") + "\n"
+    assert render_mermaid.source_faults(bare) == [
+        'has nodes not written as name["label"]: a, b, c, d, e, f, g, h, i, j',
+        "has 10 nodes (at most 8)",
+    ]
+    assert render_mermaid.flow_nodes(HOUSE_STYLE) == ({"one", "two", "three"}, set())
+    assert render_mermaid.source_faults(HOUSE_STYLE) == []
+    # an unquoted label and a name that starts with a digit are seen too; left to right is refused
+    assert render_mermaid.source_faults("flowchart LR\n    1a[plain words] --> 2b\n") == [
+        "is not `flowchart TB`",
+        'has nodes not written as name["label"]: 1a, 2b, plain, words',
+    ]
+
+
+def test_only_the_generated_diagrams_keep_the_wide_rendering():
+    wide = [name for name in ("classes_models.mmd", "modules.mmd", "modules_map.mmd", "roadmap_modules.mmd")]
+    assert [render_mermaid.is_generated(os.path.join("docs", name)) for name in wide] == [
+        True,
+        True,
+        False,
+        False,
+    ]
+
 
 TREE = {
     "pkg/constants/facts.py": "SPEED = 3.0\n",  # a home of constants: any name may live here

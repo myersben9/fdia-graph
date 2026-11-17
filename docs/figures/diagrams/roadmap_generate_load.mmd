@@ -1,14 +1,21 @@
 flowchart TB
-    subgraph generate["fg.generate(system, name)"]
-        direction LR
-        p1[profiles.py<br/>ISO load series] --> p2["engine: AC solve<br/>operating-state pool"]
-        p2 --> p3["timeline.py: the walk<br/>attack episodes, benign frames"]
-        p3 --> p4["attack_frame<br/>in engine.records,<br/>one scan per frame"]
-        p4 --> p5[("one HDF5 file, registered<br/>data · benign · clean · episodes · attack")]
-    end
-    subgraph load["fg.load(name, order), the registered file"]
-        direction LR
-        l1[registry.resolve<br/>name, release, layout] --> l2[download.ensure_local<br/>cache, sha256]
-        l2 --> l3["FdiaGraph<br/>random: records, batches, exports<br/>time: windows, episodes"]
-    end
-    generate ~~~ load
+    pool["`**Pool of operating points**
+    the released pool, or your own
+    from profiles.generate_states`"]
+    gen["`**fg.generate(system, name)**
+    the walk: attack episodes
+    and benign frames`"]
+    scan["`**One scan per frame**
+    sensing/: meters, noise
+    engine/: attacks`"]
+    file[("`**One HDF5 file, registered**
+    data, benign, clean,
+    episodes, attack`")]
+    resolve["`**fg.load(name, order)**
+    registry.resolve: name, release`"]
+    local["`**download.ensure_local**
+    cache, sha256`"]
+    loaded["`**FdiaGraph**
+    random: records, batches
+    time: windows, episodes`"]
+    pool --> gen --> scan --> file --> resolve --> local --> loaded

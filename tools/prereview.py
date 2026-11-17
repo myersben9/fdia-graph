@@ -21,7 +21,10 @@ the branch's commits against the base, the uncommitted changes and the untracked
 
 - **changelog**: never more than one `## Unreleased`; a change under `src/` or `analysis/src/` needs
   exactly one, with at least one entry, and CHANGELOG.md changed.
-- **rendered diagrams**: a changed `docs/figures/diagrams/*.mmd` has its `.png` and `.svg` changed too.
+- **rendered diagrams**: a changed `docs/figures/diagrams/*.mmd` has its `.png` and `.svg` changed too;
+  and every hand-written flow diagram reads on a phone: `flowchart TB`, at most 8 nodes, a PNG at most
+  900 px wide (every run; the generated class and module diagrams are exempt, and so are the diagrams
+  listed in `NOT_YET_REDRAWN`, which the site's stylesheet must name too).
 - **cited paths**: every repository path a Markdown file cites exists (every file, every run: a
   page nobody edits goes stale too) (a file or a folder,
   with or without an extension; in CHANGELOG.md the `## Unreleased` section only, the released
@@ -48,6 +51,7 @@ import sys
 import time
 from dataclasses import dataclass
 
+from render_mermaid import flow_faults, is_generated
 from sources import CONFTEST, PACKAGES, ROOT, SOURCE_ROOTS, TESTS, python_path
 
 PASS, FAIL, SKIP = "PASS", "FAIL", "SKIP"
@@ -293,15 +297,53 @@ def _integer_fields() -> tuple[str, str]:
     return (FAIL if bare else PASS), "int fields without Integer(): " + "; ".join(bare)
 
 
+DIAGRAMS = "docs/figures/diagrams/"
+STYLESHEET = "docs/stylesheets/extra.css"  # limits the display width of the phone diagrams on the site
+# Hand-written flow diagrams exempt from the phone rules, each with its reason: wide renders of the old
+# renderer, left as they are. Redrawing one top to bottom and re-rendering it, or deleting it, takes
+# its name off this list (and off the stylesheet's).
+NOT_YET_REDRAWN = {
+    "concepts_one_record": "not yet redrawn",
+    "localization_flow": "not yet redrawn",
+    "se_estimators": "not yet redrawn",
+    "se_gated_prior": "not yet redrawn",
+    "se_jacobian_weighting": "not yet redrawn",
+    "trust_flow": "not yet redrawn",
+    "pipeline": "kept until the next release: the published PyPI page loads it",
+}
+
+
 def _rendered_diagrams(files: list[str]) -> tuple[str, str]:
+    """A changed diagram source has its two images changed with it, and every hand-written flow
+    diagram reads on a phone (`render_mermaid.flow_faults`), the generated class and module diagrams
+    and the `NOT_YET_REDRAWN` ones aside."""
     stale = [
         f
         for f in files
-        if f.startswith("docs/figures/diagrams/")
+        if f.startswith(DIAGRAMS)
         and f.endswith(".mmd")
+        and os.path.exists(os.path.join(ROOT, f))
         and not {f[:-4] + ".png", f[:-4] + ".svg"} <= set(files)
     ]
-    return (FAIL if stale else PASS), "re-render: " + ", ".join(stale)
+    sources = sorted(f for f in _tree() if f.startswith(DIAGRAMS) and f.endswith(".mmd"))
+    names = {posixpath.basename(f)[:-4] for f in sources}
+    faults = [
+        f"{f} {fault}"
+        for f in sources
+        if not is_generated(f) and posixpath.basename(f)[:-4] not in NOT_YET_REDRAWN
+        for fault in flow_faults(os.path.join(ROOT, f))
+    ]
+    faults += [
+        f"NOT_YET_REDRAWN names {name}, which is no diagram" for name in NOT_YET_REDRAWN if name not in names
+    ]
+    # the site shows a phone diagram at half its pixels; the stylesheet leaves the wide ones alone by name
+    css = _read(STYLESHEET) if os.path.exists(os.path.join(ROOT, STYLESHEET)) else ""
+    spared = set(re.findall(r'\[src\$="/(\w+)\.png"\]', css)) - {"modules"}
+    if spared != set(NOT_YET_REDRAWN):
+        odd = sorted(spared ^ set(NOT_YET_REDRAWN))
+        faults.append(f"{STYLESHEET} and NOT_YET_REDRAWN disagree on " + ", ".join(odd))
+    detail = "; ".join((["re-render: " + ", ".join(stale)] if stale else []) + faults)
+    return (FAIL if stale or faults else PASS), detail
 
 
 def repo_checks(files: list[str]) -> list[tuple[str, str, str]]:

@@ -1,20 +1,19 @@
-flowchart LR
-    subgraph pool["1. pool of AC operating points"]
-        p1["load profile:<br/>ISO system load (IEEE),<br/>2019 bus loads (New York)"] --> p3["one AC state per frame:<br/>power flow (IEEE),<br/>AC dispatch (New York)"]
-    end
-    subgraph plan["2. the splits, cut first"]
-        s0["prepare: New York finds the<br/>onsets its families may take<br/>(masks, the onset survey)"] --> s1["cut_splits:<br/>blocks in time order (IEEE),<br/>whole weeks (New York)"]
-    end
-    subgraph loop["3. split by split: place, design, walk"]
-        l1["place: whole episodes closest<br/>to the fraction, at uniform<br/>random onsets, never cut"] --> l2["design: a local false state<br/>per episode; none: moved (IEEE),<br/>left benign (New York)"]
-        l2 --> l3["walk: every frame whose<br/>split is planned by now,<br/>in time order"]
-        l3 --> w2{"frame in<br/>an episode?"}
-        w2 -- "At Am" --> w3["the noisy scan under the attack<br/>(an IEEE ramp is designed<br/>as the walk reaches it)"]
-        w2 -- no --> w5[benign scan]
-        l3 -. "next split" .-> l1
-    end
-    subgraph after["4. after the walk"]
-        a1["the episode table"] --> a2["IEEE: temporal_delta, swing<br/>from observed frames only;<br/>placement attributes:<br/>requested, built, moved"]
-    end
-    pool --> plan --> loop --> after
-    after --> f[("one timeline file<br/>observed · benign · true state")]
+flowchart TB
+    pool["`**1. Pool of operating points**
+    one AC state per frame`"]
+    cut["`**2. Cut the splits**
+    blocks in time order (IEEE)
+    whole weeks (New York)`"]
+    place["`**3. Place a split's episodes**
+    whole, at random onsets`"]
+    design["`**4. Design each episode**
+    a local false state`"]
+    walk["`**5. Walk the split's frames**
+    a benign scan, or the scan under
+    the attack; then the next split`"]
+    after["`**6. After the last split**
+    the episode table`"]
+    file[("`**One timeline file**
+    observed, benign, true state`")]
+    pool --> cut --> place --> design --> walk
+    walk --> after --> file

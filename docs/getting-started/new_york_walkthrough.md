@@ -5,7 +5,7 @@ with the call that does each step. [The architecture](../concepts/new_york_grid.
 [the troubleshooting page](../guides/troubleshooting_new_york.md) what each stage reports when it fails, and
 [the extending guide](../guides/extending_new_york.md) how to add an attack or an alarm rule of your own.
 
-![The stages of fdia_graph.generation.nygrid](../figures/diagrams/nygrid_pipeline.png)
+![The New York build in seven stages, top to bottom: the inputs (fetch_inputs: NYgrid tables, NYISO 2019 load, utility territories); the network (Case, Network, Ownership: a client per utility); the operating points (LoadModel, hourly_dispatch, PoolBuilder: the Pool); the meters (plan_meters: the MeterPlan, Measurement h(x), NoiseModel); the attacker (Attacker: a local false state, AttackFamily.design: an Episode); the timeline (NewYorkSource.generate); the clients' view (Dataset, ClientView)](../figures/diagrams/nygrid_pipeline.png)
 
 The snippets run from a work folder that holds the inputs (`python pipelines/newyork/build_timeline.py --fetch`, see
 [the guide](../guides/new_york.md)) and the 2019 pool (`pipelines/newyork/run_pool.py`, several hours).
@@ -28,16 +28,17 @@ A change to the grid is an edit to the case file ([the architecture](../concepts
 
 ## 2. The operating points
 
-`scenario` gives the true AC state of every five-minute frame of 2019: the loads by bus (`LoadModel`), NYgrid's
+`fdia_graph.generation.nygrid` gives the true AC state of every five-minute frame of 2019: the loads by bus (`LoadModel`), NYgrid's
 hourly dispatch, and a ramp-limited least-cost AC dispatch solved frame by frame (`PoolBuilder`). The year takes
 hours, so it is built once and read back:
 
 ```python
+from fdia_graph.constants.newyork import SolveKind
 from fdia_graph.generation.nygrid.io import read_pool
-from fdia_graph.generation.nygrid.pool import SOLVED
 
 pool = read_pool("out/pool_2019_v3.h5")
-print((pool.solve_kind == SOLVED).mean())  # 0.998: the frames that solved; only these are used downstream
+# 0.998: the frames that solved; only these are used downstream
+print((pool.solve_kind == SolveKind.SOLVED).mean())
 ```
 
 ## 3. The meters, the attacker and the timeline

@@ -465,9 +465,9 @@ def span(store: Store, experiment: str, metric: str, fmt: str = "", **keys: str)
 
 # ---- generation (docs/guides/generation.md)
 _AM_RUNS = (
-    ("1", "none", "one line, before the D16 bounds"),
-    ("1", "d16", "one line, D16 bounds"),
-    ("2", "d16", "two lines, D16 bounds (default)"),
+    ("1", "none", "one line, without the load and generator bounds"),
+    ("1", "d16", "one line, with the load and generator bounds"),
+    ("2", "d16", "two lines, with the load and generator bounds (default)"),
 )
 
 

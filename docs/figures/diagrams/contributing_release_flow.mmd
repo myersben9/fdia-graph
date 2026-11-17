@@ -1,5 +1,12 @@
-flowchart LR
-    A["bump PR:<br/>pyproject, __init__, changelog heading"] --> B[merge on green]
-    B --> C["tools/release.py vX.Y.Z notes.md"]
-    C --> D[tag on main · GitHub release]
-    D --> E[publish.yml → PyPI]
+flowchart TB
+    A["`**1. Bump pull request**
+    the version in pyproject and in
+    the package, the changelog heading`"]
+    B["`**2. Merge on green**`"]
+    C["`**3. Release**
+    tools/release.py vX.Y.Z notes.md`"]
+    D["`**4. Tag on main**
+    and the GitHub release`"]
+    E["`**5. Publish**
+    publish.yml uploads to PyPI`"]
+    A --> B --> C --> D --> E

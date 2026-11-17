@@ -1,0 +1,17 @@
+flowchart TB
+    system["`**1. Test system**
+    Case, Network`"]
+    points["`**2. Operating points**
+    generate_states (IEEE)
+    PoolBuilder (New York)`"]
+    attacks["`**3. Meters and attacks**
+    MeterPlan, NoiseModel
+    the attack designs`"]
+    file[("`**4. Timeline file**
+    TimelineSource.generate
+    TimelineWriter`")]
+    load["`**5. Load**
+    fg.load returns FdiaGraph`"]
+    analyse["`**6. Analyse**
+    fdia_analysis`"]
+    system --> points --> attacks --> file --> load --> analyse

@@ -157,7 +157,7 @@ physics live on the dataset as `ds.edge_attr` `[E,8]` and one column each as `ds
 
 Every frame of a timeline carries three aligned layers, for node and for edge measurements:
 
-![clean plus meter noise gives benign; benign plus the corruption (Ad, As, Ar) or the attack vector of the local false state (Aq, At, Al, Am) gives the observed node_x and edge_x, so observed minus benign is the attack exactly](../figures/diagrams/data_dictionary_layers.png)
+![three layers, top to bottom: clean and edge_clean, the noiseless true state; plus meter noise gives benign and edge_benign, the scan without the attack; plus the attack gives node_x and edge_x, the observed model input, so observed minus benign is the attack exactly](../figures/diagrams/data_dictionary_layers.png)
 
 | layer | meaning |
 |-------|---------|
@@ -197,8 +197,7 @@ and its records carry no `pmu_i`. `export(["prev_pmu_i"])` gives the previous em
 currents on a hybrid-meter timeline, like `prev_node_x`.
 
 Chunked along the frame axis so a window of W frames is one read. A file without the `kind` attribute
-`timeline` (a record shard of a data release before v0.8.0) is refused with `NotATimeline`; fdia-graph
-0.21 reads those.
+`timeline` (a record shard of a data release before v0.8.0) is refused with `NotATimeline`.
 
 <!-- models:begin -->
 ## Models

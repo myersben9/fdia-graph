@@ -31,9 +31,18 @@ Every diagram is a rendered image, never a Mermaid block: the README is also the
 docs are read in the GitHub mobile app, and neither renders Mermaid. Each diagram's source is a
 `docs/figures/diagrams/<name>.mmd` next to its `<name>.png` and `<name>.svg`; edit the source and
 re-render with `python tools/render_mermaid.py docs/figures/diagrams/<name>.mmd` (Playwright with
-Chromium), which writes both images, then commit all three. The class and module diagrams of
-`docs/reference/CLASS_MAP.md` are generated: `python tools/class_diagrams.py` rewrites their sources from
-the code (CI fails when they are stale), then render them the same way. README images use the
+Chromium), which writes both images, then commit all three. A hand-written flow diagram is drawn for
+a phone: the renderer uses 20 px type and the site's teal palette, and puts the diagram at its natural
+size on a white card 450 px wide with rounded corners, so the PNG (two device pixels per CSS pixel) is
+900 px wide and reads on a dark page and on a light one. `python tools/prereview.py` fails a
+hand-written flow diagram that is not `flowchart TB`, has more than 8 nodes or has a PNG wider than
+900 px, or names a node otherwise than `name["label"]`; the diagrams not yet redrawn are listed in
+`NOT_YET_REDRAWN` in `tools/prereview.py`. On the docs site `docs/stylesheets/extra.css` shows a phone
+diagram at most 450 px wide, and names the same exempt diagrams. The class
+and module diagrams of `docs/reference/CLASS_MAP.md` are generated: `python tools/class_diagrams.py`
+rewrites their sources from the code (CI fails when they are stale), then render them the same way;
+the renderer knows them by name (`classes_*`, `modules`), keeps them wide (Mermaid's default theme on
+a 1400 px page) and the gate exempts them. README images use the
 raw.githubusercontent.com URL so PyPI shows them; docs pages use relative paths.
 
 The Models section of `docs/reference/DATA_DICTIONARY.md` is generated too: `python tools/models_doc.py`
@@ -123,6 +132,10 @@ Before the first tag that publishes `fdia-analysis`, the project needs a pending
 PyPI (pypi.org, Your account, Publishing: owner `myersben9`, repository `fdia-graph`, workflow
 `publish.yml`); without it the upload of `fdia-analysis` is refused after `fdia-graph` is already out.
 A publish run that failed part-way can be run again: each upload skips the files PyPI already has.
+
+After the release that ships the new `README.md`, delete `docs/figures/diagrams/pipeline.mmd`, its
+`.png` and its `.svg`, and take `pipeline` off `NOT_YET_REDRAWN` in `tools/prereview.py` and off
+`docs/stylesheets/extra.css`: until then the published PyPI page loads that PNG from `main`.
 
 A released version is never re-cut; fix forward. Data releases (timelines, pools) have their own
 tags, `data-v<x.y.z>` (the bare `v0.x.y` tags belong to package versions), and do not move the

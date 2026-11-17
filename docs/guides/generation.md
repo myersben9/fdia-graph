@@ -7,7 +7,7 @@ each is named beside it. Terms are defined in [`../reference/GLOSSARY.md`](../re
 | stage | code | output |
 |---|---|---|
 | 1. operating-point pool | `profiles.fetch_profile`, `profiles.generate_states`, the v0.7.1 pool build | `[T, N, 4]` AC states, one per minute |
-| 2. meter plan and noise | `engine/core.py` (`FdiaGenerator.__init__`), `engine/measurement.py` | which channels are metered, one noisy scan per state |
+| 2. meter plan and noise | `sensing/meters.py` (`MeterPlan`), `sensing/noise.py` (`NoiseModel`) | which channels are metered, one noisy scan per state |
 | 3. attack families | `engine/attacks/` (the `AttackMixin`: the false states, the fewest-tamper search and each family's episode design are methods of the generator), `engine/records.py` | the attacked scan of each family |
 | 4. plan: split and episode placement | `generation/plan.py` (`split_bounds`, `place_split`, `planned_until`) | the split, onsets, lengths |
 | 5. design: the overload Am of each split | `generation/design.py` (`AmDesigner`, in parallel over `workers` processes) | each Am's design, or its move |
@@ -64,13 +64,13 @@ that asks for more than one worker starts under `if __name__ == "__main__":`.
 `NewYorkSource.production(pool_path).generate(path)`. To switch a grid's load profiles, attacks or solver,
 change what its source holds (the pool, the families); the path stays.
 
-![The generation pipeline, the same for both grids: a pool of AC operating points (an IEEE case's states from an ISO load profile, or the New York grid's five-minute dispatch of 2019); the New York grid first finds the onsets its families may take, then the splits are cut (blocks in time order, or whole weeks); then, split by split, the whole episodes closest to the attacked fraction are placed at uniform random onsets, each is designed as a local false state (one with no design is moved on an IEEE case, left benign on the New York grid), and every frame whose split is planned by now is walked in time order, a noisy scan that is benign or under its episode's attack (an IEEE ramp is designed as the walk reaches it), before the next split; after the walk the episode table is written, and on an IEEE file the temporal features from the observed frames and the placement attributes; the result is one HDF5 file with observed, benign and true-state layers](../figures/diagrams/generation_flow.png)
+![Seven boxes, top to bottom. 1. Pool of operating points: one AC state per frame. 2. Cut the splits: blocks in time order for an IEEE case, whole weeks for New York. 3. Place a split's episodes: whole, at random onsets. 4. Design each episode: a local false state. 5. Walk the split's frames: a benign scan, or the scan under the attack; then the next split. 6. After the last split: the episode table. Last, one timeline file: observed, benign, true state](../figures/diagrams/generation_flow.png)
 
-The published default release is v0.8.3 (`registry._RELEASE`), built by fdia-graph 0.20 with the
-seven families of that release (the single-snapshot `Aq`, `Al`, `Ad`, `As`, `Ar` among them) and the
-v0.8.3 meters. This version reads every release and generates the multi-snapshot families `At` and
-`Am` on the hybrid meters, the recipe of the next data release. Releases up to v0.8.1 also hold
-`Aq` for 15 to 44 frames and `Al` for 10 to 29, and compute the swing scale from the noiseless pool.
+The published default release is v0.8.3 (`registry._RELEASE`). Its files hold seven families (the
+single-snapshot `Aq`, `Al`, `Ad`, `As`, `Ar` among them) on the v0.8.3 meters. The package reads every
+timeline release and generates the multi-snapshot families `At` and `Am` on the hybrid meters. Releases
+up to v0.8.1 hold `Aq` for 15 to 44 frames and `Al` for 10 to 29, and compute the swing scale from the
+noiseless pool.
 
 ## 1. Operating-point pools
 
@@ -110,12 +110,11 @@ also uses; `emit_from_state` lays a scan's readings out per bus and per branch).
 | `P_inj`, `Q_inj` | every injection bus and every zero-injection bus | always |
 | `P_from`, `Q_from` | each branch independently with probability `flow_frac` | `flow_frac = 0.9` |
 
-The meter model decides what a meter reads (`meter_model` in the meter plan, D10 of the attack-design plan, "the plan" on this page: `git show 91c15ad:docs/plans/WU_MSFDIA_PLAN.md`). The
+The meter model decides what a meter reads (`meter_model` in the meter plan). The
 default, `"hybrid"`, is a SCADA and PMU plan as in [WU26]: a SCADA voltmeter reads `|V|` only, a PMU
 reads `|V|`, the angle and the current phasor of every in-service branch at its bus [WU26, eqs.
-17-20]. The released files up to v0.8.3 wrote an angle at every voltmeter bus and read no
-currents; the loader reads them, the generator no longer writes them (`models.config.MeterSettings`, the
-plan's D12).
+17-20]. The released files up to v0.8.3 hold an angle at every voltmeter bus and no
+currents; the loader reads them, and the generator does not write that plan (`models.config.MeterSettings`).
 
 Injection buses are those with a generator, a load, the external grid, a shunt or a producing static
 generator; every other bus is zero-injection (`FdiaGenerator._load_tables`). The two sets cover every
@@ -158,8 +157,7 @@ only. Every false state must also stay within the case's bus voltage limits and 
 Q limits widened to the range the pool used (`engine/attacks/false_state._within_limits`,
 `operating_limits`). They satisfy equations (13)-(25) of [WU26] (the SCADA measurements, the PMU
 voltage magnitudes, angles and branch currents, the operating limits and the line-overload goal) and
-its objective, eq. (12): each episode is held on the support that tampers the fewest devices
-(decisions D1 to D17 of the plan).
+its objective, eq. (12): each episode is held on the support that tampers the fewest devices.
 
 | family | code | construction | magnitude per bus | episode length | stealthy | target set |
 |---|---|---|---|---|---|---|
@@ -167,54 +165,57 @@ its objective, eq. (12): each episode is held on the support that tampers the fe
 | `Am` | 7 | the overload attack of [WU26]: one or two lines' reported flow driven to their ratings over the window, on the fewest-tamper support | the least-norm false state that meets the goal | 60 frames (`am_len` defaults to `ramp_len`) | yes | the rated, metered lines of the window (`eligible_lines`) |
 
 The codes of the single-snapshot families of older releases (1 `Aq`, 2 `Ad`, 3 `As`, 4 `Ar`, 6 `Al`)
-stay in the read-only label table `fg.FAMILIES`; fdia-graph 0.20 describes and generates them.
+stay in the read-only label table `fg.FAMILIES`, and the files of data release v0.8.3 that carry them
+load, filter and score by name (`fg.load(..., release="v0.8.3", families=["Aq"])`). The generator does
+not make them. Those families, and the `Am` of that release, were drawn at random targets, on meters
+without branch currents, and drove no line to its limit.
 
 Both families run on the fewest-tamper search. `Am` is the overload attack of [WU26, eqs. 24-25]
 (`engine/attacks/overload.py`): at onset, the eligible branches (rated, flow metered, true flow
 below the rating at every snapshot of the window) are tried in a random order, and the first whose
 fewest-tamper support meets the goal at every snapshot is the episode's target. Snapshot t's goal is
 the true flow plus a linear share of what separates the window's last true flow from the rating,
-`S_true_t + (t - kappa)/T (S_max - S_true_{kappa+T})` (the plan's D9), on the noiseless reading of
+`S_true_t + (t - kappa)/T (S_max - S_true_{kappa+T})`, on the noiseless reading of
 the false state, reaching the rating `S_max` at the last snapshot; the attackable loads of the
 support are free, every other bus keeps its injection, and the false state is the least-norm voltage
 change that meets the flow. The ratings are by default 1.25 times each branch's peak true apparent flow
-over the operating pool (`am_attack=OverloadSettings(rating_margin=...)`, the plan's D15), which works on every system; the
+over the operating pool (`am_attack=OverloadSettings(rating_margin=...)`), which works on every system; the
 PGLib-OPF ratings are the alternative, `am_attack=OverloadSettings(rating_source="pglib")` (IEEE-14, 118 and 300;
 other cases raise `NoLineRatings`). The generators of the support are free inside their limits, like its attackable loads, and the
-flow solve enforces the voltage and generator limits by an active set (the plan's D14); the limits
+flow solve enforces the voltage and generator limits by an active set; the limits
 bind every generator the attack moves, on the support's edge too, and every load bus it moves shows
-at most `load_cap` (0.5, `OverloadSettings(load_cap=...)`) times its true load [YUA11] (D16). Each
+at most `load_cap` (0.5, `OverloadSettings(load_cap=...)`) times its true load [YUA11]. Each
 episode overloads two lines at once, as [WU26]'s case studies do, drawn so one held support reaches
-both (`OverloadSettings(n_lines=1)` for one; D17); `episodes/am_*` holds one row per target line. `OverloadSettings(support_method="rref")` picks the support by [WU26]'s own method instead of the search: row reduction of the transposed attack-area Jacobian with column exchanges (p. 655 and Sec. IV-D1, after [YAN17]; `engine/attacks/rref.py`), the sparsest attack that moves each target line at every snapshot joined over the window, grown by the next sparsest rows when the AC solve cannot reach the goal on it (ours). It is much faster on IEEE-14 and tampers more devices than the search (experiment `wu26.method_compare`, docs/plans/WU_DEFENSE_PLAN.md, section 3). As in
+both (`OverloadSettings(n_lines=1)` for one); `episodes/am_*` holds one row per target line. `OverloadSettings(support_method="rref")` picks the support by [WU26]'s own method instead of the search: row reduction of the transposed attack-area Jacobian with column exchanges (p. 655 and Sec. IV-D1, after [YAN17]; `engine/attacks/rref.py`), the sparsest attack that moves each target line at every snapshot joined over the window, grown by the next sparsest rows when the AC solve cannot reach the goal on it (ours). It is much faster on IEEE-14 and tampers more devices than the search. As in
 [WU26], nothing bounds how far `Am` moves a channel between snapshots: a
 device counts as tampered beyond [WU26]'s own case-study noise (0.03 pu SCADA, 0.01 pu PMU, the
-current channels included; `formulas.noise.paper_sigma`, the plan's D8 and D11), and the attack is
+current channels included; `formulas.noise.paper_sigma`), and the attack is
 stealthy because every snapshot is one AC state. `At` keeps its bound, each step within the meters'
-rated accuracy (D7). Before D11 `Am` carried a between-snapshot bound as well, under which no overload window was
+rated accuracy. `Am` carries no such bound, because under one no overload window is
 stealthy: moving one line's flow moves the injections and flows around its ends by several times
 that change, beyond the rated accuracy of the small loads there. A window with no stealthy
 overload moves the episode to another free onset of its split, earlier or later, up to 20 times
 (`generation.design.AmDesigner`: the Am of a split are designed before it is walked); past that it is
 given up and counted in `episode_shortfall`. With the hybrid meters the attacker also
 writes the PMU branch currents its false state moves, which counts in the PMU of the bus at that end.
-Only `At`'s channels are bounded between snapshots, the currents included (the PMU class, D7); `Am`'s
-current channels are only counted when they move by more than 0.01 pu (D8, D11).
+Only `At`'s channels are bounded between snapshots, the currents included (the PMU class); `Am`'s
+current channels are only counted when they move by more than 0.01 pu.
 
 The overload episodes these recipes build, measured on the hybrid meters with `families=("Am",)`,
 seed 1, the pool ratings computed over the frames walked (IEEE-14 and IEEE-118 timelines of 3,000
-and 2,000 frames; IEEE-30 a smoke run), before the search speed-up of #163 (experiment
+and 2,000 frames; IEEE-30 a smoke run; experiment
 `generation.am_overload`; every line of every built episode reaches its rating):
 
 <!-- results: gen.am -->
 | system | recipe | frames | episodes | fallen back | devices (mean) | channels (mean) | largest change, pu (median / max episode) | s per episode |
 |---|---|---:|---:|---:|---:|---:|---:|---:|
-| IEEE-14 | one line, before the D16 bounds | 3000 | 25 | 0 | 5.3 | 15.0 | 0.18 / 5.74 | 15 |
-| IEEE-14 | one line, D16 bounds | 3000 | 25 | 0 | 3.9 | 9.9 | 0.14 / 0.82 | 30 |
-| IEEE-14 | two lines, D16 bounds (default) | 3000 | 25 | 0 | 6.8 | 19.3 | 0.17 / 1.59 | 39 |
-| IEEE-30 | one line, before the D16 bounds | 600 | 5 | 0 | 3.8 | 8.8 | 0.09 / 0.29 | 20 |
-| IEEE-118 | one line, before the D16 bounds | 2000 | 17 | 0 | 6.8 | 21.4 | 1.05 / 44.94 | 43 |
-| IEEE-118 | one line, D16 bounds | 2000 | 17 | 0 | 9.6 | 30.4 | 0.40 / 3.29 | 71 |
-| IEEE-118 | two lines, D16 bounds (default) | 2000 | 17 | 0 | 17.8 | 72.0 | 1.33 / 3.39 | 78 |
+| IEEE-14 | one line, without the load and generator bounds | 3000 | 25 | 0 | 5.3 | 15.0 | 0.18 / 5.74 | 15 |
+| IEEE-14 | one line, with the load and generator bounds | 3000 | 25 | 0 | 3.9 | 9.9 | 0.14 / 0.82 | 30 |
+| IEEE-14 | two lines, with the load and generator bounds (default) | 3000 | 25 | 0 | 6.8 | 19.3 | 0.17 / 1.59 | 39 |
+| IEEE-30 | one line, without the load and generator bounds | 600 | 5 | 0 | 3.8 | 8.8 | 0.09 / 0.29 | 20 |
+| IEEE-118 | one line, without the load and generator bounds | 2000 | 17 | 0 | 6.8 | 21.4 | 1.05 / 44.94 | 43 |
+| IEEE-118 | one line, with the load and generator bounds | 2000 | 17 | 0 | 9.6 | 30.4 | 0.40 / 3.29 | 71 |
+| IEEE-118 | two lines, with the load and generator bounds (default) | 2000 | 17 | 0 | 17.8 | 72.0 | 1.33 / 3.39 | 78 |
 <!-- /results -->
 
 Notes on the table:
@@ -229,8 +230,7 @@ Notes on the table:
   tested on every frame they will occupy before they are accepted, up to 40 draws (`ONSET_DRAWS`).
 - An overload `Am` window's snapshots are kappa+1 ... kappa+T after the untouched reference kappa
   [WU26, eq. 25], so its first snapshot already carries 1/T of the way to the rating and every frame
-  labelled `Am` is attacked (the plan's D9). Before this fix the first snapshot's goal was the true
-  flow and that frame tampered nothing.
+  labelled `Am` is attacked.
 
 ## 4. Episode placement
 
@@ -240,7 +240,7 @@ Notes on the table:
 | count | per split, the whole number of episodes whose frames come closest to `attacked_frac` of its frames (whole episodes, so a short split can be off by one or two), shared between the families by largest remainder over the weights `1 / length`, so every family gets about the same share of attacked frames | `plan.whole_episode_counts`, `plan.largest_remainder` |
 | place | per split, longest first, each at an onset drawn uniformly among the positions where it fits inside the split, never overlapping and never cut; a placement that jams is retried whole 10 times, then one episode of the family that jammed is dropped and recorded (`RuntimeWarning`) | `plan.place_split`, `plan.uniform_onset` |
 | walk | every frame emitted in time order, its meter jitter from its own stream keyed by the seed and the timestep: benign runs between episodes, each episode where it was placed | `emit.Walk.walk_split`, `MeasurementMixin._jitter_stream` |
-| move | an episode with no feasible design at its onset moves, up to 20 times, then is given up and recorded (`RuntimeWarning`): an overload Am to an onset drawn uniformly among every free one of its split, earlier or later, since the design stage designs a split's Am before any of its frames is written and an Am design reads no earlier frame (no stealth bound, D11); a ramp At to a later free onset, since its design reads the frame before its onset and the walk has written the frames before the failed one. The moves draw from streams keyed by the seed, the split, the episode and the move, so they do not depend on the workers | `design.AmDesigner`, `emit.Walk.relocate_later` |
+| move | an episode with no feasible design at its onset moves, up to 20 times, then is given up and recorded (`RuntimeWarning`): an overload Am to an onset drawn uniformly among every free one of its split, earlier or later, since the design stage designs a split's Am before any of its frames is written and an Am design reads no earlier frame (no stealth bound); a ramp At to a later free onset, since its design reads the frame before its onset and the walk has written the frames before the failed one. The moves draw from streams keyed by the seed, the split, the episode and the move, so they do not depend on the workers | `design.AmDesigner`, `emit.Walk.relocate_later` |
 | fallback | a frame inside a built episode whose own scan cannot be built is emitted benign; the count is the `fallback_benign` attribute | `TimelineWriter.finish` |
 | record | the split fractions and sizes, the attacked fraction each split reached, and per split and family the episodes requested, built, moved, dropped and short | `TimelineWriter.finish` |
 
@@ -409,8 +409,8 @@ under `name`. Without `states`, it reads `$FDIA_GRAPH_INIT` or downloads the sys
 | `min_tamper` | True | hold each episode on the support that tampers the fewest devices [WU26, eq. 12]; a change under a meter's noise is not counted. Off: the whole region within `hops` |
 | `min_budget` | 256 | candidate supports the search solves per episode before it settles on the best found (recorded as not proven) |
 | `am_attack` | "overload" | `Am` as the overload attack of [WU26], or an `OverloadSettings` |
-| `stealth_scale` | 1.0 | a multiplier on At's stealth bound, in units of the rated accuracy (Am has none, D11) |
-| `redundancy` | `MeterSettings()` | the meter plan, a `MeterSettings`: coverage `vbus_frac` 0.6, `pmu_frac` 0.2, `flow_frac` 0.9, and `meter_model` `"hybrid"` (D10, D12) |
+| `stealth_scale` | 1.0 | a multiplier on At's stealth bound, in units of the rated accuracy (Am has none) |
+| `redundancy` | `MeterSettings()` | the meter plan, a `MeterSettings`: coverage `vbus_frac` 0.6, `pmu_frac` 0.2, `flow_frac` 0.9, and `meter_model` `"hybrid"` |
 | `ramp_rate` | 0.002 | `At` growth per frame |
 | `ramp_len` | 60 | `At` episode length |
 | `am_len` | `ramp_len` | `Am` episode length |
