@@ -199,6 +199,60 @@ currents on a hybrid-meter timeline, like `prev_node_x`.
 Chunked along the frame axis so a window of W frames is one read. A file without the `kind` attribute
 `timeline` (a record shard of a data release before v0.8.0) is refused with `NotATimeline`.
 
+## Where the constants and the models are defined
+
+A value nothing in a run changes is a constant. Each one is defined once, with its unit and its
+source, in a module of `src/fdia_graph/constants/`. The modules import nothing from the rest of
+the toolkit.
+
+| Module, under `src/fdia_graph/` | Holds |
+|---|---|
+| `constants/channels.py` | the column of each quantity in a measurement array, as enums: `node_x[..., NodeChannel.P_INJ]` |
+| `constants/families.py` | the attack families and their codes |
+| `constants/meters.py` | the meter kinds, the accuracy classes and the noise floors |
+| `constants/grid.py` | the IEEE cases, the bus types, the "no limit" ratings |
+| `constants/time.py` | the calendar, the New York frame, and how a load profile is correlated from scan to scan |
+| `constants/streams.py` | the keys of the random streams |
+| `constants/numerics.py` | the fixed tolerances |
+| `constants/records.py` | the fields of a record, by group |
+| `constants/files.py` | the names and layouts of the files around a timeline |
+| `constants/releases.py` | where the datasets are published, the pinned data release and its sha256 values |
+| `constants/newyork.py` | the New York grid: the NYISO zones, the fields of the case file, the pinned inputs, the dispatch numbers and the fitted load model |
+
+`schema.py` holds the file protocol instead: every group, dataset and attribute name of a
+timeline file. A value a user tunes is not a constant: it is a field of a settings model.
+
+Every bundle of values a toolkit passes or returns is a model. A model is imported from its
+module; a `models/` package exports no name.
+
+| Module, under `src/` | Holds |
+|---|---|
+| `fdia_graph/models/base.py` | `Bundle`, the base of every model |
+| `fdia_graph/models/fields.py` | the fields the record bundles share |
+| `fdia_graph/models/grid.py` | the static description of a system: the branch model and the admittance matrices |
+| `fdia_graph/models/frames.py` | what the generator passes around per scan: a scan, a frame, an episode's design |
+| `fdia_graph/models/plan.py` | a timeline's plan and its design records |
+| `fdia_graph/models/data.py` | what a user gets back: a record, a batch, a whole split, a summary, the episode table |
+| `fdia_graph/models/assets.py` | where a dataset comes from and where its bytes are fetched from |
+| `fdia_graph/models/config.py` | the settings |
+| `fdia_graph/models/inputs.py` | what the formulas and the parsers accept |
+| `fdia_graph/models/validation.py` | the one engine that checks them |
+| `fdia_graph/models/choices.py` | the arguments with a fixed set of values |
+
+| Module, under `analysis/src/` | Holds |
+|---|---|
+| `fdia_analysis/models/config.py` | the settings of the analysis packages, checked by the generation toolkit's engine |
+| `fdia_analysis/models/inputs.py` | what the analysis formulas accept |
+| `fdia_analysis/models/choices.py` | the arguments with a fixed set of values |
+| `fdia_analysis/models/scores.py` | the score tables |
+| `fdia_analysis/models/data.py` | the truth an estimator is scored against |
+| `fdia_analysis/models/grid.py` | the estimator's pseudo-measurement records |
+| `fdia_analysis/models/federated.py` | how the buses split into clients |
+| `fdia_analysis/models/training.py` | what the learned localizers pass between their fitting pieces |
+| `fdia_analysis/models/results.py` | the records of the results store |
+
+The section below lists every field of the models a user receives.
+
 <!-- models:begin -->
 ## Models
 

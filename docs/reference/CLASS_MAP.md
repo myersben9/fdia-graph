@@ -5,7 +5,7 @@ toolkit `fdia_analysis`: one module diagram of both and eight class diagrams, al
 the source by `tools/class_diagrams.py` (the AST gives each class's public methods, its bases and the
 classes of other modules it names), so they cannot drift from the code. CI checks that the committed
 sources match; `python tools/class_diagrams.py` rewrites them and `tools/render_mermaid.py` renders.
-Read with [`ROADMAP.md`](../ROADMAP.md) (what each file is for) and
+Read with [`MODULES.md`](MODULES.md) (what each file is for) and
 [`CONCEPTS_TO_CODE.md`](CONCEPTS_TO_CODE.md) (which function implements which idea).
 
 An open arrowhead is inheritance, a dashed arrow is a class using another (an argument type, a return

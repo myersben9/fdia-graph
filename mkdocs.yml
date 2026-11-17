@@ -49,18 +49,21 @@ markdown_extensions:
 
 nav:
   - Home: index.md
-  - Roadmap: ROADMAP.md
   - Getting started:
       - New York walkthrough: getting-started/new_york_walkthrough.md
-  - Guides:
+  - How-to guides:
+      - Install and data versions: guides/install.md
       - Timeline generation: guides/generation.md
       - State estimation: guides/state_estimation.md
       - New York grid: guides/new_york.md
       - Extending the New York grid: guides/extending_new_york.md
       - Troubleshooting the New York grid: guides/troubleshooting_new_york.md
   - Concepts:
+      - How the package flows: concepts/flow.md
+      - Test systems: concepts/test_systems.md
+      - Solving: concepts/solving.md
       - New York grid architecture: concepts/new_york_grid.md
-  - Analysis:
+  - Studies:
       - State estimation: analysis/estimation/README.md
       - Localization: analysis/localization/README.md
       - Trusted meters: analysis/trust/README.md
@@ -74,9 +77,10 @@ nav:
       - Examples: reference/EXAMPLES.md
       - Formulas: reference/FORMULAS.md
       - Benchmarks: reference/BENCHMARKS.md
-      - Review checklist: reference/REVIEW_CHECKLIST.md
       - References: reference/REFERENCES.md
-  - Contributing: contributing.md
+  - Contributing:
+      - Contributing: contributing.md
+      - Review checklist: reference/REVIEW_CHECKLIST.md
   - Changelog: changelog.md
 
 extra:

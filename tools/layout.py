@@ -54,14 +54,14 @@ MAP = "docs/reference/MODULES.md"
 # top level).
 PAGES = {
     GENERATION: {
-        "": "docs/ROADMAP.md",
-        "dataset": "docs/ROADMAP.md",
-        "models": "docs/ROADMAP.md",
-        "constants": "docs/ROADMAP.md",
-        "ratings": "docs/ROADMAP.md",
+        "": "docs/concepts/flow.md",
+        "dataset": "docs/concepts/flow.md",
+        "models": "docs/reference/DATA_DICTIONARY.md",
+        "constants": "docs/reference/DATA_DICTIONARY.md",
+        "ratings": "docs/concepts/test_systems.md",
         "formulas": "docs/reference/FORMULAS.md",
-        "systems": "docs/guides/generation.md",
-        "sensing": "docs/guides/generation.md",
+        "systems": "docs/concepts/test_systems.md",
+        "sensing": "docs/concepts/flow.md",
         "engine": "docs/guides/generation.md",
         "engine/attacks": "docs/guides/generation.md",
         "generation": "docs/guides/generation.md",
@@ -69,7 +69,7 @@ PAGES = {
     },
     ANALYSIS: {
         "": "analysis/README.md",
-        "models": "docs/ROADMAP.md",
+        "models": "docs/reference/DATA_DICTIONARY.md",
         "formulas": "docs/reference/FORMULAS.md",
         "results": "results/README.md",
         "se": "docs/analysis/estimation/README.md",

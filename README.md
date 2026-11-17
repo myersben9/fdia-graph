@@ -73,14 +73,17 @@ print(est.score(test))
 
 | Command | Gives |
 |---|---|
-| `pip install fdia-graph` | the loader (numpy, h5py) |
+| `pip install fdia-graph` | the loader: opens a timeline, exports splits as numpy arrays |
+| `pip install "fdia-graph[torch]"` | adds PyTorch: single records, batches and the DataLoader |
 | `pip install "fdia-graph[generate]"` | adds pandapower, to generate timelines |
 | `pip install "fdia-analysis[se]"` | the analysis toolkit with state estimation |
 
-Every extra of both toolkits is listed in [the roadmap](docs/ROADMAP.md#install).
+Every extra of both toolkits is listed in [Install and data versions](docs/guides/install.md).
 
 ## Where next
 
+- [How the package flows](docs/concepts/flow.md), [the test systems](docs/concepts/test_systems.md)
+  and [how they are solved](docs/concepts/solving.md)
 - [How a timeline is generated](docs/guides/generation.md)
 - [Building the New York dataset](docs/guides/new_york.md)
 - [Data dictionary: what every array means](docs/reference/DATA_DICTIONARY.md)

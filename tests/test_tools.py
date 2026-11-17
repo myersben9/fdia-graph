@@ -1,6 +1,6 @@
-"""Three repository tools on small samples: the constants rule of `tools/layout.py` on a temporary tree,
-`tools/count_lines.py` on a file whose lines are easy to miscount, and the phone rules of
-`tools/render_mermaid.py` on two flow diagrams."""
+"""Four repository tools on small samples: the constants rule of `tools/layout.py` on a temporary tree,
+`tools/count_lines.py` on a file whose lines are easy to miscount, the phone rules of
+`tools/render_mermaid.py` on two flow diagrams, and the plain-pages rule of `tools/prereview.py` on a page."""
 
 import os
 import sys
@@ -8,6 +8,7 @@ import sys
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "tools"))
 import count_lines  # noqa: E402
 import layout  # noqa: E402
+import prereview  # noqa: E402
 import render_mermaid  # noqa: E402
 
 HOUSE_STYLE = """flowchart TB
@@ -38,13 +39,30 @@ def test_a_flow_diagram_of_bare_names_fails_and_the_house_style_passes():
 
 
 def test_only_the_generated_diagrams_keep_the_wide_rendering():
-    wide = [name for name in ("classes_models.mmd", "modules.mmd", "modules_map.mmd", "roadmap_modules.mmd")]
+    wide = [name for name in ("classes_models.mmd", "modules.mmd", "modules_map.mmd", "flow.mmd")]
     assert [render_mermaid.is_generated(os.path.join("docs", name)) for name in wide] == [
         True,
         True,
         False,
         False,
     ]
+
+
+def test_a_page_with_a_mermaid_block_or_a_decision_code_fails_and_plain_text_passes():
+    plain = "The N-1 rule, bus N, [WU26] Sec. IV-D1, IEEE-118, 3D, D1000 and `ND12` are not codes.\n"
+    assert prereview.page_faults(plain) == []
+    assert prereview.page_faults("The bounds N27-N37 and the cap (D16).\n") == [
+        "has decision codes (say the reason in plain words): D16, N27-N37"
+    ]
+    coded = "The cap (N27) follows the plan's D16.\n\n```mermaid\nflowchart TB\n```\n"
+    assert prereview.page_faults(coded) == [
+        "has a Mermaid block (render the diagram to an image)",
+        "has decision codes (say the reason in plain words): D16, N27",
+    ]
+    assert prereview.page_faults("```python\nflowchart = 'mermaid'\n```\n") == []
+    # the list of pages not yet cleaned names only pages of the tree that still have a code
+    assert prereview._plain_pages() == (prereview.PASS, "")
+    assert set(prereview.NOT_YET_PLAIN) <= {"docs/concepts/new_york_grid.md"}
 
 
 TREE = {

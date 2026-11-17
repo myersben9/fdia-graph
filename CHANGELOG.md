@@ -5,13 +5,30 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- **Docs: three concept pages, and the roadmap page is retired (no change to the code of either
+  package).** `docs/concepts/flow.md` follows the package stage by stage, from the test system to the
+  analysis, and holds the reading order; `docs/concepts/test_systems.md` says what a `Case` is, lists the
+  nine test systems and describes the New York case file as one of them; `docs/concepts/solving.md` says
+  where a power flow and where an optimal power flow is solved, and what each needs installed.
+  `docs/guides/install.md` lists every extra and the data pins. The roadmap page and its two diagrams
+  are deleted: its file tables are the generated `docs/reference/MODULES.md`, its tables of the
+  `constants/` and `models/` modules open the Models part of `docs/reference/DATA_DICTIONARY.md`, and its
+  test and release commands are a table of `CONTRIBUTING.md`. The site's tabs are Home, Getting started,
+  How-to guides, Concepts, Studies, Reference, Contributing (with the review checklist) and Changelog.
+  The glossary's `pool`, `split` and `onset` hold for the New York grid too, and the reference pages
+  carry no decision codes. `tools/prereview.py` has a new check, plain pages: it fails a page under
+  `docs/`, or the README, with a fenced Mermaid block or a decision code (one code or a range of them);
+  one page is exempt on its `NOT_YET_PLAIN` list. The install tables say what the base install does
+  without PyTorch (it opens a timeline and exports whole splits as numpy arrays; a single record, a
+  batch and the DataLoader need the `torch` extra), and the benchmarks page names no pull request.
+
 - **Docs: a landing page that says what the package is, and diagrams a phone can read (no change to the
   code of either package).** `README.md` presents the two toolkits, the test systems (the eight IEEE
   cases and the New York grid), three steps (load, generate, analyse) and one top-to-bottom picture of
   the flow, `docs/figures/diagrams/flow.png`. Its loading table moved to `docs/reference/EXAMPLES.md`, the
-  list of extras to `docs/ROADMAP.md`. `tools/render_mermaid.py` draws a hand-written flow diagram for a
+  list of extras to `docs/guides/install.md`. `tools/render_mermaid.py` draws a hand-written flow diagram for a
   phone (20 px type, a white card 900 px wide), and `tools/prereview.py` fails one that is not
-  `flowchart TB`, has more than 8 nodes or is wider than 900 px; nine diagrams are drawn that way, seven
+  `flowchart TB`, has more than 8 nodes or is wider than 900 px; seven diagrams are drawn that way, seven
   are exempt on its `NOT_YET_REDRAWN` list (the old `pipeline.png` among them, which the published PyPI
   page loads until the next release), the docs site shows a phone diagram at most 450 px wide
   (`docs/stylesheets/extra.css`), and the class and module diagrams keep the wide rendering. The

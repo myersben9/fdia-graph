@@ -1,7 +1,8 @@
 # Concepts to code
 
 Paper ideas → the function that implements them. Pair with `DATA_DICTIONARY.md`.
-Paths are under `src/fdia_graph/`.
+Paths are under `src/fdia_graph/`; `se/` and `localization/` are under
+`analysis/src/fdia_analysis/`.
 
 ## One record, start to finish
 
@@ -41,7 +42,7 @@ and converts them on load.
 | Robust reweighting (Huber), residual removal, subspace prior | `se/methods.py`: one class per arm, each overrides one hook |
 | Bad-data test `r_i=(z_i−h_i)/σ_i`, `J=Σr_i²` | `σ_i` is the RMS of the benign residuals at the training truth (`se/base.py` `SEBase.fit`); residuals in `se/base.py` `SEBase._nres`. The `stealthy` flag marks the families that evade it by construction (`Aq`/`At`/`Al`/`Am`, `constants.families.STEALTHY_FAMILIES`) |
 | Noise model | `FdiaGenerator.SD` (accuracy class): reading = true + per-meter bias + per-scan jitter. The estimator does not read it; it calibrates `σ_i` from data |
-| Meter model (hybrid SCADA and PMU, the plan's D10) | `MeterPlan.from_placement` (the angle at the PMU buses only; the generator's `masks`, a `MeterLayers`, are its masks) and the kinds `IR` and `II` of `Measurement.h` (the PMU branch currents `I_f = Y_f V`, `I_t = Y_t V`, `formulas.network.branch_currents`, noise `formulas.noise.current_sigma`); chosen by `generate_timeline(..., redundancy={"meter_model": ...})` through `models.config.MeterSettings` |
+| Meter model (hybrid SCADA and PMU) | `MeterPlan.from_placement` (the angle at the PMU buses only; the generator's `masks`, a `MeterLayers`, are its masks) and the kinds `IR` and `II` of `Measurement.h` (the PMU branch currents `I_f = Y_f V`, `I_t = Y_t V`, `formulas.network.branch_currents`, noise `formulas.noise.current_sigma`); chosen by `generate_timeline(..., redundancy={"meter_model": ...})` through `models.config.MeterSettings` |
 | PMU pseudo-measurements `V_f = (I_n − y_nn V_n)/y_nf` [WU26, eq. (3)] | `formulas.estimation.pmu_pseudo_links`, `pmu_pseudo_voltages` (with the propagated variance), used by `SEBase(solve=SolveConfig(pmu_pseudo=True))` in `_build_pseudo` and `_z_of` |
 
 Walkthrough: `../guides/state_estimation.md`. Results: `../analysis/estimation/README.md`.
@@ -59,7 +60,7 @@ Walkthrough: `../guides/state_estimation.md`. Results: `../analysis/estimation/R
   benign rate by construction. Both satisfy equations (13)-(23) of [WU26] (the SCADA measurements,
   the PMU voltage magnitudes, angles and branch currents, and the operating limits). `Am` also
   drives a line's reported flow to its rating, eqs. (24)-(25) (by default 1.25 times its peak pool
-  flow, D15), on the support that tampers the fewest devices, eq. (12); `At` is held on that
+  flow), on the support that tampers the fewest devices, eq. (12); `At` is held on that
   support when `min_tamper=True` (the default), else on the region within `hops`
   (`../guides/generation.md`, section 3). The single-snapshot families of older releases (`Aq`,
   `Al`, and the in-place `Ad`, `As`, `Ar`) are read-only: fdia-graph 0.20 generates them.

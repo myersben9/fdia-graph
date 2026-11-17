@@ -1,5 +1,5 @@
 """The release source's attacker sensitivities stay with the attacker: a timeline built with `v_margin` records the
-case's true voltage limits, while the attacker designs against the widened ones (N71). Needs the public inputs and
+case's true voltage limits, while the attacker designs against the widened ones. Needs the public inputs and
 the whole 2019 pool (inputs.py)."""
 
 from __future__ import annotations

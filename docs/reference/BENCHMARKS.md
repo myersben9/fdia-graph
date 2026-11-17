@@ -15,11 +15,11 @@ From 0.20 that timeline has one-frame Aq and Al episodes, and its seed moved wit
 ## The fewest-tamper search
 
 Median seconds per episode of the overload (`Am`) and ramp (`At`) search, before and after a change,
-run side by side on the same fixed episodes (seed 1, hybrid meters, pool ratings, the D16 bounds,
+run side by side on the same fixed episodes (seed 1, hybrid meters, pool ratings, the load and generator bounds,
 two-line `Am`, budget 256, 20-snapshot windows; experiment `search.speed`). Every episode returned
 the same answer before and after.
 
-The search speed-up (#163):
+The search speed-up:
 
 <!-- results: search.speed 163 -->
 | system | default threads, Am | default threads, At | one thread, Am | one thread, At |
@@ -29,7 +29,7 @@ The search speed-up (#163):
 | IEEE-118 (4 Am, 3 At) | 14.5 to 9.5 | 1.8 to 0.98 | 5.2 to 3.3 | 1.1 to 0.44 |
 <!-- /results -->
 
-BLAS held to one thread during the search (#164):
+BLAS held to one thread during the search:
 
 <!-- results: search.speed 164 -->
 | system | default threads, Am | default threads, At | one thread, Am | one thread, At |

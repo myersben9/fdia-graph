@@ -25,6 +25,9 @@ the branch's commits against the base, the uncommitted changes and the untracked
   and every hand-written flow diagram reads on a phone: `flowchart TB`, at most 8 nodes, a PNG at most
   900 px wide (every run; the generated class and module diagrams are exempt, and so are the diagrams
   listed in `NOT_YET_REDRAWN`, which the site's stylesheet must name too).
+- **plain pages**: no page under `docs/`, nor the README, holds a fenced Mermaid block or a decision
+  code of the planning notes (a capital N or D and one to three digits, as a word of its own); every
+  run. The pages not yet cleaned are listed in `NOT_YET_PLAIN`; CHANGELOG.md is not read.
 - **cited paths**: every repository path a Markdown file cites exists (every file, every run: a
   page nobody edits goes stale too) (a file or a folder,
   with or without an extension; in CHANGELOG.md the `## Unreleased` section only, the released
@@ -346,9 +349,51 @@ def _rendered_diagrams(files: list[str]) -> tuple[str, str]:
     return (FAIL if stale or faults else PASS), detail
 
 
+_MERMAID = re.compile(r"^ {0,3}(?:`{3,}|~{3,})[ \t]*\{?\.?mermaid\b", re.M)  # the opening of a Mermaid block
+# A decision code of the project's planning notes: a capital N or D and one to three digits, a word of its
+# own, or a range of them ("N27-N37"). A hyphen to anything else makes it part of another name
+# ("Sec. IV-D1" of a paper, "N-1"), which is not one.
+_DECISION_CODE = re.compile(r"(?<![\w-])[ND]\d{1,3}(?:-[ND]\d{1,3})*(?![\w-])")
+# Pages that still carry decision codes, each with its reason. Cleaning a page, or deleting it, takes it
+# off this list.
+NOT_YET_PLAIN = {
+    "docs/concepts/new_york_grid.md": "its codes go when the page is folded into the concept pages",
+}
+
+
+def page_faults(text: str) -> list[str]:
+    """What a reader of a docs page cannot use: a Mermaid block, which the GitHub mobile app and PyPI show as
+    code, and the decision codes of the planning notes, which mean nothing outside them."""
+    faults = ["has a Mermaid block (render the diagram to an image)"] if _MERMAID.search(text) else []
+    codes = sorted(set(_DECISION_CODE.findall(text)))
+    if codes:
+        faults.append("has decision codes (say the reason in plain words): " + ", ".join(codes))
+    return faults
+
+
+def _plain_pages() -> tuple[str, str]:
+    """Every page under `docs/`, and the README, is free of `page_faults`, the `NOT_YET_PLAIN` ones aside;
+    the list names only pages that still have a decision code."""
+    pages = sorted(f for f in _tree() if f.endswith(".md") and (f.startswith("docs/") or f == "README.md"))
+    found = {f: page_faults(_read(f)) for f in pages}
+    faults = [
+        f"{f} {fault}"
+        for f, of_page in found.items()
+        for fault in of_page
+        if f not in NOT_YET_PLAIN or fault.startswith("has a Mermaid")
+    ]
+    faults += [
+        f"NOT_YET_PLAIN names {f}, which has no decision code"
+        for f in NOT_YET_PLAIN
+        if not any(fault.startswith("has decision") for fault in found.get(f, []))
+    ]
+    return (FAIL if faults else PASS), "; ".join(faults)
+
+
 def repo_checks(files: list[str]) -> list[tuple[str, str, str]]:
     """The checks CI does not run: (name, PASS/FAIL/SKIP, detail)."""
     return [
+        ("plain pages", *_plain_pages()),
         ("changelog", *_changelog(files)),
         (
             "cited paths",
