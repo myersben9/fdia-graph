@@ -2605,7 +2605,7 @@ physics live on the dataset as <code>ds.edge_attr</code> <code>[E,8]</code> and 
 </table>
 <p>On a hybrid-meter file a SCADA voltmeter reads no angle, so <code>node_m[:, 3]</code> is 1 at the PMU buses only,
 and each PMU reads the current phasor of every in-service branch at its bus [WU26, eqs. 19-20]. The
-columns of <code>pmu_i</code> are defined in <code>fdia_graph.models.CurrentColumns</code> (<code>re_from</code>, <code>im_from</code>, <code>re_to</code>,
+columns of <code>pmu_i</code> are defined in <code>fdia_graph.models.CurrentIndex</code> (<code>re_from</code>, <code>im_from</code>, <code>re_to</code>,
 <code>im_to</code>): the real and imaginary part of <code>I_from = Y_f V</code> and <code>I_to = Y_t V</code> in per unit on the base
 current, the same on a <code>units="pu"</code> or <code>"physical"</code> view, zero where no PMU reads that end
 (<code>pmu_i_m</code> is 0 there). <code>pmu_i_benign</code> is the attack-removed twin and <code>pmu_i_tamper</code> marks the

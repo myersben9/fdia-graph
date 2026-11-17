@@ -1749,6 +1749,23 @@
 the public API, the generated files and the numbers are the same as the previous release.</p>
 <h2 id="unreleased">Unreleased<a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
 <ul>
+<li><strong>Code that only its own tests reached is removed (breaking for imports).</strong> These names were used by nothing
+  but their own tests, so they are removed with no alias; released versions keep them. One data-dictionary
+  line, one checklist line and one tool list that named them are updated. No generated file and no number
+  changes.</li>
+<li><code>registry.latest_release</code> is removed. <code>load(release=None)</code> never called it: it reads the pinned data
+    release, as before.</li>
+<li>The dataset accessors <code>edge_status</code>, <code>edge_is_trafo</code>, <code>bus_type</code>, <code>bus_vmin</code>, <code>bus_vmax</code>, <code>bus_base_kv</code>,
+    <code>bus_is_zero_inj</code>, <code>bus_has_gen</code>, <code>bus_base_pd</code>, <code>bus_base_qd</code> and <code>bus_attackable</code> are removed.
+    <code>ds.edge_attr</code>, <code>ds.edge_attr_np</code>, the <code>ds.branch_*</code> columns and <code>ds.bus_shunt_g</code> / <code>ds.bus_shunt_b</code> stay.</li>
+<li><code>models.TimelineKnobs</code> is removed: <code>TimelineSettings</code> holds the same settings and is what
+    <code>generate_timeline</code> reads.</li>
+<li><code>models.BranchColumns</code>, <code>models.BranchIndex</code>, <code>models.BRANCH</code> and <code>models.CurrentColumns</code> are removed. The
+    column order of <code>pmu_i</code> is <code>models.CurrentIndex</code> (the constant <code>CURRENT</code>).</li>
+<li>The validation rules <code>AllFinite</code> and <code>AllPositive</code> are removed.</li>
+<li>The results-block queries <code>table</code> and <code>reduction</code> are removed; <code>value</code> stays, and the repository's tables
+    come from the queries in <code>results/queries.py</code>. In a <code>value</code> block the arguments <code>rows</code>, <code>cols</code>, <code>base</code>,
+    <code>new</code> and <code>order</code> are now tag filters like any other name; no block uses them.</li>
 <li><strong>The New York case file has one area; the zone column says where a bus is.</strong> <code>case_nygrid.m</code> is one system
   for an OPF, with one area: its bus <code>area</code> column is 1 on every row. It used to carry
   NYgrid's NPCC area numbers (1 New England, 2 and 3 New York, 4 Ontario, 5 MISO, 6 PJM). Existing files are
