@@ -11,8 +11,13 @@ easy detectable ones. Runs on CPU for IEEE-14; pass a bigger system + GPU for 11
 """
 from __future__ import annotations
 
-import argparse, numpy as np, torch, torch.nn as nn, torch.nn.functional as F
+import argparse
 from typing import Any, Dict, Tuple
+
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
 import fdia_graph as fg
 from fdia_graph import FAMILIES
 

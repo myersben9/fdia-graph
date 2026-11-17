@@ -1,7 +1,7 @@
 # Beating WLS: state estimation with the SDK
 
 Measurements in, state out, better than weighted least squares on the public test cases. Runs off
-the default timeline download (data release v0.8.3); `pip install "fdia-graph[se]"`.
+the default timeline download (data release v0.8.3); `pip install "fdia-analysis[se]"`.
 
 ![est.fit on benign records sets meter sigma, the chord Jacobian and the prior basis; est.estimate runs the chord-Newton loop; est.score compares the estimate with the clean state per family](../figures/diagrams/guide_state_estimation.png)
 
@@ -9,7 +9,7 @@ the default timeline download (data release v0.8.3); `pip install "fdia-graph[se
 
 ```python
 import fdia_graph as fg
-from fdia_graph.se import WLS
+from fdia_analysis.se import WLS
 
 train, test = fg.load("ieee14", split="train"), fg.load("ieee14", split="test")
 wls = WLS().fit(train)
@@ -25,8 +25,8 @@ print(wls.score(test).geo)  # angle_mae_deg, voltage_mae_pu (docs/analysis/estim
 ## The better estimator
 
 ```python
-from fdia_graph.models import PriorConfig
-from fdia_graph.se import SubspacePrior
+from fdia_analysis.models import PriorConfig
+from fdia_analysis.se import SubspacePrior
 
 est = SubspacePrior(prior=PriorConfig(rank_frac=0.2, reweight="huber", c=1.5)).fit(train)
 print(est.score(test).geo)  # about half WLS's angle error on IEEE-14 (the table below)
@@ -69,7 +69,7 @@ through the rectangular-to-polar gradients; for a round error of complex varianc
 `var|V_f| = s^2 / 2` and `var theta_f = s^2 / (2 |V_f|^2)`. `calibrate="measured"` weights the pseudo
 slots by that variance, `calibrate="truth"` by their benign residual like every other slot. The
 formula is exact without noise (to 1e-16 on IEEE-14 and 118) and its variance matches a Monte Carlo
-of 20,000 draws to within 3% (`tests/test_pmu_channels.py`).
+of 20,000 draws to within 3% (`analysis/tests/test_pmu_channels.py`).
 
 Measured with `WLS` on the test split, with only the meter model changed: taking the angles away
 from the SCADA voltmeters raises the benign angle error, and the eq. (3) pseudo-measurements win part

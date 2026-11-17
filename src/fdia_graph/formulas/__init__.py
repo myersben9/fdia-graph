@@ -1,54 +1,14 @@
-"""The mathematics of the package as named, pure functions: numpy in, numpy out, no files, no
-dataset objects, no torch. Each function carries its equation and a source key from
-docs/reference/REFERENCES.md; docs/reference/FORMULAS.md is the catalogue.
+"""The mathematics of the generation toolkit as named, pure functions: numpy in, numpy out, no files,
+no dataset objects, no torch. Each function carries its equation and a source key from
+docs/reference/REFERENCES.md; docs/reference/FORMULAS.md is the catalogue. The formulas of
+estimation, localization, federated training and trust selection are the analysis toolkit's
+(`fdia_analysis.formulas`).
 
 Provisional until 1.0: a name may still be adjusted, as a changelog entry with no alias kept.
 """
 
 from .attacks import ramp_profile, tampered_channels, tampered_devices
-from .estimation import (
-    critical_measurements,
-    floored_covariance,
-    gate_weights,
-    huber_weights,
-    normal_matrix,
-    normalized_residual,
-    pmu_pseudo_links,
-    pmu_pseudo_phasors,
-    pmu_pseudo_voltages,
-    residual_covariance_diag,
-    weighted_objective,
-    whitened_svd_basis,
-    wls_step,
-    wls_step_batched,
-)
-from .federated import (
-    attackable_affinity,
-    block_diagonal_basis,
-    channel_moments,
-    cut_edge_count,
-    fedavg,
-    halo_nodes,
-    hop_distance,
-    interior_boundary,
-    pool_moments,
-)
-from .linalg import batched_normal_matrices, condition_number, guarded_inverse
-from .metrics import (
-    average_precision,
-    micro_prf,
-    perbus_counts,
-    perbus_f1_from_counts,
-    perbus_rates,
-    sample_f1,
-    strict_accuracy,
-    tau_from_counts,
-)
 from .network import (
-    Admittances,
-    BranchModel,
-    ac_jacobian,
-    ac_measurement,
     branch_admittances,
     branch_currents,
     branch_flows,
@@ -70,94 +30,34 @@ from .noise import (
     jitter_sigma,
     paper_current_sigma,
 )
-from .projection import (
-    bus_incidence,
-    direction_coefficients,
-    explained_unexplained,
-    leverage,
-    meters_to_buses,
-    weak_directions,
-    weak_move,
-    weighted_pseudoinverse,
-)
 from .temporal import recent_change_scale, swing_zscore, temporal_delta, wrap_degrees
-from .trust import attack_cost, attack_subspace, greedy_trusted_meters, rref, sparse_basis
+from .trust import rref
 
 __all__ = [
-    "Admittances",
-    "BranchModel",
-    "ac_jacobian",
-    "ac_measurement",
     "flow_sensitivities",
     "accuracy_sigma",
-    "attack_cost",
-    "attack_subspace",
-    "attackable_affinity",
-    "average_precision",
-    "batched_normal_matrices",
     "bias_jitter_split",
-    "block_diagonal_basis",
     "branch_admittances",
     "branch_currents",
     "branch_flows",
-    "bus_incidence",
     "bus_injections",
-    "channel_moments",
     "complex_voltages",
-    "condition_number",
-    "critical_measurements",
-    "cut_edge_count",
-    "direction_coefficients",
-    "explained_unexplained",
-    "fedavg",
-    "floored_covariance",
-    "gate_weights",
-    "greedy_trusted_meters",
-    "guarded_inverse",
-    "halo_nodes",
     "edge_adjacency",
-    "hop_distance",
     "hop_distances",
-    "huber_weights",
-    "interior_boundary",
     "biased_current",
     "current_magnitude",
     "current_sigma",
     "jitter_sigma",
     "paper_current_sigma",
-    "leverage",
     "local_ac_solve",
-    "meters_to_buses",
-    "normal_matrix",
-    "normalized_residual",
-    "pmu_pseudo_links",
-    "pmu_pseudo_phasors",
-    "pmu_pseudo_voltages",
-    "micro_prf",
-    "perbus_counts",
-    "perbus_f1_from_counts",
-    "perbus_rates",
-    "pool_moments",
     "ramp_profile",
     "recent_change_scale",
-    "residual_covariance_diag",
     "rref",
-    "sample_f1",
     "series_admittance",
-    "sparse_basis",
     "subnetwork",
-    "strict_accuracy",
     "swing_zscore",
     "tampered_channels",
     "tampered_devices",
-    "tau_from_counts",
     "temporal_delta",
-    "weak_directions",
-    "weak_move",
-    "weighted_objective",
-    "weighted_pseudoinverse",
-    "whitened_svd_basis",
-    "wls_step",
-    "wls_step_batched",
     "wrap_degrees",
 ]

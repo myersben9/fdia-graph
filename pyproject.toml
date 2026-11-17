@@ -33,10 +33,8 @@ torch = ["torch>=1.12"]
 pyg = ["torch>=1.12", "torch_geometric>=2.2"]
 generate = ["pandapower>=2.10", "pandas>=1.3", "threadpoolctl>=3.0"]   # dataset generation + load-profile ingestion (needs a power-flow engine)
 iso = ["gridstatus>=0.25", "pandas>=1.3"]        # auto-download CAISO/ERCOT load profiles (NYISO works without it)
-se = ["pandapower>=2.10", "pandas>=1.3", "scipy>=1.8"]  # fdia_graph.se; add [torch] for faster per-record inverses
-federated = ["torch>=1.12", "scikit-learn>=1.3"]  # fdia_graph.federated: FedAvg localizers and the spectral partition
 ny = ["pandapower>=3.4", "pandas>=1.3", "scipy>=1.8", "pyomo>=6.7", "openpyxl>=3", "matpowercaseframes>=2.1"]  # fdia_graph.generation.nygrid: the New York grid build (matpowercaseframes reads its MATPOWER case file); Pyomo needs the Ipopt binary (conda-forge ipopt)
-all = ["torch>=1.12", "torch_geometric>=2.2", "pandapower>=3.4", "pandas>=1.3", "scipy>=1.8", "gridstatus>=0.25", "scikit-learn>=1.3", "threadpoolctl>=3.0", "pyomo>=6.7", "openpyxl>=3", "matpowercaseframes>=2.1"]
+all = ["torch>=1.12", "torch_geometric>=2.2", "pandapower>=3.4", "pandas>=1.3", "scipy>=1.8", "gridstatus>=0.25", "threadpoolctl>=3.0", "pyomo>=6.7", "openpyxl>=3", "matpowercaseframes>=2.1"]
 test = ["pytest>=7", "pytest-xdist>=3"]  # the tests build their own tiny timeline, so they also need [generate]
 dev = ["pytest>=7", "pytest-xdist>=3", "radon>=6", "ruff", "pyright", "requests"]  # readability.py needs radon, pr.py needs requests
 
@@ -50,12 +48,21 @@ where = ["src"]
 [tool.setuptools.package-data]
 fdia_graph = ["profiles/*.npz", "ratings/*.json", "generation/nygrid/*.csv", "generation/nygrid/*.m"]
 
-# Static type checking, scoped to the SDK package (enforced in CI, see .github/workflows/smoke.yml).
+# The two toolkits of this repository are tested from its root: this checkout's own source of both is
+# imported (an installed copy cannot stand in for it), the root `conftest.py` holds the fixtures the two
+# test trees share, and the root is on the path for their helpers (`tests/helpers.py`). The analysis toolkit (`analysis/`, the distribution
+# fdia-analysis) has its own pyproject.toml; its extras hold what only it needs (`se`, `federated`).
+[tool.pytest.ini_options]
+testpaths = ["tests", "analysis/tests"]
+pythonpath = ["src", "analysis/src", "."]
+
+# Static type checking, scoped to the two packages (enforced in CI, see .github/workflows/smoke.yml).
 # The optional heavy stack (torch/pandas/pandapower/h5py/torch_geometric/gridstatus/tensorflow) is
 # imported lazily and not installed in the type-check job, so its missing imports are not errors; the
 # check enforces that the SDK's own annotations are present and self-consistent.
 [tool.pyright]
-include = ["src/fdia_graph"]
+include = ["src/fdia_graph", "analysis/src/fdia_analysis"]
+extraPaths = ["src", "analysis/src"]
 typeCheckingMode = "basic"
 pythonVersion = "3.9"
 reportMissingImports = false
@@ -64,6 +71,7 @@ reportMissingModuleSource = false
 [tool.ruff]
 line-length = 110
 target-version = "py39"
+src = [".", "src", "analysis/src"]  # both toolkits are first-party in the import order
 
 [tool.ruff.lint]
 select = ["F", "I", "UP"]  # pyflakes, import order, modern syntax; `ruff check src tests tools pipelines` runs in CI

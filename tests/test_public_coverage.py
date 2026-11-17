@@ -5,26 +5,6 @@ localizer's threshold."""
 
 import h5py
 import numpy as np
-import pytest
-
-import fdia_graph as fg
-from fdia_graph.models import LearnedConfig, RemovalConfig, TrustConfig
-
-# ---- the replay families' benign buffer ------------------------------------------------------------
-
-
-# ---- kernels, checked by hand ------------------------------------------------------------------------
-
-
-def test_batched_normal_matrices_equal_the_explicit_products():
-    from fdia_graph.formulas.linalg import batched_normal_matrices
-
-    rng = np.random.default_rng(1)
-    B, w = rng.normal(size=(7, 3)), rng.uniform(0.1, 2.0, size=(5, 7))
-    want = np.stack([B.T @ np.diag(wi) @ B for wi in w])
-    assert np.allclose(batched_normal_matrices(w, B, sub=2), want)
-    with pytest.raises(ValueError, match="sub"):
-        batched_normal_matrices(w, B, sub=0)
 
 
 def test_local_ac_solve_recovers_a_two_bus_voltage():
@@ -36,16 +16,6 @@ def test_local_ac_solve_recovers_a_two_bus_voltage():
     S1 = V_true[1] * np.conj(Y[1] @ V_true)
     V = local_ac_solve(Y, np.array([1.0 + 0j, 1.0 + 0j]), np.array([1]), np.array([S1]))
     assert V is not None and abs(V[1] - V_true[1]) < 1e-8 and V[0] == 1.0
-
-
-def test_sparse_basis_opens_and_closes_with_the_secured_rows():
-    from fdia_graph.formulas.trust import sparse_basis
-
-    H = np.array([[1.0, 0.0], [0.0, 1.0], [1.0, 1.0]])
-    open_ = sparse_basis(H, np.array([], int))
-    assert open_.shape == (2, 3)  # two independent stealthy attacks a = H c
-    assert np.allclose(open_ @ np.array([1.0, 1.0, -1.0]), 0.0)  # each is orthogonal to the null of H^T
-    assert sparse_basis(H, np.array([0, 1])).shape == (0, 3)  # both states pinned: no attack left
 
 
 # ---- sequences and episodes ----------------------------------------------------------------------------
@@ -83,50 +53,3 @@ def test_read_episodes_reads_the_group(tmp_path):
         assert read_episodes(f, False) is None
     assert e.onset.tolist() == [3, 10] and e.family.tolist() == [1, 4]
     assert [b.tolist() for b in e.buses] == [[5, 7], [2]]
-
-
-# ---- trust, removal, learned localizer ---------------------------------------------------------------------
-
-
-def test_trust_selector_base(splits):
-    pytest.importorskip("pandapower")
-    from fdia_graph.trust import TrustedMeters
-    from fdia_graph.trust.base import TrustSelector
-
-    with pytest.raises(NotImplementedError):
-        TrustSelector(TrustConfig(k=2)).fit(splits["train"])
-    tm = TrustedMeters(TrustConfig(k=4)).fit(splits["train"])
-    assert len(tm.select()) == 4 and tm.select(2).tolist() == tm.order[:2]
-    assert tm.attack_cost([]) <= tm.attack_cost()  # securing meters never makes the attack cheaper
-
-
-def test_removal_keeps_every_meter_the_guard_refuses(splits):
-    pytest.importorskip("pandapower")
-    from fdia_graph.se import ResidualRemoval
-
-    est = ResidualRemoval(removal=RemovalConfig(threshold=0.5)).fit(
-        splits["train"]
-    )  # nearly every residual is "bad"
-    d = splits["test"].export(["node_x", "edge_x"])
-    z = est._z_of(d["node_x"], d["edge_x"])[:20]
-    asked = []
-
-    def refuse(w):  # every removal would break observability
-        asked.append(1)
-        return False
-
-    est._observable = refuse
-    full = est._w_solve(z, np.broadcast_to(est.Wk, z.shape))
-    assert np.allclose(est._solve(z), full)  # nothing removed, and the loop still ends
-    assert len(asked) >= 20  # the guard was consulted, at least once per record
-
-
-def test_tune_threshold_picks_one_global_tau(splits, timeline):
-    pytest.importorskip("torch")
-    from fdia_graph.localization import BusMLP
-
-    loc = BusMLP(learned=LearnedConfig(epochs=2, device="cpu")).fit(splits["train"], val=splits["val"])
-    assert loc.tau is not None and np.round(loc.tau / 0.05) * 0.05 == pytest.approx(loc.tau)
-    assert np.all(loc.thr[loc._attackable] == loc.tau) and np.all(np.isinf(loc.thr[~loc._attackable]))
-    with pytest.raises(ValueError, match="attacked records"):
-        loc.tune_threshold(fg.load(timeline, split="val", families=["benign"]))

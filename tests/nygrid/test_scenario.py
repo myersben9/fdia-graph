@@ -233,11 +233,11 @@ LOADS = ROOT / "data" / "loads"
 def test_load_profiles(case):
     import json
 
-    from fdia_graph.federated.utilities import assign_clients
     from fdia_graph.generation.nygrid.case import ZONES
     from fdia_graph.generation.nygrid.config import Settings, rng
     from fdia_graph.generation.nygrid.inputs import ZoneLoad, fetch_nyiso
     from fdia_graph.generation.nygrid.loads import LoadModel
+    from fdia_graph.generation.nygrid.ownership import assign_clients
 
     own = assign_clients(
         case,

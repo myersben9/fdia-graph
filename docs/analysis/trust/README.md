@@ -1,11 +1,11 @@
-# Trusted meters with `fdia_graph.trust`
+# Trusted meters with `fdia_analysis.trust`
 
 Which meters to secure so that a stealthy attack stops being stealthy.
 
 ```python
 import fdia_graph as fg
-from fdia_graph.models import DqnConfig, TrustConfig
-from fdia_graph.trust import TrustedMeters, TrustedMetersDQN
+from fdia_analysis.models import DqnConfig, TrustConfig
+from fdia_analysis.trust import TrustedMeters, TrustedMetersDQN
 
 train = fg.load("ieee14", split="train")
 test = fg.load("ieee14", split="test", order="time")
@@ -29,7 +29,7 @@ and the attack lives in the null space of the secured rows. Every secured meter 
 once `H_S` has full column rank there is no stealthy attack left. The attack cost is how many
 meters the cheapest attack in the open subspace must touch (the sparsest row of its reduced row
 echelon basis, an upper bound on the exact NP-hard minimum). Both selectors read the same kernel,
-`fdia_graph.formulas.trust`.
+`fdia_analysis.formulas.trust` (on the row reduction of `fdia_graph.formulas.trust`).
 
 | class | picks the next meter by | needs |
 |---|---|---|

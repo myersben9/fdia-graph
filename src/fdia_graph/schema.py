@@ -7,6 +7,11 @@ public vocabulary of a record and stay as words in the code; `FIELD_PATH` maps t
 
 from __future__ import annotations
 
+import dataclasses
+import hashlib
+import inspect
+import json
+
 from .models.choices import Split
 
 
@@ -182,7 +187,7 @@ class Attr:
     N_LINES = "n_lines"  # the lines one overload episode drives at once
     SUPPORT_METHOD = "support_method"  # how the overload attack chose its supports: "search" or "rref"
     SETTINGS = "settings"  # the TimelineSettings the walk ran, as JSON (`TimelineSettings.as_record`)
-    SETTINGS_HASH = "settings_hash"  # `results.run.config_hash` of those settings, what a result cites
+    SETTINGS_HASH = "settings_hash"  # `config_hash` (below) of those settings, what a result cites
     METER_MODEL = "meter_model"  # written on a hybrid-meter file only
     CURRENT_FEAT = "current_feat"  # the legend of pmu_i, on a hybrid-meter file
     CURRENT_UNITS = "current_units"
@@ -202,6 +207,16 @@ class Attr:
 ATTR_KEYS = frozenset(v for k, v in vars(Attr).items() if not k.startswith("_"))
 
 KIND_TIMELINE = "timeline"
+
+
+def config_hash(settings: object) -> str:
+    """A stable hash of settings (the value of `Attr.SETTINGS_HASH`, and of a result's provenance):
+    a model's fields, a mapping, or any value's repr."""
+    if dataclasses.is_dataclass(settings) and not inspect.isclass(settings):
+        settings = dataclasses.asdict(settings)
+    blob = json.dumps(settings, sort_keys=True, default=repr)
+    return hashlib.sha256(blob.encode()).hexdigest()[:12]
+
 
 # The partition codes stored in data/split.
 SPLIT_CODE: dict[str, int] = {Split.TRAIN: 0, Split.VAL: 1, Split.TEST: 2}

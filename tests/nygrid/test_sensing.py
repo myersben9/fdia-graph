@@ -22,11 +22,11 @@ from fdia_graph.engine.sensing.meters import (
     plan_meters,
 )
 from fdia_graph.engine.sensing.noise import NoiseModel
-from fdia_graph.federated.utilities import assign_clients
 from fdia_graph.formulas.noise import JITTER_FRAC
 from fdia_graph.generation.nygrid.case import nygrid_case
 from fdia_graph.generation.nygrid.config import Settings, rng
 from fdia_graph.generation.nygrid.network import Network
+from fdia_graph.generation.nygrid.ownership import assign_clients
 
 from .inputs import TERRITORIES, needs_data
 

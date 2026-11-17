@@ -4,11 +4,11 @@ or IndexError from deeper in the code (docs/reference/REVIEW_CHECKLIST.md, item 
 Two sweeps. Every config and input model is built with each of its fields replaced by a value of
 the wrong kind, and must either accept it or refuse it with a `ConfigError`. Then each public
 entry point that takes settings is called with one bad argument, and must refuse it with a
-`ConfigError` before it downloads, reads a file or starts work.
+`ConfigError` before it downloads, reads a file or starts work. The analysis toolkit's models and
+entry points get the same sweeps in analysis/tests/test_malformed_inputs.py, through the same helpers (tests/helpers.py).
 """
 
-import dataclasses
-import inspect
+import pathlib
 import re
 
 import numpy as np
@@ -16,9 +16,8 @@ import pytest
 
 from fdia_graph.errors import ConfigError
 from fdia_graph.models import config, inputs
-from fdia_graph.models import results as result_models
 from fdia_graph.models.frames import OperatingLimits
-from fdia_graph.models.validation import Validated
+from tests.helpers import check_functions, converted_arguments, models_of, sweep
 
 
 def _id(value: object) -> str:
@@ -26,20 +25,13 @@ def _id(value: object) -> str:
     return re.sub(r" at 0x[0-9a-fA-F]+", "", str(value))
 
 
-BAD = ("bogus", 1.5, -1, float("nan"), float("inf"), 10**1000, None, object(), [1, 2], {"a": 1})
-
-_EDGES = np.array([[0, 1], [1, 2]])
-_ADJ = np.eye(3)
-_GRAPH = inputs.ClientGraph(np.array([0, 0, 1]), _ADJ)
 _LIMITS = OperatingLimits(*(np.full(3, v) for v in (0.94, 1.06, -np.inf, np.inf, -np.inf, np.inf)))
 
 # a valid value for every required field, so each bad value is the only thing wrong
 VALID = {
     config.WindowSpec: dict(T=10, W=2),
-    config.TrustConfig: dict(k=2),
     config.TrustSchedule: dict(buses=[0], slots=[1]),
     config.ProfileFetch: dict(iso="nyiso"),
-    config.GateConfig: dict(gate="oracle"),
     config.IsoExport: dict(iso="nyiso"),
     inputs.DateSpan: dict(start="2024-01-01", end="2024-01-02"),
     inputs.ProfileSource: dict(source=type("Series", (), {"loads": lambda self: np.ones(2)})()),
@@ -52,49 +44,14 @@ VALID = {
     inputs.SupportedSystem: dict(system="ieee14", supported=frozenset({14})),
     inputs.ReleaseName: dict(release="v0.8.0"),
     inputs.StatePool: dict(X=np.zeros((2, 3, 4))),
-    inputs.ShapedArray: dict(values=np.zeros((2, 3)), shape=(2, 3)),
     inputs.FieldRequest: dict(fields=("a",), offered=("a", "b"), known=("a", "b")),
     inputs.CsvSpec: dict(path="x.csv", column="load"),
-    inputs.EdgeList: dict(edge_index=_EDGES, N=3),
-    inputs.ClientCount: dict(N=3, K=2),
-    inputs.ClientGraph: dict(assignment=np.array([0, 0, 1]), adjacency=_ADJ),
-    inputs.Halo: dict(graph=_GRAPH, k=0, depth=1),
-    inputs.AssignmentSpec: dict(assignment=np.array([0, 0, 1]), edge_index=_EDGES),
-    inputs.PartitionOnGrid: dict(assignment=np.array([0, 0, 1]), K=2, N=3),
-    inputs.ClientUpdates: dict(tensors=(np.zeros(2), np.ones(2)), weights=np.array([1.0, 2.0])),
-    inputs.MomentParts: dict(parts=((3, np.zeros(2), np.ones(2)),)),
-    inputs.FeatureBlock: dict(X=np.zeros((2, 3, 4))),
-    inputs.Affinity: dict(adjacency=_ADJ, attackable=np.array([True, False, True])),
-    inputs.StateBlocks: dict(blocks=((np.array([0, 1]), np.eye(2)),), d=3),
-    inputs.LabelGrids: dict(pred=np.zeros((2, 3), bool), truth=np.zeros((2, 3), bool)),
-    inputs.TauSearch: dict(
-        counts=(np.zeros((2, 3)),) * 3, active=np.array([True, False, True]), taus=np.array([0.1, 0.2])
-    ),
-    inputs.RankedLabels: dict(score=np.array([0.1, 0.9]), truth=np.array([False, True])),
-    inputs.Aggregation: dict(reduce="sum"),
     inputs.Requirement: dict(capabilities=("time_order",), by="a test"),
     inputs.LoadValues: dict(values=[1.0, 2.0, 3.0]),
-    result_models.Record: dict(experiment="demo.x", metric="angle_mae_deg", value=0.1),
-    result_models.Provenance: dict(
-        run_id="demo.x-1", experiment="demo.x", timestamp="2026-01-01T00:00:00Z", sdk_version="0"
-    ),
-    result_models.RunRecords: dict(
-        provenance=result_models.Provenance(
-            run_id="demo.x-1", experiment="demo.x", timestamp="2026-01-01T00:00:00Z", sdk_version="0"
-        ),
-        records=(),
-    ),
 }
 
 
-def _models():
-    for mod in (config, inputs, result_models):
-        for _, cls in inspect.getmembers(mod, inspect.isclass):
-            if issubclass(cls, Validated) and cls is not Validated and cls.__module__ == mod.__name__:
-                yield cls
-
-
-MODELS = list(_models())
+MODELS = models_of(config, inputs)
 
 
 def test_every_model_has_a_valid_example():
@@ -104,68 +61,12 @@ def test_every_model_has_a_valid_example():
 
 @pytest.mark.parametrize("cls", MODELS, ids=lambda c: c.__name__)
 def test_a_wrong_kind_of_value_is_accepted_or_a_config_error(cls):
-    base = VALID.get(cls, {})
-    for field in dataclasses.fields(cls):
-        for bad in BAD:
-            try:
-                cls(**{**base, field.name: bad})
-            except (ConfigError, cls.error):  # an input error, or the data condition the model names
-                pass
-            except Exception as e:  # noqa: BLE001  (any other type is the finding)
-                pytest.fail(f"{cls.__name__}({field.name}={bad!r}) raised {type(e).__name__}: {e}")
+    sweep(cls, VALID.get(cls, {}))
 
 
 # ---- the public entry points --------------------------------------------------------------------
 def _no_work(*a, **k):
     raise AssertionError("a bad argument got past the checks")
-
-
-def _build(module, cls_name, **kw):
-    import importlib
-
-    return lambda: getattr(importlib.import_module(f"fdia_graph.{module}"), cls_name)(**kw)
-
-
-ENTRY_POINTS = [
-    ("SolveConfig npass", _build("models.config", "SolveConfig", npass="many")),
-    ("SolveConfig iters", _build("models.config", "SolveConfig", iters=2.5)),
-    ("HuberConfig c", _build("models.config", "HuberConfig", c=float("nan"))),
-    ("HuberConfig tol", _build("models.config", "HuberConfig", tol="small")),
-    ("RemovalConfig threshold", _build("models.config", "RemovalConfig", threshold="high")),
-    ("RemovalConfig cond_mult", _build("models.config", "RemovalConfig", cond_mult=-1)),
-    ("PriorConfig rank_frac", _build("models.config", "PriorConfig", rank_frac=10**1000)),
-    ("PriorConfig reweight", _build("models.config", "PriorConfig", reweight="tukey")),
-    (
-        "JacobianWeightingConfig huber_c",
-        _build("models.config", "JacobianWeightingConfig", huber_c=float("inf")),
-    ),
-    ("GateConfig gate_factor", _build("models.config", "GateConfig", gate="oracle", gate_factor="big")),
-    ("LocalizerConfig fa_target", _build("models.config", "LocalizerConfig", fa_target=1.5)),
-    ("LocalizerConfig fa_target kind", _build("models.config", "LocalizerConfig", fa_target="low")),
-    ("LocalizerConfig fa_target", _build("models.config", "LocalizerConfig", fa_target=None)),
-    ("TrustConfig k", _build("models.config", "TrustConfig", k=2.5)),
-    ("TrustConfig fa_target", _build("models.config", "TrustConfig", k=2, fa_target=float("nan"))),
-    ("LearnedConfig layers", _build("models.config", "LearnedConfig", layers=2.5)),
-    ("LearnedConfig features", _build("models.config", "LearnedConfig", features="everything")),
-    ("LearnedConfig batch_size", _build("models.config", "LearnedConfig", batch_size=2.5)),
-    ("LearnedConfig epochs", _build("models.config", "LearnedConfig", epochs=0)),
-    ("LearnedConfig lr", _build("models.config", "LearnedConfig", lr=float("nan"))),
-    ("LearnedConfig dropout", _build("models.config", "LearnedConfig", dropout=1.5)),
-    (
-        "spectral_partition K",
-        _build("federated.partition", "spectral_partition", edge_index=_EDGES, N=3, K=2.5),
-    ),
-    (
-        "spectral_partition N",
-        _build("federated.partition", "spectral_partition", edge_index=_EDGES, N="3", K=1),
-    ),
-]
-
-
-@pytest.mark.parametrize("name, call", ENTRY_POINTS, ids=[n for n, _ in ENTRY_POINTS])
-def test_an_entry_point_refuses_a_bad_setting_with_a_config_error(name, call):
-    with pytest.raises(ConfigError):
-        call()
 
 
 @pytest.mark.parametrize(
@@ -217,24 +118,6 @@ def test_fetch_profile_refuses_a_bad_date_before_the_network(start, end, monkeyp
 
 
 @pytest.mark.parametrize(
-    "assignment, edge_index",
-    [
-        ("abc", _EDGES),
-        (None, _EDGES),
-        (np.array([0, 0, 1]), "edges"),
-        (np.array([0, 0, 1]), np.array([[0, -1], [1, 2]])),
-        (np.array([0.5, 0, 1]), _EDGES),
-        (np.array([0, 0, 5]), _EDGES),
-    ],
-)
-def test_partition_from_assignment_refuses_a_malformed_input(assignment, edge_index):
-    from fdia_graph.federated.partition import partition_from_assignment
-
-    with pytest.raises(ConfigError):
-        partition_from_assignment(assignment, edge_index)
-
-
-@pytest.mark.parametrize(
     "knobs",
     [
         dict(attacked_frac=1.5),
@@ -270,24 +153,10 @@ def test_generate_timeline_refuses_a_bad_knob_before_building_the_case(kwargs, m
         timeline.generate_timeline(14, **kwargs)
 
 
-# the deprecated shims kept for one minor version; every other check lives on a model
-_SHIMS = {"check_split", "check_units", "check_order", "check_partition"}
-
-
 def test_no_function_outside_the_models_is_a_check():
-    import ast
-    import pathlib
-
     import fdia_graph
 
-    root = pathlib.Path(fdia_graph.__file__).parent
-    found = [
-        f"{path.relative_to(root)}:{node.lineno} {node.name}"
-        for path in root.rglob("*.py")
-        if "models" not in path.relative_to(root).parts
-        for node in ast.walk(ast.parse(path.read_text(encoding="utf-8")))
-        if isinstance(node, ast.FunctionDef) and node.name.startswith("check_") and node.name not in _SHIMS
-    ]
+    found = check_functions(fdia_graph)
     assert not found, f"declare these checks on a model in models/: {found}"
 
 
@@ -335,7 +204,6 @@ def test_a_csv_source_and_a_dataset_name_are_checked_when_given():
 
 
 def test_a_state_pool_path_may_be_a_pathlib_path(tmp_path):
-    import pathlib
 
     assert inputs.StateSource(pathlib.Path(tmp_path) / "pool.npz").path == str(tmp_path / "pool.npz")
 
@@ -351,10 +219,6 @@ def test_export_refuses_a_malformed_field_list(timeline):
     "call",
     [
         lambda: __import__("fdia_graph.dataset.base", fromlist=["x"]).family_ids(3),
-        lambda: __import__("fdia_graph.formulas.federated", fromlist=["x"]).pool_moments(None),
-        lambda: __import__("fdia_graph.formulas.federated", fromlist=["x"]).fedavg(None, [1.0]),
-        lambda: __import__("fdia_graph.formulas.federated", fromlist=["x"]).block_diagonal_basis(3, 4),
-        lambda: inputs.ShapedArray("bad", (2, 2), "scores"),
         lambda: inputs.StateSource(np.array(["bad"])),
     ],
 )
@@ -364,40 +228,7 @@ def test_a_raw_argument_reaches_its_model_unconverted(call):
 
 
 def test_no_function_converts_its_own_argument_before_the_model_sees_it():
-    """`Model(tuple(arg))` or `Model(np.asarray(arg))` turns a malformed argument into a raw
-    TypeError or ValueError before the model can refuse it; the model's rules do the conversion."""
-    import ast
-    import pathlib
+    import fdia_graph
 
-    src = pathlib.Path(__file__).resolve().parents[1] / "src" / "fdia_graph"
-    names = {
-        n
-        for m in (config, inputs)
-        for n, c in vars(m).items()
-        if inspect.isclass(c) and issubclass(c, Validated) and c is not Validated
-    }
-    conversions = {"tuple", "list", "float", "int", "np.asarray", "np.array", "np.ascontiguousarray"}
-    hits = []
-    for path in sorted(src.rglob("*.py")):
-        if "models" in path.parts:
-            continue
-        for fn in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
-            if not isinstance(fn, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                continue
-            params = {a.arg for a in fn.args.args + fn.args.kwonlyargs}
-            for node in ast.walk(fn):
-                if not (
-                    isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id in names
-                ):
-                    continue
-                for arg in list(node.args) + [k.value for k in node.keywords]:
-                    for c in ast.walk(arg):
-                        if (
-                            isinstance(c, ast.Call)
-                            and ast.unparse(c.func) in conversions
-                            and c.args
-                            and isinstance(c.args[0], ast.Name)
-                            and c.args[0].id in params
-                        ):
-                            hits.append(f"{path.relative_to(src)}:{node.lineno} {ast.unparse(c)}")
+    hits = converted_arguments(fdia_graph, config, inputs)
     assert not hits, "convert inside the model instead: " + "; ".join(hits)

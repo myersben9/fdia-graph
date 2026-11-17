@@ -6,26 +6,10 @@ that built its release, or is a slice of the published file (tests/data/README.m
 Also here: the graph fields a GNN user relies on (the series admittance and the clean flow on every
 branch), checked on a timeline."""
 
-import os
-
 import numpy as np
 import pytest
 
-DATA = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
-TIMELINE_V083 = os.path.join(DATA, "tiny_timeline_v083.h5")
-# one timeline per data release, each written by the SDK that built that release
-TIMELINES = {
-    "v0.8.0": os.path.join(DATA, "tiny_timeline_v080.h5"),
-    "v0.8.1": os.path.join(DATA, "tiny_timeline_v081.h5"),
-    "v0.8.3": TIMELINE_V083,
-}
-OLD_FAMILIES = {"Aq", "Ad", "As", "Ar", "At", "Al", "Am"}
-
-
-def _family_names(ds):
-    from fdia_graph.models.choices import FAMILIES
-
-    return {FAMILIES[int(f)] for f in np.unique(ds.export(["family"])["family"])} - {"benign"}
+from tests.helpers import OLD_FAMILIES, TIMELINE_V083, TIMELINES, family_names
 
 
 @pytest.mark.parametrize("release", sorted(TIMELINES))
@@ -34,13 +18,13 @@ def test_an_old_timeline_loads_every_split_and_family(release):
 
     path = TIMELINES[release]
     ds = FdiaGraph(path)
-    assert ds.has_benign and ds.has_clean and _family_names(ds) == OLD_FAMILIES
+    assert ds.has_benign and ds.has_clean and family_names(ds) == OLD_FAMILIES
     sizes = [len(FdiaGraph(path, split=s)) for s in ("train", "val", "test")]
     assert all(n > 0 for n in sizes) and sum(sizes) == len(ds)
     only = FdiaGraph(path, families=["Aq", "Al"])
-    assert _family_names(only) == {"Aq", "Al"}
+    assert family_names(only) == {"Aq", "Al"}
     held = FdiaGraph(path, split="train", heldout=True)
-    assert not {"As", "Ar"} & _family_names(held)
+    assert not {"As", "Ar"} & family_names(held)
     rec = ds[0]
     assert tuple(rec["clean"].shape) == (14, 4) and tuple(rec["edge_clean_full"].shape) == (ds.E, 2)
     assert tuple(ds.edge_attr.shape) == (ds.E, 8)
@@ -56,23 +40,6 @@ def test_a_v083_timeline_reads_as_pyg():
     assert (
         g.edge_attr.shape[1] == 2 and g.edge_clean_full.shape[1] == 2
     )  # flows, and the clean flow everywhere
-
-
-@pytest.mark.parametrize("release", sorted(TIMELINES))
-def test_old_releases_score_per_old_family(release):
-    """A per-family estimator and localizer score on an old timeline names the old families."""
-    from fdia_graph.dataset import FdiaGraph
-    from fdia_graph.localization import SwingThreshold
-    from fdia_graph.se import WLS
-
-    path = TIMELINES[release]
-    train, test = FdiaGraph(path, split="train"), FdiaGraph(path, split="test")
-    se = WLS().fit(train).score(test)
-    loc = SwingThreshold().fit(train).score(test)
-    present = _family_names(test)
-    assert present <= OLD_FAMILIES and {"Aq", "Ad"} <= present
-    for name in present:
-        assert se[name] is not None and loc[name] is not None
 
 
 @pytest.mark.parametrize("release", ["v0.8.0", "v0.8.1", "v0.8.3"])

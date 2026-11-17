@@ -47,7 +47,6 @@ import pandas as pd
 from scipy.signal import lfilter
 from scipy.stats import genpareto
 
-from fdia_graph.federated.utilities import Ownership
 from fdia_graph.generation.nygrid.case import ZONES, Case
 from fdia_graph.generation.nygrid.inputs import ZoneLoad, _bus_weights
 from fdia_graph.generation.nygrid.load_sources import (
@@ -61,6 +60,7 @@ from fdia_graph.generation.nygrid.load_sources import (
     _sector_mix,
     _work_hours,
 )
+from fdia_graph.generation.nygrid.ownership import Ownership
 from fdia_graph.generation.nygrid.tables import read_rows
 
 POWER_FACTOR = 0.98  # NYgrid's load power factor (allocateLoad.m), so P4 still compares with MATLAB

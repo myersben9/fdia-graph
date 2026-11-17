@@ -10,11 +10,11 @@ import pytest
 from fdia_graph.dataset.clients import ClientView, Dataset
 from fdia_graph.engine.attacks.family import Episode
 from fdia_graph.engine.sensing.meters import MeterPlan, plan_meters
-from fdia_graph.federated.utilities import assign_clients
 from fdia_graph.generation.nygrid.case import Case, nygrid_case
 from fdia_graph.generation.nygrid.config import Settings, rng
 from fdia_graph.generation.nygrid.io import TimelineWriter
 from fdia_graph.generation.nygrid.network import Network
+from fdia_graph.generation.nygrid.ownership import assign_clients
 
 from .inputs import ROOT, TERRITORIES, needs_data
 

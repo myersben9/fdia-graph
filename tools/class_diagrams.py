@@ -1,5 +1,6 @@
-"""Write the class and module diagrams of the package from its source, as Mermaid sources under
-docs/figures/diagrams/, so the pictures in docs/reference/CLASS_MAP.md never drift from the code.
+"""Write the class and module diagrams of the two toolkits (`fdia_graph` and `fdia_analysis`) from
+their source, as Mermaid sources under docs/figures/diagrams/, so the pictures in
+docs/reference/CLASS_MAP.md never drift from the code.
 
     python tools/class_diagrams.py            # write classes_<group>.mmd and modules.mmd
     python tools/class_diagrams.py --check    # exit 1 when a committed source is out of date (CI)
@@ -7,7 +8,9 @@ docs/figures/diagrams/, so the pictures in docs/reference/CLASS_MAP.md never dri
 Then `python tools/render_mermaid.py docs/figures/diagrams/classes_*.mmd docs/figures/diagrams/modules.mmd`
 renders them. Everything comes from the AST: a class's public methods, its bases (inheritance), the
 classes of other modules it names (a dashed "uses" edge), and the imports between modules (the
-module diagram). Private classes are left out except where the walker's are the point.
+module diagram). Private classes are left out except where the walker's are the point. The module
+diagram is one picture with a box per toolkit, so the one direction of the dependency between them
+(analysis reads generation, never the reverse) is what the reader sees.
 """
 
 from __future__ import annotations
@@ -18,50 +21,55 @@ import sys
 from collections import defaultdict
 
 from readability import DEFERRED  # tools/ is the script's own directory, so on sys.path
+from sources import ANALYSIS, GENERATION, PACKAGES, ROOT, package_dir
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-SRC = os.path.join(ROOT, "src", "fdia_graph")
 OUT = os.path.join(ROOT, "docs", "figures", "diagrams")
 
 # The class diagrams: one per group of modules, the classes of those modules plus any class of another
 # group they name (drawn as an outside participant), so every line connects to something on the page.
+# A module is named by its package and its path in it.
 GROUPS = {
     "dataset": [
-        "dataset/base",
-        "dataset/graph",
-        "dataset/physics",
-        "dataset/records",
-        "dataset/export",
-        "dataset/sequence",
-        "dataset/__init__",
+        f"{GENERATION}/dataset/base",
+        f"{GENERATION}/dataset/graph",
+        f"{GENERATION}/dataset/physics",
+        f"{GENERATION}/dataset/records",
+        f"{GENERATION}/dataset/export",
+        f"{GENERATION}/dataset/sequence",
+        f"{GENERATION}/dataset/__init__",
     ],
     "engine": [
-        "engine/base",
-        "engine/measurement",
-        "engine/physics",
-        "engine/attacks/__init__",
-        "engine/core",
+        f"{GENERATION}/engine/base",
+        f"{GENERATION}/engine/measurement",
+        f"{GENERATION}/engine/physics",
+        f"{GENERATION}/engine/attacks/__init__",
+        f"{GENERATION}/engine/core",
     ],
     "attacks": [
-        "engine/attacks/area",
-        "engine/attacks/false_state",
-        "engine/attacks/minimize",
-        "engine/attacks/overload",
-        "engine/attacks/stealthy",
-        "engine/attacks/episodes",
-        "engine/attacks/__init__",
+        f"{GENERATION}/engine/attacks/area",
+        f"{GENERATION}/engine/attacks/false_state",
+        f"{GENERATION}/engine/attacks/minimize",
+        f"{GENERATION}/engine/attacks/overload",
+        f"{GENERATION}/engine/attacks/stealthy",
+        f"{GENERATION}/engine/attacks/episodes",
+        f"{GENERATION}/engine/attacks/__init__",
     ],
-    "estimation": ["se/base", "se/methods", "se/jacobian"],
+    "estimation": [f"{ANALYSIS}/se/base", f"{ANALYSIS}/se/methods", f"{ANALYSIS}/se/jacobian"],
     "localization_trust": [
-        "localization/base",
-        "localization/methods",
-        "localization/learned",
-        "trust/base",
-        "trust/meter_dqn",
+        f"{ANALYSIS}/localization/base",
+        f"{ANALYSIS}/localization/methods",
+        f"{ANALYSIS}/localization/learned",
+        f"{ANALYSIS}/trust/base",
+        f"{ANALYSIS}/trust/meter_dqn",
     ],
-    "federated": ["federated/partition", "federated/aggregate", "federated/localizer", "federated/se"],
-    "models": ["models/base", "models/fields", "models/data"],
-    "scores": ["models/base", "models/scores"],
+    "federated": [
+        f"{ANALYSIS}/federated/partition",
+        f"{ANALYSIS}/federated/aggregate",
+        f"{ANALYSIS}/federated/localizer",
+        f"{ANALYSIS}/federated/se",
+    ],
+    "models": [f"{GENERATION}/models/base", f"{GENERATION}/models/fields", f"{GENERATION}/models/data"],
+    "scores": [f"{GENERATION}/models/base", f"{ANALYSIS}/models/scores", f"{ANALYSIS}/models/data"],
 }
 # classes drawn as one node: the seven field-group mixins every record bundle inherits, which as
 # 28 separate inheritance lines said nothing
@@ -80,7 +88,8 @@ COLLAPSE = {
     ),
 }
 MAX_METHODS = 8  # methods listed per class before "... and n more"
-NOISE_MODULES = {"dataset/__init__"}  # FdiaGraph itself: every class takes one, the edge says nothing
+# FdiaGraph itself: every class takes one, the edge says nothing
+NOISE_MODULES = {f"{GENERATION}/dataset/__init__"}
 NOISE_CLASSES = {"NodeColumns", "EdgeColumns"}  # the column-index tuples, likewise
 # collaborators a class takes by duck typing, so no import names them: (other class, edge label)
 EXTRA = {
@@ -90,26 +99,29 @@ EXTRA = {
 
 
 def modules() -> dict[str, ast.Module]:
+    """Every module of the two packages, by `<package>/<path in it>` (`fdia_analysis/se/base`)."""
     out = {}
-    for dirpath, dirs, files in os.walk(SRC):
-        # a subpackage not yet under the SDK's rules (DEFERRED in tools/readability.py) keeps its own
-        # architecture page, and its class names would shadow the package's in these diagrams
-        dirs[:] = [d for d in dirs if not (dirpath == SRC and d in DEFERRED)]
-        for f in files:
-            if f.endswith(".py"):
-                p = os.path.join(dirpath, f)
-                name = os.path.relpath(p, SRC)[:-3].replace("\\", "/")
-                with open(p, encoding="utf8") as fh:
-                    out[name] = ast.parse(fh.read())
+    for package in PACKAGES:
+        src = package_dir(package)
+        for dirpath, dirs, files in os.walk(src):
+            # a subpackage not yet under the SDK's rules (DEFERRED in tools/readability.py) keeps its own
+            # architecture page, and its class names would shadow the package's in these diagrams
+            dirs[:] = [d for d in dirs if not (dirpath == src and f"{package}/{d}" in DEFERRED)]
+            for f in files:
+                if f.endswith(".py"):
+                    p = os.path.join(dirpath, f)
+                    name = os.path.relpath(p, src)[:-3].replace("\\", "/")
+                    with open(p, encoding="utf8") as fh:
+                        out[f"{package}/{name}"] = ast.parse(fh.read())
     return out
 
 
 def resolve(module: str, node: ast.ImportFrom) -> str | None:
-    """The package-relative module a `from .x import y` or a `from fdia_graph.x import y` names, or None
-    for an outside import."""
+    """The module (`<package>/<path>`) a `from .x import y` or a `from fdia_graph.x import y` names, or
+    None for an outside import."""
     if node.level == 0:
         parts = (node.module or "").split(".")
-        return "/".join(parts[1:]) if parts[0] == "fdia_graph" and len(parts) > 1 else None
+        return "/".join(parts) if parts[0] in PACKAGES and len(parts) > 1 else None
     base = module.split("/")[:-1]
     base = base[: len(base) - (node.level - 1)] if node.level > 1 else base
     target = base + (node.module.split(".") if node.module else [])
@@ -195,7 +207,9 @@ def class_diagram(group: str, mods: dict[str, ast.Module], idx: dict[str, str]) 
                 uses.append((n.name, other, label))
     outside = {b for b, _ in inherit} | {u[1] for u in uses}
     for name in sorted(outside - seen):
-        lines.append(f"    class {name} {{\n        <<{idx.get(name, '?').split('/')[0]}>>\n    }}")
+        # the package it comes from, under its toolkit: `fdia_analysis/se/base` reads as "se"
+        home = idx[name].split("/")[1] if name in idx else "?"
+        lines.append(f"    class {name} {{\n        <<{home}>>\n    }}")
     for b, c in sorted(set(inherit)):
         lines.append(f"    {b} <|-- {c}")
     # one edge per pair of endpoints, a labeled (EXTRA) edge winning over the plain "uses" the import
@@ -215,22 +229,47 @@ def class_diagram(group: str, mods: dict[str, ast.Module], idx: dict[str, str]) 
 # read by every module, so their edges are said once in the caption instead of drawn; and the public
 # API imports everything, which is not a dependency worth a line each.
 FOUNDATION = {"models", "formulas", "schema", "errors"}
-OMIT = {"fdia_graph"}
+OMIT = set(PACKAGES)  # each package's own `__init__.py`
+# the caption of each toolkit's box, and the node label of each top-level module or package
+TOOLKIT = {
+    GENERATION: "fdia-graph, the generation toolkit: src/fdia_graph",
+    ANALYSIS: "fdia-analysis, the analysis toolkit: analysis/src/fdia_analysis",
+}
+LABEL = {
+    GENERATION: "__init__.py<br/>fg.* public API",
+    "dataset": "dataset/",
+    "engine": "engine/",
+    "generation": "generation/",
+    "ratings": "ratings/",
+    "registry": "registry.py",
+    "download": "download.py",
+    "timeline": "timeline.py",
+    "profiles": "profiles.py",
+    "se": "se/",
+    "localization": "localization/",
+    "federated": "federated/",
+    "trust": "trust/",
+    "results": "results/",
+}
 
 
 def module_diagram(mods: dict[str, ast.Module]) -> str:
-    """Top-level modules and packages of fdia_graph, one node each, an edge per import between them
-    (the foundation modules and the public API's fan-out left out, see FOUNDATION and OMIT)."""
+    """Top-level modules and packages of the two toolkits, one node each in its toolkit's box, an edge
+    per import between them (the foundation modules and each package's own `__init__.py` left out, see
+    FOUNDATION and OMIT). No top-level name is in both toolkits but the foundation's, so a node is its
+    name."""
 
     def top(m: str) -> str:
-        head = m.split("/")[0]
-        return head if head != "__init__" else "fdia_graph"
+        parts = m.split("/")
+        return parts[1] if len(parts) > 1 and parts[1] != "__init__" else parts[0]
 
     edges: dict[tuple[str, str], int] = defaultdict(int)
     nodes = set()
+    home: dict[str, str] = {}
     for m, t in mods.items():
         src = top(m)
         nodes.add(src)
+        home[src] = m.split("/")[0]
         for n in t.body:
             if isinstance(n, ast.ImportFrom):
                 tgt = resolve(m, n)
@@ -246,27 +285,13 @@ def module_diagram(mods: dict[str, ast.Module]) -> str:
                         dst = top(tgt)
                         if dst != src:
                             edges[(src, dst)] += 1
-    label = {
-        "fdia_graph": "__init__.py<br/>fg.* public API",
-        "dataset": "dataset/",
-        "engine": "engine/",
-        "se": "se/",
-        "localization": "localization/",
-        "federated": "federated/",
-        "trust": "trust/",
-        "models": "models/",
-        "formulas": "formulas/",
-        "registry": "registry.py",
-        "download": "download.py",
-        "schema": "schema.py",
-        "timeline": "timeline.py",
-        "generation": "generation.py",
-        "profiles": "profiles.py",
-    }
-    drawn = {(a, b) for (a, b) in edges if a not in OMIT | FOUNDATION and b not in FOUNDATION}
+    drawn = {(a, b) for (a, b) in edges if a not in OMIT | FOUNDATION and b not in OMIT | FOUNDATION}
     lines = ["flowchart TB"]
-    for n in sorted(nodes - OMIT - FOUNDATION):
-        lines.append(f'    {n}["{label.get(n, n)}"]')
+    for package, caption in TOOLKIT.items():
+        lines.append(f'    subgraph {package}["{caption}"]')
+        for n in sorted(n for n in nodes - OMIT - FOUNDATION if home[n] == package):
+            lines.append(f'        {n}["{LABEL.get(n, n)}"]')
+        lines.append("    end")
     for a, b in sorted(drawn):
         lines.append(f"    {a} --> {b}")
     return "\n".join(lines) + "\n"

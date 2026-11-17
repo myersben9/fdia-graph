@@ -27,8 +27,7 @@ from ..models.frames import AmOverloadDesign, FrameContext, FrameKnobs
 from ..models.inputs import AdmissibleTargets, GeneratedFamilies
 from ..models.plan import GeneratorSpec, Placement, Schedule, Slot, SplitSpan
 from ..registry import CACHE_DIR, system_id
-from ..results.run import config_hash
-from ..schema import Attr
+from ..schema import Attr, config_hash
 from . import _load_states, _write_graph
 from .design import AmDesigner, AmEpisode
 from .emit import TimelineBuffers, Walk, clean_slice, walk_split

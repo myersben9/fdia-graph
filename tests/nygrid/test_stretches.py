@@ -48,10 +48,10 @@ def grid():
     from fdia_graph.engine.attacks.attacker import Attacker
     from fdia_graph.engine.sensing.measure import Measurement
     from fdia_graph.engine.sensing.meters import plan_meters
-    from fdia_graph.federated.utilities import Ownership
     from fdia_graph.generation.nygrid.case import nygrid_case
     from fdia_graph.generation.nygrid.config import Settings, rng
     from fdia_graph.generation.nygrid.network import Network
+    from fdia_graph.generation.nygrid.ownership import Ownership
     from fdia_graph.generation.nygrid.pool import FAILED, SOLVED, Pool
 
     case = nygrid_case()

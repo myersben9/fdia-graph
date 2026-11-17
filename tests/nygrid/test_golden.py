@@ -1,6 +1,7 @@
 """Golden snapshots of nygrid's outputs on fixed inputs, the safety net of the readability refactor.
 
-Each test runs one public entry point (the persistence rule, the interface attack's design) on fixed inputs and
+Each test runs one public entry point (the interface attack's design; the persistence rule's snapshot is taken by
+the analysis toolkit's analysis/tests/test_detect.py) on fixed inputs and
 compares a digest of what it returns with the JSON stored under `golden/`. A refactor that moves code without
 changing behavior reproduces every digest; one that changes a number fails here and has to say why. Set
 `NYGRID_UPDATE_GOLDEN=1` to rewrite the snapshots after an intended change.
@@ -17,11 +18,8 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from fdia_graph.se.detect.rules import PersistenceRule
-
 from .inputs import POOL, ROOT, needs_data, needs_pool, needs_territories
 
-RULE = (428.7, 2, 3)  # the residual test's persistence rule
 GOLDEN = Path(__file__).parent / "golden"
 UPDATE = os.environ.get("NYGRID_UPDATE_GOLDEN") == "1"
 
@@ -89,12 +87,6 @@ def _digest(a: np.ndarray) -> dict:
         "abs": float(np.abs(v).sum()),
         "max": float(np.abs(v).max()) if v.size else 0.0,
     }
-
-
-def test_persistence_rule():
-    rule = PersistenceRule(*RULE)
-    j = np.array([400.0, 430.0, 410.0, 431.0, np.nan, 440.0, 441.0, 300.0])
-    check("persistence_rule", {"first": rule.first_alarm(j), "none": rule.first_alarm(j[:3])})
 
 
 @needs_territories

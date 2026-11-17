@@ -1,42 +1,41 @@
 flowchart TB
-    _lazy["_lazy"]
-    dataset["dataset/"]
-    download["download.py"]
-    engine["engine/"]
-    federated["federated/"]
-    generation["generation.py"]
-    localization["localization/"]
-    profiles["profiles.py"]
-    ratings["ratings"]
-    registry["registry.py"]
-    results["results"]
-    se["se/"]
-    timeline["timeline.py"]
-    trust["trust/"]
+    subgraph fdia_graph["fdia-graph, the generation toolkit: src/fdia_graph"]
+        _lazy["_lazy"]
+        dataset["dataset/"]
+        download["download.py"]
+        engine["engine/"]
+        generation["generation/"]
+        profiles["profiles.py"]
+        ratings["ratings/"]
+        registry["registry.py"]
+        timeline["timeline.py"]
+    end
+    subgraph fdia_analysis["fdia-analysis, the analysis toolkit: analysis/src/fdia_analysis"]
+        federated["federated/"]
+        localization["localization/"]
+        results["results/"]
+        se["se/"]
+        trust["trust/"]
+    end
     dataset --> generation
     download --> registry
     engine --> _lazy
-    engine --> federated
     engine --> generation
     engine --> ratings
     engine --> registry
     federated --> dataset
-    federated --> generation
     federated --> localization
     federated --> se
     generation --> _lazy
     generation --> dataset
     generation --> download
     generation --> engine
-    generation --> federated
     generation --> profiles
     generation --> registry
-    generation --> results
     generation --> timeline
     localization --> dataset
     localization --> se
     profiles --> engine
-    se --> _lazy
     se --> dataset
     timeline --> generation
     trust --> dataset

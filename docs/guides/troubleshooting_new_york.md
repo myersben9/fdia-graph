@@ -59,10 +59,12 @@ whole. A build whose design processes never start, or that starts itself again a
 
 ## The golden snapshots
 
-`tests/nygrid/test_golden.py` compares what the persistence rule and the interface attack return
+`tests/nygrid/test_golden.py` compares what the interface attack returns
 on fixed inputs with the snapshots in `tests/nygrid/golden/`. A failure names the first value that changed. If the
 change is intended, rewrite the snapshots with `NYGRID_UPDATE_GOLDEN=1` and say in the pull request which numbers
 moved and why. The interface attack's design needs the whole 2019 pool under `NYGRID_ROOT` and skips without it.
+The persistence rule's snapshot is two numbers, `analysis/tests/golden/persistence_rule.json`, compared by
+`analysis/tests/test_detect.py`; it needs no data, and an intended change edits the file.
 
 The same folder holds whole-file digests of a New York timeline and of two episodes
 (`tests/nygrid/test_timeline_digests.py`): bit for bit on the machine that recorded them, skipped

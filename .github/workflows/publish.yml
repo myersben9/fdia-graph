@@ -1,16 +1,23 @@
-# Publish fdia-graph to PyPI automatically when a version tag is pushed.
+# Publish the repository's two distributions to PyPI when a version tag is pushed: fdia-graph (the
+# generation toolkit, pyproject.toml at the root) and fdia-analysis (the analysis toolkit,
+# analysis/pyproject.toml). Nothing here runs on a merge or a push to a branch: only a "v*" tag starts it.
 #
 # Flow: bump `version` in pyproject.toml (+ __init__), merge to main, then push the matching tag:
 #     git tag vX.Y.Z && git push origin vX.Y.Z
-# This workflow builds the sdist+wheel, verifies the tag matches the pyproject version (so a stale
-# tag can never publish the wrong code), and uploads via PyPI Trusted Publishing (OIDC) -- no API
-# token is stored in GitHub or anywhere else.
+# This workflow builds the sdist+wheel of both, verifies the tag matches the pyproject version (so a
+# stale tag can never publish the wrong code), and uploads via PyPI Trusted Publishing (OIDC) -- no API
+# token is stored in GitHub or anywhere else. The two distributions are released together at one version
+# (tests/test_versions.py, which the tests job runs before anything is uploaded), so a package tag
+# publishes both. Each upload skips a file PyPI already has, so a run that published one of the two and
+# then failed can be run again.
 #
 # DATA-release tags (e.g. a v0.7.2 dataset release cut via the API) also match "v*" but are not
 # package releases: the version job makes the tests and publish jobs SKIP quietly for them.
 #
-# ONE-TIME SETUP on PyPI (repo owner): pypi.org -> project fdia-graph -> Settings -> Publishing ->
-# "Add a new publisher" -> GitHub: owner=myersben9, repo=fdia-graph, workflow=publish.yml.
+# ONE-TIME SETUP on PyPI (repo owner), once per distribution: pypi.org -> project fdia-graph -> Settings ->
+# Publishing -> "Add a new publisher" -> GitHub: owner=myersben9, repo=fdia-graph, workflow=publish.yml.
+# fdia-analysis is a new project: add it as a pending publisher (pypi.org -> Your account -> Publishing)
+# with the same owner, repo and workflow before the first tag that carries its version.
 name: publish
 
 on:
@@ -39,7 +46,7 @@ jobs:
             echo "::notice::tag v$TAG is not package version $PYVER — data release, skipping PyPI publish"
           fi
 
-  # The suite on the tagged commit: a package tag on a commit whose tests fail never publishes.
+  # Both suites on the tagged commit: a package tag on a commit whose tests fail never publishes.
   tests:
     needs: version
     if: needs.version.outputs.publish == 'true'
@@ -49,12 +56,12 @@ jobs:
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0  # v7.1.0
         with:
           python-version: "3.12"
-      - name: Install package with the generate, se, torch and test extras
+      - name: Install both toolkits with the generate, se, federated and test extras
         run: |
           pip install torch --index-url https://download.pytorch.org/whl/cpu
-          pip install -e ".[generate,se,federated,test]" torch_geometric matplotlib
-      - name: Run the test suite
-        run: pytest -q tests
+          pip install -e ".[generate,test]" -e "./analysis[se,federated,test]" torch_geometric matplotlib
+      - name: Run both test suites
+        run: pytest -q tests analysis/tests
 
   publish:
     needs: [version, tests]
@@ -70,11 +77,44 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Build sdist + wheel
+      # Both distributions are built and checked before the first upload, so fdia-graph never goes
+      # out from a commit where fdia-analysis does not build.
+      - name: Build sdist + wheel of fdia-graph and of fdia-analysis
         run: |
           python -m pip install --upgrade build twine
           python -m build
-          python -m twine check dist/*
+          python -m build analysis --outdir dist-analysis
+          python -m twine check dist/* dist-analysis/*
 
-      - name: Publish to PyPI (Trusted Publishing)
+      - name: Publish fdia-graph to PyPI (Trusted Publishing)
         uses: pypa/gh-action-pypi-publish@7245906fb61fa33a13554f9d5fb856fe61758086  # release/v1
+        with:
+          skip-existing: true  # a re-run after a partial publish uploads only what is missing
+
+  # fdia-analysis, in a job of its own (one upload per job), after fdia-graph: its requirement
+  # fdia-graph==<version> is on PyPI by then.
+  publish-analysis:
+    needs: [version, tests, publish]
+    if: needs.version.outputs.publish == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write        # required for PyPI Trusted Publishing (OIDC)
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0  # v7.1.0
+        with:
+          python-version: "3.12"
+
+      - name: Build sdist + wheel of fdia-analysis
+        run: |
+          python -m pip install --upgrade build twine
+          python -m build analysis --outdir dist-analysis
+          python -m twine check dist-analysis/*
+
+      - name: Publish fdia-analysis to PyPI (Trusted Publishing)
+        uses: pypa/gh-action-pypi-publish@7245906fb61fa33a13554f9d5fb856fe61758086  # release/v1
+        with:
+          packages-dir: dist-analysis
+          skip-existing: true

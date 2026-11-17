@@ -7,10 +7,7 @@ import numpy as np
 import pytest
 
 from fdia_graph.formulas.attacks import tampered_devices
-from fdia_graph.formulas.estimation import pmu_pseudo_links, pmu_pseudo_voltages
-from fdia_graph.formulas.network import branch_currents
 from fdia_graph.formulas.noise import PMU_CURRENT_CLASS, current_sigma
-from fdia_graph.models import SolveConfig
 from fdia_graph.models.grid import CURRENT, NODE
 
 pytest.importorskip("pandapower")
@@ -28,18 +25,6 @@ def pool():
     from fdia_graph.generation import _load_states
 
     return _load_states(14, None)[:200]
-
-
-@pytest.fixture(scope="module")
-def files(tmp_path_factory, pool):
-    from fdia_graph.timeline import generate_timeline
-
-    from .test_old_releases import TIMELINE_V083
-
-    d = tmp_path_factory.mktemp("pmu")
-    kw = dict(states=pool, seed=1, families=("At",), ramp_len=10, min_budget=32)
-    # (a v0.8.3-meter file of the old release, read only; a hybrid-meter file generated now)
-    return TIMELINE_V083, generate_timeline(14, out=str(d / "hybrid.h5"), **kw)
 
 
 def test_a_scada_voltmeter_reads_no_angle_under_the_hybrid_model(gens):
@@ -138,10 +123,10 @@ def test_the_search_counts_the_current_channels(gens, pool):
     assert blind is not None and blind[1] < cost[1]  # the current channels add to the tamper count
 
 
-def test_the_hybrid_file_carries_the_current_layers_and_the_old_one_does_not(files):
+def test_the_hybrid_file_carries_the_current_layers_and_the_old_one_does_not(pmu_files):
     from fdia_graph import schema
 
-    old, new = files
+    old, new = pmu_files
     with h5py.File(old) as f:  # the v0.8.3 release: no current layers
         assert not any(p in f for p in schema.CURRENT_LAYERS)
         assert "meter_model" not in f.attrs
@@ -156,10 +141,10 @@ def test_the_hybrid_file_carries_the_current_layers_and_the_old_one_does_not(fil
         assert (~benign).any() and tam[~benign].any()  # the ramps write currents
 
 
-def test_the_loader_and_export_serve_the_currents(files):
+def test_the_loader_and_export_serve_the_currents(pmu_files):
     from fdia_graph.dataset import FdiaGraph
 
-    old, new = files
+    old, new = pmu_files
     ds = FdiaGraph(new, split="train")
     rec = ds[0]
     assert rec["pmu_i"].shape == (ds.E, 4) and "pmu_i_m" in rec and "pmu_i_benign" in rec
@@ -169,77 +154,6 @@ def test_the_loader_and_export_serve_the_currents(files):
     assert batch["pmu_i"].shape == (2, ds.E, 4)
     legacy = FdiaGraph(old, split="train")
     assert not legacy.has_currents and "pmu_i" not in legacy[0] and "pmu_i" not in legacy.export()
-
-
-def _case14():
-    import pandapower as pp
-    import pandapower.networks as pn
-    from pandapower.pypower.makeYbus import makeYbus
-
-    net = pn.case14()
-    pp.runpp(net)
-    ppc = net._ppc
-    _, Yf, Yt = makeYbus(ppc["baseMVA"], ppc["bus"], ppc["branch"])
-    V = (
-        ppc["internal"]["V"]
-        if "internal" in ppc
-        else ppc["bus"][:, 7] * np.exp(1j * np.deg2rad(ppc["bus"][:, 8]))
-    )
-    f, t = ppc["branch"][:, 0].real.astype(int), ppc["branch"][:, 1].real.astype(int)
-    Yf, Yt = np.asarray(Yf.todense()), np.asarray(Yt.todense())
-    pmu = np.zeros(len(V), bool)
-    pmu[[1, 5, 8]] = True  # a transformer end (bus 5, IEEE-14's 4-6 tap) among them
-    cm = np.zeros((len(f), 4))
-    cm[pmu[f], 0:2] = 1
-    cm[pmu[t], 2:4] = 1
-    return V, Yf, Yt, f, t, pmu, cm
-
-
-def test_eq3_is_exact_without_noise():
-    # [WU26 eq. 3]
-    V, Yf, Yt, f, t, pmu, cm = _case14()
-    links = pmu_pseudo_links(pmu, cm, f, t, Yf, Yt)
-    pv = pmu_pseudo_voltages(
-        links, len(V), np.abs(V), np.angle(V), branch_currents(V, Yf, Yt) * cm, 0.0, 0.0, 0.0
-    )
-    r = pv.reached
-    assert r.sum() >= 5 and not r[pmu].any()
-    np.testing.assert_allclose(pv.v[r], np.abs(V)[r], atol=1e-12)
-    np.testing.assert_allclose(pv.theta[r], np.angle(V)[r], atol=1e-12)
-    assert np.isnan(pv.v[~r]).all()
-
-
-def test_eq3_noise_matches_its_propagated_variance():
-    V, Yf, Yt, f, t, pmu, cm = _case14()
-    links = pmu_pseudo_links(pmu, cm, f, t, Yf, Yt)
-    cur = branch_currents(V, Yf, Yt) * cm
-    sv, st, si = 2e-3, 3e-3, 4e-3
-    rng = np.random.default_rng(0)
-    n, N = 20000, len(V)
-    vv = np.abs(V) + rng.normal(0, sv, (n, N))
-    tt = np.angle(V) + rng.normal(0, st, (n, N))
-    cc = cur + rng.normal(0, si, (n, *cur.shape)) * cm
-    mc = pmu_pseudo_voltages(links, N, vv, tt, cc, sv, st, si)
-    an = pmu_pseudo_voltages(links, N, np.abs(V), np.angle(V), cur, sv, st, si)
-    r = an.reached
-    # 20000 draws: the sample variance is within about 3% of the true one (2 sigma of its own spread)
-    np.testing.assert_allclose(mc.v[:, r].var(0), an.var_v[r], rtol=0.05)
-    np.testing.assert_allclose(mc.theta[:, r].var(0), an.var_theta[r], rtol=0.05)
-
-
-def test_pmu_pseudo_fills_only_unmetered_slots_and_needs_currents(files):
-    from fdia_graph.dataset import FdiaGraph
-    from fdia_graph.errors import MissingCapability
-    from fdia_graph.se import WLS
-
-    old, new = files
-    with pytest.raises(MissingCapability, match="PMU currents"):
-        WLS(solve=SolveConfig(pmu_pseudo=True)).fit(FdiaGraph(old, split="train"))
-    plain = WLS().fit(FdiaGraph(new, split="train"))
-    est = WLS(solve=SolveConfig(pmu_pseudo=True)).fit(FdiaGraph(new, split="train"))
-    assert est.m == plain.m + len(est._pseudo_v) + len(est._pseudo_th) and len(est._pseudo_th) > 0
-    x = est.estimate(FdiaGraph(new, split="test"))
-    assert np.isfinite(x).all()
 
 
 def test_new_generation_is_hybrid_only():
@@ -257,10 +171,10 @@ def test_new_generation_is_hybrid_only():
             MeterSettings(meter_model=old)
 
 
-def test_the_previous_frame_carries_its_currents(files):
+def test_the_previous_frame_carries_its_currents(pmu_files):
     from fdia_graph.dataset import FdiaGraph
 
-    old, new = files
+    old, new = pmu_files
     ds = FdiaGraph(new, split="train")
     a = ds.export(["pmu_i", "prev_pmu_i"])
     rows = ds.idx
@@ -269,16 +183,6 @@ def test_the_previous_frame_carries_its_currents(files):
     np.testing.assert_array_equal(a["prev_pmu_i"], whole[np.maximum(rows - 1, 0)])
     with pytest.raises(ValueError, match="prev_pmu_i"):
         FdiaGraph(old, split="train").export(["prev_pmu_i"])
-
-
-def test_jacobian_weighting_takes_the_pseudo_measurements(files):
-    from fdia_graph.dataset import FdiaGraph
-    from fdia_graph.se import JacobianWeighting
-
-    _, new = files
-    est = JacobianWeighting(solve=SolveConfig(pmu_pseudo=True)).fit(FdiaGraph(new, split="train"))
-    assert len(est._pseudo_th) > 0
-    assert np.isfinite(est.estimate(FdiaGraph(new, split="test"))).all()
 
 
 def test_a_current_bias_scales_with_the_end_phasor():
@@ -293,48 +197,3 @@ def test_a_current_bias_scales_with_the_end_phasor():
     assert got[0, 2] == 0.0 and got[0, 3] == 0.0  # a zero end phasor carries no bias
     sig = current_sigma(true, PMU_CURRENT_CLASS)
     assert sig[0, 0] == pytest.approx(PMU_CURRENT_CLASS + CURRENT_FLOOR_PU) == sig[0, 1]
-
-
-@pytest.mark.parametrize("method", ["WLS", "JacobianWeighting"])
-def test_pmu_pseudo_with_the_measured_calibration(files, method):
-    """The measured calibration weights each pseudo slot by eq. (3)'s propagated noise: `_pseudo_sig`
-    is set from the calibration scans before the accuracy classes, and `_class_sigma` places it at
-    the pseudo slots; fit and estimate run, WLS and JacobianWeighting (which reads prev_pmu_i)."""
-    import fdia_graph.se as se
-    from fdia_graph.dataset import FdiaGraph
-
-    _, new = files
-    est = getattr(se, method)(solve=SolveConfig(pmu_pseudo=True)).fit(
-        FdiaGraph(new, split="train"), calibrate="measured"
-    )
-    n_pseudo = len(est._pseudo_v) + len(est._pseudo_th)
-    assert est._pseudo_sig.shape == (n_pseudo,) and np.isfinite(est._pseudo_sig).all()
-    assert (est._pseudo_sig > 0).all()
-    np.testing.assert_array_equal(est.sig[est._pseudo_pos], np.maximum(est._pseudo_sig, 1e-9))
-    x = est.estimate(FdiaGraph(new, split="test"))
-    assert np.isfinite(x).all()
-
-
-def test_estimate_builds_the_pseudo_measurements_chunk_by_chunk(files):
-    """Review fix: estimate builds the measurement vectors, pseudo slots included, one chunk at a
-    time and reads the pseudo values alone. The result is the whole-split path's, bit for bit at the
-    same chunk, and the same to solver tolerance at any chunk size."""
-    from fdia_graph.dataset import FdiaGraph
-    from fdia_graph.se import WLS
-
-    _, new = files
-    train, test = FdiaGraph(new, split="train"), FdiaGraph(new, split="test")
-    est = WLS(solve=SolveConfig(pmu_pseudo=True)).fit(train)
-    d = test.export(["node_x", "edge_x", "pmu_i"])
-    whole = est._estimate_arrays(est._z_of(d["node_x"], d["edge_x"], d["pmu_i"]), None, 1000)
-    np.testing.assert_array_equal(est.estimate(test, chunk=1000), whole)
-    np.testing.assert_allclose(est.estimate(test, chunk=7), whole, rtol=0, atol=1e-10)
-    # the values the solve reads are the propagating formula's, without its covariances
-    from fdia_graph.formulas.estimation import pmu_pseudo_phasors
-
-    pv = est._pseudo_of(d["node_x"], d["pmu_i"])
-    V_f = pmu_pseudo_phasors(
-        est._links, est.N, d["node_x"][:, :, NODE.v], np.deg2rad(d["node_x"][:, :, NODE.theta]), d["pmu_i"]
-    )
-    np.testing.assert_array_equal(np.abs(V_f), pv.v)
-    np.testing.assert_array_equal(np.angle(V_f), pv.theta)

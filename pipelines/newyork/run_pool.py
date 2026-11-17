@@ -34,13 +34,13 @@ import numpy as np
 import pandas as pd
 
 from fdia_graph.engine.attacks.attacker import HYDRO_RAMP_PER_MIN, IMPORT_RAMP_MW_PER_MIN
-from fdia_graph.federated.utilities import assign_clients
 from fdia_graph.generation.nygrid.case import nygrid_case
 from fdia_graph.generation.nygrid.config import Settings, rng
 from fdia_graph.generation.nygrid.dispatch import hourly_dispatch
 from fdia_graph.generation.nygrid.inputs import fetch_nyiso, read_nygrid
 from fdia_graph.generation.nygrid.io import read_pool, write_pool
 from fdia_graph.generation.nygrid.loads import LoadModel, LoadSeries
+from fdia_graph.generation.nygrid.ownership import assign_clients
 from fdia_graph.generation.nygrid.pool import SOLVED, Pool, PoolBuilder
 from fdia_graph.generation.nygrid.solver import AcSolver
 

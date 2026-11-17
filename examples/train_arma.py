@@ -13,12 +13,18 @@ the other examples (feature standardization, GPU-resident data, bf16, auto pos_w
 """
 from __future__ import annotations
 
-import argparse, json, numpy as np, torch, torch.nn as nn, torch.nn.functional as F
+import argparse
+import json
 from contextlib import nullcontext
 from typing import Any, Dict, Tuple
+
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+from torch_geometric.nn import ARMAConv, GATv2Conv
+
 import fdia_graph as fg
 from fdia_graph import FAMILIES, FdiaGraph
-from torch_geometric.nn import ARMAConv, GATv2Conv
 
 
 def kcl_residual(node_x: torch.Tensor, edge_x: torch.Tensor, ei: torch.Tensor, N: int) -> torch.Tensor:

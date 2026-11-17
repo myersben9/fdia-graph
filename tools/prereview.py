@@ -1,4 +1,5 @@
-"""Every check a pull request must pass, run locally in one command before the review is requested
+"""Every check a pull request must pass, for both toolkits of the repository (`fdia_graph` and
+`fdia_analysis`, `sources.PACKAGES`), run locally in one command before the review is requested
 (CONTRIBUTING.md, "The pull request").
 
     python tools/prereview.py                  # every gate, against origin/main
@@ -12,22 +13,24 @@ with the test extras installed can be added with `--also-python` (repeatable) or
 machine, `FDIA_PREREVIEW_PYTHONS` (paths joined by the platform's path separator).
 
 It runs the gates CI runs (formatting, lint, types, readability, the layout rules and the file map,
-the generated diagrams and data dictionary) and the test suite on this checkout's own source (`PYTHONPATH=src`, so an
+the generated diagrams and data dictionary) and the two test suites (`tests`, `analysis/tests`) on this checkout's
+own source (`PYTHONPATH` is set to `src` and `analysis/src`, so an
 editable install of another checkout cannot stand in for it), plus checks CI does not run, each one
 a kind of finding reviews kept raising (`docs/reference/REVIEW_CHECKLIST.md`). The changed files are
 the branch's commits against the base, the uncommitted changes and the untracked files.
 
-- **changelog**: never more than one `## Unreleased`; a change under `src/` needs exactly one, with
-  at least one entry, and CHANGELOG.md changed.
+- **changelog**: never more than one `## Unreleased`; a change under `src/` or `analysis/src/` needs
+  exactly one, with at least one entry, and CHANGELOG.md changed.
 - **rendered diagrams**: a changed `docs/figures/diagrams/*.mmd` has its `.png` and `.svg` changed too.
 - **cited paths**: every repository path a Markdown file cites exists (every file, every run: a
   page nobody edits goes stale too) (a file or a folder,
   with or without an extension; in CHANGELOG.md the `## Unreleased` section only, the released
   sections being history), in a code span whose first part is a root entry of the tree (or a
   dotfile or upper-case Markdown name), or as a link or image destination (relative to the file; anchors, queries and web links are ignored).
+  A code span is read from the root (`docs/analysis/estimation/README.md`), or from the citing file's folder when it starts with `./` or `../`.
 - **vacuous tests**: no `or True` / `assert True` in `tests/`.
-- **integer fields**: every `int` field of a model in `models/config.py` or `models/inputs.py`
-  carries the `Integer()` rule (SKIP where the checkout has no such models).
+- **integer fields**: every `int` field of a model in either toolkit's `models/config.py` or
+  `models/inputs.py` carries the `Integer()` rule (SKIP where the checkout has no such models).
 
 Exit status 0 only when nothing fails. The review checklist in
 `docs/reference/REVIEW_CHECKLIST.md` covers what no tool can check.
@@ -45,9 +48,10 @@ import sys
 import time
 from dataclasses import dataclass
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+from sources import CONFTEST, PACKAGES, ROOT, SOURCE_ROOTS, TESTS, python_path
+
 PASS, FAIL, SKIP = "PASS", "FAIL", "SKIP"
-SCRIPTS = ("tools", "pipelines")  # the folders of scripts, formatted and linted with the package
+SCRIPTS = ("tools", "pipelines")  # the folders of scripts, formatted and linted with the packages
 
 
 @dataclass(frozen=True)
@@ -58,12 +62,13 @@ class Gate:
 
 
 def _suite(py: str) -> list[str]:
-    """The test suite on interpreter `py`, spread over worker processes when it has pytest-xdist (the
+    """The two test suites on interpreter `py`, spread over worker processes when it has pytest-xdist (the
     test extra installs it). Every worker builds its own tiny timeline in its own cache, so more
     workers than a few repeat that build more than they save; 8 at most."""
     has_xdist = subprocess.run([py, "-c", "import xdist"], capture_output=True).returncode == 0
     workers = ["-n", str(min(8, os.cpu_count() or 1))] if has_xdist else []
-    return [py, "-m", "pytest", "-q", "-x", *workers, "-W", "error::DeprecationWarning:fdia_graph", "tests"]
+    strict = [flag for package in PACKAGES for flag in ("-W", f"error::DeprecationWarning:{package}")]
+    return [py, "-m", "pytest", "-q", "-x", *workers, *strict, *TESTS]
 
 
 def _version(py: str) -> str:
@@ -76,9 +81,11 @@ def _version(py: str) -> str:
 def gates(base: str, also: list[str]) -> list[Gate]:
     py = sys.executable
     return [
-        Gate("format", [py, "-m", "ruff", "format", "--check", "src/fdia_graph", "tests", *SCRIPTS]),
-        Gate("lint", [py, "-m", "ruff", "check", "src", "tests", *SCRIPTS]),
-        Gate("types", [py, "-m", "pyright", "src/fdia_graph"]),
+        Gate(
+            "format", [py, "-m", "ruff", "format", "--check", *PACKAGES.values(), CONFTEST, *TESTS, *SCRIPTS]
+        ),
+        Gate("lint", [py, "-m", "ruff", "check", *SOURCE_ROOTS, CONFTEST, *TESTS, *SCRIPTS]),
+        Gate("types", [py, "-m", "pyright", *PACKAGES.values()]),
         Gate("readability", [py, "tools/readability.py", "--report", "--check", "--base", base]),
         Gate("layout", [py, "tools/layout.py", "--check"]),
         Gate("class diagrams", [py, "tools/class_diagrams.py", "--check"]),
@@ -90,7 +97,7 @@ def gates(base: str, also: list[str]) -> list[Gate]:
 
 
 def run(gate: Gate) -> tuple[bool, str, float]:
-    env = {**os.environ, "PYTHONPATH": os.path.join(ROOT, "src")}
+    env = {**os.environ, "PYTHONPATH": python_path()}
     t0 = time.time()
     p = subprocess.run(
         gate.cmd, cwd=ROOT, env=env, capture_output=True, text=True, encoding="utf-8", errors="replace"
@@ -135,13 +142,13 @@ def _changelog(files: list[str]) -> tuple[str, str]:
     heads = len(re.findall(r"^## Unreleased", text, re.M))
     if heads > 1:
         return FAIL, f"CHANGELOG.md has {heads} '## Unreleased' sections"
-    src = [f for f in files if f.startswith("src/")]
+    src = [f for f in files if f.startswith(tuple(root + "/" for root in SOURCE_ROOTS))]
     if src and heads != 1:
-        return FAIL, "a change under src/ needs a '## Unreleased' section in CHANGELOG.md"
+        return FAIL, "a change to a package's source needs a '## Unreleased' section in CHANGELOG.md"
     if src and _unreleased_entries(text) == 0:
         return FAIL, "the '## Unreleased' section of CHANGELOG.md has no entry"
     if src and "CHANGELOG.md" not in files:
-        return FAIL, f"{len(src)} file(s) under src/ changed but CHANGELOG.md did not"
+        return FAIL, f"{len(src)} source file(s) of the packages changed but CHANGELOG.md did not"
     return PASS, ""
 
 
@@ -240,7 +247,9 @@ def _vacuous_tests() -> tuple[str, str]:
     return (FAIL if hits else PASS), "vacuous assertions: " + ", ".join(hits)
 
 
-_MODELS = ("src/fdia_graph/models/config.py", "src/fdia_graph/models/inputs.py")
+_MODELS = tuple(
+    f"{folder}/models/{module}.py" for folder in PACKAGES.values() for module in ("config", "inputs")
+)
 
 
 def _expand(ann: str, aliases: dict[str, str]) -> str:
@@ -259,8 +268,8 @@ def _expand(ann: str, aliases: dict[str, str]) -> str:
 
 
 def _integer_fields() -> tuple[str, str]:
-    """Every `int` field of a model in models/config.py or models/inputs.py carries `Integer()`,
-    directly or through a module-level alias (`Count = Annotated[int, Integer(), AtLeast(1)]`)."""
+    """Every `int` field of a model in a toolkit's models/config.py or models/inputs.py carries
+    `Integer()`, directly or through a module-level alias (`Count = Annotated[int, Integer(), AtLeast(1)]`)."""
     present = [rel for rel in _MODELS if os.path.exists(os.path.join(ROOT, rel))]
     if not present:
         return SKIP, "no config or input models in this checkout"

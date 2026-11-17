@@ -1,0 +1,30 @@
+"""State estimation on fdia-graph datasets, sklearn style.
+
+    from fdia_graph.models import PriorConfig
+    from fdia_analysis.se import WLS, AdaptiveWeighting, ResidualRemoval, SubspacePrior
+
+    train = fg.load("ieee118", split="train")
+    test = fg.load("ieee118", split="test")
+    est = SubspacePrior(prior=PriorConfig(rank_frac=0.5, reweight="huber", c=2.5)).fit(train)
+    xhat = est.estimate(test)      # [n, 2N-1] = [theta rad (non-slack) | V pu (all buses)]
+    print(est.score(test))         # per-family angle/voltage MAE vs the clean truth
+
+Every class shares one chord-Newton iteration, Jacobian and starting point and differs only in the
+state space and the weights, so results compare estimators rather than implementations. Needs the
+se extra (pandapower + scipy; torch optional, it only speeds up the per-record inverses) and a timeline loaded with units="physical".
+"""
+
+from .base import SEBase
+from .jacobian import JacobianFeatures
+from .methods import WLS, AdaptiveWeighting, GatedPrior, JacobianWeighting, ResidualRemoval, SubspacePrior
+
+__all__ = [
+    "SEBase",
+    "WLS",
+    "AdaptiveWeighting",
+    "ResidualRemoval",
+    "SubspacePrior",
+    "JacobianWeighting",
+    "GatedPrior",
+    "JacobianFeatures",
+]

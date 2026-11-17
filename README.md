@@ -15,7 +15,7 @@ ts = fg.load("ieee118", split="test", order="time")   # the same frames in time 
 Xw, yw = ts.windows(W=24, stride=12)                  # [n, 24, N, 4] windows for an LSTM / TGN
 ```
 
-![The pipeline: ISO load profiles feed fg.generate, which writes one timeline file per system with observed, benign and clean layers; fg.load reads it as a record table for fdia_graph.se and fdia_graph.localization, or as a time series of windows and episodes for a temporal model](https://raw.githubusercontent.com/myersben9/fdia-graph/main/docs/figures/diagrams/pipeline.png)
+![The pipeline: ISO load profiles feed fg.generate, which writes one timeline file per system with observed, benign and clean layers; fg.load reads it as a record table for fdia_analysis.se and fdia_analysis.localization, or as a time series of windows and episodes for a temporal model](https://raw.githubusercontent.com/myersben9/fdia-graph/main/docs/figures/diagrams/pipeline.png)
 
 | Read | To learn |
 |---|---|
@@ -35,13 +35,17 @@ Xw, yw = ts.windows(W=24, stride=12)                  # [n, 24, N, 4] windows fo
 | command | gives |
 |---|---|
 | `pip install fdia-graph` | the loader (numpy, h5py) |
-| `pip install "fdia-graph[torch]"` | + PyTorch DataLoader, learned localizers |
+| `pip install "fdia-graph[torch]"` | + PyTorch DataLoader |
 | `pip install "fdia-graph[pyg]"` | + torch_geometric records and timelines |
-| `pip install "fdia-graph[se]"` | + state estimation, residual localization (pandapower, scipy; add `[torch]` for speed) |
 | `pip install "fdia-graph[generate]"` | + pandapower, to generate custom data |
 | `pip install "fdia-graph[iso]"` | + gridstatus, to download CAISO and ERCOT load profiles (NYISO needs no extra) |
-| `pip install "fdia-graph[federated]"` | + torch and scikit-learn, for `fdia_graph.federated` |
 | `pip install "fdia-graph[all]"` | every extra above |
+| `pip install fdia-analysis` | the analysis toolkit, a second package on top of this one: state estimation, localization, federated training, trusted-meter selection (its extras: `[se]`, `[torch]`, `[federated]`, `[all]`) |
+
+The repository holds two toolkits. `fdia-graph` (the package `fdia_graph`, under `src/`) generates a
+timeline and loads it, and is everything above. `fdia-analysis` (the package `fdia_analysis`, under
+[`analysis/`](analysis/README.md)) is what is measured on a timeline; it depends on `fdia-graph`, and
+`fdia-graph` never imports it.
 
 Data is pinned per SDK version and cached in `~/.cache/fdia_graph`. `fg.load(..., release="v0.8.1")`
 pins a data version, any timeline release from v0.8.0; `pip install --upgrade fdia-graph` moves it forward.
@@ -69,9 +73,11 @@ fg.load("ieee118", split="test", order="time")                 # the time series
 
 ## State estimation
 
+The analysis toolkit, `pip install "fdia-analysis[se]"`:
+
 ```python
-from fdia_graph.models import PriorConfig
-from fdia_graph.se import SubspacePrior                       # pip install "fdia-graph[se]"
+from fdia_analysis.models import PriorConfig
+from fdia_analysis.se import SubspacePrior
 
 train, test = fg.load("ieee118", split="train"), fg.load("ieee118", split="test")
 est = SubspacePrior(prior=PriorConfig(rank_frac=0.5, reweight="huber", c=2.5)).fit(train)
@@ -85,8 +91,8 @@ One solver, six estimators that each change one thing: `WLS`, `AdaptiveWeighting
 ## Localization
 
 ```python
-from fdia_graph.localization import SwingThreshold, BusCNN     # numpy only / [torch]
-from fdia_graph.models import LocalizerConfig
+from fdia_analysis.localization import SwingThreshold, BusCNN     # numpy only / fdia-analysis[torch]
+from fdia_analysis.models import LocalizerConfig
 
 loc = SwingThreshold(localizer=LocalizerConfig(fa_target=0.01)).fit(train)     # per-bus thresholds from benign records only
 flag = loc.localize(test)                           # [n, N] bool: which buses are called attacked

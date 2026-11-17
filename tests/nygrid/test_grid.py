@@ -10,7 +10,6 @@ import numpy as np
 import pytest
 
 from fdia_graph.errors import DataConditionError
-from fdia_graph.federated.utilities import assign_clients
 from fdia_graph.generation.nygrid.case import (
     CASE_FILE,
     FILE_AREA,
@@ -25,6 +24,7 @@ from fdia_graph.generation.nygrid.case import (
 )
 from fdia_graph.generation.nygrid.fixes import externals_at_base, hvdc_links
 from fdia_graph.generation.nygrid.network import Network
+from fdia_graph.generation.nygrid.ownership import assign_clients
 
 from .inputs import DATA, TERRITORIES, needs_data, needs_territories
 from .test_case_file import differing

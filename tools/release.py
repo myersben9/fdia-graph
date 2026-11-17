@@ -2,10 +2,15 @@
 
     python tools/release.py vX.Y.Z notes.md
 
-Checks that main is checked out, clean and at origin/main, that `pyproject.toml` and
-`fdia_graph.__version__` both say X.Y.Z, then tags the commit, pushes the tag, creates the GitHub
-release with the notes, and waits for `publish.yml` to upload to PyPI. Refuses to move an
-existing tag: a released version is never re-cut, bump again instead.
+Checks that main is checked out, clean and at origin/main, and that both toolkits say X.Y.Z, then
+tags the commit, pushes the tag, creates the GitHub release with the notes, and waits for
+`publish.yml` to upload to PyPI. Refuses to move an existing tag: a released version is never
+re-cut, bump again instead.
+
+The two toolkits are released together at one version: the tag publishes `fdia-graph` and
+`fdia-analysis`, so `pyproject.toml`, `fdia_graph.__version__`, `analysis/pyproject.toml` and
+`fdia_analysis.__version__` must all say X.Y.Z, and `fdia-analysis` must require exactly
+`fdia-graph==X.Y.Z` (the same rule as `tests/test_versions.py`).
 """
 
 from __future__ import annotations
@@ -28,25 +33,35 @@ def git(*args: str) -> str:
     return subprocess.run(["git", *args], capture_output=True, text=True, check=True, cwd=ROOT).stdout.strip()
 
 
-def versions() -> tuple:
-    py = re.search(
-        r'^version = "([^"]+)"', open(f"{ROOT}/pyproject.toml", encoding="utf8").read(), re.M
-    ).group(1)
-    init = re.search(
-        r'^__version__ = "([^"]+)"', open(f"{ROOT}/src/fdia_graph/__init__.py", encoding="utf8").read(), re.M
-    ).group(1)
-    return py, init
+def _find(pattern: str, path: str) -> str:
+    found = re.search(pattern, open(f"{ROOT}/{path}", encoding="utf8").read(), re.M)
+    if not found:
+        raise SystemExit(f"{path} has no line matching {pattern}")
+    return found.group(1)
+
+
+def versions() -> dict[str, str]:
+    """Where a version is written -> what it says there: the four version lines of the two toolkits."""
+    line, dunder = r'^version = "([^"]+)"', r'^__version__ = "([^"]+)"'
+    return {
+        "pyproject.toml": _find(line, "pyproject.toml"),
+        "fdia_graph.__version__": _find(dunder, "src/fdia_graph/__init__.py"),
+        "analysis/pyproject.toml": _find(line, "analysis/pyproject.toml"),
+        "fdia_analysis.__version__": _find(dunder, "analysis/src/fdia_analysis/__init__.py"),
+    }
 
 
 def main(tag: str, notes_file: str) -> None:
     if not re.fullmatch(r"v\d+\.\d+\.\d+", tag):
         raise SystemExit(f"tag must look like v0.17.0, got {tag}")
     want = tag[1:]
-    py, init = versions()
-    if py != want or init != want:
-        raise SystemExit(
-            f"pyproject says {py}, __init__ says {init}, tag says {want}: merge the bump PR first"
-        )
+    said = versions()
+    if set(said.values()) != {want}:
+        raise SystemExit(f"the tag says {want}, the checkout says {said}: merge the bump PR first")
+    requirement = _find(r'^\s*"(fdia-graph[^"]*)"', "analysis/pyproject.toml")
+    if requirement != f"fdia-graph=={want}":
+        raise SystemExit(f"analysis/pyproject.toml requires {requirement}, not fdia-graph=={want}")
+    print(f"{tag} publishes fdia-graph and fdia-analysis")
     if git("branch", "--show-current") != "main" or git("status", "--porcelain"):
         raise SystemExit("check out a clean main first")
     git("fetch", "origin")

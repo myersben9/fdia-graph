@@ -11,13 +11,16 @@ Each rule is a kind of drift that once made the tree hard to read (CONTRIBUTING.
   from docs/reference/REFERENCES.md (wu26.py, solution1.py).
 - **docstrings**: every Python file opens with a docstring. Its first paragraph is the file's line in the
   file map.
-- **package pages**: every package under `src/fdia_graph` has one hand-written page (`PAGES`), and that
-  page names each module of the package by file name (`base.py`) or dotted path (`se.base`), so a new
-  module cannot land without its page saying where it fits.
+- **package pages**: every package of the two toolkits (`fdia_graph` under `src/`, `fdia_analysis` under
+  `analysis/src/`) has one hand-written page (`PAGES`), and that page names each module of the package by
+  file name (`base.py`) or dotted path (`se.base`), so a new module cannot land without its page saying
+  where it fits. Where both toolkits have a module of one name (`models/config.py`), the analysis one is
+  named with its package (`fdia_analysis.models.config`).
 - **cited names**: a code span in a Markdown file or a Python file that names a module, or a name in one
-  (`fdia_graph.trust.base`, `trust.TrustSelector`, `ramp.py`), names something that exists; a span that is
-  an experiment of the results store (`se.estimators`, from results/<experiment>.csv) is one too. The
-  CHANGELOG (whose entries name what a change removed) is not read.
+  (`fdia_analysis.trust.base`, `trust.TrustSelector`, `ramp.py`), names something that exists, in the
+  package it says or, with no package said, in either; a span that is an experiment of the results store
+  (`se.estimators`, from results/<experiment>.csv) is one too. The CHANGELOG (whose entries name what a
+  change removed) is not read.
 - **repository map**: every folder at the root of the tree and every folder directly under `docs/` has its role in `REPO` or
   `DOCS`, and every folder named there exists, so a new place for files cannot appear without saying what it
   holds. The map is the first section of the file map.
@@ -34,34 +37,46 @@ import sys
 from collections import defaultdict
 from dataclasses import dataclass
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-PACKAGE = "src/fdia_graph"
+from sources import ANALYSIS, GENERATION, PACKAGES, ROOT, TESTS
+
 MAP = "docs/reference/MODULES.md"
 
-# Each package's hand-written page, keyed by its folder under src/fdia_graph ("" is the top level).
+# Each package's hand-written page, by toolkit and by its folder under the toolkit's package ("" is the
+# top level).
 PAGES = {
-    "": "docs/ROADMAP.md",
-    "dataset": "docs/ROADMAP.md",
-    "models": "docs/ROADMAP.md",
-    "ratings": "docs/ROADMAP.md",
-    "results": "results/README.md",
-    "formulas": "docs/reference/FORMULAS.md",
-    "engine": "docs/guides/generation.md",
-    "engine/attacks": "docs/guides/generation.md",
-    "generation": "docs/guides/generation.md",
-    "engine/sensing": "docs/concepts/new_york_grid.md",
-    "generation/nygrid": "docs/concepts/new_york_grid.md",
-    "se": "docs/analysis/estimation/README.md",
-    "se/detect": "docs/concepts/new_york_grid.md",
-    "localization": "docs/analysis/localization/README.md",
-    "trust": "docs/analysis/trust/README.md",
-    "federated": "docs/analysis/federated/README.md",
+    GENERATION: {
+        "": "docs/ROADMAP.md",
+        "dataset": "docs/ROADMAP.md",
+        "models": "docs/ROADMAP.md",
+        "ratings": "docs/ROADMAP.md",
+        "formulas": "docs/reference/FORMULAS.md",
+        "engine": "docs/guides/generation.md",
+        "engine/attacks": "docs/guides/generation.md",
+        "generation": "docs/guides/generation.md",
+        "engine/sensing": "docs/concepts/new_york_grid.md",
+        "generation/nygrid": "docs/concepts/new_york_grid.md",
+    },
+    ANALYSIS: {
+        "": "analysis/README.md",
+        "models": "docs/ROADMAP.md",
+        "formulas": "docs/reference/FORMULAS.md",
+        "results": "results/README.md",
+        "se": "docs/analysis/estimation/README.md",
+        "se/detect": "docs/concepts/new_york_grid.md",
+        "localization": "docs/analysis/localization/README.md",
+        "trust": "docs/analysis/trust/README.md",
+        "federated": "docs/analysis/federated/README.md",
+    },
 }
 
 # The repository map: each folder at the root of the tree with what it holds. The order is the reading order.
 REPO = {
-    "src": "the package `fdia_graph`: everything a user installs",
-    "tests": "the test suite",
+    "src": "the generation toolkit, the package `fdia_graph` (the distribution fdia-graph): generating a "
+    "timeline and loading it",
+    "analysis": "the analysis toolkit, the package `fdia_analysis` (the distribution fdia-analysis, which "
+    "depends on fdia-graph): state estimation, localization, federated training, trust selection and the "
+    "results store's code, with its own pyproject.toml, `src/` and `tests/`",
+    "tests": "the generation toolkit's test suite, and the helpers both suites share (their shared fixtures are in the root `conftest.py`)",
     "examples": "scripts a user copies: the quickstart, the training examples, the New York extension points",
     "results": "the results store: data only (one CSV per experiment and `runs.csv`), with the queries the docs "
     "read it through",
@@ -83,9 +98,11 @@ DOCS = {
 
 # The file map's sections: (heading, the folder its files live under); a file under none goes in the last.
 SECTIONS = (
-    ("The package", PACKAGE),
+    ("The generation toolkit, `fdia_graph`", PACKAGES[GENERATION]),
+    ("The analysis toolkit, `fdia_analysis`", PACKAGES[ANALYSIS]),
     ("Tools", "tools"),
-    ("Tests", "tests"),
+    ("The generation toolkit's tests", TESTS[0]),
+    ("The analysis toolkit's tests", TESTS[1]),
     ("Examples", "examples"),
     ("Pipelines", "pipelines"),
     ("The results store's queries", "results"),
@@ -195,10 +212,17 @@ def _cell(text: str) -> str:
     return text.replace("|", "/")
 
 
+def _package_of(rel: str) -> str:
+    """The toolkit package a file belongs to ("" for a file of neither)."""
+    return next((p for p, folder in PACKAGES.items() if rel.startswith(folder + "/")), "")
+
+
 def _module(rel: str) -> str:
-    """The dotted module of a package file: `src/fdia_graph/se/base.py` -> `se.base`, its `__init__.py` -> `se`."""
-    mod = rel[len(PACKAGE) + 1 : -len(".py")].replace("/", ".").removesuffix("__init__").rstrip(".")
-    return mod or "fdia_graph"
+    """The dotted module of a package file under its package: `analysis/src/fdia_analysis/se/base.py` ->
+    `se.base`, its `__init__.py` -> `se`, the package's own `__init__.py` -> the package's name."""
+    package = _package_of(rel)
+    inside = rel[len(PACKAGES[package]) + 1 : -len(".py")]
+    return inside.replace("/", ".").removesuffix("__init__").rstrip(".") or package
 
 
 def file_map(files: list[str]) -> str:
@@ -210,12 +234,13 @@ def file_map(files: list[str]) -> str:
     for heading, folder in (*SECTIONS, (OTHER, "")):
         rows = [f for f in py if f not in placed and (not folder or f.startswith(folder + "/"))]
         placed |= set(rows)
-        rows = [f for f in rows if folder == PACKAGE or not f.endswith("__init__.py")]
+        packaged = folder in PACKAGES.values()
+        rows = [f for f in rows if packaged or not f.endswith("__init__.py")]
         if not rows:
             continue
         lines = [f"## {heading}", "", "| file | what it does |", "|---|---|"]
         for f in rows:
-            shown = _module(f) if folder == PACKAGE else f
+            shown = _module(f) if packaged else f
             lines.append(f"| `{shown}` | {_cell(summary(f))} |")
         blocks.append("\n".join(lines))
     return "\n\n".join(blocks)
@@ -254,8 +279,8 @@ def rendered_map(files: list[str]) -> str:
         "# Modules\n\n"
         "What every folder of the repository holds, then what every Python file does, in one line: the first "
         "paragraph of its docstring. Generated by `tools/layout.py`; edit the docstring (or `REPO` and `DOCS` in the "
-        "tool), not this page. The package section names each file by its module under `fdia_graph` (`se.base` is "
-        "`src/fdia_graph/se/base.py`).\n\n"
+        "tool), not this page. A toolkit's section names each file by its module under the toolkit's package: "
+        "`dataset.base` is `src/fdia_graph/dataset/base.py`, `se.base` is `analysis/src/fdia_analysis/se/base.py`.\n\n"
     )
     return f"{head}{BEGIN}\n{repo_map()}\n\n{file_map(files)}\n{END}\n"
 
@@ -263,26 +288,36 @@ def rendered_map(files: list[str]) -> str:
 # ---- package pages ---------------------------------------------------------------------------------
 
 
-def _package_modules(files: list[str]) -> dict[str, list[str]]:
-    out: dict[str, list[str]] = defaultdict(list)
+Package = tuple[str, str]  # (toolkit package, folder under it): ("fdia_analysis", "se/detect")
+
+
+def _package_modules(files: list[str]) -> dict[Package, list[str]]:
+    out: dict[Package, list[str]] = defaultdict(list)
     for f in files:
-        if f.startswith(PACKAGE + "/") and f.endswith(".py"):
-            folder = os.path.dirname(f)[len(PACKAGE) + 1 :]
-            out[folder]  # a package with only an __init__ still needs its page
+        package = _package_of(f)
+        if package and f.endswith(".py"):
+            folder = os.path.dirname(f)[len(PACKAGES[package]) + 1 :]
+            out[(package, folder)]  # a package with only an __init__ still needs its page
             if not f.endswith("__init__.py"):
-                out[folder].append(os.path.basename(f)[:-3])
+                out[(package, folder)].append(os.path.basename(f)[:-3])
     return out
 
 
-def _explicit(text: str, folder: str, m: str) -> bool:
-    """`text` names module `m` of package `folder` unambiguously: its path from the package root (`se/base.py`,
-    optionally under `src/fdia_graph/`) or its dotted path (`se.base`; `fdia_graph.errors` at the top level)."""
-    full = f"fdia_graph/{folder}/{m}.py" if folder else f"fdia_graph/{m}.py"
-    forms = [rf"(?<![\w/])(?:src/)?{re.escape(full)}\b"]
-    if folder:
-        forms.append(rf"(?<![\w/]){re.escape(f'{folder}/{m}.py')}\b")
-    dotted = f"{folder.replace('/', '.')}.{m}" if folder else f"fdia_graph.{m}"
-    forms.append(rf"(?<![\w.]){re.escape(dotted)}\b")
+def _explicit(text: str, where: Package, m: str, shared: bool) -> bool:
+    """`text` names module `m` of the package `where` unambiguously: with its toolkit, by path
+    (`fdia_analysis/se/base.py`, optionally under its source root) or dotted (`fdia_analysis.se.base`); or,
+    when the other toolkit has no module of that folder and name (`shared` false), by its path or dotted
+    path from the toolkit's package (`se/base.py`, `se.base`)."""
+    package, folder = where
+    inside = f"{folder}/{m}" if folder else m
+    root = os.path.dirname(PACKAGES[package])
+    forms = [
+        rf"(?<![\w/])(?:{re.escape(root)}/)?{re.escape(f'{package}/{inside}.py')}\b",
+        rf"(?<![\w.]){re.escape(f'{package}.{inside}'.replace('/', '.'))}\b",
+    ]
+    if folder and not shared:
+        forms.append(rf"(?<![\w/]){re.escape(f'{inside}.py')}\b")
+        forms.append(rf"(?<![\w.]){re.escape(inside.replace('/', '.'))}\b")
     return any(re.search(f, text) for f in forms)
 
 
@@ -292,18 +327,27 @@ def pages(files: list[str]) -> list[Problem]:
     two packages with a `base.py` counts for neither until one of them is written out)."""
     out = []
     packages = _package_modules(files)
-    for folder, mods in sorted(packages.items()):
-        where = f"{PACKAGE}/{folder}".rstrip("/")
-        page = PAGES.get(folder)
+
+    def shared(where: Package, m: str) -> bool:
+        return any(o != where and o[1] == where[1] and m in ms for o, ms in packages.items())
+
+    for where, mods in sorted(packages.items()):
+        package, folder = where
+        path = f"{PACKAGES[package]}/{folder}".rstrip("/")
+        page = PAGES[package].get(folder)
         if page is None:
-            out.append(Problem("pages", where, "has no page: add one to PAGES in tools/layout.py"))
+            out.append(Problem("pages", path, "has no page: add one to PAGES in tools/layout.py"))
             continue
         text = _read(page)
         for m in mods:
-            others = [o for o, ms in packages.items() if o != folder and PAGES.get(o) == page and m in ms]
-            bare = re.search(rf"(?<![\w/.]){m}\.py\b", text) and all(_explicit(text, o, m) for o in others)
-            if not (_explicit(text, folder, m) or bare):
-                out.append(Problem("pages", f"{where}/{m}.py", f"is not named on its page {page}"))
+            others = [
+                o for o, ms in packages.items() if o != where and PAGES[o[0]].get(o[1]) == page and m in ms
+            ]
+            bare = re.search(rf"(?<![\w/.]){m}\.py\b", text) and all(
+                _explicit(text, o, m, shared(o, m)) for o in others
+            )
+            if not (_explicit(text, where, m, shared(where, m)) or bare):
+                out.append(Problem("pages", f"{path}/{m}.py", f"is not named on its page {page}"))
     return out
 
 
@@ -333,10 +377,10 @@ def _defined(rel: str) -> tuple[set[str], bool]:
     return found, lazy
 
 
-def resolves(dotted: str, files: set[str]) -> bool:
-    """`dotted` (under fdia_graph) names a package, a module, or a top-level name of one. Past the first name
-    inside a module nothing is checked: an attribute of a class may be inherited or set at run time."""
-    folder = PACKAGE
+def resolves(dotted: str, files: set[str], package: str) -> bool:
+    """`dotted` (under the toolkit `package`) names a package, a module, or a top-level name of one. Past the
+    first name inside a module nothing is checked: an attribute of a class may be inherited or set at run time."""
+    folder = PACKAGES[package]
     parts = dotted.split(".")
     for i, part in enumerate(parts):
         if f"{folder}/{part}/__init__.py" in files:
@@ -375,11 +419,33 @@ DATA = (
 _PY_FILE = re.compile(r"`([\w-]+\.py)`")
 
 
+def _tops(files: list[str], package: str) -> set[str]:
+    """The modules and subpackages at the top of a toolkit's package (`schema`, `dataset`)."""
+    folder = PACKAGES[package]
+    depth = folder.count("/") + 1
+    tops = {os.path.basename(f)[:-3] for f in files if os.path.dirname(f) == folder and f.endswith(".py")}
+    tops |= {f.split("/")[depth] for f in files if f.startswith(folder + "/") and f.count("/") > depth}
+    return tops - {"__init__"}
+
+
+def _names_something(span: str, present: set[str], tops: dict[str, set[str]]) -> bool:
+    """Whether a code span that reads as a module path names something. A span that says its toolkit
+    (`fdia_graph.schema.Attr`) must resolve in that toolkit; one that does not (`se.base`) is a module path
+    when its first name is a top-level module of either toolkit, and then must resolve in one of them."""
+    said = next((p for p in PACKAGES if span.startswith(p + ".")), None)
+    name = span[len(said) + 1 :] if said else span
+    first = name.split(".")[0]
+    if said:
+        return ("." not in name and first in tops[said]) or resolves(name, present, said)
+    homes = [p for p in PACKAGES if first in tops[p]]
+    if "." not in name or not homes:
+        return True  # not a module path
+    return any(resolves(name, present, p) for p in homes)
+
+
 def cited(files: list[str]) -> list[Problem]:
     present = set(files)
-    tops = {os.path.basename(f)[:-3] for f in files if os.path.dirname(f) == PACKAGE and f.endswith(".py")}
-    tops |= {f.split("/")[2] for f in files if f.startswith(PACKAGE + "/") and f.count("/") >= 3}
-    tops.discard("__init__")
+    tops = {package: _tops(files, package) for package in PACKAGES}
     basenames = {os.path.basename(f) for f in files}
     experiments = {
         os.path.basename(f)[: -len(".csv")] for f in files if re.fullmatch(r"results/[\w.]+\.csv", f)
@@ -390,15 +456,10 @@ def cited(files: list[str]) -> list[Problem]:
             continue
         text = _read(rel)
         for span in sorted(set(_SPAN.findall(text))):
-            name = span.removeprefix("fdia_graph.")
-            first = name.split(".")[0]
             if span.rsplit(".", 1)[-1] in DATA or span in experiments:  # a file name or a results experiment
                 continue
-            one = span.startswith("fdia_graph.") and "." not in name  # fdia_graph.<one name>
-            if not one and ("." not in name or first not in tops):
-                continue
-            if not (resolves(name, present) if not one else first in tops or resolves(name, present)):
-                out.append(Problem("cited names", rel, f"`{span}` names nothing in src/fdia_graph"))
+            if not _names_something(span, present, tops):
+                out.append(Problem("cited names", rel, f"`{span}` names nothing in {' or '.join(PACKAGES)}"))
         for span in sorted(set(_PY_FILE.findall(text))):
             if span not in basenames:
                 out.append(Problem("cited names", rel, f"`{span}` is no file of the repository"))

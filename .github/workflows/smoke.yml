@@ -19,12 +19,25 @@ jobs:
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0  # v7.1.0
         with:
           python-version: ${{ matrix.python-version }}
-      - name: Install package
+      # The generation toolkit first, alone: it must import with the analysis toolkit absent.
+      - name: Install fdia-graph
         run: pip install .
-      - name: Import and registry smoke test
+      - name: Import and registry smoke test, without fdia-analysis
         run: |
           python -c "import fdia_graph as fg; print(fg.__version__)"
           python -c "from fdia_graph import registry; print(registry._RELEASE)"
+          python -c "import importlib.util as u; assert u.find_spec('fdia_analysis') is None"
+      # every module of fdia_graph that needs no optional extra imports here, with fdia_analysis
+      # blocked in the interpreter that imports them (the test's own walk)
+      - name: Every module of fdia_graph imports without fdia-analysis
+        run: |
+          pip install pytest
+          pytest -q tests/test_toolkit_boundary.py
+      # Then the analysis toolkit on top of it: its fdia-graph requirement is met by the install above.
+      - name: Install fdia-analysis
+        run: pip install ./analysis
+      - name: Import smoke test of the analysis toolkit
+        run: python -c "import fdia_analysis, fdia_analysis.results, fdia_analysis.localization; print(fdia_analysis.__version__)"
 
   # Whether the change touches anything the test suite exercises. A pull request whose changed files
   # are all Markdown or under docs/ skips the three suites' install and run steps; the jobs still run
@@ -53,7 +66,9 @@ jobs:
           fi
 
   # The pip cache is kept for the three test jobs alone: setup-python keys it on OS, Python and
-  # pyproject.toml, so a lighter job on the same Python would save its small cache under that key first.
+  # the two pyproject.toml files, so a lighter job on the same Python would save its small cache under that key first.
+  # Each job installs both toolkits from this checkout (the generation toolkit `fdia-graph` at the root,
+  # the analysis toolkit `fdia-analysis` in analysis/) and runs both test trees.
   # A skipped suite leaves no pip cache on disk, which setup-python's save step fails on, so it caches
   # only when the suite runs.
   tests:
@@ -65,18 +80,20 @@ jobs:
         with:
           python-version: "3.12"
           cache: ${{ needs.changes.outputs.code == 'true' && 'pip' || '' }}
-          cache-dependency-path: pyproject.toml
+          cache-dependency-path: |
+            pyproject.toml
+            analysis/pyproject.toml
       # CPU-only torch keeps the job small; pandapower builds the tests' own tiny timeline (no timeline
       # download, only the operating-point pool). torch_geometric is pure Python. [se] is named so a
       # dependency it adds (scipy) is installed as a user gets it, not only through pandapower.
-      - name: Install package with the generate, se, torch and test extras
+      - name: Install both toolkits with the generate, se, federated and test extras
         if: needs.changes.outputs.code == 'true'
         run: |
           pip install torch --index-url https://download.pytorch.org/whl/cpu
-          pip install -e ".[generate,se,federated,test]" torch_geometric matplotlib pytest-cov
-      - name: Run the test suite with coverage
+          pip install -e ".[generate,test]" -e "./analysis[se,federated,test]" torch_geometric matplotlib pytest-cov
+      - name: Run both test suites with coverage
         if: needs.changes.outputs.code == 'true'
-        run: pytest -q -n auto tests --cov=fdia_graph --cov-report=term-missing:skip-covered
+        run: pytest -q -n auto tests analysis/tests --cov=fdia_graph --cov=fdia_analysis --cov-report=term-missing:skip-covered
 
   # The lowest supported Python and the maintainers' OS run the full suite too: install-and-import
   # alone let a 3.9-only or Windows-only failure through.
@@ -90,15 +107,17 @@ jobs:
         with:
           python-version: "3.9"
           cache: ${{ needs.changes.outputs.code == 'true' && 'pip' || '' }}
-          cache-dependency-path: pyproject.toml
-      - name: Install package with the generate, se, torch and test extras
+          cache-dependency-path: |
+            pyproject.toml
+            analysis/pyproject.toml
+      - name: Install both toolkits with the generate, se, federated and test extras
         if: needs.changes.outputs.code == 'true'
         run: |
           pip install torch --index-url https://download.pytorch.org/whl/cpu
-          pip install -e ".[generate,se,federated,test]" torch_geometric matplotlib
-      - name: Run the test suite
+          pip install -e ".[generate,test]" -e "./analysis[se,federated,test]" torch_geometric matplotlib
+      - name: Run both test suites
         if: needs.changes.outputs.code == 'true'
-        run: pytest -q -n auto tests
+        run: pytest -q -n auto tests analysis/tests
 
   tests-windows:
     name: tests (windows)
@@ -110,15 +129,17 @@ jobs:
         with:
           python-version: "3.12"
           cache: ${{ needs.changes.outputs.code == 'true' && 'pip' || '' }}
-          cache-dependency-path: pyproject.toml
-      - name: Install package with the generate, se, torch and test extras
+          cache-dependency-path: |
+            pyproject.toml
+            analysis/pyproject.toml
+      - name: Install both toolkits with the generate, se, federated and test extras
         if: needs.changes.outputs.code == 'true'
         run: |
           pip install torch --index-url https://download.pytorch.org/whl/cpu
-          pip install -e ".[generate,se,federated,test]" torch_geometric matplotlib
-      - name: Run the test suite
+          pip install -e ".[generate,test]" -e "./analysis[se,federated,test]" torch_geometric matplotlib
+      - name: Run both test suites
         if: needs.changes.outputs.code == 'true'
-        run: pytest -q -n auto tests
+        run: pytest -q -n auto tests analysis/tests
 
   typecheck:
     runs-on: ubuntu-24.04  # Python 3.9, see install-and-import
@@ -133,8 +154,8 @@ jobs:
       # SDK's own type annotations are present and self-consistent. Fails on any pyright error.
       - name: Install pyright
         run: pip install numpy pyright
-      - name: Type-check src/fdia_graph
-        run: pyright src/fdia_graph
+      - name: Type-check both packages
+        run: pyright src/fdia_graph analysis/src/fdia_analysis
 
   format:
     runs-on: ubuntu-latest
@@ -146,9 +167,9 @@ jobs:
       - name: Install ruff
         run: pip install ruff
       - name: Check formatting (ruff format)
-        run: ruff format --check src/fdia_graph tests tools pipelines
+        run: ruff format --check src/fdia_graph analysis/src/fdia_analysis conftest.py tests analysis/tests tools pipelines
       - name: "Lint (ruff check: pyflakes, import order, modern syntax)"
-        run: ruff check src tests tools pipelines
+        run: ruff check src analysis/src conftest.py tests analysis/tests tools pipelines
 
   readability:
     runs-on: ubuntu-latest
@@ -159,9 +180,9 @@ jobs:
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0  # v7.1.0
         with:
           python-version: "3.12"
-      - name: Install radon and the package's core dependencies (the results check imports fdia_graph)
+      - name: Install radon and the packages' core dependencies (the results check imports both from this checkout)
         run: pip install radon numpy h5py requests tqdm
-      # The report covers the whole package and never fails; it is the readability backlog.
+      # The report covers both packages and never fails; it is the readability backlog.
       # The gate fails only when a function this change touched is
       # outside a limit and not on the exceptions list in tools/readability.py.
       - name: Readability report

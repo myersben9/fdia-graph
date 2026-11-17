@@ -3,10 +3,33 @@ bias and a per-scan jitter [ASP14], our split."""
 
 from __future__ import annotations
 
+from typing import Union
+
 import numpy as np
 
 from ..models.grid import EDGE, NODE
-from .estimation import accuracy_class_sigma
+
+
+def accuracy_class_sigma(
+    mean_abs: np.ndarray, cls: np.ndarray, relative: np.ndarray, floor: Union[float, np.ndarray]
+) -> np.ndarray:
+    """Each meter's error std from its accuracy class [ASP14]: a relative class scales the meter's
+    mean absolute reading, an absolute class is the std itself,
+
+        sigma_i = c_i |z_i| + floor   (relative: power injections and flows)
+        sigma_i = c_i                 (absolute: voltage magnitude and angle)
+
+    Equipment data and measurements only; no state enters.
+
+    mean_abs : [m] mean |z_i| over the calibration scans
+    cls      : [m] accuracy class per meter
+    relative : [m] bool, True where the class is relative
+    floor    : absolute floor of a relative meter's std (its reading's units), one for all or [m] per meter
+    returns  : [m], or the shape of `mean_abs` with the meters last
+    """
+    mean_abs, cls = np.asarray(mean_abs, np.float64), np.asarray(cls, np.float64)
+    return np.where(np.asarray(relative, bool), cls * mean_abs + floor, cls)
+
 
 # Meter accuracy classes [ASP14]: the error std of every meter type. |V| and angle are the
 # class-0.2/sqrt(3) instrument-transformer figures, absolute (pu, rad); injections and flows a ~1.7%

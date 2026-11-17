@@ -1,4 +1,4 @@
-# Federated localization with `fdia_graph.federated`
+# Federated localization with `fdia_analysis.federated`
 
 > **Status.** The results on this page are on data release v0.8.1 and predate the measurements-only feature rules (swing from observed frames, the Jacobian block against the previous frame's estimate, measured calibration) and the one-frame `Aq` and `Al`. They are not yet rerun on v0.8.3; the centralized numbers in [`../localization/README.md`](../localization/README.md) are current.
 
@@ -7,8 +7,8 @@ the 14-dim per-bus vector plus the Jacobian block.
 
 ```python
 import fdia_graph as fg
-from fdia_graph.federated import FedBusCNN
-from fdia_graph.models import FederatedSettings, LearnedConfig
+from fdia_analysis.federated import FedBusCNN
+from fdia_analysis.models import FederatedSettings, LearnedConfig
 
 rel = dict(release="v0.8.1")  # the release these results are on
 zs = dict(families=[0, 1, 2], **rel)  # benign + Aq + Ad
@@ -39,7 +39,6 @@ and the study did not fit otherwise.
 | file | holds |
 |---|---|
 | `federated/partition.py` | the split of a system's buses into K clients by spectral partition of the bus graph |
-| `federated/utilities.py` | the New York clients: each bus belongs to the utility whose service territory holds it |
 | `federated/aggregate.py` | FedAvg over torch state dicts (`formulas.federated.fedavg`) |
 | `federated/localizer.py` | `FedBusMLP` and `FedBusCNN`: the per-bus localizers trained by FedAvg, records never leaving a client |
 | `federated/se.py` | `RegionalPrior`: the estimator's learned subspace prior fitted per client |

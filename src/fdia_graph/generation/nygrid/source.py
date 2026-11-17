@@ -53,7 +53,6 @@ from fdia_graph.engine.sensing.measure import Measurement
 from fdia_graph.engine.sensing.meters import plan_meters
 from fdia_graph.engine.sensing.noise import NoiseModel
 from fdia_graph.errors import ConfigError, DataConditionError, NoAdmissibleTarget
-from fdia_graph.federated.utilities import Ownership, assign_clients
 from fdia_graph.generation.design import DesignPool
 from fdia_graph.generation.nygrid.case import Case, nygrid_case
 from fdia_graph.generation.nygrid.config import Settings, rng
@@ -61,6 +60,7 @@ from fdia_graph.generation.nygrid.inputs import GEOJSON, LOCATIONS
 from fdia_graph.generation.nygrid.interfaces import hourly_interfaces
 from fdia_graph.generation.nygrid.io import FAMILIES, TimelineWriter, read_pool
 from fdia_graph.generation.nygrid.network import Network
+from fdia_graph.generation.nygrid.ownership import Ownership, assign_clients
 from fdia_graph.generation.nygrid.pool import SOLVED, Pool, peak_ratings
 from fdia_graph.generation.plan import STRATUM, split_bounds, split_column, split_weeks, week_index
 from fdia_graph.generation.source import OutPath, TimelineSource

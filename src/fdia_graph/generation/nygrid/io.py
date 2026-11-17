@@ -11,8 +11,8 @@ import numpy as np
 
 from fdia_graph.engine.attacks.family import Episode
 from fdia_graph.engine.sensing.meters import KINDS, MeterPlan
-from fdia_graph.federated.utilities import Ownership
 from fdia_graph.generation.nygrid.case import Case
+from fdia_graph.generation.nygrid.ownership import Ownership
 from fdia_graph.generation.nygrid.pool import Pool
 from fdia_graph.generation.write import ragged
 from fdia_graph.models.choices import SPLITS

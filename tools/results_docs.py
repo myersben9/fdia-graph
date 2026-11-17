@@ -19,11 +19,12 @@ import re
 import subprocess
 import sys
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, os.path.join(ROOT, "src"))
+from sources import ROOT, import_this_checkout
 
-from fdia_graph.results import Store, fill, stale  # noqa: E402
-from fdia_graph.results.docs import BLOCK  # noqa: E402
+import_this_checkout()
+
+from fdia_analysis.results import Store, fill, stale  # noqa: E402
+from fdia_analysis.results.docs import BLOCK  # noqa: E402
 
 # the files whose numbers the policy covers: released CHANGELOG sections are history and stay as written
 SKIP = ("CHANGELOG.md",)
