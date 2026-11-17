@@ -19,7 +19,7 @@ import numpy as np
 if TYPE_CHECKING:
     from scipy.sparse import spmatrix
 
-    # Ybus, Yf, Yt: pandapower's makeYbus builds them sparse; a dense matrix works the same
+    # Ybus, Yf, Yt: a `Network` holds them sparse; a dense matrix works the same
     Admittance = Union[np.ndarray, spmatrix]
 
 from ..constants.numerics import BACKTRACK_HALVINGS
@@ -49,6 +49,7 @@ def branch_admittances(
     bus_shunt_g: Optional[np.ndarray] = None,
     bus_shunt_b: Optional[np.ndarray] = None,
     base_mva: float = 100.0,
+    sides_apart: bool = False,
 ) -> Admittances:
     """Ybus [N, N], Yf [E, N] and Yt [E, N] from the per-branch pi model [MP19, makeYbus].
 
@@ -56,7 +57,9 @@ def branch_admittances(
         y_ff = y_tt / (tap * conj(tap)),  y_ft = -y_s / conj(tap),  y_tf = -y_s / tap
 
     The tap and phase shift sit on the from side; bus shunts (MW and MVAr at 1 pu) join the Ybus
-    diagonal as (g_sh + j b_sh) / base_mva. `edge_index` [2, E] is in the bus order of the outputs."""
+    diagonal as (g_sh + j b_sh) / base_mva. `edge_index` [2, E] is in the bus order of the outputs.
+    Ybus adds every branch term in one pass; with `sides_apart` it adds the from-side and the to-side
+    terms apart and then the two sums, MATPOWER's order (a diagonal entry can differ in its last bit)."""
     E = len(branch.r)
     stat = np.ones(E) if branch.status is None else np.asarray(branch.status, np.float64)
     ys = stat * series_admittance(branch.r, branch.x)
@@ -76,10 +79,13 @@ def branch_admittances(
     Yt[rows, f] += ytf
     Yt[rows, to] += ytt
     Y = np.zeros((n_bus, n_bus), np.complex128)
+    Y_to = np.zeros((n_bus, n_bus), np.complex128) if sides_apart else Y
     np.add.at(Y, (f, f), yff)
     np.add.at(Y, (f, to), yft)
-    np.add.at(Y, (to, f), ytf)
-    np.add.at(Y, (to, to), ytt)
+    np.add.at(Y_to, (to, f), ytf)
+    np.add.at(Y_to, (to, to), ytt)
+    if sides_apart:
+        Y = Y + Y_to
     if bus_shunt_g is not None or bus_shunt_b is not None:
         gs = np.zeros(n_bus) if bus_shunt_g is None else np.asarray(bus_shunt_g, np.float64)
         bs = np.zeros(n_bus) if bus_shunt_b is None else np.asarray(bus_shunt_b, np.float64)

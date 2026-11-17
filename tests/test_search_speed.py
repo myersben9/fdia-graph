@@ -20,7 +20,7 @@ from fdia_graph.formulas.network import (  # noqa: E402
     subnetwork,
 )
 from fdia_graph.generation import _load_states  # noqa: E402
-from fdia_graph.models.config import OverloadSettings  # noqa: E402
+from fdia_graph.models.config import MeterSettings, OverloadSettings  # noqa: E402
 from fdia_graph.models.frames import FrameKnobs, LoadGoal  # noqa: E402
 
 WINDOW = 8
@@ -57,7 +57,7 @@ def model(request):
 
 @pytest.fixture(scope="module")
 def gen(model):
-    return FdiaGenerator(14, seed=123, meter_model=model)
+    return FdiaGenerator(14, seed=123, meters=MeterSettings(meter_model=model))
 
 
 def _knobs(g, pool, load_cap=0.5, budget=100000):
@@ -94,7 +94,7 @@ def test_exhaustive_searches_return_their_pinned_answers(model, gen, pool):
 
 def test_the_cached_boundary_is_the_subnetwork_boundary(gen):
     rng = np.random.default_rng(0)
-    live = gen._live_edges()
+    live = gen.ei
     for _ in range(50):
         interior = rng.choice(gen.C, int(rng.integers(1, 6)), replace=False)
         want = subnetwork(live, interior, 0, gen.C)
@@ -105,11 +105,9 @@ def test_the_cached_boundary_is_the_subnetwork_boundary(gen):
 def test_the_row_block_product_equals_the_full_one(gen, pool):
     """The branch rows the search's attack vector reads, cut to their columns, give the full
     product's values (to rounding: the sum runs over fewer terms)."""
-    lut = gen._ppc_row[np.arange(gen.C)]
-    V = np.zeros(gen._n_ppc_buses, complex)
-    V[lut] = complex_voltages(pool[0][:, NodeChannel.V], pool[0][:, NodeChannel.THETA])
+    V = complex_voltages(pool[0][:, NodeChannel.V], pool[0][:, NodeChannel.THETA])
     for rows in (np.array([0]), np.array([2, 3, 8]), np.arange(gen.E)):
-        for Y in (gen._Yf, gen._Yt, gen._dense_admittances()[1]):
+        for Y in (gen.net.yf, gen.net.yt, gen._dense_admittances()[1]):
             block, cols = _row_block(Y, rows)
             full = np.asarray(Y @ V)[rows]
             assert np.allclose(block @ V[cols], full, rtol=1e-13, atol=1e-13)
@@ -120,19 +118,17 @@ def test_the_reused_blocks_solve_as_the_fresh_ones(gen, pool):
     support and its edge), returns bit for bit the voltages it returns cutting them itself, with an
     edge bus held as well as interior ones."""
     Xt = pool[0]
-    lut = gen._ppc_row[np.arange(gen.C)]
-    V = np.zeros(gen._n_ppc_buses, complex)
-    V[lut] = complex_voltages(Xt[:, NodeChannel.V], Xt[:, NodeChannel.THETA])
+    V = complex_voltages(Xt[:, NodeChannel.V], Xt[:, NodeChannel.THETA])
     Yb, Yf = gen._dense_admittances()
     line, S = 4, np.array([2, 3, 4, 8])
     touched = gen.touched_buses(S)
     edge = np.setdiff1d(touched, np.r_[S, gen.slack_bus])  # the slack's injection is the balance
-    interior, fixed = lut[S], lut[np.r_[S[:2], edge[:1]]]
+    interior, fixed = S, np.r_[S[:2], edge[:1]]
     S0 = bus_injections(V, Yb)
-    f = int(gen._from_bus_ppc[line])
+    f = int(gen.case.f[line])
     flow0 = abs(V[f] * np.conj(Yf[line] @ V))
     fresh = local_flow_solve(Yb, Yf[line], f, V, interior, fixed, S0[fixed], 1.1 * flow0)
-    blocks = _flow_blocks(Yb, Yf[line], interior, lut[touched])
+    blocks = _flow_blocks(Yb, Yf[line], interior, touched)
     reused = local_flow_solve(Yb, Yf[line], f, V, interior, fixed, S0[fixed], 1.1 * flow0, blocks=blocks)
     assert fresh is not None and reused is not None and np.array_equal(fresh, reused)
     assert np.allclose(bus_injections(reused, Yb)[fixed], S0[fixed], atol=1e-8)  # the held buses hold

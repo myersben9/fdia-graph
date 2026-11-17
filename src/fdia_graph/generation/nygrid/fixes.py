@@ -44,6 +44,7 @@ def hvdc_links(case: Case) -> Case:
         r=case.r[keep],
         x=case.x[keep],
         b=case.b[keep],
+        g=case.g[keep],
         tap=case.tap[keep],
         shift=case.shift[keep],
         rating=case.rating[keep],

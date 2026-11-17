@@ -128,6 +128,13 @@ def test_a_file_name_that_is_not_a_matlab_function_is_refused(make_case, nygrid,
         make_case.write_case(nygrid, tmp_path / name, "a title")
 
 
+def test_a_branch_conductance_is_refused(make_case, nygrid, tmp_path):
+    # MATPOWER's branch table has no column for it: an IEEE case read from pandapower can carry one
+    lossy = dataclasses.replace(nygrid, g=np.where(np.arange(len(nygrid.f)) == 0, 0.01, nygrid.g))
+    with pytest.raises(DataConditionError, match="shunt conductance"):
+        make_case.write_case(lossy, tmp_path / "lossy.m", "a title")
+
+
 def test_a_new_york_area_from_an_older_file_is_written_as_one_area(make_case, nygrid, tmp_path):
     # a case stored before the file had one area carries 3 on the downstate buses: the file has no place for it
     downstate = np.isin(nygrid.zone, list("GHIJK"))

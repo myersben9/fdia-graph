@@ -3,7 +3,7 @@
 `TimelineSource.generate` makes every timeline in the same order: open the file, prepare, cut the
 splits, then split by split place the episodes, design them and walk the frames in time order, and
 finish the file. The steps that depend on the grid are the methods a subclass writes:
-`generation.ieee.IeeeSource` (a pandapower case and its pool) and
+`generation.ieee.IeeeSource` (an IEEE case and its pool) and
 `generation.nygrid.source.NewYorkSource` (the New York grid and its year of five-minute states).
 The placement (`place`) and the writer (`generation.write.TimelineWriter`) are shared by both.
 docs/guides/generation.md has the step-by-step table of what each grid does.

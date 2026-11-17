@@ -7,12 +7,11 @@ scenarios because the paper states what an attack on them looks like.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
 import numpy as np
 
-if TYPE_CHECKING:
-    from fdia_graph.engine.core import FdiaGenerator
+from fdia_graph.engine.core import FdiaGenerator
+from fdia_graph.engine.sensing.meters import MeterPlan
+from fdia_graph.models.config import MeterSettings
 
 # the two lines each scenario overloads at once
 SCENARIOS: dict[int, tuple[tuple[tuple[int, int], tuple[int, int]], ...]] = {
@@ -31,7 +30,7 @@ ATTACK_AREA: dict[int, tuple[int, ...]] = {118: (*range(74, 113), 118)}
 
 def _numbers(g: FdiaGenerator) -> np.ndarray:
     """The MATPOWER number of every bus of the generator's grid, by position."""
-    return g.base.bus["name"].astype(int).to_numpy()
+    return g.case.bus_id
 
 
 def buses(g: FdiaGenerator, numbers: tuple[int, ...] | list[int]) -> np.ndarray:
@@ -53,3 +52,14 @@ def area(g: FdiaGenerator) -> tuple[int, ...]:
     if g.C == 14:
         return tuple(int(b) for b in range(g.C) if b != g.slack_bus)
     return tuple(int(b) for b in buses(g, ATTACK_AREA[g.C]))
+
+
+def paper_metering(g: FdiaGenerator, pmu_numbers: tuple[int, ...], flow: np.ndarray) -> FdiaGenerator:
+    """The generator of `g`'s case and seed (`g` at the default coverage) metered as the paper does: PMUs at
+    the MATPOWER buses `pmu_numbers`, flow meters on the branches `flow` [E] bool, and `g`'s own voltmeters
+    and biases (the plan is drawn again from `g`'s seed, with the paper's places standing in)."""
+    pmu = np.zeros(g.C, bool)
+    pmu[buses(g, pmu_numbers)] = True
+    stream = np.random.default_rng(g.seed)
+    plan = MeterPlan.from_coverage(g.case, MeterSettings(), stream, pmu_at=pmu, flow_at=flow)
+    return FdiaGenerator(g.C, g.seed, plan=plan)

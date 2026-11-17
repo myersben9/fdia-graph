@@ -55,6 +55,3 @@ class PolarCurrentChannel(IntEnum):
 # Columns between a branch quantity at the from end and the same quantity at the to end, in a flow
 # layer with both ends and in a current layer: P_TO - P_FROM, RE_TO - RE_FROM, MAG_TO - MAG_FROM.
 TO_END_OFFSET = 2
-# The order a bus's noise draws are taken in: |V|, the angle, then P and Q. Fixed, since the order of
-# the draws decides every stored reading.
-NODE_DRAW_ORDER = (NodeChannel.V, NodeChannel.THETA, NodeChannel.P_INJ, NodeChannel.Q_INJ)

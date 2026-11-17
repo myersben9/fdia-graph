@@ -57,7 +57,7 @@ class OverloadMixin(MinimizeMixin):
             self.line_ratings()
             return
         if settings.rating_source == "delta":  # set per window, from the window's own last flow
-            self._rating_delta = settings.rating_delta * self._base_mva
+            self._rating_delta = settings.rating_delta * self.case.base_mva
             self._line_ratings = None  # `window_ratings` rates each window from its own flows
             return
         peak = np.zeros(self.E)
@@ -77,23 +77,20 @@ class OverloadMixin(MinimizeMixin):
                 f"IEEE-{self.C} has no line ratings (the overload attack Am needs PGLib-OPF ratings, "
                 "held for IEEE-14, 118 and 300); generate without Am, e.g. families=('At',)"
             )
-        number = self.base.bus["name"].astype(int).to_numpy()  # MATPOWER bus numbers, pandapower order
+        number = self.case.bus_id  # MATPOWER's bus numbers
         ends = [(int(number[a]), int(number[b])) for a, b in self.ei.T]
         self._line_ratings = branch_ratings(ends, rows)
         return self._line_ratings
 
     def eligible_lines(self, window: list[np.ndarray], hops: int) -> np.ndarray:
-        """The branches an overload attack may target over the snapshots `window`: in service, rated, flow
+        """The branches an overload attack may target over the snapshots `window`: rated, flow
         metered (the goal is what the operator sees), true apparent flow below the rating at every
         snapshot, and a free injection (an attackable load or a generator) in the area around its ends."""
         flows = self.clean_flows_from_states(np.stack(window))  # [T, E, 2], unmetered zeroed
         rating = self.window_ratings(flows)  # finite per window under "delta"
         # [E] the window's largest true flow
         S = np.hypot(flows[..., EdgeChannel.P_FROM], flows[..., EdgeChannel.Q_FROM]).max(axis=0)
-        metered = np.asarray(self.meters.flow, bool)
-        status = self.branch.status
-        live = np.ones(len(rating), bool) if status is None else np.asarray(status) > 0
-        ok = live & np.isfinite(rating) & metered & (S < np.nan_to_num(rating, nan=-np.inf))
+        ok = np.isfinite(rating) & self.flow_metered & (S < np.nan_to_num(rating, nan=-np.inf))
         free = set(self.free_injection_buses().tolist())
         lines = [int(b) for b in np.flatnonzero(ok) if self._acts_on(int(b), free, hops)]
         return np.array(lines, dtype=np.int64)

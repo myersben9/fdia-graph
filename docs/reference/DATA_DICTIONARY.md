@@ -78,6 +78,9 @@ ds.export(["clean"]).clean[..., NodeChannel.V]  # any [..., 4] array, a split's 
 
 Sign of `P_inj`/`Q_inj`: `+` = net consumption (load), `−` = net injection (gen). This is pandapower's
 `res_bus` convention. Example (case14): the slack bus reads ≈ −235 MW, a 94 MW load bus reads ≈ +93 MW.
+That is the sign of an IEEE file, whose pool stores its injections so. A New York file has the other
+sign, `+` = net injection (generation minus load): its injections are computed from the voltages
+(`Measurement.h`, a meter of kind `MeterKind.P` or `MeterKind.Q`).
 
 ## `edge_attr` `[E,8]`: static branch properties (per-unit, never change)
 

@@ -321,11 +321,9 @@ def _plain(value: object) -> object:
 
 @dataclass(frozen=True)
 class GeneratorOptions(Validated):
-    """The generator's cap on what counts as a single load (MW, None disables it) and the meter model
-    its plan follows."""
+    """The generator's cap on what counts as a single load (MW, None disables it)."""
 
     max_load_mw: Annotated[Optional[float], Positive()] = 2000.0
-    meter_model: Annotated[str, OneOf(MeterModel)] = "hybrid"
 
 
 @dataclass(frozen=True)

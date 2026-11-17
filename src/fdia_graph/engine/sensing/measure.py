@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import fields
+from typing import Optional
 
 import numpy as np
 
@@ -34,7 +34,12 @@ class Measurement:
         self.net, self.plan = net, plan
         self._rows = {k: np.flatnonzero(plan.kind == k) for k in MeterKind}
 
-    def _gather(self, out: np.ndarray, bus: dict, branch: dict) -> np.ndarray:
+    def _gather(
+        self,
+        out: np.ndarray,
+        bus: dict[MeterKind, np.ndarray],
+        branch: dict[MeterKind, tuple[np.ndarray, np.ndarray]],
+    ) -> np.ndarray:
         """Fill each meter row of `out` from the per-bus values `bus[kind]` (last axis buses) or the
         per-branch from and to end values `branch[kind]` (last axis branches)."""
         plan = self.plan
@@ -47,9 +52,13 @@ class Measurement:
                 out[..., rows] = np.where(plan.end[rows] == 0, at_f[..., br], at_t[..., br])
         return out
 
-    def h(self, vm: np.ndarray, va: np.ndarray) -> np.ndarray:
-        """z [..., M] for states vm, va [..., N]."""
-        p, q = self.net.injections(vm, va)
+    def h(
+        self, vm: np.ndarray, va: np.ndarray, injections: Optional[tuple[np.ndarray, np.ndarray]] = None
+    ) -> np.ndarray:
+        """z [..., M] for states vm, va [..., N]. The injections follow from the voltages (generation
+        positive), unless the state stores its solved `injections` = (P, Q) [..., N]: an IEEE pool
+        does, load positive, and they are read as they are."""
+        p, q = self.net.injections(vm, va) if injections is None else injections
         pf, qf, pt, qt = self.net.flows(vm, va)
         i_f, i_t = self.net.currents(vm, va)
         branch = {
@@ -57,6 +66,8 @@ class Measurement:
             MeterKind.QF: (qf, qt),
             MeterKind.I: (np.abs(i_f), np.abs(i_t)),
             MeterKind.IA: (np.angle(i_f, deg=True), np.angle(i_t, deg=True)),
+            MeterKind.IR: (i_f.real, i_t.real),
+            MeterKind.II: (i_f.imag, i_t.imag),
         }
         z = np.empty(np.shape(vm)[:-1] + (len(self.plan.kind),))
         return self._gather(z, {MeterKind.V: vm, MeterKind.VA: va, MeterKind.P: p, MeterKind.Q: q}, branch)
@@ -78,6 +89,8 @@ class Measurement:
             K.QF: (ds_f.imag, ds_t.imag),
             K.I: (_magnitude(i_f, d_f), _magnitude(i_t, d_t)),
             K.IA: (_angle(i_f, d_f), _angle(i_t, d_t)),
+            K.IR: (d_f.real, d_t.real),
+            K.II: (d_f.imag, d_t.imag),
         }
         # rows index the first axis here, so move the meter axis last for the gather and back
         bus = {k: d.T for k, d in bus.items()}
@@ -86,6 +99,4 @@ class Measurement:
 
     def for_client(self, c: int) -> Measurement:
         """The Measurement of client `c`'s meters only."""
-        keep = self.plan.owner == c
-        plan = MeterPlan(**{f.name: getattr(self.plan, f.name)[keep] for f in fields(MeterPlan)})
-        return Measurement(self.net, plan)
+        return Measurement(self.net, self.plan.select(self.plan.owner == c))

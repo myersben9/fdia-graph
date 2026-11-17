@@ -36,14 +36,16 @@ summary); the graph properties are tensors or arrays, `loader()` is a DataLoader
 
 ## The engine
 
-`FdiaGenerator` is the AC model of one system with its meter plan. `GridBase` declares the state the mixins
+`FdiaGenerator` is the AC model of one IEEE system with its meter plan: a `Case` read from the pandapower
+net (`Case.from_pandapower`), its `Network`, a `MeterPlan` (`MeterPlan.from_coverage`), a `Measurement` and a
+`NoiseModel`, the classes of the New York grid. `GridBase` declares the state the mixins
 share. `PhysicsMixin` reads a scan's load and generation and `MeasurementMixin` emits scans; neither calls the
 other, so each has `GridBase` alone as its base. `AttackMixin` builds every attack (next section) and calls both.
 A mixin lists as bases the mixins whose methods it calls.
 `engine/records.py` emits a benign scan and hands an attacked family to the mixin; `timeline.py`
 decides when and where each episode runs.
 
-![Class diagram of the engine package: GridBase, PhysicsMixin and MeasurementMixin each under it, AttackMixin composed of EpisodeDesignMixin and StealthyMixin, and FdiaGenerator inheriting AttackMixin; the mixins use Scan, AttackDesign, Frame and FrameKnobs, and the generator holds a BranchModel, a MeterPlan, a MeterBias, a PandapowerNet and its PpcTables](../figures/diagrams/classes_engine.png)
+![Class diagram of the engine package: GridBase, PhysicsMixin and MeasurementMixin each under it, AttackMixin composed of EpisodeDesignMixin and StealthyMixin, and FdiaGenerator inheriting AttackMixin; the mixins use Scan, AttackDesign, Frame and FrameKnobs, and the generator holds a Case, a Network, a MeterPlan, a Measurement and a NoiseModel](../figures/diagrams/classes_engine.png)
 
 ## The attacks
 
@@ -102,6 +104,5 @@ is the truth an estimator is scored against.
 ![Class diagram of the score bundles: ErrorPair, EstimatorScores, OverallMetrics, BenignMetrics, FamilyMetrics, LocalizerScores, PerBusMetrics, PerBusScores, GridScores, TrustScores, JacobianOutputs and TrueState all under Bundle](../figures/diagrams/classes_scores.png)
 
 The named tuples of `models/frames.py` (`Scan`, `Frame`, `OperatingLimits`, `FrameKnobs`),
-`models/grid.py` (the column indices, `BranchModel`, `Admittances`, `MeterPlan`, `MeterBias`,
-`Outage`) and `models/assets.py` (`AssetSpec`) are plain
+`models/grid.py` (`BranchModel`, `Admittances`) and `models/assets.py` (`AssetSpec`) are plain
 value types with no hierarchy, so they appear only where a class above uses them.

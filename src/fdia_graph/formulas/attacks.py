@@ -116,7 +116,7 @@ def tampered_channels(
 ) -> tuple[np.ndarray, np.ndarray]:
     """Boolean masks [N, 4] and [E, 2] of the metered channels an attack vector a = h(x_false) -
     h(x_true) moves by more than their noise, the l0 count of [WU26 eq. 12]: tampered_m = metered_m
-    and |a_m| > sigma_m. Sigma is the rated accuracy (`formulas.noise.accuracy_sigma`), not the jitter."""
+    and |a_m| > sigma_m. Sigma is the rated accuracy (`NoiseModel.sigmas`), not the jitter."""
     node = (np.abs(a_node) > sig_node) & (np.asarray(node_m) > 0)
     edge = (np.abs(a_edge) > sig_edge) & (np.asarray(edge_m) > 0)
     return node, edge

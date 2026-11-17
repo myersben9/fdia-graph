@@ -125,34 +125,32 @@ class RrefSupport:
         N, pmu, ei = self.g.C, window.pmu, self.g.ei
         b, c = np.nonzero(window.node_m > 0)
         at_pmu = np.isin(c, (NodeChannel.V, NodeChannel.THETA)) & pmu[b]
-        parts = [np.where(at_pmu, N + b, b), ei[0, np.nonzero(window.edge_m > 0)[0]]]
-        if window.i_m is not None and window.i_sigma is not None:
-            e, ce = np.nonzero(window.i_m > 0)
-            parts.append(
-                N
-                + np.where(np.isin(ce, (CurrentChannel.RE_FROM, CurrentChannel.IM_FROM)), ei[0, e], ei[1, e])
-            )
+        e, ce = np.nonzero(window.i_m > 0)
+        at_from = np.isin(ce, (CurrentChannel.RE_FROM, CurrentChannel.IM_FROM))
+        parts = [
+            np.where(at_pmu, N + b, b),
+            ei[0, np.nonzero(window.edge_m > 0)[0]],
+            N + np.where(at_from, ei[0, e], ei[1, e]),
+        ]
         return np.concatenate(parts).astype(np.int64)
 
     def _scaled_channels(self, window: _Window, t: int, batch: np.ndarray) -> np.ndarray:
         """Every attackable channel of each state in `batch` [B, N, 4] over its [WU26] noise, [B, m]:
         the metered node channels (an angle only at a PMU), the metered flows, the PMU branch currents."""
-        lut = self.g._ppc_row[np.arange(batch.shape[1])]
-        Vc = np.zeros((len(batch), self.g._n_ppc_buses), complex)
-        Vc[:, lut] = complex_voltages(batch[:, :, NodeChannel.V], batch[:, :, NodeChannel.THETA])
-        S = bus_injections(Vc, self.g._Ybus, self.g._base_mva)[:, lut]
+        g, base_mva = self.g, self.g.case.base_mva
+        Vc = complex_voltages(batch[:, :, NodeChannel.V], batch[:, :, NodeChannel.THETA])
+        S = bus_injections(Vc, g.net.ybus, base_mva)
         node = batch.copy()
         node[:, :, NodeChannel.P_INJ], node[:, :, NodeChannel.Q_INJ] = S.real, S.imag
-        Sf = branch_flows(Vc, self.g._Yf, self.g._from_bus_ppc, self.g._base_mva)
+        Sf = branch_flows(Vc, g.net.yf, g.case.f, base_mva)
         edge = np.stack([Sf.real, Sf.imag], axis=2)
         sig_node, sig_edge = window.sigma[t]
+        cur = branch_currents(Vc, g.net.yf, g.net.yt) / _positive(window.i_sigma[t])
         parts = [
             (node / _positive(sig_node))[:, window.node_m > 0],
             (edge / _positive(sig_edge))[:, window.edge_m > 0],
+            cur[:, window.i_m > 0],
         ]
-        if window.i_m is not None and window.i_sigma is not None:
-            cur = branch_currents(Vc, self.g._Yf, self.g._Yt) / _positive(window.i_sigma[t])
-            parts.append(cur[:, window.i_m > 0])
         return np.concatenate(parts, axis=1)
 
 

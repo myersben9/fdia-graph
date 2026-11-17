@@ -146,7 +146,6 @@ EXEMPT: dict[str, dict[str, str]] = {
     "generation/plan.py": {"PLACE_TRIES": "knob", "STRATUM": "knob", "REDRAWS": "knob"},
     "generation/write.py": {"_BATCH": "private"},
     "models/config.py": {"_FLAT": "private", "_TOP": "private"},
-    "models/grid.py": {"INTACT": "model"},
     "models/inputs.py": {"_FAMILY_WORDS": "private"},
     "profiles.py": {
         "K_DEFAULT": "knob",

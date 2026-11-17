@@ -81,7 +81,7 @@ def test_the_reduction_names_buses_3_and_11_for_lines_3_4_and_6_11():
     """The sparsest attacks that move lines 3-4 and 6-11 act at buses 3 and 11 (MATPOWER numbers), at
     every snapshot: the paper's reduction, before our fallback grows the support."""
     g, window, k, goal = _setup(0, 1.1)
-    number = g.base.bus["name"].astype(int).to_numpy()
+    number = g.case.bus_id
     seeds, _, _ = g._goal_seeds(goal)
     area = np.asarray(g.local_region(seeds, k.hops))
     w = _Window(g, window, goal, k)

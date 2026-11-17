@@ -43,13 +43,13 @@ SLOW = pytest.mark.skipif(
 
 def _setup(scenario: int, margin: float) -> tuple:
     """The generator on the paper's metering, the window, the knobs and the two-line goal (no search)."""
-    g = FdiaGenerator(14, seed=1, meter_model="hybrid")
+    g = FdiaGenerator(14, seed=1)
     X = _load_states(14, None)
     lines = [case_studies.branch(g, *pair) for pair in case_studies.SCENARIOS[14][scenario]]
-    flow = np.asarray(g.meters.flow, bool).copy()
+    flow = g.flow_metered.copy()
     flow[lines] = True
     flow[case_studies.branch(g, 6, 11)] = True  # the paper meters line 6-11
-    g.meters = g.meters._replace(pmu=set(case_studies.buses(g, case_studies.PMUS[14]).tolist()), flow=flow)
+    g = case_studies.paper_metering(g, case_studies.PMUS[14], flow)
     window = list(X[:WINDOW])
     g.use_line_ratings(OverloadSettings(rating_margin=margin), np.stack(window))
     k = FrameKnobs(2, g.operating_limits(X), True, 4096, 1.0, 0.5, 2)
@@ -116,7 +116,7 @@ def test_an_empty_schedule_costs_what_no_schedule_costs():
 
 # ---- the case studies ------------------------------------------------------------------------------
 def _named(g, window, k, goal, trust, result) -> set[str]:
-    number = g.base.bus["name"].astype(int).to_numpy()
+    number = g.case.bus_id
     w = _Window(g, window, goal, k, trust=trust)
     prev, names = w.prev, set()
     for t in range(len(window)):

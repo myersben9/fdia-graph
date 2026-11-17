@@ -21,15 +21,20 @@ from fdia_graph.models.grid import BranchModel
 class Network:
     """Holds a Case with its bus admittance `ybus`, the from-end and to-end branch admittances `yf`
     and `yt`, and the bus adjacency. States are `vm` in p.u. and `va` in degrees, powers come back
-    in MW and MVAr, currents in p.u."""
+    in MW and MVAr, currents in p.u.
 
-    def __init__(self, case: Case):
+    `matpower_order` is for a grid whose stored files were made with MATPOWER's bus admittance (the
+    IEEE cases): `ybus` is then summed in MATPOWER's order (`branch_admittances`, `sides_apart`) and
+    held by column. Those files depend on its last bit and on the order a product runs over it."""
+
+    def __init__(self, case: Case, matpower_order: bool = False):
         self.case = case
         n = len(case.bus_id)
         self._edges = np.vstack([case.f, case.t])
-        branch = BranchModel(case.r, case.x, case.b, np.zeros(len(case.f)), case.tap, case.shift)
-        adm = branch_admittances(branch, self._edges, n, case.gs, case.bs, case.base_mva)
-        self.ybus, self.yf, self.yt = (sp.csr_matrix(m) for m in adm)
+        branch = BranchModel(case.r, case.x, case.b, case.g, case.tap, case.shift)
+        adm = branch_admittances(branch, self._edges, n, case.gs, case.bs, case.base_mva, matpower_order)
+        self.ybus = sp.csc_matrix(adm.ybus) if matpower_order else sp.csr_matrix(adm.ybus)
+        self.yf, self.yt = sp.csr_matrix(adm.yf), sp.csr_matrix(adm.yt)
         self.adjacency = edge_adjacency(self._edges, n).astype(int)
 
     def _v(self, vm: np.ndarray, va: np.ndarray) -> np.ndarray:

@@ -25,7 +25,7 @@ to its function.
 | engine/ file | formula it implements |
 |------|-----|
 | `core.py` | `FdiaGenerator`: grid + noise setup (`__init__`), attack targeting; composes the measurement, physics and attack mixins |
-| `measurement.py` | `emit_from_state` (the measurement function `h(x)`), `clean_flows_from_states`, `currents_from_states` |
+| `measurement.py` | `emit_from_state` (a scan: `Measurement.h`, the measurement function `h(x)`, with `NoiseModel`'s noise), `clean_flows_from_states`, `currents_from_states` |
 | `physics.py` | `true_load`, `scan_generation`: a scan's load and generation from its stored state |
 | `attacks/` | the false states, the fewest-tamper search, the `At` ramp and the overload `Am` |
 
@@ -37,11 +37,11 @@ and converts them on load.
 
 | concept | code |
 |---|---|
-| WLS `x̂ = argmin (z−h(x))ᵀW(z−h(x))` | `se/base.py` `SEBase._w_solve` (chord-Newton); `h(x)` is `engine/measurement.emit_from_state` |
+| WLS `x̂ = argmin (z−h(x))ᵀW(z−h(x))` | `se/base.py` `SEBase._w_solve` (chord-Newton); `h(x)` is `engine/sensing/measure.py` `Measurement.h` |
 | Robust reweighting (Huber), residual removal, subspace prior | `se/methods.py`: one class per arm, each overrides one hook |
 | Bad-data test `r_i=(z_i−h_i)/σ_i`, `J=Σr_i²` | `σ_i` is the RMS of the benign residuals at the training truth (`se/base.py` `SEBase.fit`); residuals in `se/base.py` `SEBase._nres`. The `stealthy` flag marks the families that evade it by construction (`Aq`/`At`/`Al`/`Am`, `constants.families.STEALTHY_FAMILIES`) |
 | Noise model | `FdiaGenerator.SD` (accuracy class): reading = true + per-meter bias + per-scan jitter. The estimator does not read it; it calibrates `σ_i` from data |
-| Meter model (hybrid SCADA and PMU, the plan's D10) | `MeasurementMixin.meter_masks` (the angle at the PMU buses only), `current_mask` and `_emit_currents` (the PMU branch currents `I_f = Y_f V`, `I_t = Y_t V`, `formulas.network.branch_currents`, noise `formulas.noise.current_sigma`); chosen by `generate_timeline(..., redundancy={"meter_model": ...})` through `models.config.MeterSettings` |
+| Meter model (hybrid SCADA and PMU, the plan's D10) | `MeterPlan.from_placement` (the angle at the PMU buses only; the generator's `masks`, a `MeterLayers`, are its masks) and the kinds `IR` and `II` of `Measurement.h` (the PMU branch currents `I_f = Y_f V`, `I_t = Y_t V`, `formulas.network.branch_currents`, noise `formulas.noise.current_sigma`); chosen by `generate_timeline(..., redundancy={"meter_model": ...})` through `models.config.MeterSettings` |
 | PMU pseudo-measurements `V_f = (I_n − y_nn V_n)/y_nf` [WU26, eq. (3)] | `formulas.estimation.pmu_pseudo_links`, `pmu_pseudo_voltages` (with the propagated variance), used by `SEBase(solve=SolveConfig(pmu_pseudo=True))` in `_build_pseudo` and `_z_of` |
 
 Walkthrough: `../guides/state_estimation.md`. Results: `../analysis/estimation/README.md`.

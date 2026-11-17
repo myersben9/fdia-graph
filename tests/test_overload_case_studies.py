@@ -40,16 +40,14 @@ BAND = (0.05, 1.0)  # the largest per-device change must be of the paper's order
 
 def _scenario(system: int, scenario: tuple) -> tuple:
     """The generator on the paper's metering, the window, the knobs, the goal and the search result."""
-    g = FdiaGenerator(system, seed=1, meter_model="hybrid")
+    g = FdiaGenerator(system, seed=1)
     X = _load_states(system, None)
     lines = [case_studies.branch(g, *pair) for pair in scenario]
-    flow = np.asarray(g.meters.flow, bool).copy()
+    flow = g.flow_metered.copy()
     flow[lines] = True  # the operator sees the target lines' flows
     if system == 14:
         flow[case_studies.branch(g, 6, 11)] = True  # the paper meters line 6-11
-    g.meters = g.meters._replace(
-        pmu=set(case_studies.buses(g, case_studies.PMUS[system]).tolist()), flow=flow
-    )
+    g = case_studies.paper_metering(g, case_studies.PMUS[system], flow)
     window = list(X[:WINDOW])
     g.use_line_ratings(OverloadSettings(rating_margin=MARGIN), np.stack(window))
     k = FrameKnobs(2, g.operating_limits(X), True, 4096, 1.0, 0.5, 2)
@@ -60,13 +58,13 @@ def _scenario(system: int, scenario: tuple) -> tuple:
 def _devices(g, window, k, goal, support) -> tuple[set[str], float]:
     """The devices the held support tampers over the window, named as the paper does ("SCADA 3",
     "PMU 4", MATPOWER numbers), and the largest change on one of their channels (pu, angles in rad)."""
-    number = g.base.bus["name"].astype(int).to_numpy()
+    number = g.case.bus_id
     w = _Window(g, window, goal, k)
     prev, names, worst = w.prev, set(), 0.0
     for t in range(len(window)):
         node, edge, cur, prev = w._snapshot(t, support, prev)
         mag = np.abs(np.asarray(prev.node, float)).copy()
-        mag[:, [NodeChannel.P_INJ, NodeChannel.Q_INJ]] /= g._base_mva
+        mag[:, [NodeChannel.P_INJ, NodeChannel.Q_INJ]] /= g.case.base_mva
         mag[:, NodeChannel.THETA] = np.deg2rad(mag[:, NodeChannel.THETA])
         for b, c in zip(*np.nonzero(node)):
             names.add(
@@ -76,7 +74,7 @@ def _devices(g, window, k, goal, support) -> tuple[set[str], float]:
             worst = max(worst, float(mag[b, c]))
         for e, c in zip(*np.nonzero(edge)):
             names.add(f"SCADA {number[g.ei[0, e]]}")
-            worst = max(worst, abs(float(prev.edge[e, c])) / g._base_mva)
+            worst = max(worst, abs(float(prev.edge[e, c])) / g.case.base_mva)
         for e, c in zip(*np.nonzero(cur)) if cur is not None else ():
             end = g.ei[0, e] if c in (CurrentChannel.RE_FROM, CurrentChannel.IM_FROM) else g.ei[1, e]
             names.add(f"PMU {number[end]}")
@@ -98,7 +96,7 @@ def test_the_scenario_table_maps_to_our_branches_and_buses():
         for scenario in case_studies.SCENARIOS[system]:
             for a, b in scenario:
                 e = case_studies.branch(g, a, b)
-                number = g.base.bus["name"].astype(int).to_numpy()
+                number = g.case.bus_id
                 assert {int(number[g.ei[0, e]]), int(number[g.ei[1, e]])} == {a, b}
     assert len(case_studies.PMUS[14]) == 4 and len(case_studies.PMUS[118]) == 11
     assert set(case_studies.PMUS[118]) <= set(

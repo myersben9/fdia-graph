@@ -12,9 +12,11 @@ import pytest
 pytest.importorskip("pandapower")
 
 from fdia_graph import schema  # noqa: E402
+from fdia_graph.constants.channels import NodeChannel  # noqa: E402
 from fdia_graph.constants.families import STEALTHY_FAMILIES
 from fdia_graph.generation import _load_states  # noqa: E402
 from fdia_graph.timeline import generate_timeline
+from tests.helpers import ieee_net  # noqa: E402
 
 
 @pytest.fixture(scope="session")
@@ -151,10 +153,11 @@ def test_a_stealthy_frame_is_the_benign_scan_plus_its_attack_vector(timeline_fil
     from the frame's own labels (targets, magnitudes, the clean state), on every tampered channel,
     and is zero elsewhere: no second noise draw enters."""
     from fdia_graph.engine.core import FdiaGenerator
+    from fdia_graph.models.config import MeterSettings
 
     a, attrs = _read(timeline_file)
     red = {k: float(attrs[k]) for k in ("vbus_frac", "pmu_frac", "flow_frac")}  # the file's meter plan
-    g = FdiaGenerator(int(attrs["system"]), seed=int(attrs["seed"]), **red)
+    g = FdiaGenerator(int(attrs["system"]), seed=int(attrs["seed"]), meters=MeterSettings(**red))
     pos = {int(b): i for i, b in enumerate(g.load_bus)}
     ptr, mag, mag_bus = a["attack/mag_ptr"], a["attack/mag"], a["attack/mag_bus"]
     frames = np.flatnonzero(a["data/family"] == 5)[:20]
@@ -200,7 +203,11 @@ def test_area_equivalent_loads_are_never_targets():
     from fdia_graph.engine.core import FdiaGenerator
 
     g = FdiaGenerator(145, seed=1)
-    p = np.abs(g.base.load.p_mw.values)
+    load = ieee_net(145).load
+    per_bus = np.zeros(g.C)
+    np.add.at(per_bus, load.bus.to_numpy(int), load.p_mw.to_numpy(float))
+    assert np.array_equal(g.load_p0, per_bus[g.load_bus])  # the load table: the case's load per bus
+    p = np.abs(g.load_p0)
     assert (p > 2000).sum() >= 10 and p[g.attackable_pos].max() <= 2000
     assert set(g.attackable_pos) == set(np.flatnonzero((p > 0) & (p <= 2000)))
     g14 = FdiaGenerator(14, seed=1)
@@ -241,7 +248,7 @@ def test_operating_limits_are_the_case_limits_widened_to_the_pool():
     from fdia_graph.formulas.attacks import generator_output, within_limits
 
     g = FdiaGenerator(14, seed=1)
-    net = g.base
+    net = ieee_net(14)
     X0 = net.res_bus.reindex(sorted(net.bus.index))[["vm_pu", "p_mw", "q_mvar", "va_degree"]].to_numpy()
     for b, ps, qs in zip(net.shunt.bus, net.res_shunt.p_mw, net.res_shunt.q_mvar):
         X0[int(b), 1:3] -= (ps, qs)  # the pool stores injections without the shunt draw
@@ -320,9 +327,11 @@ def test_a_producing_static_generator_bus_injects():
 
     g = FdiaGenerator(89, seed=1)
     for b in (1, 65, 69, 79):
-        assert b not in g.zero_inj and b in g.meters.inj
+        assert (
+            b not in g.zero_inj and g.masks.node[b, NodeChannel.P_INJ] and g.masks.node[b, NodeChannel.Q_INJ]
+        )
     g = FdiaGenerator(200, seed=1)
-    base = g.base
+    base = ieee_net(200)
     others = set(base.gen.bus) | set(base.load.bus) | set(base.ext_grid.bus) | set(base.shunt.bus)
     idle = [int(b) for b in base.sgen.bus if int(b) not in others]
     assert idle and all(b in g.zero_inj for b in idle)
@@ -365,8 +374,9 @@ def test_stealthy_targets_avoid_every_generator_and_live_static_generator_bus():
 
     for C in (89, 300):
         g = FdiaGenerator(C, seed=1)
-        sg = g.base.sgen[(g.base.sgen.p_mw.abs() > 0) | (g.base.sgen.q_mvar.abs() > 0)]
-        banned = set(g.base.gen.bus) | set(sg.bus)
+        net = ieee_net(C)
+        sg = net.sgen[(net.sgen.p_mw.abs() > 0) | (net.sgen.q_mvar.abs() > 0)]
+        banned = set(net.gen.bus) | set(sg.bus)
         assert not banned & set(g.load_bus[g.stealthy_pos].tolist())
         assert set(g.stealthy_pos) <= set(g.attackable_pos)
 

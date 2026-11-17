@@ -5,21 +5,24 @@ Set for real in FdiaGenerator.__init__ (core.py); declared here (no runtime effe
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Optional
+from typing import Optional
 
 import numpy as np
 
-from ..models.grid import BranchModel, MeterBias, MeterPlan
-
-if TYPE_CHECKING:
-    from scipy.sparse import csr_matrix
-
-    from .pandapower_types import PandapowerNet
+from ..generation.nygrid.case import Case
+from ..generation.nygrid.network import Network
+from ..models.frames import MeterLayers
+from .sensing.measure import Measurement
+from .sensing.meters import MeterPlan
+from .sensing.noise import NoiseModel
 
 
 class GridBase:
     # grid + rng
-    base: PandapowerNet
+    case: Case
+    # its bus admittance `net.ybus` is the one every local solve reads; it is summed in MATPOWER's order
+    # and held by column, because the stored IEEE files depend on its last bit (`Network`)
+    net: Network
     C: int
     E: int
     rng: np.random.Generator
@@ -27,20 +30,19 @@ class GridBase:
     # the timestep whose jitter the next emission draws (a timeline walk sets it), or None: the jitter
     # then comes from `rng` like every other draw
     scan_key: Optional[int]
-    _jitter: np.random.Generator  # the stream the current emission draws its jitter from
-    # noise model
-    SD: dict[str, float]
-    SDj: dict[str, float]
-    bias: MeterBias
-    _i_jitter: float  # hybrid meters: the per-scan relative jitter of the PMU branch-current channels
-    # metering plan
-    meters: MeterPlan
+    # meters and their noise
+    plan: MeterPlan
+    meas: Measurement
+    noise: NoiseModel
+    masks: MeterLayers  # 1 where a meter sits: node [N, 4], flow [E, 2], PMU current [E, 4]
+    pmu_buses: np.ndarray  # the buses with a PMU, sorted
+    flow_metered: np.ndarray  # [E] bool, a flow meter at the branch's from end
     zero_inj: list[int]
     slack_bus: int
     # buses / loads / attackability
     load_bus: np.ndarray
-    load_p0: np.ndarray  # [n_loads] base active load per element (MW)
-    load_q0: np.ndarray  # [n_loads] base reactive load per element (MVAr)
+    load_p0: np.ndarray  # [n_loads] base active load per loaded bus (MW)
+    load_q0: np.ndarray  # [n_loads] base reactive load per loaded bus (MVAr)
     stealthy_pos: np.ndarray  # attackable loads off generator buses, the stealthy families' targets
     load_base: np.ndarray  # [N, 2] base-case load P, Q per bus
     gen_base: np.ndarray  # [N, 2] base-case generation P per bus (Q column zero)
@@ -48,13 +50,4 @@ class GridBase:
     q_lim: np.ndarray  # [N, 2] generator reactive limits per bus
     has_gen: np.ndarray  # [N] bool, a generator on the bus
     v_case: np.ndarray  # [N, 2] the case's bus voltage limits
-    # topology + admittance
-    ei: np.ndarray
-    branch: BranchModel
-    _Ybus: csr_matrix
-    _Yf: csr_matrix
-    _Yt: csr_matrix
-    _base_mva: float
-    _ppc_row: np.ndarray
-    _from_bus_ppc: np.ndarray
-    _n_ppc_buses: int
+    ei: np.ndarray  # [2, E] the from bus and the to bus of every branch

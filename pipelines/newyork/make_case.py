@@ -128,6 +128,7 @@ def read_npcc(path: str | Path) -> Case:
         r=branch[on, 2].copy(),
         x=branch[on, 3].copy(),
         b=branch[on, 4].copy(),
+        g=np.zeros(int(on.sum())),
         tap=tap[on],
         shift=branch[on, 9].copy(),
         rating=branch[on, 5].copy(),
@@ -213,6 +214,7 @@ def modify_mpc(case: Case) -> Case:
         r=np.r_[case.r[keep], [a[2] for a in _ADDED]],
         x=np.r_[case.x[keep], [a[3] for a in _ADDED]],
         b=np.r_[case.b[keep], np.zeros(n_add)],
+        g=np.r_[case.g[keep], np.zeros(n_add)],
         tap=np.r_[case.tap[keep], np.ones(n_add)],
         shift=np.r_[case.shift[keep], np.zeros(n_add)],
         rating=np.r_[rating[keep], np.zeros(n_add)],
@@ -324,6 +326,7 @@ def restore_765kv(case: Case) -> Case:
         r=np.r_[case.r, 0.004],
         x=np.r_[case.x, 0.0085],
         b=np.r_[case.b, 0.0],
+        g=np.r_[case.g, 0.0],
         tap=np.r_[case.tap, 1.0],
         shift=np.r_[case.shift, 0.0],
         rating=np.r_[case.rating, 0.0],
@@ -365,7 +368,8 @@ def write_case(case: Case, path: str | Path, title: str) -> None:
     New York with any other area is refused. The bus `area` column is `FILE_AREA` on every row, so the area of a
     New York bus is not written: a case whose New York buses carry another number (3, in a file stored before
     the case had one area) reads back with `NY_AREA` there. A tap of 1 is written as MATPOWER's 0, and
-    `mpc.dcline` is written only when the case has HVDC links."""
+    `mpc.dcline` is written only when the case has HVDC links. A branch with a shunt conductance (`Case.g`,
+    which an IEEE case read from pandapower can have) is refused: MATPOWER's branch table has no column for it."""
     path = Path(path)
     if not re.fullmatch(r"[A-Za-z]\w*", path.stem):
         raise DataConditionError(f"{path}: a case file is a MATLAB function, so {path.stem!r} cannot name it")
@@ -374,6 +378,10 @@ def write_case(case: Case, path: str | Path, title: str) -> None:
     code = {area: code for code, _, area in REGIONS}
     if not np.isin(case.area[~case.is_ny], list(code)).all():
         raise DataConditionError(f"{path}: a bus outside New York must have the area of a neighbor (REGIONS)")
+    if case.g.any():
+        raise DataConditionError(
+            f"{path}: a branch has a shunt conductance, which a MATPOWER case file cannot hold"
+        )
     n, m, g, d = len(case.bus_id), len(case.f), len(case.unit_bus), len(case.dc_f)
     number = case.bus_id
     zone = [ZONES.index(z) + 1 if z else code[int(a)] for z, a in zip(case.zone, case.area)]

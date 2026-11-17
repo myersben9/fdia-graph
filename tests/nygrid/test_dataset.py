@@ -38,7 +38,8 @@ def written(grid, tmp_path_factory):
 
     pool, att, families, own = grid
     plan = att.meas.plan
-    meas = Measurement(att.net, Recording(**{f.name: getattr(plan, f.name) for f in fields(plan)}))
+    columns = [f.name for f in fields(plan) if f.init]  # `slots` is worked out from them
+    meas = Measurement(att.net, Recording(**{name: getattr(plan, name) for name in columns}))
     settings = NewYorkSettings(length=LENGTHS, block=100)
     source = NewYorkSource(pool, Attacker(att.net, meas), families, own, settings)
     path = source.generate(tmp_path_factory.mktemp("dataset") / "timeline.h5")
@@ -66,7 +67,7 @@ def test_the_meter_table_and_the_flat_vectors_come_back_exactly(written):
     place = np.c_[plan.kind, np.where(plan.branch >= 0, plan.branch, plan.bus), plan.end]
     assert len(np.unique(place, axis=0)) == len(plan.kind)
     for f in fields(MeterPlan):  # the same rows in the same order; the bias is not in a file
-        if f.name != "bias":
+        if f.init and f.name != "bias":  # `slots` is worked out from the columns
             assert np.array_equal(getattr(ds.plan, f.name), getattr(plan, f.name)), f.name
     assert np.isnan(ds.plan.bias).all()
     frames = _all(ds)

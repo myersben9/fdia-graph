@@ -34,8 +34,6 @@ from tests.helpers import (
 # conformed (DEFERRED in tools/readability.py)
 NEW_YORK = ("fdia_analysis.se.detect",)
 GENERATION_MODELS = "fdia_graph.models"  # the one first-party package a model of this toolkit builds on
-# the instance `fdia_graph.models.grid` holds beside its models
-CONSTANTS = {"INTACT"}
 PACKAGES = (
     models,
     formulas,
@@ -81,7 +79,7 @@ def test_the_bundles_a_user_receives_are_the_score_tables():
 def test_no_name_is_defined_by_both_toolkits():
     """A model or a formula has one home: nothing the modules of `fdia_analysis.models` and
     `fdia_analysis.formulas` define is also defined by the package of the same kind in `fdia_graph`."""
-    assert not models_defined(models) & (models_defined(fdia_graph.models) | {"Bundle"} | CONSTANTS)
+    assert not models_defined(models) & (models_defined(fdia_graph.models) | {"Bundle"})
     assert not functions_defined(formulas) & functions_defined(fdia_graph.formulas)
 
 

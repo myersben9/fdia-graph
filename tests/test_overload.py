@@ -52,15 +52,13 @@ def test_every_ieee14_branch_has_a_pglib_rating_and_other_cases_refuse(g):
 
 def test_the_flow_solve_reaches_its_target_and_holds_the_fixed_buses(g, pool):
     Xt = pool[0]
-    lut = g._ppc_row[np.arange(g.C)]
-    V = np.zeros(g._n_ppc_buses, complex)
-    V[lut] = complex_voltages(Xt[:, NodeChannel.V], Xt[:, NodeChannel.THETA])
+    V = complex_voltages(Xt[:, NodeChannel.V], Xt[:, NodeChannel.THETA])
     Yb, Yf = g._dense_admittances()
     line = 4
-    interior = lut[np.array([2, 3, 4, 8])]
+    interior = np.array([2, 3, 4, 8])
     fixed = interior[:2]  # the other two are free
     S0 = bus_injections(V, Yb)
-    f = int(g._from_bus_ppc[line])
+    f = int(g.case.f[line])
     flow0 = abs(V[f] * np.conj(Yf[line] @ V))
     Vf = local_flow_solve(Yb, Yf[line], f, V, interior, fixed, S0[fixed], 1.1 * flow0)
     assert Vf is not None
@@ -76,14 +74,12 @@ def test_the_flow_solve_takes_the_least_norm_step(g, pool):
     from fdia_graph.formulas.network import _flow_blocks, _flow_jacobian, _held
 
     Xt = pool[0]
-    lut = g._ppc_row[np.arange(g.C)]
-    V = np.zeros(g._n_ppc_buses, complex)
-    V[lut] = complex_voltages(Xt[:, NodeChannel.V], Xt[:, NodeChannel.THETA])
+    V = complex_voltages(Xt[:, NodeChannel.V], Xt[:, NodeChannel.THETA])
     Yb, Yf = g._dense_admittances()
-    line, interior = 4, lut[np.array([2, 3, 4, 8])]
+    line, interior = 4, np.array([2, 3, 4, 8])
     fixed = interior[:2]
     S0 = bus_injections(V, Yb)
-    f = int(g._from_bus_ppc[line])
+    f = int(g.case.f[line])
     flow0 = abs(V[f] * np.conj(Yf[line] @ V))
     eps = 1e-5
     Vf = local_flow_solve(Yb, Yf[line], f, V, interior, fixed, S0[fixed], flow0 + eps)
@@ -104,7 +100,7 @@ def test_the_flow_solve_takes_the_least_norm_step(g, pool):
 def test_eligible_lines_are_rated_metered_and_below_their_rating(g, pool):
     window = [pool[u] for u in range(10)]
     lines = set(g.eligible_lines(window, 2).tolist())
-    metered = np.asarray(g.meters.flow, bool)
+    metered = g.flow_metered
     assert lines and all(metered[b] for b in lines)
     saved = g.line_ratings().copy()
     try:
@@ -118,17 +114,6 @@ def test_eligible_lines_are_rated_metered_and_below_their_rating(g, pool):
         assert b not in set(g.eligible_lines(window, 2).tolist())
     finally:
         g._line_ratings = saved
-
-
-def test_an_out_of_service_branch_is_never_a_target(g, pool, monkeypatch):
-    """An outage keeps the branch's row with a zero admittance: its flow reads zero, so it would look
-    rated, metered and below its rating, but no false state can drive it to its rating."""
-    window = [pool[u] for u in range(10)]
-    b = int(g.eligible_lines(window, 2)[0])
-    status = np.ones(g.ei.shape[1]) if g.branch.status is None else np.array(g.branch.status, float)
-    status[b] = 0.0
-    monkeypatch.setattr(g, "branch", g.branch._replace(status=status))
-    assert b not in set(g.eligible_lines(window, 2).tolist())
 
 
 def test_the_search_on_a_flow_goal_equals_brute_force(g, pool):
@@ -186,9 +171,11 @@ def test_the_paper_noise_is_in_the_stored_units(g):
 
     pmu = np.zeros(g.C, bool)
     pmu[[0, 3]] = True
-    node, edge = paper_sigma((g.C, 4), (g.E, 2), pmu, g._base_mva)
+    node, edge = paper_sigma((g.C, 4), (g.E, 2), pmu, g.case.base_mva)
     assert WU26_NOISE == {"scada": 0.03, "pmu": 0.01}
-    assert np.all(node[:, NodeChannel.P_INJ] == 0.03 * g._base_mva) and np.all(edge == 0.03 * g._base_mva)
+    assert np.all(node[:, NodeChannel.P_INJ] == 0.03 * g.case.base_mva) and np.all(
+        edge == 0.03 * g.case.base_mva
+    )
     assert (
         node[0, NodeChannel.V] == 0.01 and node[1, NodeChannel.V] == 0.03
     )  # a PMU bus against a SCADA voltmeter
@@ -198,20 +185,32 @@ def test_the_paper_noise_is_in_the_stored_units(g):
 def test_am_counts_against_the_paper_noise_and_at_against_the_rated_accuracy(g, pool):
     """The window of a flow goal (Am) takes [WU26]'s noise a load goal (At) keeps the meters'
     rated accuracy."""
-    from fdia_graph.constants.meters import POWER_NOISE_FLOOR_MW
+    from fdia_graph.constants.meters import ACCURACY_CLASS, POWER_NOISE_FLOOR_MW
     from fdia_graph.engine.attacks.minimize import _Window
-    from fdia_graph.formulas.noise import accuracy_sigma
     from fdia_graph.models.frames import AttackDesign, LoadGoal
 
     k = _knobs(g, pool, 1.0)
     window = [pool[u] for u in range(5)]
     flow = _Window(g, window, g.overload_goal(window, int(g.eligible_lines(window, 2)[0])), k)
-    assert np.all(flow.sigma[0][1] == 0.03 * g._base_mva)
+    assert np.all(flow.sigma[0][1] == 0.03 * g.case.base_mva)
     design = AttackDesign(g.stealthy_pos[:1], 1.01)
     load = _Window(g, window, LoadGoal(tuple([design] * 5)), k)
     flows = g.clean_flows_from_states(np.stack(window))
-    want = accuracy_sigma(window[0], flows[0], g.SD, POWER_NOISE_FLOOR_MW)
-    assert np.allclose(load.sigma[0][0], want[0]) and np.allclose(load.sigma[0][1], want[1])
+    # the rated accuracy at the true readings [ASP14]: absolute on |V| and the angle, relative on powers
+    x, N = np.abs(np.asarray(window[0], np.float64)), NodeChannel
+    want = np.empty((g.C, 4))
+    want[:, N.V] = ACCURACY_CLASS["v"]
+    want[:, N.THETA] = np.degrees(ACCURACY_CLASS["va"])
+    want[:, N.P_INJ] = ACCURACY_CLASS["pi"] * x[:, N.P_INJ] + POWER_NOISE_FLOOR_MW
+    want[:, N.Q_INJ] = ACCURACY_CLASS["qi"] * x[:, N.Q_INJ] + POWER_NOISE_FLOOR_MW
+    want_flow = (
+        np.array([ACCURACY_CLASS["pf"], ACCURACY_CLASS["qf"]]) * np.abs(flows[0]) + POWER_NOISE_FLOOR_MW
+    )
+    node, edge = g.masks.node > 0, g.masks.edge > 0  # a sigma is kept where a meter sits, zero elsewhere
+    got_node, got_flow = load.sigma[0]
+    assert node[:, N.P_INJ].all() and edge.any() and node[:, N.THETA].any()
+    assert np.allclose(got_node[node], want[node]) and np.allclose(got_flow[edge], want_flow[edge])
+    assert not got_node[~node].any() and not got_flow[~edge].any()
 
 
 def test_the_goal_rides_on_the_true_flow_and_ends_at_the_rating(g, pool):
@@ -268,7 +267,7 @@ def test_pool_ratings_are_the_margin_times_the_pool_peak_flow(g, pool):
     peak = np.abs(fresh.all_flows_from_states(pool)).max(axis=0)
     assert np.allclose(fresh.line_ratings(), 1.3 * peak) and (peak > 0).all()
     fresh.use_line_ratings(OverloadSettings(rating_source="pglib"), pool)
-    number = fresh.base.bus["name"].astype(int).to_numpy()
+    number = fresh.case.bus_id
     want = branch_ratings([(int(number[a]), int(number[b])) for a, b in fresh.ei.T], pglib_branches(14))
     assert np.array_equal(fresh.line_ratings(), want, equal_nan=True)
 
@@ -317,7 +316,7 @@ def test_a_voltmeter_angle_is_not_a_channel_the_attack_is_charged_for(g, pool):
     line = int(g.eligible_lines(window, 2)[0])
     w = _Window(g, window, g.overload_goal(window, line), FrameKnobs())
     pmu = np.zeros(g.C, bool)
-    pmu[sorted(g.meters.pmu)] = True
+    pmu[g.pmu_buses] = True
     assert not w.node_m[~pmu, NodeChannel.THETA].any()
 
 
