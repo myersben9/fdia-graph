@@ -2151,13 +2151,13 @@ timeline (<code>order="time"</code>).</p>
 </tr>
 <tr>
 <td><code>edge_x</code></td>
-<td><code>[E,2]</code></td>
-<td><code>P_from</code>, <code>Q_from</code></td>
+<td><code>[E,2]</code> (New York <code>[E,4]</code>)</td>
+<td><code>P_from</code>, <code>Q_from</code> (New York: then <code>P_to</code>, <code>Q_to</code>)</td>
 <td>power leaving the branch (sign = direction)</td>
 </tr>
 <tr>
 <td><code>edge_m</code></td>
-<td><code>[E,2]</code></td>
+<td>as <code>edge_x</code></td>
 <td>same columns</td>
 <td>1 metered, 0 not</td>
 </tr>
@@ -2229,6 +2229,13 @@ timeline (<code>order="time"</code>).</p>
 </tr>
 </tbody>
 </table>
+<p><strong>A New York file</strong> has the same layout, and declares in its attributes what its meters change: the flow
+layers (<code>edge_x</code>, <code>edge_m</code>, <code>edge_benign</code>, <code>edge_clean</code> and the tamper mask) are <code>[E,4]</code>, both branch ends
+(<code>attrs["edge_feat"]</code> is <code>P_from,Q_from,P_to,Q_to</code>); <code>pmu_i</code> holds magnitude and angle
+(<code>attrs["current_form"]</code> is <code>polar</code>); it has no <code>temporal_delta</code> and no <code>swing</code>. Only it carries <code>data/time</code>
+(int64 seconds, NYISO's local clock), <code>episodes/target_branch</code>, <code>graph/bus_client</code> with the attribute
+<code>client_names</code>, and <code>graph/edge_rating</code> (MVA).
+<a href="../../concepts/new_york_grid/#the-timeline-file">The New York grid</a> lists the whole file.</p>
 <h2 id="labels-y-says-which-buses-family-says-which-attack">Labels: <code>y</code> says which buses, <code>family</code> says which attack<a class="headerlink" href="#labels-y-says-which-buses-family-says-which-attack" title="Permanent link">&para;</a></h2>
 <p>Two fields, two questions. <code>y</code> <code>[N]</code> is binary per bus because a bus is either tampered with or not.
 <code>family</code> is one code per record because the generator runs one attack episode at a time, on one
@@ -2404,6 +2411,8 @@ and the generator, loader and estimator index columns through <code>NODE</code> 
 </tr>
 </tbody>
 </table>
+<p>On a New York file the flows and their mask are <code>[E,4]</code>, and the pandas export adds the columns <code>P_to_e{n}</code>
+and <code>Q_to_e{n}</code>.</p>
 <p>One name to watch: the static table's <code>graph/edge_x</code> is the per-unit series reactance of each branch
 (<code>ds.branch_x</code>), unrelated to the per-record flow layer <code>edge_x</code> above; the on-disk name changes at
 the next data release, the reader already spells the two apart.</p>
@@ -2427,11 +2436,11 @@ physics live on the dataset as <code>ds.edge_attr</code> <code>[E,8]</code> and 
 <tr>
 <td><code>edge_x</code></td>
 <td><code>[E,2]</code></td>
-<td><code>[P_from, Q_from]</code>, power leaving the from-end (sign = direction). MW/MVAr or pu.</td>
+<td><code>[P_from, Q_from]</code>, power leaving the from-end (sign = direction). MW/MVAr or pu. <code>[E,4]</code> on a New York file: then <code>[P_to, Q_to]</code>, power leaving the to-end.</td>
 </tr>
 <tr>
 <td><code>node_m</code>, <code>edge_m</code></td>
-<td><code>[N,4]</code>, <code>[E,2]</code></td>
+<td><code>[N,4]</code>, as <code>edge_x</code></td>
 <td><code>1</code> metered, <code>0</code> not. Metering is sparse: read the mask.</td>
 </tr>
 <tr>
@@ -2581,7 +2590,9 @@ columns of <code>pmu_i</code> are defined in <code>fdia_graph.models.CurrentInde
 <code>im_to</code>): the real and imaginary part of <code>I_from = Y_f V</code> and <code>I_to = Y_t V</code> in per unit on the base
 current, the same on a <code>units="pu"</code> or <code>"physical"</code> view, zero where no PMU reads that end
 (<code>pmu_i_m</code> is 0 there). <code>pmu_i_benign</code> is the attack-removed twin and <code>pmu_i_tamper</code> marks the
-channels the attacker wrote. A file without these datasets (every released file) loads unchanged
+channels the attacker wrote. A New York file stores each current as magnitude (per unit) and angle
+(degrees) instead, and says so (<code>attrs["current_form"]</code> is <code>polar</code>); a <code>units="pu"</code> view gives those
+angles in radians. A file without these datasets (every released file) loads unchanged
 and its records carry no <code>pmu_i</code>. <code>export(["prev_pmu_i"])</code> gives the previous emitted frame's
 currents on a hybrid-meter timeline, like <code>prev_node_x</code>.</p>
 <p>Chunked along the frame axis so a window of W frames is one read. A file without the <code>kind</code> attribute

@@ -1721,7 +1721,89 @@
 the public API, the generated files and the numbers are the same as the previous release.</p>
 <h2 id="unreleased">Unreleased<a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
 <ul>
-<li><strong>Two toolkits in one repository (breaking for the imports of the analysis packages).</strong> The package was
+<li><strong>One file layout: a New York timeline is written in the layout of every timeline (breaking for New York
+  files; IEEE files are unchanged).</strong> The New York grid wrote its own layout with its own writer and reader.
+  It now writes the groups, datasets and attributes named in <code>fdia_graph.schema</code>, through the writer the IEEE
+  cases use (<code>generation/write.py</code>, <code>generation/emit.py</code>), and <code>FdiaGraph</code> opens the file. No number moved:
+  the readings, the benign readings, the tampered meters and the attacked buses gathered back from a new
+  file were compared, bit for bit, with the arrays the old layout stored, on the three digest files (twelve
+  comparisons, all equal; a one-time proof, run before the three New York digests were re-recorded and
+  then removed), and the two IEEE whole-file digests pass unchanged. The three New York digests are
+  re-recorded, since every path in them changed.</li>
+<li>Old New York files stop reading. There is no converter and no fallback: <code>Dataset</code> refuses a file in the
+    earlier layout with <code>NotATimeline</code>, and fdia-graph 0.21 reads it. Regenerate the file to use it with
+    this version.</li>
+<li>Paths. <code>frames/z [T, M]</code> is now three layers with their masks, zero where no meter sits:
+    <code>data/node_x [T, N, 4]</code> (|V|, P, Q, angle), <code>data/edge_x [T, E, 4]</code> (P and Q flow at the from end, then
+    at the to end) and <code>data/pmu_i [T, E, 4]</code> (current magnitude and angle at the from end, then at the to
+    end), with <code>data/node_m</code>, <code>data/edge_m</code>, <code>data/pmu_i_m</code>. <code>frames/z_benign</code> is <code>benign/node_benign</code>,
+    <code>benign/edge_benign</code>, <code>benign/pmu_i_benign</code>. <code>labels/meter_tampered</code> is <code>attack/node_tamper</code>,
+    <code>attack/edge_tamper</code>, <code>attack/pmu_i_tamper</code>; <code>labels/bus_attacked</code> is <code>data/y</code>. <code>frames/time</code>, <code>split</code>,
+    <code>family</code> and <code>episode</code> are <code>data/time</code>, <code>data/split</code>, <code>data/family</code> and <code>data/seq_id</code>. <code>frames/vm</code> and
+    <code>frames/va</code> are columns 0 and 3 of <code>clean/node_clean</code>.</li>
+<li>Family codes. <code>data/family</code> and <code>episodes/family</code> carry the one table of <code>models/choices.py</code>: 7 for Am
+    and 5 for At, where a New York file had 1 for Am and 2 for At (and <code>episodes/family</code> held the names as
+    text). The New York table <code>FAMILIES</code> of <code>generation.nygrid.io</code> and the file attributes <code>family_codes</code>,
+    <code>split_codes</code> and <code>kind_codes</code> are removed.</li>
+<li>Types. The labels are uint8 (were bool); the true state is float32 in <code>clean/node_clean</code> (<code>vm</code> and <code>va</code>
+    were float64); <code>episodes/onset</code>, <code>length</code> and <code>target_branch</code> are int32 (were int64); the episode buses
+    are <code>episodes/bus_idx</code> (int32) with offsets <code>episodes/bus_ptr</code> (were <code>buses</code>, <code>buses_ptr</code>, int64).</li>
+<li>Added. <code>clean/node_clean</code> also holds the P and Q injections of the solved state, and <code>clean/edge_clean</code>
+    its exact flows at the metered branch ends. <code>graph/</code> holds the edge index, the branch model and bus
+    shunts that give the admittance matrix (it equals the case's, <code>tests/nygrid/test_dataset.py</code>), the bus
+    type, voltage limits, base kV, base load and generator flag, and <code>bus_client</code>. The root carries the
+    attributes of every timeline that apply (<code>kind</code>, <code>system</code>, <code>N</code>, <code>E</code>, <code>T</code>, <code>baseMVA</code>, <code>seed</code>, the
+    legends, the split and episode counts, <code>settings</code> and <code>settings_hash</code>) and three of its own:
+    <code>client_names</code>, <code>current_form</code> and the wider <code>edge_feat</code> (<code>P_from,Q_from,P_to,Q_to</code>). Also
+    <code>data/stealthy</code>, <code>data/timestep</code> and the empty <code>attack/mag*</code> tables, as in every timeline.</li>
+<li>What identifies a file. <code>settings</code> (JSON) and <code>settings_hash</code> record <code>NewYorkSource.record</code>: the
+    settings of the timeline (the new <code>NewYorkSettings.as_record</code>) and, under <code>release</code>, the knobs of the
+    <code>NewYorkRelease</code> the source was built for (<code>families</code>, <code>interfaces</code>, <code>hold_external</code>, <code>v_margin</code>,
+    <code>gen_v_tol</code>, <code>load_cap</code>, <code>band</code>; the new <code>NewYorkRelease.as_record</code>), so two files that differ in a
+    release knob have different hashes. A single-episode file records its episode (<code>episode</code>: family,
+    onset, lag and the pool frames it covers) in place of the attacked share, the splits and the survey;
+    it has no <code>target_attacked_frac</code>, and its <code>split_frac</code> is 1, 0, 0. A family passed as <code>using</code> is not
+    recorded.</li>
+<li>Line ratings. <code>graph/edge_rating</code> (MVA, New York only) holds the ratings the attacks were designed
+    against. The release rates a branch the case file leaves unrated at its peak flow over the pool (N8),
+    so the case file alone does not give them.</li>
+<li>The integers of <code>graph/</code> (<code>edge_index</code>, <code>bus_type</code>, <code>bus_client</code>) are int32 on every platform, the
+    type of an IEEE file's <code>edge_index</code>; they were the platform's own integer (int64 on Linux).</li>
+<li>Removed. <code>case/</code> (the unit table, the HVDC links, the names and places of the buses and the base
+    state, which are the case file's, <code>generation/nygrid/case_nygrid.m</code>; the line ratings moved to
+    <code>graph/edge_rating</code>), <code>meters/</code> (the table
+    is rebuilt from the masks; the accuracy class is the table <code>ACCURACY</code>, the bias is drawn from the seed
+    and is not stored, the owner is the owner of the meter's bus), <code>case/tie_lines</code> (a branch whose ends
+    have two owners) and <code>episodes/clients</code> (the owners of an episode's tampered meters).</li>
+<li>What a New York file declares differently from an IEEE one. Its flow layers are four wide. Its PMU
+    currents are polar (<code>current_form = "polar"</code>; an IEEE file stores real and imaginary parts and carries
+    no such attribute); the estimators' pseudo-measurements, which read real and imaginary parts, refuse a
+    polar file with <code>MissingCapability</code> (the new capability <code>rectangular_currents</code>). Its labels keep the New
+    York rule, written in the <code>tamper</code> attribute of <code>attack/</code>: a meter is tampered where the attack moves
+    its reading by more than its accuracy-class standard deviation, and a bus is attacked where a meter at
+    it is tampered. It has no <code>data/temporal_delta</code> and no <code>data/swing</code>.</li>
+<li><code>FdiaGraph</code> on a New York file. The pandas export has a column per stored flow, so a four-wide file
+    also gives <code>P_to_e{n}</code> and <code>Q_to_e{n}</code> (an IEEE table is unchanged). A <code>units="pu"</code> view gives the
+    angles of polar PMU currents in radians, as it gives theta, in records and exports. An estimator
+    refuses a file whose <code>system</code> is no IEEE case with <code>MissingCapability</code> (it was a <code>KeyError</code>). The
+    refusal of <code>windows()</code> on a view that is not consecutive now names a week split, whose weeks
+    interleave with the other splits'.</li>
+<li>Code. <code>MeterPlan</code> gains <code>scatter</code> (a value per meter laid out as the layers), <code>from_masks</code> (the table a
+    file's masks describe, in <code>plan_meters</code> row order) and <code>gather</code> (the flat vector read back from the
+    layers). <code>Dataset</code> reads schema paths; it gains <code>z(frames, benign=False)</code> and <code>tampered(frames)</code> and no
+    longer has <code>case</code> or <code>kinds</code> (the kinds are the constant <code>KINDS</code> of <code>engine/sensing/meters.py</code>, and
+    <code>ClientView</code> no longer takes them). <code>TimelineWriter</code>, <code>open_timeline</code> and <code>FAMILIES</code> are removed from
+    <code>fdia_graph.generation.nygrid</code> with no alias; <code>read_pool</code> and <code>write_pool</code> stay. The writer's functions
+    take what both grids have: <code>start_timeline</code>, <code>finish_timeline(f, buf, columns)</code>, <code>timeline_attrs(header,
+    buf, knobs, record)</code>, <code>placement_attrs(rec, split, ...)</code>, and <code>LayerSet</code> (<code>models/frames.py</code>) says which
+    layers a grid's file carries. What every source does when it finishes a file is written once, in
+    <code>TimelineSource</code> (<code>record</code>, the settings a file is identified by, and <code>_finish_file</code>).</li>
+<li>
+<p>A New York days file (576 frames) is 4.2 MB, from 2.9 MB: the layers hold a zero where no meter sits and
+    the masks are stored per frame, as in an IEEE file.</p>
+</li>
+<li>
+<p><strong>Two toolkits in one repository (breaking for the imports of the analysis packages).</strong> The package was
   generation and analysis in one; it is now two distributions that live side by side here. <code>fdia-graph</code>
   (the package <code>fdia_graph</code>, under <code>src/</code>) generates a timeline and loads it. <code>fdia-analysis</code> (the package
   <code>fdia_analysis</code>, under <code>analysis/</code>, with its own <code>pyproject.toml</code>, tests and README) is what is measured
@@ -1730,7 +1812,8 @@ the public API, the generated files and the numbers are the same as the previous
   which <code>tests/test_toolkit_boundary.py</code> checks in the source and by generating and loading a timeline in an
   interpreter where <code>fdia_analysis</code> cannot be imported. No generated file changes (the timeline digests of
   the IEEE cases and of New York are the same, the settings hash stored in a file included) and no result
-  number changes (no results block of the docs changed). No alias is kept for a moved name.</li>
+  number changes (no results block of the docs changed). No alias is kept for a moved name.</p>
+</li>
 <li>What a caller sees, in short. The imports of the analysis packages change from <code>fdia_graph.*</code> to
     <code>fdia_analysis.*</code> (<code>from fdia_graph.se import WLS</code> becomes <code>from fdia_analysis.se import WLS</code>). The <code>se</code>
     and <code>federated</code> extras move to <code>fdia-analysis</code> (<code>pip install "fdia-graph[se]"</code> becomes

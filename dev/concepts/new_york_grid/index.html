@@ -1774,7 +1774,7 @@ noisy, labelled year. Beside the stages, <code>se/detect</code> holds the alarm 
    <code>AlarmRule</code> is a protocol. The overload family is two classes: <code>OpfFdia</code> holds the
    support search and the per-scan OPF, and <code>InterfaceFdia</code> adds the goal and <code>design</code>, as their docstrings say.</li>
 <li>One job per file. A file stays short enough to read in one sitting.</li>
-<li>Dependencies point one way (below). pandapower lives in <code>generation/nygrid/solver.py</code>, h5py in <code>io.py</code>, random number
+<li>Dependencies point one way (below). pandapower lives in <code>generation/nygrid/solver.py</code>, h5py in the timeline writer (<code>generation/write.py</code>, <code>generation/emit.py</code>), <code>io.py</code> (the pool file) and <code>dataset/</code>, random number
    creation in <code>config.py</code>. Pyomo models are built in <code>generation/nygrid/solver.py</code> and in the attack OPFs, and every one gets
    its Ipopt from <code>solvers.py</code>, which checks that it runs.</li>
 <li>Measurements are one flat vector <code>z</code> per frame with a meter table beside it. A client's data is
@@ -1790,7 +1790,7 @@ noisy, labelled year. Beside the stages, <code>se/detect</code> holds the alarm 
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>  generation/nygrid/
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    __init__.py         the New York system's public names, loaded on first use
 <a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    config.py           Settings, rng()
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    io.py               TimelineWriter, open_timeline, read_pool, write_pool, FAMILIES
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    io.py               read_pool, write_pool (the pool file)
 <a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    tables.py           read_rows (the input CSV tables, read whole and closed)
 <a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    case.py             Case (from_matpower, check), nygrid_case, ZONES, REGIONS (Region), FILE_AREA, NY_AREA, HQ_BUS
 <a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    network.py          Network
@@ -2008,19 +2008,13 @@ copies them as they are.</p>
 <td><code>NewYorkSource</code></td>
 <td><code>generation/nygrid/source.py</code></td>
 <td>the grid as a <code>generation.source.TimelineSource</code>, built as <code>NewYorkSource(pool, attacker, families, own, settings=NewYorkSettings(), build=Settings())</code>: the pool, the <code>Attacker</code> (with its <code>Measurement</code>; the <code>NoiseModel</code> is made from its meter plan), the families by name (<code>{"Am": InterfaceFdia, "At": Ramp}</code>), the <code>Ownership</code>, the timeline's settings (<code>NewYorkSettings</code> in <code>models/config.py</code>: <code>length</code> 16 or <code>{family: frames}</code>, <code>attacked_frac</code> 0.2, <code>split</code> 0.7/0.15/0.15, <code>split_by</code> "week" (N41) or "time", <code>workers</code> 1, <code>block</code> 2016, <code>verbose</code>, <code>survey</code> 0, <code>survey_cache</code>) and the build <code>Settings</code> (whose seed keys every draw: <code>place</code>, <code>noise</code>, and <code>design/{family}/{onset}</code> per episode, so the result does not depend on <code>workers</code>)</td>
-<td><code>source.generate(path)</code> writes the file by the one path of every timeline, <code>TimelineSource.generate</code> (<a href="../../guides/generation/#one-path-two-grids">generation.md</a>), under a <code>.part</code> name until it is whole, so a failed run leaves no file; <code>summary() -&gt; dict</code> then returns slots placed and episodes built per split and family, slots skipped for unsolved frames, the median design seconds per family, seconds. The source's steps of that path: <code>prepare</code> asks each family for its <code>onset_mask</code> and, with <code>survey</code> (frames, N42), designs every allowed onset of a waiting family whose window lies in one week, on that grid, each chunk of <code>SURVEY_CHUNK</code> designs saved under <code>survey_cache</code> when given so a stopped build resumes; what it finds is the <code>Survey</code> record (the masks, the designs to reuse, the onsets tried, the miss reasons); <code>cut_splits</code> cuts the splits with <code>split_weeks</code> on the frames some waiting family may start at, after a survey on the onsets with an attack in strata of <code>HIT_STRATUM</code> weeks (N46) (or three blocks in time order (<code>split_bounds</code>) with <code>split_by="time"</code>); the shared plan stage (<code>place_split</code>) places each split's episodes inside one contiguous run of its frames and, for a family with a mask, only where it allows; <code>design</code> designs each on its own window of true pool states (in <code>workers</code> spawned processes when above 1, <code>generation.design.DesignPool</code>), the survey's designs reused, and a window touching an unsolved frame, or one the family returns None for, stays benign; <code>walk(until)</code> writes the frames in time order, each frame once every week before it is planned, so the file is written in stretches whose ends do not change a value. Frames: <code>z_benign = NoiseModel.sample(h(x_true))</code>, <code>z = z_benign + a</code> on episode frames; <code>meter_tampered</code> is <code>Attacker.tampered</code>, <code>bus_attacked</code> is true where a tampered meter sits at the bus</td>
-</tr>
-<tr>
-<td><code>TimelineWriter</code></td>
-<td><code>io.py</code></td>
-<td>an open HDF5 file, built as <code>TimelineWriter(path)</code></td>
-<td><code>write_static(case, own, plan)</code>, <code>write_frames(t0, block)</code> (<code>block</code> a dict of the per-frame arrays of frames <code>t0..</code>, datasets grown as written), <code>write_episodes(episodes)</code>, <code>close()</code></td>
+<td><code>source.generate(path)</code> writes the file by the one path of every timeline, <code>TimelineSource.generate</code> (<a href="../../guides/generation/#one-path-two-grids">generation.md</a>), under a <code>.part</code> name until it is whole, so a failed run leaves no file; <code>summary() -&gt; dict</code> then returns slots placed and episodes built per split and family, slots skipped for unsolved frames, the median design seconds per family, seconds. The source's steps of that path: <code>prepare</code> asks each family for its <code>onset_mask</code> and, with <code>survey</code> (frames, N42), designs every allowed onset of a waiting family whose window lies in one week, on that grid, each chunk of <code>SURVEY_CHUNK</code> designs saved under <code>survey_cache</code> when given so a stopped build resumes; what it finds is the <code>Survey</code> record (the masks, the designs to reuse, the onsets tried, the miss reasons); <code>cut_splits</code> cuts the splits with <code>split_weeks</code> on the frames some waiting family may start at, after a survey on the onsets with an attack in strata of <code>HIT_STRATUM</code> weeks (N46) (or three blocks in time order (<code>split_bounds</code>) with <code>split_by="time"</code>); the shared plan stage (<code>place_split</code>) places each split's episodes inside one contiguous run of its frames and, for a family with a mask, only where it allows; <code>design</code> designs each on its own window of true pool states (in <code>workers</code> spawned processes when above 1, <code>generation.design.DesignPool</code>), the survey's designs reused, and a window touching an unsolved frame, or one the family returns None for, stays benign; <code>walk(until)</code> writes the frames in time order, each frame once every week before it is planned, so the file is written in stretches whose ends do not change a value. Frames: <code>z_benign = NoiseModel.sample(h(x_true))</code>, <code>z = z_benign + a</code> on episode frames; the tampered meters are <code>Attacker.tampered</code>, and a bus is attacked where a tampered meter sits at it. Each value per meter is laid out as the file's layers by <code>MeterPlan.scatter</code> and stored through the writer every timeline uses (<code>generation/write.py</code>, <code>generation/emit.py</code>)</td>
 </tr>
 <tr>
 <td><code>Dataset</code></td>
 <td><code>dataset/clients.py</code></td>
-<td>an open timeline file (<code>open_timeline</code>) with its <code>case</code>, <code>own</code>, <code>plan</code></td>
-<td><code>clients</code>, <code>client(name, split=None) -&gt; ClientView</code>, <code>operator(split=None) -&gt; ClientView</code> (every meter and bus, the operator's full scan); <code>split</code> is "train", "val", "test" or None for all frames</td>
+<td>an open New York timeline file (<code>h</code>), with its <code>own</code> (<code>Ownership</code>) and <code>plan</code> (the <code>MeterPlan</code> its meter masks describe, <code>MeterPlan.from_masks</code>); a file in the earlier New York layout is refused (<code>NotATimeline</code>)</td>
+<td><code>clients</code>, <code>client(name, split=None) -&gt; ClientView</code>, <code>operator(split=None) -&gt; ClientView</code> (every meter and bus, the operator's full scan); <code>split</code> is "train", "val", "test" or None for all frames; <code>z(frames, benign=False)</code> the flat reading vector <code>[T, M]</code> of the plan gathered from the file's layers (float32), <code>tampered(frames)</code> the tampered meters <code>[T, M]</code></td>
 </tr>
 <tr>
 <td><code>ClientView</code></td>
@@ -2194,12 +2188,6 @@ copies them as they are.</p>
 <td>its rows as dicts, the file closed</td>
 </tr>
 <tr>
-<td><code>open_timeline(path)</code></td>
-<td><code>io.py</code></td>
-<td><code>timeline.h5</code></td>
-<td>the read-only file with its <code>Case</code>, <code>Ownership</code>, <code>MeterPlan</code> (a file written before <code>Case.ramp</code> reads it as NaN)</td>
-</tr>
-<tr>
 <td><code>generator_ramps(case, minutes=5.0)</code></td>
 <td><code>engine/attacks/attacker.py</code></td>
 <td><code>Case</code></td>
@@ -2262,6 +2250,13 @@ copies them as they are.</p>
 </tbody>
 </table>
 <h2 id="the-timeline-file">The timeline file<a class="headerlink" href="#the-timeline-file" title="Permanent link">&para;</a></h2>
+<p>A New York timeline has the layout of every timeline: the groups, datasets and attributes named in
+<code>fdia_graph.schema</code>, written by the writer the IEEE cases use and read by <code>FdiaGraph</code> and by <code>Dataset</code>.
+The meters are a flat table (<code>MeterPlan</code>, <code>[M]</code> rows) in the code and layers in the file. <code>MeterPlan.scatter</code>
+puts one value per meter at its place in the layers; <code>MeterPlan.from_masks</code> rebuilds the table from the
+file's meter masks, in the same row order; <code>MeterPlan.gather</code> reads the flat vector back, so
+<code>Dataset.z(frames)</code> is bit for bit the vector the file was written from, and a client's data is still
+<code>z[:, meters.owner == c]</code>.</p>
 <table>
 <thead>
 <tr>
@@ -2272,49 +2267,80 @@ copies them as they are.</p>
 </thead>
 <tbody>
 <tr>
-<td><code>case/</code></td>
-<td>the <code>Case</code> arrays (strings UTF-8 bytes), <code>bus_client</code>, <code>client_names</code>, <code>tie_lines</code></td>
-<td>static</td>
+<td><code>data/</code></td>
+<td><code>node_x</code> (observed |V| p.u., P MW, Q MVAr, angle deg), mask <code>node_m</code>, float32, zero where no meter</td>
+<td><code>[T, N, 4]</code></td>
 </tr>
 <tr>
-<td><code>meters/</code></td>
-<td>the <code>MeterPlan</code> table, attribute <code>kind_codes</code></td>
-<td><code>[M]</code></td>
+<td><code>data/</code></td>
+<td><code>edge_x</code> (observed P and Q flow at the from end, then at the to end), mask <code>edge_m</code></td>
+<td><code>[T, E, 4]</code></td>
 </tr>
 <tr>
-<td><code>frames/</code></td>
-<td><code>time</code> (int64 s), <code>split</code> (int8, attribute <code>split_codes</code>), <code>family</code> (int8, attribute <code>family_codes</code> benign, Am, At, Ap; nothing builds Ap any more, its code stays for files written with it), <code>episode</code> (int32 row, -1 benign)</td>
-<td><code>[T]</code></td>
+<td><code>data/</code></td>
+<td><code>pmu_i</code> (PMU current magnitude p.u. and angle deg at the from end, then at the to end), mask <code>pmu_i_m</code></td>
+<td><code>[T, E, 4]</code></td>
 </tr>
 <tr>
-<td><code>frames/</code></td>
-<td><code>z</code> (observed), <code>z_benign</code>, float32</td>
-<td><code>[T, M]</code></td>
+<td><code>data/</code></td>
+<td><code>y</code> (uint8, 1 at an attacked bus), <code>family</code> (int8: 0 benign, 5 At, 7 Am), <code>stealthy</code>, <code>seq_id</code> (int32 episode row, -1 benign), <code>timestep</code>, <code>split</code> (int8: 0 train, 1 val, 2 test), <code>time</code> (int64 s, NYISO's local clock)</td>
+<td><code>[T, N]</code>, <code>[T]</code></td>
 </tr>
 <tr>
-<td><code>frames/</code></td>
-<td><code>vm</code>, <code>va</code> (true state)</td>
-<td><code>[T, N]</code></td>
+<td><code>benign/</code></td>
+<td><code>node_benign</code>, <code>edge_benign</code>, <code>pmu_i_benign</code>: the same scans without the attack</td>
+<td>as <code>data/</code></td>
 </tr>
 <tr>
-<td><code>labels/</code></td>
-<td><code>bus_attacked</code></td>
-<td><code>[T, N]</code></td>
+<td><code>clean/</code></td>
+<td><code>node_clean</code> (the true state |V|, P, Q, angle, float32), <code>edge_clean</code> (the exact flows at the metered branch ends)</td>
+<td><code>[T, N, 4]</code>, <code>[T, E, 4]</code></td>
 </tr>
 <tr>
-<td><code>labels/</code></td>
-<td><code>meter_tampered</code></td>
-<td><code>[T, M]</code></td>
+<td><code>attack/</code></td>
+<td><code>node_tamper</code>, <code>edge_tamper</code>, <code>pmu_i_tamper</code> (uint8, 1 at a tampered meter); <code>mag_ptr</code>, <code>mag_bus</code>, <code>mag</code> (empty: the attack is observed minus benign)</td>
+<td>as <code>data/</code></td>
+</tr>
+<tr>
+<td><code>graph/</code></td>
+<td><code>edge_index</code>, the branch model and bus shunts that give the admittance matrix (<code>edge_r</code>, <code>edge_x</code>, <code>edge_b</code>, <code>edge_g</code>, <code>edge_gs</code>, <code>edge_bs</code>, <code>edge_tap</code>, <code>edge_shift</code>, <code>edge_status</code>, <code>edge_is_trafo</code>, <code>bus_shunt_g</code>, <code>bus_shunt_b</code>), <code>edge_rating</code> (MVA, the line ratings the attacks were designed against), <code>bus_type</code>, <code>bus_vmin</code>, <code>bus_vmax</code>, <code>bus_base_kv</code>, <code>bus_has_gen</code>, <code>bus_base_pd</code>, <code>bus_base_qd</code>, and <code>bus_client</code> (the utility that owns each bus, -1 outside New York)</td>
+<td><code>[E]</code>, <code>[N]</code></td>
 </tr>
 <tr>
 <td><code>episodes/</code></td>
-<td>one row per <code>Episode</code>: <code>family</code>, <code>onset</code>, <code>length</code>, <code>target_branch</code>; ragged <code>buses</code>, <code>clients</code> as flat arrays with <code>[S + 1]</code> offsets <code>buses_ptr</code>, <code>clients_ptr</code></td>
+<td>one row per <code>Episode</code>: <code>family</code> (the same codes), <code>onset</code>, <code>length</code>, <code>target_branch</code>; the ragged <code>buses</code> as <code>bus_idx</code> with <code>[S + 1]</code> offsets <code>bus_ptr</code></td>
 <td><code>[S]</code></td>
 </tr>
 </tbody>
 </table>
-<p><code>z - z_benign</code> is the attack. Temporal features are computed at load time from each client's own <code>z</code>.
-Unsolved pool frames keep their place with NaN state and readings and no labels.</p>
+<p>What reads differently from an IEEE file is declared in the file itself:</p>
+<ul>
+<li>The flow layers are four wide, both branch ends (the attribute <code>edge_feat</code> is
+  <code>P_from,Q_from,P_to,Q_to</code>); an IEEE file meters the from end only.</li>
+<li>The PMU currents are magnitude and angle (the attribute <code>current_form</code> is <code>polar</code>); an IEEE file stores
+  real and imaginary parts. Code that reads a current as real and imaginary parts refuses a polar file
+  (<code>MissingCapability</code>), as the pseudo-measurements of the estimators do.</li>
+<li>The labels follow this grid's rule (the attribute <code>tamper</code> of <code>attack/</code>): a meter is tampered where the
+  attack moves its reading by more than its accuracy-class standard deviation, and a bus is attacked
+  where a meter at it is tampered.</li>
+<li>The temporal layers (<code>temporal_delta</code>, <code>swing</code>) are left out; <code>ClientView.temporal()</code> computes each
+  client's from its own <code>z</code>.</li>
+<li><code>client_names</code> (root attribute) names the utilities in the order <code>graph/bus_client</code> indexes.</li>
+</ul>
+<p>The root attributes are those of every timeline that apply: <code>kind</code>, <code>system</code>, <code>N</code>, <code>E</code>, <code>T</code>, <code>baseMVA</code>,
+<code>seed</code>, the feature legends, <code>families</code>, <code>attacked_frac</code>, <code>n_episodes</code>, the split sizes and the episodes
+requested and built per split and family, and <code>settings</code> with <code>settings_hash</code>: what identifies the file,
+as JSON (<code>NewYorkSource.record</code>: the settings of the timeline and, under <code>release</code>, the knobs of the
+<code>NewYorkRelease</code> it was built for). A single-episode file records its one episode there (<code>episode</code>: family,
+onset, lag and the pool frames it covers) in place of the attacked share, the splits and the survey, and
+carries no <code>target_attacked_frac</code>.</p>
+<p>Not in the file: the unit table, the HVDC links and the bus names and places, which are the case file's
+(<code>generation/nygrid/case_nygrid.m</code>). The line ratings are in the file because the case file does not give
+them all: the release rates a branch the case leaves unrated at its peak flow over the pool (N8), so
+<code>graph/edge_rating</code> is the ratings the attacks were designed against. Also not in the file: each meter's
+accuracy class (the table <code>ACCURACY</code> of <code>engine/sensing/meters.py</code>) and its bias (drawn from the seed), and
+each meter's owner (the owner of its bus).</p>
+<p><code>z - z_benign</code> is the attack. Unsolved pool frames keep their place with NaN state and readings and no labels.</p>
 <h2 id="blocks-to-files">Blocks to files<a class="headerlink" href="#blocks-to-files" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -2390,11 +2416,11 @@ Unsolved pool frames keep their place with NaN state and readings and no labels.
 </tr>
 <tr>
 <td>D1</td>
-<td><code>generation/source.py</code> (<code>TimelineSource.generate</code>, the one path), <code>generation/plan.py</code>, <code>generation/nygrid/source.py</code>, <code>TimelineWriter</code> in <code>io.py</code></td>
+<td><code>generation/source.py</code> (<code>TimelineSource.generate</code>, the one path), <code>generation/plan.py</code>, <code>generation/nygrid/source.py</code>, <code>generation/write.py</code></td>
 </tr>
 <tr>
 <td>D2</td>
-<td><code>dataset/clients.py</code>, <code>open_timeline</code> in <code>io.py</code></td>
+<td><code>dataset/clients.py</code></td>
 </tr>
 <tr>
 <td>D3</td>

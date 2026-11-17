@@ -1712,6 +1712,12 @@ into train, validation and test, stratified on those hours.</p>
 <a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="n">op</span> <span class="o">=</span> <span class="n">ds</span><span class="o">.</span><span class="n">operator</span><span class="p">(</span><span class="n">split</span><span class="o">=</span><span class="s2">"test"</span><span class="p">)</span>  <span class="c1"># every meter, for state estimation</span>
 </code></pre></div>
 <p>A client sees only its own meters and the labels of its own buses. The operator view is the full scan.</p>
+<p>The file has the layout of every timeline (<code>fdia_graph.schema</code>; the table is in
+<a href="../../concepts/new_york_grid/#the-timeline-file">new_york_grid.md</a>), so <code>fg.FdiaGraph("out/timeline_2019.h5")</code>
+opens it too: the static graph, the admittance matrices and the layers per frame. <code>Dataset</code> is the view by
+meter and by client: <code>ds.plan</code> is the meter table, <code>ds.z(frames)</code> the flat reading vector of that table,
+<code>ds.z(frames, benign=True)</code> the same scans without the attack and <code>ds.tampered(frames)</code> the tampered meters.
+A file written before this layout is refused; it reads with fdia-graph 0.21.</p>
 <h2 id="tests">Tests<a class="headerlink" href="#tests" title="Permanent link">&para;</a></h2>
 <p><code>tests/nygrid</code> reads the inputs and the pool under <code>NYGRID_ROOT</code> (the folder of steps 1 to 3) and skips a
 test whose input is missing:</p>
