@@ -77,6 +77,13 @@ op = ds.operator(split="test")  # every meter, for state estimation
 
 A client sees only its own meters and the labels of its own buses. The operator view is the full scan.
 
+The file has the layout of every timeline (`fdia_graph.schema`; the table is in
+[new_york_grid.md](../concepts/new_york_grid.md#the-timeline-file)), so `fg.FdiaGraph("out/timeline_2019.h5")`
+opens it too: the static graph, the admittance matrices and the layers per frame. `Dataset` is the view by
+meter and by client: `ds.plan` is the meter table, `ds.z(frames)` the flat reading vector of that table,
+`ds.z(frames, benign=True)` the same scans without the attack and `ds.tampered(frames)` the tampered meters.
+A file written before this layout is refused; it reads with fdia-graph 0.21.
+
 ## Tests
 
 `tests/nygrid` reads the inputs and the pool under `NYGRID_ROOT` (the folder of steps 1 to 3) and skips a

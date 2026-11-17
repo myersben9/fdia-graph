@@ -82,7 +82,8 @@ _CLEAN_LAYERS = ("clean", "edge_clean", "edge_clean_full")
 # The attack-removed layer of a timeline file: record field -> dataset path, one row per frame.
 _BENIGN_LAYERS = {k: schema.FIELD_PATH[k] for k in ("benign", "edge_benign")}
 # The PMU branch-current layers of a hybrid-meter timeline: record field -> dataset path, one row
-# per frame, per unit on every view (a current has no MW form to convert from).
+# per frame, per unit on every view (a current has no MW form to convert from; the angles of a polar
+# file are converted like theta).
 _CURRENT_LAYERS = {k: schema.FIELD_PATH[k] for k in ("pmu_i", "pmu_i_m", "pmu_i_benign")}
 # The previous frame's readings on a timeline (the row emitted just before each record, whatever
 # split or family it belongs to): observed data an operator holds, offered on request only.
@@ -105,6 +106,9 @@ _UNIT_KIND = {
     "edge_clean_full": "edge",
     "edge_benign": "edge",
     "temporal_delta": "td",
+    "pmu_i": "current",
+    "pmu_i_benign": "current",
+    "prev_pmu_i": "current",
 }
 
 
@@ -140,6 +144,10 @@ def _has_currents(ds: DatasetBase) -> bool:
     return ds.has_currents
 
 
+def _rectangular_currents(ds: DatasetBase) -> bool:
+    return ds.has_currents and ds.current_form == schema.CURRENT_RECTANGULAR
+
+
 def _consecutive(ds: DatasetBase) -> bool:
     return not len(ds.idx) or bool(np.all(np.diff(ds.idx) == 1))
 
@@ -157,13 +165,22 @@ CAPABILITIES: dict[str, tuple[Callable[[DatasetBase], bool], str]] = {
         "view would be converted twice",
     ),
     Capability.TIME_ORDER: (_time_order, "order='time'; this view is a random permutation"),
-    Capability.CONSECUTIVE: (_consecutive, "consecutive frames; a families= or heldout= view is not"),
+    Capability.CONSECUTIVE: (
+        _consecutive,
+        "consecutive frames; a families= or heldout= view is not, nor is a split of whole weeks that "
+        "interleave with the other splits' weeks (a New York file)",
+    ),
     Capability.SPLIT: (_has_split, "a file with the split column"),
     Capability.SWING: (_has_swing, "a file with the swing layer"),
     Capability.TEMPORAL: (_has_temporal, "a file with the temporal_delta layer"),
     Capability.PMU_CURRENTS: (
         _has_currents,
         'a hybrid-meter timeline (meter_model="hybrid"), which carries PMU currents',
+    ),
+    Capability.RECTANGULAR_CURRENTS: (
+        _rectangular_currents,
+        "PMU currents stored as real and imaginary parts; a New York file stores magnitude and angle "
+        "(its current_form attribute), which would be misread",
     ),
 }
 
@@ -178,6 +195,8 @@ class DatasetBase:
     N: int
     E: int
     baseMVA: float
+    current_form: str
+    edge_feat: list[str]  # the columns of a flow layer, by name (the file's legend)
     slack: Optional[int]
     idx: np.ndarray
     edge_index_np: np.ndarray

@@ -4,13 +4,12 @@
 blocks in time order; any onset of a split may hold an episode; placements, ramp designs and the
 moves of an infeasible ramp all draw from the generator's one random stream, in the order the driver
 reaches them (so each split is placed after the split before it is walked); an overload Am is designed
-before its split is walked and moved when it has no design; and the file is the IEEE layout
-(`generation.write`).
+before its split is walked and moved when it has no design. The file is the one layout of every
+timeline (`schema`), written through `generation.write`.
 """
 
 from __future__ import annotations
 
-import json
 import os
 from dataclasses import dataclass
 from functools import partial
@@ -19,28 +18,22 @@ from typing import Optional, Union
 import h5py
 import numpy as np
 
+from .. import schema
 from ..engine import FdiaGenerator
 from ..engine.attacks.stealthy import AM_FAMILY
 from ..errors import ConfigError
 from ..models.config import TimelineSettings
-from ..models.frames import AmOverloadDesign, FrameContext, FrameKnobs
+from ..models.frames import AmOverloadDesign, FrameContext, FrameKnobs, LayerSet
 from ..models.inputs import AdmissibleTargets, GeneratedFamilies
 from ..models.plan import GeneratorSpec, Placement, Schedule, Slot, SplitSpan
 from ..registry import CACHE_DIR, system_id
-from ..schema import Attr, config_hash
-from . import _load_states, _write_graph
+from ..schema import Attr
+from . import GRAPH_LEGEND, _base_attrs, _load_states, _static_physics, _write_graph
 from .design import AmDesigner, AmEpisode
-from .emit import TimelineBuffers, Walk, clean_slice, walk_split
-from .plan import split_bounds
+from .emit import Walk, clean_slice, walk_split
+from .plan import split_bounds, split_column
 from .source import OutPath, TimelineSource
-from .write import (
-    create_layers,
-    finish_timeline,
-    placement_attrs,
-    search_attrs,
-    timeline_attrs,
-    write_temporal_layers,
-)
+from .write import search_attrs, start_timeline, write_temporal_layers
 
 
 @dataclass(frozen=True)
@@ -127,10 +120,9 @@ class IeeeSource(TimelineSource[int, AmOverloadDesign]):
         )
 
     def _recorded(self) -> dict[str, object]:
-        """The knobs a file records as attributes, and the settings themselves as JSON with their hash."""
+        """The knobs a file records as attributes."""
         s, limits = self.settings, self.limits
         red = s.meters.coverage
-        record = s.as_record()
         out: dict[str, object] = {
             Attr.TARGET_ATTACKED_FRAC: s.attacked_frac,
             Attr.RAMP_RATE: s.ramp.rate,
@@ -143,13 +135,15 @@ class IeeeSource(TimelineSource[int, AmOverloadDesign]):
             Attr.VBUS_FRAC: red["vbus_frac"],
             Attr.PMU_FRAC: red["pmu_frac"],
             Attr.FLOW_FRAC: red["flow_frac"],
+            Attr.JITTER_KEYED: 1,
         }
         overload = s.overload if self.am_runs else None
         out.update(search_attrs(s, overload, self.g.current_mask() is not None))
-        out.update(
-            {Attr.SETTINGS: json.dumps(record, sort_keys=True), Attr.SETTINGS_HASH: config_hash(record)}
-        )
         return out
+
+    def record(self) -> dict[str, object]:
+        """The settings of the walk (`TimelineSettings.as_record`)."""
+        return self.settings.as_record()
 
     def _spec(self) -> GeneratorSpec:
         """What a design process rebuilds this generator from."""
@@ -176,11 +170,10 @@ class IeeeSource(TimelineSource[int, AmOverloadDesign]):
             raise ConfigError("an IeeeSource generates one timeline; build a new source for another")
         g, T = self.g, self.frames
         self._designer = AmDesigner(g, self._spec(), self.settings.workers if self.am_runs else 1)
-        self._file = h5py.File(path, "w")  # open for the whole walk: frames flush in batches
-        _write_graph(self._file, g)
-        currents = g.current_mask() is not None
-        sink = create_layers(self._file, T, g.C, g.E, currents)
-        buf = TimelineBuffers((T, g.C, g.E), partial(clean_slice, g, self.X), sink=sink, currents=currents)
+        spec = LayerSet(currents=g.current_mask() is not None)
+        # open for the whole walk: frames flush in batches
+        self._file, buf = start_timeline(path, (T, g.C, g.E), partial(clean_slice, g, self.X), spec)
+        _write_graph(self._file, g.ei, _static_physics(g), GRAPH_LEGEND)
         self._frames = Walk(FrameContext(g, self.X, self.knobs), buf)
         self.rec = Placement.empty(list(self.schedule.families))
 
@@ -225,9 +218,9 @@ class IeeeSource(TimelineSource[int, AmOverloadDesign]):
         f, walk = self._file, self._frames
         assert f is not None and walk is not None, "open() starts the file"
         self.g.scan_key = None
-        finish_timeline(f, walk.buf, self.bounds)
-        f.attrs.update(timeline_attrs(self.g, self.seed, walk.buf, self.recorded))
-        f.attrs.update(placement_attrs(self.rec, self.bounds, self.settings.split.fractions, walk.buf.seq_id))
+        columns = {schema.SPLIT: split_column(self.bounds, self.frames)}
+        header = _base_attrs(self.g, self.frames, self.seed)
+        self._finish_file(f, walk.buf, columns, header, self.recorded, self.settings.split.fractions)
         write_temporal_layers(f)
 
     def close(self, finished: bool) -> None:

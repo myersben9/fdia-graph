@@ -6,6 +6,7 @@ from __future__ import annotations
 
 from dataclasses import replace
 
+import h5py
 import numpy as np
 import pytest
 
@@ -15,8 +16,8 @@ pytestmark = [needs_data, needs_territories, needs_pool]
 
 
 def test_a_timeline_built_with_a_voltage_margin_records_the_true_limits(tmp_path):
+    from fdia_graph import schema
     from fdia_graph.errors import DataConditionError
-    from fdia_graph.generation.nygrid.io import open_timeline
     from fdia_graph.generation.nygrid.source import NewYorkSource, SingleEpisodeSource
     from fdia_graph.models.config import NewYorkRelease
 
@@ -33,9 +34,10 @@ def test_a_timeline_built_with_a_voltage_margin_records_the_true_limits(tmp_path
             continue
     else:
         pytest.skip("no ramp attack on the windows tried")
-    h, case, _, _ = open_timeline(path)
-    h.close()
-    assert np.array_equal(case.vmax, true.vmax) and np.array_equal(case.vmin, true.vmin)
+    with h5py.File(path, "r") as h:
+        graph = h[schema.Group.GRAPH]
+        vmax, vmin = graph[schema.Static.BUS_VMAX][:], graph[schema.Static.BUS_VMIN][:]
+    assert np.array_equal(vmax, true.vmax) and np.array_equal(vmin, true.vmin)
 
 
 def test_the_load_cap_and_band_sensitivities_reach_the_opf_attacker():
@@ -55,8 +57,9 @@ def test_the_load_cap_and_band_sensitivities_reach_the_opf_attacker():
 
 
 def test_a_lagged_attack_is_the_earlier_windows_design_added_to_the_true_scans(tmp_path):
+    from fdia_graph import schema
+    from fdia_graph.dataset.clients import Dataset
     from fdia_graph.errors import ConfigError, DataConditionError
-    from fdia_graph.generation.nygrid.io import open_timeline
     from fdia_graph.generation.nygrid.source import NewYorkSource, SingleEpisodeSource
     from fdia_graph.models.config import NewYorkRelease
 
@@ -74,12 +77,13 @@ def test_a_lagged_attack_is_the_earlier_windows_design_added_to_the_true_scans(t
         pytest.skip("no ramp attack on the windows tried")
 
     def attack(name: str) -> tuple[int, np.ndarray, np.ndarray]:
-        h, _, _, _ = open_timeline(tmp_path / name)
-        on = h["frames/episode"][:] >= 0
+        ds = Dataset(tmp_path / name)
+        h, every = ds.h, np.arange(ds.h[schema.Y].shape[0])
+        on = h[schema.SEQ_ID][:] >= 0
         out = (
-            int(h["episodes/onset"][0]),
-            (h["frames/z"][:] - h["frames/z_benign"][:])[on],
-            h["frames/vm"][:][on],
+            int(h[schema.Group.EPISODES][schema.EPISODE_ONSET][0]),
+            (ds.z(every) - ds.z(every, benign=True))[on],
+            h[schema.NODE_CLEAN][:, :, 0][on],  # the true voltage magnitudes
         )
         h.close()
         return out

@@ -15,6 +15,8 @@ from fdia_graph.formulas.noise import (
 )
 from fdia_graph.generation.nygrid.network import Network
 from fdia_graph.generation.nygrid.ownership import Ownership
+from fdia_graph.models.frames import MeterLayers
+from fdia_graph.models.grid import NODE
 
 V, VA, P, Q, PF, QF, I, IA = range(8)  # meter kinds, the `kind` codes
 KINDS = ("v", "va", "p", "q", "pf", "qf", "i", "ia")
@@ -37,6 +39,18 @@ ACCURACY = {
     I: (PMU_CURRENT_CLASS, CURRENT_FLOOR_PU),
     IA: (0.0, float(np.degrees(PMU_CURRENT_CLASS))),
 }
+# Where a kind's readings sit in a timeline file: the layer (0 the bus layer, 1 the flow layer, 2 the PMU
+# current layer) and the column. A branch kind's column is its from end's; the to end's is two further.
+_LAYER = {
+    V: (0, NODE.v),
+    VA: (0, NODE.theta),
+    P: (0, NODE.p_inj),
+    Q: (0, NODE.q_inj),
+    PF: (1, 0),
+    QF: (1, 1),
+    I: (2, 0),
+    IA: (2, 1),
+}
 
 
 @dataclass(frozen=True)
@@ -54,6 +68,68 @@ class MeterPlan:
     sigma_rel: np.ndarray
     sigma_abs: np.ndarray
     bias: np.ndarray
+
+    def _slots(self) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """Where each meter's reading sits in a file's layers: the layer (of `_LAYER`), the row (its bus,
+        or its branch) and the column."""
+        layer = np.array([_LAYER[k][0] for k in self.kind])
+        column = np.array([_LAYER[k][1] for k in self.kind]) + 2 * np.maximum(self.end, 0)
+        return layer, np.where(self.branch >= 0, self.branch, self.bus), column
+
+    def scatter(self, z: np.ndarray, buses: int, branches: int) -> MeterLayers:
+        """One value per meter `z [..., M]` (readings, or a mask) laid out as a file's layers over `buses`
+        buses and `branches` branches, zero where no meter sits. `gather` is its inverse."""
+        z = np.asarray(z)
+        layer, row, column = self._slots()
+        out = MeterLayers(
+            *(np.zeros(z.shape[:-1] + (rows, 4), z.dtype) for rows in (buses, branches, branches))
+        )
+        for k, values in enumerate(out):
+            here = layer == k
+            values[..., row[here], column[here]] = z[..., here]
+        return out
+
+    def gather(self, node: np.ndarray, edge: np.ndarray, current: np.ndarray) -> np.ndarray:
+        """The flat vector `[..., M]` of this plan read back from a file's layers, in the plan's row order."""
+        layer, row, column = self._slots()
+        z = np.empty(node.shape[:-2] + (len(self.kind),), node.dtype)
+        for k, values in enumerate((node, edge, current)):
+            here = layer == k
+            z[..., here] = values[..., row[here], column[here]]
+        return z
+
+    @classmethod
+    def from_masks(cls, masks: MeterLayers, edges: np.ndarray, bus_client: np.ndarray) -> MeterPlan:
+        """The plan a file's meter masks describe (`masks`, each layer of one frame), in the row order of
+        `plan_meters`: kind by kind, the bus meters by bus, the branch meters by branch and then end. So
+        `gather` on that file's layers gives the flat vector the file was written from. `edges [2, E]` are
+        the branch ends and `bus_client [N]` the owner of each bus. The accuracy class is the table's
+        (`ACCURACY`); the constant `bias` of each meter is not in a file (the generator draws it from its
+        seed) and reads NaN."""
+        kind, bus, branch, end = [], [], [], []
+        for k in range(len(KINDS)):
+            layer, column = _LAYER[k]
+            at_bus = layer == 0
+            # row-major, so the meters come by bus, or by branch and then end
+            row, e = np.nonzero(
+                masks[layer][:, column : column + 1] if at_bus else masks[layer][:, column::2]
+            )
+            none = np.full(len(row), -1)
+            kind.append(np.full(len(row), k))
+            bus.append(row if at_bus else edges[e, row])
+            branch.append(none if at_bus else row)
+            end.append(none if at_bus else e)
+        kinds, buses = np.concatenate(kind), np.concatenate(bus)
+        return cls(
+            kind=kinds,
+            bus=buses,
+            branch=np.concatenate(branch),
+            end=np.concatenate(end),
+            owner=bus_client[buses],
+            sigma_rel=np.array([ACCURACY[k][0] for k in kinds]),
+            sigma_abs=np.array([ACCURACY[k][1] for k in kinds]),
+            bias=np.full(len(kinds), np.nan),
+        )
 
 
 def _min_pmus(adjacency) -> np.ndarray:

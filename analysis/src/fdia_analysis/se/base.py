@@ -73,6 +73,10 @@ def _torch():
         ) from e
 
 
+# what the eq. (3) pseudo-measurements need of a file: PMU currents, as real and imaginary parts
+_PSEUDO_NEEDS = ("pmu_currents", "rectangular_currents")
+
+
 def require_physical(ds: FdiaGraph) -> None:
     """Refuse a units="pu" view: the estimators convert the stored physical units themselves, so a
     per-unit view would be converted twice and every estimate silently off by baseMVA."""
@@ -117,7 +121,13 @@ class SEBase:
         except ImportError as e:
             raise ImportError("state estimation needs pandapower: pip install 'fdia-analysis[se]'") from e
         ds.require("physical_units", *(("clean_layer",) if need_clean else ()), by="state estimation")
-        net = getattr(pn, _CASE_FN[int(ds.system)])()
+        case = _CASE_FN.get(int(ds.system))
+        if case is None:  # a file of another grid (New York): its network is not a pandapower case
+            raise MissingCapability(
+                f"state estimation needs a file of an IEEE case ({', '.join(map(str, _CASE_FN))} buses); "
+                f"this one is a {ds.system}-bus grid with none"
+            )
+        net = getattr(pn, case)()
         pp.runpp(net)
         ppc = net._ppc
         Yb, Yf, Yt = makeYbus(ppc["baseMVA"], ppc["bus"], ppc["branch"])
@@ -163,7 +173,6 @@ class SEBase:
         """The [WU26 eq. 3] preprocessing: the PMU-metered branch ends (`pmu_pseudo_links`, in the
         dataset's bus order) and the slots their pseudo readings fill, the |V| and angle slots of the
         reached buses that no meter reads (a SCADA |V| reading is kept where one exists)."""
-        ds.require("pmu_currents", by="pmu_pseudo")
         N = self.N
         inv = np.full(self._nppc, -1, np.int64)
         inv[self._lut] = np.arange(N)
@@ -252,11 +261,14 @@ class SEBase:
         return torch.cat([V, -Sb.real[:, LUT], -Sb.imag[:, LUT], th, Sf.real, Sf.imag], dim=1)
 
     # ---- data conversion (physical dataset units -> internal pu/rad) --------------------------
-    def _fields(self, *names: str) -> list[str]:
-        """The export fields a solve reads: `names`, plus under pmu_pseudo the PMU currents of each
-        frame read (`prev_pmu_i` beside `prev_node_x`)."""
+    def _fields(self, ds: FdiaGraph, *names: str) -> list[str]:
+        """The export fields a solve reads from `ds`: `names`, plus under pmu_pseudo the PMU currents of
+        each frame read (`prev_pmu_i` beside `prev_node_x`). The pseudo-measurements read a current as
+        its real and imaginary part, so a file that stores magnitude and angle (New York) is refused
+        here, before a number of it is read."""
         if not self.pmu_pseudo:
             return list(names)
+        ds.require(*_PSEUDO_NEEDS, by="pmu_pseudo")
         return [*names, "pmu_i", *(["prev_pmu_i"] if "prev_node_x" in names else [])]
 
     def _z_of(self, node_x: np.ndarray, edge_x: np.ndarray, pmu_i: Optional[np.ndarray] = None) -> np.ndarray:
@@ -302,10 +314,10 @@ class SEBase:
         alone (`_fit_from_measurements`), for any path whose output feeds a detector."""
         opts = FitOptions(n_calib, calibrate)
         n_calib, calibrate = opts.n_calib, opts.calibrate
+        # the fields first: under pmu_pseudo a file it cannot read is refused before the network is built
+        fields = self._fields(ds, "node_x", "edge_x", "family", *(["clean"] if calibrate == "truth" else []))
         self._build_network(ds, need_clean=calibrate == "truth")
-        d = ds.export(
-            self._fields("node_x", "edge_x", "family", *(["clean"] if calibrate == "truth" else []))
-        )
+        d = ds.export(fields)
         cur = d["pmu_i"] if self.pmu_pseudo else None
         ben = np.where(d["family"] == 0)[0]
         if not len(ben):
@@ -521,7 +533,7 @@ class SEBase:
         measurement vectors are built `chunk` records at a time, the eq. (3) pseudo-measurements
         included, so a long timeline never holds more than one chunk of them."""
         require_physical(ds)
-        d = ds.export(self._fields("node_x", "edge_x"))
+        d = ds.export(self._fields(ds, "node_x", "edge_x"))
         w = self._record_weights(ds)
         cur = d["pmu_i"] if self.pmu_pseudo else None
         out = np.empty((len(d["node_x"]), self.SD))

@@ -139,3 +139,49 @@ def test_estimate_builds_the_pseudo_measurements_chunk_by_chunk(pmu_files):
     )
     np.testing.assert_array_equal(np.abs(V_f), pv.v)
     np.testing.assert_array_equal(np.angle(V_f), pv.theta)
+
+
+def test_pmu_pseudo_refuses_currents_stored_as_magnitude_and_angle(pmu_files, tmp_path):
+    """A file whose `current_form` says polar (a New York file) is refused at the fit and at a solve, by a
+    named error, before a current of it is read as a real and imaginary part."""
+    import shutil
+
+    import h5py
+
+    from fdia_analysis.se import WLS
+    from fdia_graph import schema
+    from fdia_graph.dataset import FdiaGraph
+    from fdia_graph.errors import MissingCapability
+
+    _, rectangular = pmu_files
+    polar = tmp_path / "polar.h5"
+    shutil.copy(rectangular, polar)
+    with h5py.File(polar, "a") as f:
+        f.attrs[schema.Attr.CURRENT_FORM] = schema.CURRENT_POLAR
+    assert FdiaGraph(rectangular).current_form == schema.CURRENT_RECTANGULAR
+    with pytest.raises(MissingCapability, match="magnitude and angle"):
+        WLS(solve=SolveConfig(pmu_pseudo=True)).fit(FdiaGraph(polar, split="train"))
+    est = WLS(solve=SolveConfig(pmu_pseudo=True)).fit(FdiaGraph(rectangular, split="train"))
+    with pytest.raises(MissingCapability, match="magnitude and angle"):
+        est.estimate(FdiaGraph(polar, split="test"))
+    WLS().fit(FdiaGraph(polar, split="train"))  # an estimator that reads no current takes the file
+
+
+def test_an_estimator_refuses_a_file_of_no_ieee_case(pmu_files, tmp_path):
+    """The estimators build their network from the IEEE case of the file's `system`; a file of another grid
+    (a New York file, 140 buses) is refused by a named error, not a KeyError."""
+    import shutil
+
+    import h5py
+
+    from fdia_analysis.se import WLS
+    from fdia_graph import schema
+    from fdia_graph.dataset import FdiaGraph
+    from fdia_graph.errors import MissingCapability
+
+    other = tmp_path / "other.h5"
+    shutil.copy(pmu_files[1], other)
+    with h5py.File(other, "a") as f:
+        f.attrs[schema.Attr.SYSTEM] = 140
+    with pytest.raises(MissingCapability, match="an IEEE case"):
+        WLS().fit(FdiaGraph(other, split="train"))

@@ -395,6 +395,14 @@ class NewYorkSettings(Validated):
         )
         yield isinstance(self.split, SplitSettings), "split must be a SplitSettings"
 
+    def as_record(self) -> dict[str, object]:
+        """The settings as nested plain values (JSON-ready), what a file records. Left out is what the
+        timeline does not depend on: `workers`, `block`, `verbose` and `survey_cache`."""
+        record = asdict(self)
+        for name in ("workers", "block", "verbose", "survey_cache"):
+            del record[name]
+        return cast("dict[str, object]", _plain(record))
+
     def lengths_for(self, families: Sequence[str]) -> dict[str, int]:
         """The episode length in frames of each of `families`."""
         if isinstance(self.length, Mapping):
@@ -440,6 +448,15 @@ class NewYorkRelease(Validated):
             "Am attacks a NYISO interface: name at least one in `interfaces`",
         )
         yield isinstance(self.root, (str, os.PathLike)), f"root must be a folder path, got {self.root!r}"
+
+    def as_record(self) -> dict[str, object]:
+        """The knobs as nested plain values (JSON-ready), what a file records. Left out is what the
+        timeline does not depend on (`workers`, `survey_cache`, `root`) and `survey`, which the settings
+        of the timeline record."""
+        record = asdict(self)
+        for name in ("workers", "survey", "survey_cache", "root"):
+            del record[name]
+        return cast("dict[str, object]", _plain(record))
 
 
 @dataclass(frozen=True)

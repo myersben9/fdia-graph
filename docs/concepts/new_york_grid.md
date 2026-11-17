@@ -33,7 +33,7 @@ noisy, labelled year. Beside the stages, `se/detect` holds the alarm rules, in t
    `AlarmRule` is a protocol. The overload family is two classes: `OpfFdia` holds the
    support search and the per-scan OPF, and `InterfaceFdia` adds the goal and `design`, as their docstrings say.
 5. One job per file. A file stays short enough to read in one sitting.
-6. Dependencies point one way (below). pandapower lives in `generation/nygrid/solver.py`, h5py in `io.py`, random number
+6. Dependencies point one way (below). pandapower lives in `generation/nygrid/solver.py`, h5py in the timeline writer (`generation/write.py`, `generation/emit.py`), `io.py` (the pool file) and `dataset/`, random number
    creation in `config.py`. Pyomo models are built in `generation/nygrid/solver.py` and in the attack OPFs, and every one gets
    its Ipopt from `solvers.py`, which checks that it runs.
 7. Measurements are one flat vector `z` per frame with a meter table beside it. A client's data is
@@ -51,7 +51,7 @@ src/fdia_graph/
   generation/nygrid/
     __init__.py         the New York system's public names, loaded on first use
     config.py           Settings, rng()
-    io.py               TimelineWriter, open_timeline, read_pool, write_pool, FAMILIES
+    io.py               read_pool, write_pool (the pool file)
     tables.py           read_rows (the input CSV tables, read whole and closed)
     case.py             Case (from_matpower, check), nygrid_case, ZONES, REGIONS (Region), FILE_AREA, NY_AREA, HQ_BUS
     network.py          Network
@@ -160,9 +160,8 @@ Frozen dataclasses of arrays, passed between classes.
 | `OpfFdia` | `engine/attacks/opf.py` | an `Attacker`; `hops` (3), `load_cap` (0.1, N28), `budget` candidate supports per search, `family` ("Am"), `exit_scans` (N30), which needs `step_bound [24, N]` (`natural_steps` at load buses, `generator_ramps` at generator buses) and `frame_hour [T]` the clock hour of the frames onsets index; `gen_ramp [N]` (`generator_ramps`), `gen_band [N]` (`generator_band`, 3% of the upper limit, N33/N37), `q_lo`, `q_hi [N]` (`generator_q_capability`, widened to the unit's true Q, N34/N38), `q_ramp [N]` (unbounded by default, N37), `windows_solved` (3), `gen_output [T, N]` (the units' output at each bus, from the pool's `unit_p`; the generator bounds act on it and the load at the bus moves within the load cap, N42), `loads_only` (False; True pretends no generator bus, N43) | the base class of the OPF attacks, with no `design` of its own: the support search (`_candidates`, supports grown from the goal's end buses, smallest first), each candidate support tested by a one-scan AC OPF at the last rise scan with every static bound (`_static`), then solved scan by scan by Ipopt with the ramp, exit-step and band bounds (`_sequential`), each scan kept within reach of the static solution and of zero at the last scan |
 | `InterfaceFdia` | `engine/attacks/interface.py` | `OpfFdia`'s settings plus `interfaces` (a list of `Interface`, built over the same frames as the pool) and `near` (0.9); `windows_solved` 6 | `onset_mask(vm, va, length)` (last rise scan in a real 2019 hour at `near` of some interface's limit, N48), `design(window, rng)`: the goal is the model's interface flow plus that hour's real headroom (N49); supports grow from one interface branch's ends at a time; each window is solved with the meter objective (the change beyond noise on every P and Q flow meter touching the interior and every interior voltage meter, added to the injection terms) and with `OpfFdia`'s objective where that fails; the fewest tampered meters over all anchors is kept, and an attack still tampering at the last scan does not exist |
 | `Ramp` | `engine/attacks/ramp.py` | an `Attacker`, the ramp settings | `design(window, rng)` |
-| `NewYorkSource` | `generation/nygrid/source.py` | the grid as a `generation.source.TimelineSource`, built as `NewYorkSource(pool, attacker, families, own, settings=NewYorkSettings(), build=Settings())`: the pool, the `Attacker` (with its `Measurement`; the `NoiseModel` is made from its meter plan), the families by name (`{"Am": InterfaceFdia, "At": Ramp}`), the `Ownership`, the timeline's settings (`NewYorkSettings` in `models/config.py`: `length` 16 or `{family: frames}`, `attacked_frac` 0.2, `split` 0.7/0.15/0.15, `split_by` "week" (N41) or "time", `workers` 1, `block` 2016, `verbose`, `survey` 0, `survey_cache`) and the build `Settings` (whose seed keys every draw: `place`, `noise`, and `design/{family}/{onset}` per episode, so the result does not depend on `workers`) | `source.generate(path)` writes the file by the one path of every timeline, `TimelineSource.generate` ([generation.md](../guides/generation.md#one-path-two-grids)), under a `.part` name until it is whole, so a failed run leaves no file; `summary() -> dict` then returns slots placed and episodes built per split and family, slots skipped for unsolved frames, the median design seconds per family, seconds. The source's steps of that path: `prepare` asks each family for its `onset_mask` and, with `survey` (frames, N42), designs every allowed onset of a waiting family whose window lies in one week, on that grid, each chunk of `SURVEY_CHUNK` designs saved under `survey_cache` when given so a stopped build resumes; what it finds is the `Survey` record (the masks, the designs to reuse, the onsets tried, the miss reasons); `cut_splits` cuts the splits with `split_weeks` on the frames some waiting family may start at, after a survey on the onsets with an attack in strata of `HIT_STRATUM` weeks (N46) (or three blocks in time order (`split_bounds`) with `split_by="time"`); the shared plan stage (`place_split`) places each split's episodes inside one contiguous run of its frames and, for a family with a mask, only where it allows; `design` designs each on its own window of true pool states (in `workers` spawned processes when above 1, `generation.design.DesignPool`), the survey's designs reused, and a window touching an unsolved frame, or one the family returns None for, stays benign; `walk(until)` writes the frames in time order, each frame once every week before it is planned, so the file is written in stretches whose ends do not change a value. Frames: `z_benign = NoiseModel.sample(h(x_true))`, `z = z_benign + a` on episode frames; `meter_tampered` is `Attacker.tampered`, `bus_attacked` is true where a tampered meter sits at the bus |
-| `TimelineWriter` | `io.py` | an open HDF5 file, built as `TimelineWriter(path)` | `write_static(case, own, plan)`, `write_frames(t0, block)` (`block` a dict of the per-frame arrays of frames `t0..`, datasets grown as written), `write_episodes(episodes)`, `close()` |
-| `Dataset` | `dataset/clients.py` | an open timeline file (`open_timeline`) with its `case`, `own`, `plan` | `clients`, `client(name, split=None) -> ClientView`, `operator(split=None) -> ClientView` (every meter and bus, the operator's full scan); `split` is "train", "val", "test" or None for all frames |
+| `NewYorkSource` | `generation/nygrid/source.py` | the grid as a `generation.source.TimelineSource`, built as `NewYorkSource(pool, attacker, families, own, settings=NewYorkSettings(), build=Settings())`: the pool, the `Attacker` (with its `Measurement`; the `NoiseModel` is made from its meter plan), the families by name (`{"Am": InterfaceFdia, "At": Ramp}`), the `Ownership`, the timeline's settings (`NewYorkSettings` in `models/config.py`: `length` 16 or `{family: frames}`, `attacked_frac` 0.2, `split` 0.7/0.15/0.15, `split_by` "week" (N41) or "time", `workers` 1, `block` 2016, `verbose`, `survey` 0, `survey_cache`) and the build `Settings` (whose seed keys every draw: `place`, `noise`, and `design/{family}/{onset}` per episode, so the result does not depend on `workers`) | `source.generate(path)` writes the file by the one path of every timeline, `TimelineSource.generate` ([generation.md](../guides/generation.md#one-path-two-grids)), under a `.part` name until it is whole, so a failed run leaves no file; `summary() -> dict` then returns slots placed and episodes built per split and family, slots skipped for unsolved frames, the median design seconds per family, seconds. The source's steps of that path: `prepare` asks each family for its `onset_mask` and, with `survey` (frames, N42), designs every allowed onset of a waiting family whose window lies in one week, on that grid, each chunk of `SURVEY_CHUNK` designs saved under `survey_cache` when given so a stopped build resumes; what it finds is the `Survey` record (the masks, the designs to reuse, the onsets tried, the miss reasons); `cut_splits` cuts the splits with `split_weeks` on the frames some waiting family may start at, after a survey on the onsets with an attack in strata of `HIT_STRATUM` weeks (N46) (or three blocks in time order (`split_bounds`) with `split_by="time"`); the shared plan stage (`place_split`) places each split's episodes inside one contiguous run of its frames and, for a family with a mask, only where it allows; `design` designs each on its own window of true pool states (in `workers` spawned processes when above 1, `generation.design.DesignPool`), the survey's designs reused, and a window touching an unsolved frame, or one the family returns None for, stays benign; `walk(until)` writes the frames in time order, each frame once every week before it is planned, so the file is written in stretches whose ends do not change a value. Frames: `z_benign = NoiseModel.sample(h(x_true))`, `z = z_benign + a` on episode frames; the tampered meters are `Attacker.tampered`, and a bus is attacked where a tampered meter sits at it. Each value per meter is laid out as the file's layers by `MeterPlan.scatter` and stored through the writer every timeline uses (`generation/write.py`, `generation/emit.py`) |
+| `Dataset` | `dataset/clients.py` | an open New York timeline file (`h`), with its `own` (`Ownership`) and `plan` (the `MeterPlan` its meter masks describe, `MeterPlan.from_masks`); a file in the earlier New York layout is refused (`NotATimeline`) | `clients`, `client(name, split=None) -> ClientView`, `operator(split=None) -> ClientView` (every meter and bus, the operator's full scan); `split` is "train", "val", "test" or None for all frames; `z(frames, benign=False)` the flat reading vector `[T, M]` of the plan gathered from the file's layers (float32), `tampered(frames)` the tampered meters `[T, M]` |
 | `ClientView` | `dataset/clients.py` | one client's meter, bus and frame selection, read when made, no file handle: `buses [N_c]` (bus positions it owns), `frames` (the indices of the selected frames, exact for the interleaved week split) | `z [T, M_c]`, `labels [T, N_c]` (`bus_attacked` of its buses), `meters` (its `MeterPlan` rows), `node_features()` (`[T, N_c, 4]` metered \|V\|, angle, P, Q per owned bus, NaN where not metered), `temporal()` (`[T, M_c]` change from the previous selected frame, zero at the first and after a gap in the selection, angle readings wrapped to (-180, 180]; `z` stays raw) |
 
 ## The case file
@@ -210,7 +209,6 @@ Stateless steps, each called once in the build.
 | `place_episodes(rng, lengths, frac, n, allowed=None)` | `generation/plan.py` | one split's frame count, `{family: length}`, the attacked share, `{family: [T] allowed onsets}` | `Slot` list with the counts requested and dropped: the whole episodes closest to `frac T` frames, families equal in attacked frames (a family capped at what its allowed onsets hold), each at a uniform random onset among the allowed ones where it fits without overlap (adjacency and gaps come only from this) |
 | `ipopt(**options)` | `solvers.py` | Ipopt's options | a Pyomo `SolverFactory` checked to start; `SolverUnavailable` with the fix when Pyomo or Ipopt is missing or Ipopt cannot start |
 | `read_rows(path, encoding)` | `tables.py` | a CSV table of the inputs | its rows as dicts, the file closed |
-| `open_timeline(path)` | `io.py` | `timeline.h5` | the read-only file with its `Case`, `Ownership`, `MeterPlan` (a file written before `Case.ramp` reads it as NaN) |
 | `generator_ramps(case, minutes=5.0)` | `engine/attacks/attacker.py` | `Case` | `[N]` each bus's units' ramp over `minutes` (MW) summed at the bus: NYgrid's ramp, nuclear 0, hydro 10% of nameplate per minute, imports 300 MW per 15 minutes per unit (N34), inf at a bus with no unit |
 | `generator_band(case, share=BASEPOINT_BAND)` | `engine/attacks/attacker.py` | `Case` | `[N]` `share` (3%) of each bus's units' upper limit (MW), the basepoint band (N33) |
 | `generator_q_capability(case)` | `engine/attacks/attacker.py` | `Case` | `([N], [N])` reactive capability plus or minus 0.312 Pmax per bus (MVAr, N34) |
@@ -224,19 +222,56 @@ Stateless steps, each called once in the build.
 
 ## The timeline file
 
+A New York timeline has the layout of every timeline: the groups, datasets and attributes named in
+`fdia_graph.schema`, written by the writer the IEEE cases use and read by `FdiaGraph` and by `Dataset`.
+The meters are a flat table (`MeterPlan`, `[M]` rows) in the code and layers in the file. `MeterPlan.scatter`
+puts one value per meter at its place in the layers; `MeterPlan.from_masks` rebuilds the table from the
+file's meter masks, in the same row order; `MeterPlan.gather` reads the flat vector back, so
+`Dataset.z(frames)` is bit for bit the vector the file was written from, and a client's data is still
+`z[:, meters.owner == c]`.
+
 | group | dataset | shape |
 |---|---|---|
-| `case/` | the `Case` arrays (strings UTF-8 bytes), `bus_client`, `client_names`, `tie_lines` | static |
-| `meters/` | the `MeterPlan` table, attribute `kind_codes` | `[M]` |
-| `frames/` | `time` (int64 s), `split` (int8, attribute `split_codes`), `family` (int8, attribute `family_codes` benign, Am, At, Ap; nothing builds Ap any more, its code stays for files written with it), `episode` (int32 row, -1 benign) | `[T]` |
-| `frames/` | `z` (observed), `z_benign`, float32 | `[T, M]` |
-| `frames/` | `vm`, `va` (true state) | `[T, N]` |
-| `labels/` | `bus_attacked` | `[T, N]` |
-| `labels/` | `meter_tampered` | `[T, M]` |
-| `episodes/` | one row per `Episode`: `family`, `onset`, `length`, `target_branch`; ragged `buses`, `clients` as flat arrays with `[S + 1]` offsets `buses_ptr`, `clients_ptr` | `[S]` |
+| `data/` | `node_x` (observed \|V\| p.u., P MW, Q MVAr, angle deg), mask `node_m`, float32, zero where no meter | `[T, N, 4]` |
+| `data/` | `edge_x` (observed P and Q flow at the from end, then at the to end), mask `edge_m` | `[T, E, 4]` |
+| `data/` | `pmu_i` (PMU current magnitude p.u. and angle deg at the from end, then at the to end), mask `pmu_i_m` | `[T, E, 4]` |
+| `data/` | `y` (uint8, 1 at an attacked bus), `family` (int8: 0 benign, 5 At, 7 Am), `stealthy`, `seq_id` (int32 episode row, -1 benign), `timestep`, `split` (int8: 0 train, 1 val, 2 test), `time` (int64 s, NYISO's local clock) | `[T, N]`, `[T]` |
+| `benign/` | `node_benign`, `edge_benign`, `pmu_i_benign`: the same scans without the attack | as `data/` |
+| `clean/` | `node_clean` (the true state \|V\|, P, Q, angle, float32), `edge_clean` (the exact flows at the metered branch ends) | `[T, N, 4]`, `[T, E, 4]` |
+| `attack/` | `node_tamper`, `edge_tamper`, `pmu_i_tamper` (uint8, 1 at a tampered meter); `mag_ptr`, `mag_bus`, `mag` (empty: the attack is observed minus benign) | as `data/` |
+| `graph/` | `edge_index`, the branch model and bus shunts that give the admittance matrix (`edge_r`, `edge_x`, `edge_b`, `edge_g`, `edge_gs`, `edge_bs`, `edge_tap`, `edge_shift`, `edge_status`, `edge_is_trafo`, `bus_shunt_g`, `bus_shunt_b`), `edge_rating` (MVA, the line ratings the attacks were designed against), `bus_type`, `bus_vmin`, `bus_vmax`, `bus_base_kv`, `bus_has_gen`, `bus_base_pd`, `bus_base_qd`, and `bus_client` (the utility that owns each bus, -1 outside New York) | `[E]`, `[N]` |
+| `episodes/` | one row per `Episode`: `family` (the same codes), `onset`, `length`, `target_branch`; the ragged `buses` as `bus_idx` with `[S + 1]` offsets `bus_ptr` | `[S]` |
 
-`z - z_benign` is the attack. Temporal features are computed at load time from each client's own `z`.
-Unsolved pool frames keep their place with NaN state and readings and no labels.
+What reads differently from an IEEE file is declared in the file itself:
+
+- The flow layers are four wide, both branch ends (the attribute `edge_feat` is
+  `P_from,Q_from,P_to,Q_to`); an IEEE file meters the from end only.
+- The PMU currents are magnitude and angle (the attribute `current_form` is `polar`); an IEEE file stores
+  real and imaginary parts. Code that reads a current as real and imaginary parts refuses a polar file
+  (`MissingCapability`), as the pseudo-measurements of the estimators do.
+- The labels follow this grid's rule (the attribute `tamper` of `attack/`): a meter is tampered where the
+  attack moves its reading by more than its accuracy-class standard deviation, and a bus is attacked
+  where a meter at it is tampered.
+- The temporal layers (`temporal_delta`, `swing`) are left out; `ClientView.temporal()` computes each
+  client's from its own `z`.
+- `client_names` (root attribute) names the utilities in the order `graph/bus_client` indexes.
+
+The root attributes are those of every timeline that apply: `kind`, `system`, `N`, `E`, `T`, `baseMVA`,
+`seed`, the feature legends, `families`, `attacked_frac`, `n_episodes`, the split sizes and the episodes
+requested and built per split and family, and `settings` with `settings_hash`: what identifies the file,
+as JSON (`NewYorkSource.record`: the settings of the timeline and, under `release`, the knobs of the
+`NewYorkRelease` it was built for). A single-episode file records its one episode there (`episode`: family,
+onset, lag and the pool frames it covers) in place of the attacked share, the splits and the survey, and
+carries no `target_attacked_frac`.
+
+Not in the file: the unit table, the HVDC links and the bus names and places, which are the case file's
+(`generation/nygrid/case_nygrid.m`). The line ratings are in the file because the case file does not give
+them all: the release rates a branch the case leaves unrated at its peak flow over the pool (N8), so
+`graph/edge_rating` is the ratings the attacks were designed against. Also not in the file: each meter's
+accuracy class (the table `ACCURACY` of `engine/sensing/meters.py`) and its bias (drawn from the seed), and
+each meter's owner (the owner of its bus).
+
+`z - z_benign` is the attack. Unsolved pool frames keep their place with NaN state and readings and no labels.
 
 ## Blocks to files
 
@@ -258,6 +293,6 @@ Unsolved pool frames keep their place with NaN state and readings and no labels.
 | A2 | `engine/attacks/opf.py`, `engine/attacks/interface.py` and `generation/nygrid/interfaces.py` (N48, N49) |
 | A3 | `engine/attacks/ramp.py` |
 | A4 | `natural_steps`, `generator_ramps`, `wrap_angles` in `engine/attacks/attacker.py`, `Case.ramp` from the case file (`mpc.gen_ramp`) |
-| D1 | `generation/source.py` (`TimelineSource.generate`, the one path), `generation/plan.py`, `generation/nygrid/source.py`, `TimelineWriter` in `io.py` |
-| D2 | `dataset/clients.py`, `open_timeline` in `io.py` |
+| D1 | `generation/source.py` (`TimelineSource.generate`, the one path), `generation/plan.py`, `generation/nygrid/source.py`, `generation/write.py` |
+| D2 | `dataset/clients.py` |
 | D3 | `fetch_inputs` in `inputs.py`, `NewYorkSource.production` in `source.py`, `pipelines/newyork/build_timeline.py`, `pipelines/newyork/build_single_episodes.py` |

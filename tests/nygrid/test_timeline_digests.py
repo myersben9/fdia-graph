@@ -10,8 +10,10 @@ from __future__ import annotations
 from pathlib import Path
 
 import h5py
-import numpy as np
 import pytest
+
+from fdia_graph import schema
+from fdia_graph.models.choices import FAMILY_CODE
 
 from ..digests import check_file
 from .inputs import DAYS_POOL, ROOT, needs_data, needs_territories
@@ -34,7 +36,8 @@ def test_the_days_timeline_is_the_stored_one(source, tmp_path):
     out = tmp_path / "days.h5"
     source.generate(out)
     with h5py.File(out, "r") as h:  # a file with both families in it, or the digest pins nothing
-        assert set(np.unique(h["episodes/family"][:]).tolist()) == {b"Am", b"At"}
+        families = h[schema.path(schema.Group.EPISODES, schema.EPISODE_FAMILY)][:]
+        assert set(families.tolist()) == {FAMILY_CODE["Am"], FAMILY_CODE["At"]}
     check_file("timeline_newyork_days", out, GOLDEN)
 
 

@@ -13,13 +13,19 @@ attack of its episode applied (or none), and the file carries everything a user 
     attrs         system, N, E, baseMVA, seed, T, families, kind="timeline", the knobs, attacked_frac,
                   the settings as JSON and their hash
     data/         node_x, node_m [T, N, 4]; edge_x, edge_m [T, E, 2]; y [T, N]; family, stealthy,
-                  seq_id (episode index, -1 benign), timestep, split [T]; temporal_delta, swing [T, N, 2]
+                  seq_id (episode index, -1 benign), timestep, split [T]; temporal_delta, swing [T, N, 2];
+                  on hybrid meters the PMU currents pmu_i, pmu_i_m [T, E, 4] (with their benign and tamper twins)
     benign/       node_benign, edge_benign: the same scan with the attack removed and the noise kept
     clean/        node_clean, edge_clean: the noiseless attack-free truth (edge_clean on metered branches)
     graph/        the static topology and per-unit branch physics (as the shards carry them)
     episodes/     onset, length, family [K]; the attacked buses ragged as bus_ptr [K+1], bus_idx
     attack/       the designed magnitude per attacked bus ragged as mag_ptr [T+1], mag_bus, mag, and the
                   tamper masks node_tamper [T, N, 4], edge_tamper [T, E, 2]: the meters the attacker wrote
+
+A New York file is the same layout with what its meters change, declared in its attributes: the flow layers
+are [T, E, 4] (both branch ends, `edge_feat`), pmu_i holds magnitude and angle (`current_form` = "polar"),
+and temporal_delta and swing are left out. Only it carries data/time, episodes/target_branch, and in graph/
+bus_client (with the attribute `client_names`) and edge_rating.
 
 Temporal features are taken against the previous EMITTED frame, so a stealthy ramp reads as a
 small per-step change and a spike as an abrupt jump (the signal the dataset is built on).

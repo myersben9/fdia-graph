@@ -24,38 +24,41 @@ from ..engine.records import attack_frame
 from ..errors import NoRoomForEpisode
 from ..models.choices import BENIGN_CODE
 from ..models.data import EpisodeRow
-from ..models.frames import AmOverloadDesign, AttackVector, Frame, FrameContext, MinimizerResult
+from ..models.frames import AmOverloadDesign, AttackVector, Frame, FrameContext, LayerSet, MinimizerResult
 from ..models.plan import Designed, Pending, Placement, Schedule, Slot, SplitSpan
 from .plan import REDRAWS, give_up, uniform_onset
 
 _BATCH = 256  # frames staged in memory between two flushes to the file
-_LAYERS = {  # per-frame datasets: name -> (trailing shape given (C, E), dtype)
-    schema.NODE_X: (lambda C, E: (C, 4), np.float32),
-    schema.EDGE_X: (lambda C, E: (E, 2), np.float32),
-    schema.Y: (lambda C, E: (C,), np.uint8),
-    schema.TEMPORAL_DELTA: (lambda C, E: (C, 2), np.float32),
-    schema.SWING: (lambda C, E: (C, 2), np.float32),
-    schema.NODE_BENIGN: (lambda C, E: (C, 4), np.float32),
-    schema.EDGE_BENIGN: (lambda C, E: (E, 2), np.float32),
-    schema.NODE_CLEAN: (lambda C, E: (C, 4), np.float32),
-    schema.EDGE_CLEAN: (lambda C, E: (E, 2), np.float32),
-    schema.NODE_TAMPER: (lambda C, E: (C, 4), np.uint8),
-    schema.EDGE_TAMPER: (lambda C, E: (E, 2), np.uint8),
+# per-frame datasets: name -> (trailing shape given (C, E, W), dtype); W is the width of a flow layer
+_LAYERS = {
+    schema.NODE_X: (lambda C, E, W: (C, 4), np.float32),
+    schema.EDGE_X: (lambda C, E, W: (E, W), np.float32),
+    schema.Y: (lambda C, E, W: (C,), np.uint8),
+    schema.TEMPORAL_DELTA: (lambda C, E, W: (C, 2), np.float32),
+    schema.SWING: (lambda C, E, W: (C, 2), np.float32),
+    schema.NODE_BENIGN: (lambda C, E, W: (C, 4), np.float32),
+    schema.EDGE_BENIGN: (lambda C, E, W: (E, W), np.float32),
+    schema.NODE_CLEAN: (lambda C, E, W: (C, 4), np.float32),
+    schema.EDGE_CLEAN: (lambda C, E, W: (E, W), np.float32),
+    schema.NODE_TAMPER: (lambda C, E, W: (C, 4), np.uint8),
+    schema.EDGE_TAMPER: (lambda C, E, W: (E, W), np.uint8),
 }
+_TEMPORAL = (schema.TEMPORAL_DELTA, schema.SWING)  # filled after the walk; a `LayerSet` may leave them out
 # the PMU branch-current layers of a hybrid-meter timeline, created only when the meter
 # plan reads currents, so a v0.8.3-meter file has exactly its old datasets
 _CURRENT_LAYERS = {
-    schema.PMU_I: (lambda C, E: (E, 4), np.float32),
-    schema.PMU_I_BENIGN: (lambda C, E: (E, 4), np.float32),
-    schema.PMU_I_TAMPER: (lambda C, E: (E, 4), np.uint8),
+    schema.PMU_I: (lambda C, E, W: (E, 4), np.float32),
+    schema.PMU_I_BENIGN: (lambda C, E, W: (E, 4), np.float32),
+    schema.PMU_I_TAMPER: (lambda C, E, W: (E, 4), np.uint8),
 }
 CleanSlice = Callable[[int, int], tuple[np.ndarray, np.ndarray]]
 
 
-def layers(currents: bool) -> dict:
-    """The per-frame datasets of a timeline: the v0.8.3 set, plus the current layers when the meter
-    plan reads PMU branch currents."""
-    return {**_LAYERS, **(_CURRENT_LAYERS if currents else {})}
+def layers(spec: LayerSet) -> dict:
+    """The per-frame datasets of a timeline: the v0.8.3 set (without the temporal features when `spec`
+    leaves them out), plus the current layers when the meter plan reads PMU branch currents."""
+    kept = {name: layer for name, layer in _LAYERS.items() if spec.temporal or name not in _TEMPORAL}
+    return {**kept, **(_CURRENT_LAYERS if spec.currents else {})}
 
 
 def clean_slice(g: FdiaGenerator, X: np.ndarray, a: int, b: int) -> tuple[np.ndarray, np.ndarray]:
@@ -83,15 +86,16 @@ class TimelineBuffers:
         dims: tuple[int, int, int],
         clean: CleanSlice,
         sink: dict[str, h5py.Dataset],
-        currents: bool = False,
+        spec: LayerSet = LayerSet(),
     ) -> None:
         T, C, E = dims
         n = min(_BATCH, T)
         self.T, self._n, self._base, self._sink = T, n, 0, sink
         self._layers: dict[str, np.ndarray] = {
-            name: np.zeros((n, *shape(C, E)), dtype) for name, (shape, dtype) in layers(currents).items()
+            name: np.zeros((n, *shape(C, E, spec.edge_width)), dtype)
+            for name, (shape, dtype) in layers(spec).items()
         }
-        self.currents = currents  # the meter plan reads PMU branch currents (hybrid meters)
+        currents = self.currents = spec.currents  # the meter plan reads PMU branch currents (hybrid meters)
         self.i_m: Optional[np.ndarray] = None  # their mask, from the first stored frame
         self.family = np.zeros(T, np.int16)
         self.seq_id = np.full(T, -1, np.int32)
@@ -106,7 +110,7 @@ class TimelineBuffers:
         # the attack vector of the last stored frame, observed minus its benign twin (zero when benign):
         # an adjacent episode's stealth bound starts from it
         self.last_attack = AttackVector(
-            np.zeros((C, 4)), np.zeros((E, 2)), np.zeros((E, 4)) if currents else None
+            np.zeros((C, 4)), np.zeros((E, spec.edge_width)), np.zeros((E, 4)) if currents else None
         )
         self.attacked = 0  # frames stored so far with at least one attacked bus
         self._clean = clean
