@@ -12,11 +12,17 @@ from __future__ import annotations
 from dataclasses import fields
 from pathlib import Path
 
+import h5py
 import numpy as np
 
+from fdia_graph import schema
+from fdia_graph.engine.sensing.meters import KINDS, MeterPlan
 from fdia_graph.formulas.temporal import wrap_degrees
-from fdia_graph.generation.nygrid.io import open_timeline
+from fdia_graph.generation.nygrid.ownership import Ownership
 from fdia_graph.models.choices import SPLITS
+from fdia_graph.models.errors import NotATimeline
+from fdia_graph.models.frames import MeterLayers
+from fdia_graph.schema import Attr, Static
 
 _BUS_KINDS = ("v", "va", "p", "q")  # the node features, in this order
 _ANGLE_KINDS = ("va", "ia")  # readings in degrees that wrap at +-180
@@ -29,17 +35,8 @@ class ClientView:
     positions it owns and `frames` the indices of the selected frames in the timeline (increasing; a
     week-split selection has gaps where the other splits' weeks are)."""
 
-    def __init__(
-        self,
-        z: np.ndarray,
-        labels: np.ndarray,
-        meters,
-        buses: np.ndarray,
-        frames: np.ndarray,
-        kinds: tuple[str, ...],
-    ):
+    def __init__(self, z: np.ndarray, labels: np.ndarray, meters, buses: np.ndarray, frames: np.ndarray):
         self.z, self.labels, self.meters, self.buses, self.frames = z, labels, meters, buses, frames
-        self._kinds = kinds
 
     def node_features(self) -> np.ndarray:
         """`[T, N_c, 4]` per owned bus its |V| (p.u.), voltage angle (degrees), P and Q injection (MW,
@@ -48,7 +45,7 @@ class ClientView:
         out = np.full((len(self.z), len(self.buses), len(_BUS_KINDS)), np.nan, self.z.dtype)
         pos = {int(b): i for i, b in enumerate(self.buses)}
         for j, kind in enumerate(_BUS_KINDS):
-            rows = np.flatnonzero(self.meters.kind == self._kinds.index(kind))
+            rows = np.flatnonzero(self.meters.kind == KINDS.index(kind))
             out[:, [pos[int(b)] for b in self.meters.bus[rows]], j] = self.z[:, rows]
         return out
 
@@ -59,25 +56,39 @@ class ClientView:
         d = np.zeros_like(self.z)
         d[1:] = np.diff(self.z, axis=0)
         d[1:][np.diff(self.frames) != 1] = 0.0
-        angle = np.isin(self.meters.kind, [self._kinds.index(k) for k in _ANGLE_KINDS])
+        angle = np.isin(self.meters.kind, [KINDS.index(k) for k in _ANGLE_KINDS])
         d[:, angle] = wrap_degrees(d[:, angle])
         return d
 
 
 class Dataset:
-    """An open timeline file. `clients` are the utility names; `client(name)` the view of one of them,
-    `operator()` the view of every meter for the operator's state estimation. `split` selects the train,
-    val or test block of the year (all frames when None)."""
+    """An open New York timeline file (`h`, read only). `clients` are the utility names; `client(name)` the
+    view of one of them, `operator()` the view of every meter for the operator's state estimation. `split`
+    selects the train, val or test frames of the year (all frames when None).
+
+    The file holds its readings as layers (`fdia_graph.schema`); `plan` is the meter table its masks describe
+    (`MeterPlan.from_masks`) and `z` the flat vector of that table, one column per meter, gathered from the
+    layers. `own` is the `Ownership` of the buses."""
 
     def __init__(self, path: str | Path):
-        self.h, self.case, self.own, self.plan = open_timeline(path)
-        self.clients = [str(n) for n in self.own.names]
-        self.kinds = tuple(str(self.h["meters"].attrs["kind_codes"]).split(","))
+        self.h = h5py.File(path, "r")
+        if Attr.CLIENT_NAMES not in self.h.attrs:
+            self.h.close()
+            raise NotATimeline(
+                f"{path} is not a New York timeline in the layout of fdia_graph.schema; a file written in "
+                "the earlier New York layout reads with fdia-graph 0.21 (pip install fdia-graph==0.21.0)"
+            )
+        self.clients = str(self.h.attrs[Attr.CLIENT_NAMES]).split(",")
+        edges = self.h[schema.EDGE_INDEX][:]
+        bus_client = self.h[schema.path(schema.Group.GRAPH, Static.BUS_CLIENT)][:]
+        self.own = Ownership(np.array(self.clients), bus_client, bus_client[edges[0]] != bus_client[edges[1]])
+        masks = MeterLayers(*(self.h[name][0] for name in (schema.NODE_M, schema.EDGE_M, schema.PMU_I_M)))
+        self.plan = MeterPlan.from_masks(masks, edges, bus_client)
 
     def _frames(self, split: str | None) -> np.ndarray:
         """The frame indices of `split` exactly: week splits interleave, so a span from its first to its
         last frame would take in the other splits' weeks."""
-        col = self.h["frames/split"][:]
+        col = self.h[schema.SPLIT][:]
         return np.arange(len(col)) if split is None else np.flatnonzero(col == SPLITS.index(split))
 
     def _rows(self, name: str, frames: np.ndarray) -> np.ndarray:
@@ -92,9 +103,25 @@ class Dataset:
     def _view(self, meters: np.ndarray, buses: np.ndarray, split: str | None) -> ClientView:
         frames = self._frames(split)
         plan = type(self.plan)(**{f.name: getattr(self.plan, f.name)[meters] for f in fields(self.plan)})
-        z = self._rows("frames/z", frames)[:, meters]
-        labels = self._rows("labels/bus_attacked", frames)[:, buses]
-        return ClientView(z, labels, plan, buses, frames, self.kinds)
+        z = self.z(frames)[:, meters]
+        labels = self._rows(schema.Y, frames)[:, buses].astype(bool)
+        return ClientView(z, labels, plan, buses, frames)
+
+    def z(self, frames: np.ndarray, benign: bool = False) -> np.ndarray:
+        """`[len(frames), M]` the flat reading vector of `plan` at the increasing `frames`, float32 as
+        stored: the observed scans, or with `benign` the same scans without the attack."""
+        if benign:
+            return self._flat((schema.NODE_BENIGN, schema.EDGE_BENIGN, schema.PMU_I_BENIGN), frames)
+        return self._flat((schema.NODE_X, schema.EDGE_X, schema.PMU_I), frames)
+
+    def tampered(self, frames: np.ndarray) -> np.ndarray:
+        """`[len(frames), M]` bool, the meters of `plan` the attack moves beyond their noise."""
+        return self._flat((schema.NODE_TAMPER, schema.EDGE_TAMPER, schema.PMU_I_TAMPER), frames).astype(bool)
+
+    def _flat(self, names: tuple[str, str, str], frames: np.ndarray) -> np.ndarray:
+        """`[len(frames), M]` the flat vector of `plan` gathered from the bus, flow and PMU current layers
+        `names` (`MeterPlan.gather`'s order)."""
+        return self.plan.gather(*(self._rows(name, frames) for name in names))
 
     def client(self, name: str, split: str | None = None) -> ClientView:
         """Client `name`'s meters, the buses it owns and their labels, nothing of another client."""
@@ -105,4 +132,4 @@ class Dataset:
 
     def operator(self, split: str | None = None) -> ClientView:
         """Every meter (the full scan for state estimation) and every bus's label."""
-        return self._view(np.arange(len(self.plan.kind)), np.arange(len(self.case.bus_id)), split)
+        return self._view(np.arange(len(self.plan.kind)), np.arange(len(self.own.bus_client)), split)

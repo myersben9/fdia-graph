@@ -13,6 +13,30 @@ if TYPE_CHECKING:  # the generator is a producer: named for the type checker onl
     from ..engine import FdiaGenerator
 
 
+class LayerSet(NamedTuple):
+    """Which per-frame layers a timeline file carries; the grid decides."""
+
+    currents: bool = False  # the PMU branch-current layers: the meter plan reads currents
+    # the flow layers hold both branch ends [E, 4] = P_from, Q_from, P_to, Q_to (New York meters each
+    # end of a branch); False: the from end only [E, 2]
+    both_ends: bool = False
+    temporal: bool = True  # data/temporal_delta and data/swing (a New York file has neither yet)
+
+    @property
+    def edge_width(self) -> int:
+        """The columns of a flow layer."""
+        return 4 if self.both_ends else 2
+
+
+class MeterLayers(NamedTuple):
+    """One value per meter of a New York meter table, laid out as a file's layers
+    (`engine.sensing.meters.MeterPlan.scatter`), zero where no meter sits."""
+
+    node: np.ndarray  # [..., N, 4] |V|, P_inj, Q_inj, theta
+    edge: np.ndarray  # [..., E, 4] P_from, Q_from, P_to, Q_to
+    current: np.ndarray  # [..., E, 4] |I| and its angle at the from end, then at the to end
+
+
 class Scan(NamedTuple):
     """One emitted measurement scan in the shard's physical units: readings and their meter masks."""
 

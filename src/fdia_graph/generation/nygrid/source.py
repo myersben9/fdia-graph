@@ -18,11 +18,15 @@ grid's own:
   (`NoiseModel.sample`, one noise stream over the file's frames in time order). An attacked frame is that same
   noisy scan plus the episode's attack vector a = h(x_false) - h(x_true), never a fresh scan of the false state,
   so `z - z_benign` is exactly the attack. The labels come from the meters the attack moves beyond their noise
-  (`Attacker.tampered`): `meter_tampered [T, M]`, and `bus_attacked [T, N]` true at a bus when a meter at that
+  (`Attacker.tampered`): the tampered meters `[T, M]`, and a bus is attacked when a meter at that
   bus is tampered, so a client's labels follow from its own meters alone. The weekly splits interleave in time,
   so the frames are written in stretches, each as soon as every week before it is planned; the values do not
   depend on where a stretch ends.
-- **The file** is the New York layout (`TimelineWriter`, docs/concepts/new_york_grid.md).
+- **The file** is the one layout of every timeline (`fdia_graph.schema`), written by the writer the IEEE
+  cases use (`generation.write`). A value per meter becomes the file's layers by `MeterPlan.scatter`: the
+  readings, the benign readings and the tampered meters. What differs from an IEEE file is declared in it:
+  the flow layers hold both branch ends, the PMU currents are magnitude and angle, and the temporal features
+  are left out (`LAYERS`).
 
 `SingleEpisodeSource` is the same grid with one episode placed by hand, for studying one attack.
 """
@@ -34,11 +38,14 @@ import os
 import pickle
 import time
 from collections import Counter
+from collections.abc import Sequence
 from dataclasses import dataclass, field, replace
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import numpy as np
 
+from fdia_graph import schema
 from fdia_graph.engine.attacks.attacker import (
     Attacker,
     generator_band,
@@ -53,20 +60,30 @@ from fdia_graph.engine.sensing.measure import Measurement
 from fdia_graph.engine.sensing.meters import plan_meters
 from fdia_graph.engine.sensing.noise import NoiseModel
 from fdia_graph.errors import ConfigError, DataConditionError, NoAdmissibleTarget
+from fdia_graph.generation import GRAPH_LEGEND, _write_graph, header_attrs
 from fdia_graph.generation.design import DesignPool
 from fdia_graph.generation.nygrid.case import Case, nygrid_case
 from fdia_graph.generation.nygrid.config import Settings, rng
 from fdia_graph.generation.nygrid.inputs import GEOJSON, LOCATIONS
 from fdia_graph.generation.nygrid.interfaces import hourly_interfaces
-from fdia_graph.generation.nygrid.io import FAMILIES, TimelineWriter, read_pool
+from fdia_graph.generation.nygrid.io import read_pool
 from fdia_graph.generation.nygrid.network import Network
 from fdia_graph.generation.nygrid.ownership import Ownership, assign_clients
 from fdia_graph.generation.nygrid.pool import SOLVED, Pool, peak_ratings
 from fdia_graph.generation.plan import STRATUM, split_bounds, split_column, split_weeks, week_index
 from fdia_graph.generation.source import OutPath, TimelineSource
-from fdia_graph.models.choices import NEW_YORK_FAMILIES, SPLITS, SplitBy
+from fdia_graph.generation.write import start_timeline
+from fdia_graph.models.choices import FAMILY_CODE, NEW_YORK_FAMILIES, SPLITS, SplitBy
 from fdia_graph.models.config import NewYorkRelease, NewYorkSettings
+from fdia_graph.models.data import EpisodeRow
+from fdia_graph.models.frames import Frame, LayerSet
 from fdia_graph.models.plan import Placement, Slot, SplitSpan
+from fdia_graph.schema import Attr, Static
+
+if TYPE_CHECKING:  # the open file is the writer's (`generation.write`); named here for the type checker only
+    import h5py
+
+    from fdia_graph.generation.emit import TimelineBuffers
 
 # weeks per stratum of the split when the weight is the surveyed attacks (N46): they sit in about 9 weeks, one
 # of them holding 40%, so a 20-week stratum can leave a split one episode; 5 draws 3/1/1 per stratum
@@ -78,6 +95,18 @@ AM_RISE = 16  # Am's rise scans; its window adds as many exit scans (N37)
 AT_LENGTH = 16  # the slow ramp's window (scans)
 RELEASE_LENGTH = {AM: 2 * AM_RISE, AT: AT_LENGTH}  # the release's episode lengths (scans)
 ATTACKED_FRAC = 0.2
+# what a New York file carries per frame: PMU currents, the flows at both branch ends, no temporal features
+LAYERS = LayerSet(currents=True, both_ends=True, temporal=False)
+# what a 1 means in the tamper masks of a New York file (a bus is labelled attacked where a meter at it is 1)
+TAMPER_RULE = (
+    "1 where the attack moves the meter's reading by more than its accuracy-class standard deviation"
+)
+# the legends of the graph group: the rows are in the case file's order
+NY_GRAPH_LEGEND = {
+    **GRAPH_LEGEND,
+    Attr.EDGE_FEAT_STATIC: "r,x,b,g,tap,shift,status,is_trafo (per unit, the case file's branch order)",
+    Attr.BUS_FEAT_STATIC: "shunt_g,shunt_b (MW/MVAr at 1.0 pu, the case file's bus order)",
+}
 
 
 @dataclass(frozen=True)
@@ -236,9 +265,15 @@ class NewYorkSource(TimelineSource[str, Episode]):
         self.noise = NoiseModel(self.meas.plan)
         self.families, self.own, self.settings, self.build = families, own, settings, build
         self.attacked_frac = settings.attacked_frac
+        # the knobs of the release the source was built for (`production`); none on a source built by hand
+        self.release: dict[str, object] = {}
         # the pool frames the file covers, [first, stop): the whole pool
         self.first, self.stop = 0, len(pool.time)
-        self._writer: TimelineWriter | None = None
+        case, plan = self.meas.net.case, self.meas.plan
+        self._size = (len(case.bus_id), len(case.f))  # buses, branches
+        self._meter_m = plan.scatter(np.ones(len(plan.kind), np.uint8), *self._size)  # the meter masks
+        self._file: h5py.File | None = None
+        self._buf: TimelineBuffers | None = None
         self._designers: DesignPool[_Designing, _Designing] | None = None
         self._reset()
 
@@ -294,7 +329,9 @@ class NewYorkSource(TimelineSource[str, Episode]):
             survey=release.survey,
             survey_cache=release.survey_cache,
         )
-        return cls(pool, att, families, own, settings, build)
+        source = cls(pool, att, families, own, settings, build)
+        source.release = release.as_record()
+        return source
 
     # ---- the steps of `generate` ---------------------------------------------------------------------
 
@@ -310,13 +347,82 @@ class NewYorkSource(TimelineSource[str, Episode]):
         return os.fspath(out)
 
     def open(self, path: str) -> None:
-        """Start the file with the static case, ownership and meter plan, and a fresh run: its records,
-        its random streams and its design processes."""
+        """Start the file with its layers and the static graph, and a fresh run: its records, its random
+        streams and its design processes."""
         self._reset()
         self._designers = DesignPool(self.settings.workers, _designing, _Designing(self.families, self.build))
-        self._writer = TimelineWriter(path)
-        # the true case, not the attacker's: a voltage margin (N71) widens only the attacker's limits
-        self._writer.write_static(self.meas.net.case, self.own, self.meas.plan)
+        self._file, self._buf = start_timeline(path, (self.frames, *self._size), self._clean, LAYERS)
+        case = self.meas.net.case
+        edges = np.vstack([case.f, case.t]).astype(np.int32)  # the IEEE files' type, on every platform
+        _write_graph(self._file, edges, self._graph(), NY_GRAPH_LEGEND)
+
+    def _graph(self) -> dict[str, np.ndarray]:
+        """The static graph a file carries, by `Static` name: the branch model and bus shunts that give the
+        admittance matrix, the line ratings the attacks were designed against (the case file's, and the
+        pool's peak flow on a branch it leaves unrated, N8), what the case says of each bus, and the client
+        that owns it. It is the true case, not the attacker's (a voltage margin, N71, widens only the
+        attacker's limits). The units, HVDC links, names and places are not written: they are the case
+        file's. Integers are int32 whatever the platform's own."""
+        case = self.meas.net.case
+        series = 1.0 / (case.r + 1j * case.x)
+        has_gen = np.zeros(len(case.bus_id), np.uint8)
+        has_gen[case.unit_bus] = 1
+        # a branch between two voltage levels, or with a tap ratio or a phase shift
+        trafo = (case.kv[case.f] != case.kv[case.t]) | (case.tap != 1.0) | (case.shift != 0.0)
+        return {
+            Static.EDGE_R: case.r,
+            Static.EDGE_X: case.x,
+            Static.EDGE_B: case.b,
+            Static.EDGE_G: np.zeros(len(case.f)),
+            Static.EDGE_GS: series.real,
+            Static.EDGE_BS: series.imag,
+            Static.EDGE_TAP: case.tap,
+            Static.EDGE_SHIFT: case.shift,
+            Static.EDGE_STATUS: np.ones(len(case.f)),
+            Static.EDGE_IS_TRAFO: trafo.astype(np.float64),
+            Static.EDGE_RATING: case.rating,
+            Static.BUS_SHUNT_G: case.gs,
+            Static.BUS_SHUNT_B: case.bs,
+            Static.BUS_TYPE: case.bus_type.astype(np.int32),
+            Static.BUS_VMIN: case.vmin,
+            Static.BUS_VMAX: case.vmax,
+            Static.BUS_BASE_KV: case.kv,
+            Static.BUS_HAS_GEN: has_gen,
+            Static.BUS_BASE_PD: case.pd,
+            Static.BUS_BASE_QD: case.qd,
+            Static.BUS_CLIENT: self.own.bus_client.astype(np.int32),
+        }
+
+    def _clean(self, a: int, b: int) -> tuple[np.ndarray, np.ndarray]:
+        """The noiseless truth of the file's frames a..b-1: the solved state as [V, P, Q, theta] with the
+        injections it gives, and the exact flows at the metered branch ends (zero at the others)."""
+        w = slice(self.first + a, min(self.first + b, self.stop))
+        vm, va, net = self.pool.vm[w], self.pool.va[w], self.meas.net
+        with np.errstate(invalid="ignore"):  # an unsolved frame keeps its place with NaN
+            p, q = net.injections(vm, va)
+            flows = np.stack(net.flows(vm, va), axis=-1)
+        node = np.stack([vm, p, q, va], axis=-1)
+        return node.astype(np.float32), np.where(self._meter_m.edge, flows, 0.0).astype(np.float32)
+
+    def record(self) -> dict[str, object]:
+        """The settings of the timeline (`NewYorkSettings.as_record`) with the knobs of its `release`."""
+        return {**self.settings.as_record(), "release": self.release}
+
+    def _split_frac(self) -> Sequence[float]:
+        """The share of the frames each split was asked to hold."""
+        return self.settings.split.fractions
+
+    def _recorded(self) -> dict[str, object]:
+        """What a file records beside its header: the clients, the form of its PMU currents (what reads
+        differently from an IEEE file) and, when episodes are placed by share, the share asked for."""
+        asked = self.record().get("attacked_frac")
+        return {
+            **({} if asked is None else {Attr.TARGET_ATTACKED_FRAC: asked}),
+            Attr.CURRENT_FEAT: "I_from,angle_from,I_to,angle_to",
+            Attr.CURRENT_UNITS: "I:pu on the base current,angle:deg",
+            Attr.CURRENT_FORM: schema.CURRENT_POLAR,
+            Attr.CLIENT_NAMES: ",".join(str(name) for name in self.own.names),
+        }
 
     def prepare(self) -> None:
         """Before the splits are cut: the onsets each waiting family may take (its `onset_mask`, N36). With
@@ -388,16 +494,37 @@ class NewYorkSource(TimelineSource[str, Episode]):
         self._cursor = max(self._cursor, until)
 
     def finish(self) -> None:
-        """After the walk: the episode table, onsets counted from the file's first frame."""
-        assert self._writer is not None, "open() starts the file"
-        self._writer.write_episodes([replace(ep, onset=ep.onset - self.first) for ep in self._episodes])
+        """After the walk: the columns (each frame's split and time, each episode's target branch), the
+        episode table, onsets counted from the file's first frame, and the attributes."""
+        f, buf = self._file, self._buf
+        assert f is not None and buf is not None, "open() starts the file"
+        buf.episodes = [
+            EpisodeRow(
+                onset=ep.onset - self.first,
+                length=ep.length,
+                family=FAMILY_CODE[ep.family],
+                buses=ep.buses.tolist(),
+            )
+            for ep in self._episodes
+        ]
+        w = slice(self.first, self.stop)
+        columns = {
+            schema.SPLIT: self._split[w],
+            schema.TIME: self.pool.time[w].astype("datetime64[s]").astype(np.int64),
+            schema.path(schema.Group.EPISODES, schema.EPISODE_TARGET_BRANCH): np.array(
+                [ep.target_branch for ep in self._episodes], np.int32
+            ),
+        }
+        base_mva = float(self.meas.net.case.base_mva)
+        header = header_attrs((self.frames, *self._size), base_mva, self.build.seed, LAYERS)
+        self._finish_file(f, buf, columns, header, self._recorded(), self._split_frac(), TAMPER_RULE)
         self._seconds = time.perf_counter() - self._started
 
     def close(self, finished: bool) -> None:
         """Close the file and stop the design processes."""
-        if self._writer is not None:
-            self._writer.close()
-            self._writer = None
+        if self._file is not None:
+            self._file.close()
+            self._file = None
         if self._designers is not None:
             self._designers.close(finished)
             self._designers = None
@@ -535,10 +662,11 @@ class NewYorkSource(TimelineSource[str, Episode]):
         """Write the pool frames t0..t1 (file frames count from `first`): the noisy benign scans, the attack
         vector of every episode that overlaps them added on top, and the labels. An episode's row in the file
         is its place among the designed episodes in onset order; every episode that starts before a frame
-        being written is known by then."""
-        assert self._writer is not None, "open() starts the file"
-        pool, meas, plan = self.pool, self.meas, self.meas.plan
-        M, N = len(plan.kind), pool.vm.shape[1]
+        being written is known by then. Each value per meter is laid out as the file's layers
+        (`MeterPlan.scatter`), and a bus is labelled attacked when a meter at it is tampered."""
+        assert self._buf is not None, "open() starts the file"
+        pool, meas, plan, masks = self.pool, self.meas, self.meas.plan, self._meter_m
+        M, (N, E) = len(plan.kind), self._size
         vm, va = pool.vm[t0:t1], pool.va[t0:t1]
         with np.errstate(invalid="ignore"):  # unsolved frames keep their place with NaN readings
             z_benign = self.noise.sample(meas.h(vm, va), self._noise_rng)
@@ -554,25 +682,32 @@ class NewYorkSource(TimelineSource[str, Episode]):
             tam = self.att.tampered(pool.vm[w], pool.va[w], ep.a)  # its tampered meters [L, M], the labels
             z[a - t0 : b - t0] += ep.a[a - ep.onset : b - ep.onset]
             meter_tampered[a - t0 : b - t0] = tam[a - ep.onset : b - ep.onset]
-            family[a - t0 : b - t0] = FAMILIES.index(ep.family)
+            family[a - t0 : b - t0] = FAMILY_CODE[ep.family]
             episode[a - t0 : b - t0] = e
         at_bus = np.zeros((M, N), np.int32)
         at_bus[np.arange(M), plan.bus] = 1  # a meter's bus: a tampered meter marks its bus attacked
-        self._writer.write_frames(
-            t0 - self.first,
-            {
-                "time": pool.time[t0:t1],
-                "split": self._split[t0:t1],
-                "family": family,
-                "episode": episode,
-                "z": z,
-                "z_benign": z_benign,
-                "vm": vm,
-                "va": va,
-                "bus_attacked": (meter_tampered.astype(np.int32) @ at_bus) > 0,
-                "meter_tampered": meter_tampered,
-            },
-        )
+        attacked = (meter_tampered.astype(np.int32) @ at_bus) > 0
+        seen, benign, tampered = (plan.scatter(a, N, E) for a in (z, z_benign, meter_tampered))
+        none = np.zeros(0, np.int32)  # the attack vectors are not stored: observed minus benign is the attack
+        for i, (fid, sid) in enumerate(zip(family.tolist(), episode.tolist())):
+            frame = Frame(
+                node_x=seen.node[i],
+                node_m=masks.node,
+                edge_x=seen.edge[i],
+                edge_m=masks.edge,
+                y=attacked[i],
+                stealthy=int(fid != 0),
+                mag_bus=none,
+                mag=none,
+                benign_node_x=benign.node[i],
+                benign_edge_x=benign.edge[i],
+                tamper=(tampered.node[i], tampered.edge[i]),
+                i_x=seen.current[i],
+                i_m=masks.current,
+                benign_i_x=benign.current[i],
+                i_tamper=tampered.current[i],
+            )
+            self._buf.store(t0 - self.first + i, fid, frame, sid)
         self._log(f"wrote frames {t0}..{t1}")
 
 
@@ -603,7 +738,7 @@ class SingleEpisodeSource(NewYorkSource):
         families = source.families if using is None else {**source.families, family: using}
         settings = replace(source.settings, workers=1, survey=0)
         super().__init__(source.pool, source.att, families, source.own, settings, source.build)
-        self.noise = source.noise
+        self.noise, self.release = source.noise, source.release
         self.slot = Slot(onset, family, self.lengths()[family])
         self.lag = lag
         self.first = onset if lo is None else lo
@@ -624,6 +759,18 @@ class SingleEpisodeSource(NewYorkSource):
             if not (self.pool.solve_kind[start : start + L] == SOLVED).all():
                 raise DataConditionError(f"the window at {start} touches an unsolved frame")
 
+    def record(self) -> dict[str, object]:
+        """The source's record without what places episodes by share (the attacked share, the splits, the
+        survey), and the one episode: its family, onset, lag and the pool frames `lo`..`hi` of the file."""
+        placed = ("attacked_frac", "split", "split_by", "survey")
+        record = {k: v for k, v in super().record().items() if k not in placed}
+        frames = {"onset": self.slot.onset, "lag": self.lag, "lo": self.first, "hi": self.stop}
+        return {**record, "episode": {"family": self.slot.family, **frames}}
+
+    def _split_frac(self) -> Sequence[float]:
+        """Every frame is in train."""
+        return (1.0, 0.0, 0.0)
+
     def prepare(self) -> None:
         """Nothing: the one onset is given, so no family's mask is asked and nothing is surveyed."""
 
@@ -634,6 +781,7 @@ class SingleEpisodeSource(NewYorkSource):
 
     def place(self, span: SplitSpan) -> list[Slot[str]]:
         """The one slot, where it was asked for: no random draw."""
+        self.rec.requested[span.code, self.rec.col(self.slot.family)] += 1
         return [self.slot]
 
     def _task(self, slot: Slot[str]) -> _Task:

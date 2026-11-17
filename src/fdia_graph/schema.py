@@ -45,6 +45,7 @@ SPLIT = path(Group.DATA, "split")
 TEMPORAL_DELTA = path(Group.DATA, "temporal_delta")
 SWING = path(Group.DATA, "swing")
 EDGE_STATUS = path(Group.DATA, "edge_status")  # v0.6.0 shards: per-record branch status
+TIME = path(Group.DATA, "time")  # New York: each frame's time, int64 seconds of NYISO's local clock
 # benign/, clean/, attack/: per-frame layers
 NODE_BENIGN = path(Group.BENIGN, "node_benign")
 EDGE_BENIGN = path(Group.BENIGN, "edge_benign")
@@ -80,6 +81,7 @@ class Static:
     EDGE_SHIFT = "edge_shift"
     EDGE_STATUS = "edge_status"
     EDGE_IS_TRAFO = "edge_is_trafo"
+    EDGE_RATING = "edge_rating"  # New York: the line ratings (MVA) the file's attacks were designed against
     BUS_SHUNT_G = "bus_shunt_g"
     BUS_SHUNT_B = "bus_shunt_b"
     BUS_TYPE = "bus_type"
@@ -91,6 +93,9 @@ class Static:
     BUS_BASE_PD = "bus_base_pd"
     BUS_BASE_QD = "bus_base_qd"
     BUS_ATTACKABLE = "bus_attackable"
+    BUS_CLIENT = (
+        "bus_client"  # New York: the utility that owns each bus, a position in `Attr.CLIENT_NAMES` (-1 none)
+    )
 
 
 STATIC_PHYSICS = tuple(v for k, v in vars(Static).items() if not k.startswith("_"))
@@ -105,6 +110,7 @@ EPISODE_MIN_SUPPORT_PTR, EPISODE_MIN_SUPPORT_IDX = "min_support_ptr", "min_suppo
 EPISODE_AM_EPISODE, EPISODE_AM_LINE, EPISODE_AM_RATING = "am_episode", "am_line", "am_rating_mva"
 EPISODE_AM_REACHED, EPISODE_AM_EMITTED = "am_reached_mva", "am_emitted_mva"
 EPISODE_AM_TARGET = "am_target_mva"  # the goal at the window's end; one am_* row per target line
+EPISODE_TARGET_BRANCH = "target_branch"  # New York: the interface branch an episode is anchored on (-1 none)
 
 # record field -> dataset path: the loader's vocabulary on disk (clean fields resolve per timestep)
 FIELD_PATH = {
@@ -186,11 +192,13 @@ class Attr:
     LOAD_CAP = "load_cap"  # the overload attack's load-plausibility cap
     N_LINES = "n_lines"  # the lines one overload episode drives at once
     SUPPORT_METHOD = "support_method"  # how the overload attack chose its supports: "search" or "rref"
-    SETTINGS = "settings"  # the TimelineSettings the walk ran, as JSON (`TimelineSettings.as_record`)
+    SETTINGS = "settings"  # what identifies the timeline, as JSON (`TimelineSource.record`)
     SETTINGS_HASH = "settings_hash"  # `config_hash` (below) of those settings, what a result cites
     METER_MODEL = "meter_model"  # written on a hybrid-meter file only
     CURRENT_FEAT = "current_feat"  # the legend of pmu_i, on a hybrid-meter file
     CURRENT_UNITS = "current_units"
+    CURRENT_FORM = "current_form"  # how pmu_i holds a phasor (`CURRENT_RECTANGULAR` when absent)
+    CLIENT_NAMES = "client_names"  # New York: the utilities, comma-separated, in `Static.BUS_CLIENT` order
     MAX_LOAD_MW = "max_load_mw"
     V_LO = "v_lo"  # the widest bus voltage limits of the case, what a false state must stay in
     V_HI = "v_hi"
@@ -207,6 +215,9 @@ class Attr:
 ATTR_KEYS = frozenset(v for k, v in vars(Attr).items() if not k.startswith("_"))
 
 KIND_TIMELINE = "timeline"
+# The two forms of a PMU current phasor in pmu_i, per branch end: real and imaginary part (the IEEE
+# files, which carry no `Attr.CURRENT_FORM`), or magnitude and angle in degrees (New York).
+CURRENT_RECTANGULAR, CURRENT_POLAR = "rectangular", "polar"
 
 
 def config_hash(settings: object) -> str:

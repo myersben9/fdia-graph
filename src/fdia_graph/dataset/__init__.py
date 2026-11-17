@@ -130,6 +130,9 @@ class FdiaGraph(GraphMixin, AdmittanceMixin, RecordsMixin, ExportMixin, Sequence
         self.N = int(a[Attr.N])
         self.E = int(a[Attr.E])  # fixed graph size: bus count N, branch count E
         self.baseMVA = float(a.get(Attr.BASEMVA, 100.0))  # p.u. base; v0.4.1+, default 100 MVA
+        self.edge_feat = str(a.get(Attr.EDGE_FEAT, "P_from,Q_from")).split(",")  # the flow layers' columns
+        # how pmu_i holds a current phasor: real and imaginary part unless the file says otherwise
+        self.current_form = str(a.get(Attr.CURRENT_FORM, schema.CURRENT_RECTANGULAR))
 
     def _read_static_graph(self, f: h5py.File) -> None:
         """The static graph, read ONCE and cached as numpy (same for every record): edge index and the

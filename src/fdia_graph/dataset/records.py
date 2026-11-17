@@ -34,13 +34,17 @@ class RecordsMixin(DatasetBase):
     def _to_units(self, arr: np.ndarray, kind: str) -> np.ndarray:
         """Convert a physical-unit array to self.units (no-op unless units=='pu'). kind:
         'node' [...,4]=[V,P,Q,theta] -> P,Q divided by baseMVA, theta deg->rad, V left (already p.u.);
-        'edge' [...,2]=[P_from,Q_from] and 'td' [...,2]=[dP,dQ] -> divided by baseMVA (both power).
+        'edge' [...,2]=[P_from,Q_from] and 'td' [...,2]=[dP,dQ] -> divided by baseMVA (both power);
+        'current' [...,4] PMU currents, per unit already -> the angles of a polar file deg->rad.
         Returns a float32 copy so on-disk data is never mutated."""
         if self.units != "pu":
             return arr
         b = self.baseMVA
         a = np.array(arr, dtype=np.float32, copy=True)
-        if kind == "node":
+        if kind == "current":
+            if self.current_form == schema.CURRENT_POLAR:  # magnitude, angle per end: columns 1 and 3
+                a[..., 1::2] = np.deg2rad(a[..., 1::2])
+        elif kind == "node":
             a[..., NODE.p_inj] /= b
             a[..., NODE.q_inj] /= b  # P_inj, Q_inj  MW/MVAr -> p.u.
             a[..., NODE.theta] = np.deg2rad(a[..., NODE.theta])  # theta  deg -> rad
@@ -80,12 +84,13 @@ class RecordsMixin(DatasetBase):
 
     def _add_currents(self, item: dict[str, Any], pos: int) -> None:
         """The PMU branch-current phasors of a hybrid-meter timeline record [E, 4], per unit on every
-        view: observed, their mask, and the attack-removed twin."""
+        view (the angles of a polar file in self.units): observed, their mask, and the attack-removed twin."""
         if not self.has_currents:
             return
         torch = _torch()
         for k, path in _CURRENT_LAYERS.items():
             a = self._mem[k][pos] if self._mem is not None else self._h()[path][int(self.idx[pos])]
+            a = a if path == schema.PMU_I_M else self._to_units(a, "current")
             item[k] = torch.as_tensor(np.asarray(a), dtype=torch.float32)
 
     def _base_item(self, d: RecordSource, j: int) -> dict[str, Any]:

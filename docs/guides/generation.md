@@ -46,7 +46,7 @@ grids:
 | `placement_rng` | the generator's one stream | the build's `place` stream |
 | `design` | the overload Am, before the split is walked; one with no design is moved | every family; one with no design is left benign |
 | `walk(until)` | the frames of the split just designed (its end is `until`), a scan per frame; a ramp At is designed as the walk reaches it | the frames up to `until`: the noisy benign scan plus the episode's attack vector |
-| `open`, `finish` | the file layout of this page | the New York layout ([`new_york_grid.md`](../concepts/new_york_grid.md)) |
+| `open`, `finish` | the file layout of this page, through `generation/write.py` | the same layout through the same writer, a value per meter laid out as layers (`MeterPlan.scatter`); what a New York file declares differently is in [`new_york_grid.md`](../concepts/new_york_grid.md#the-timeline-file) |
 
 The walk writes *every frame whose split is planned by now* (`generation.plan.planned_until`), and that one
 rule serves both grids. An IEEE timeline's splits are blocks in time order, so it is the split just designed;

@@ -17,6 +17,7 @@ flowchart TB
         se["se/"]
         trust["trust/"]
     end
+    dataset --> engine
     dataset --> generation
     download --> registry
     engine --> _lazy

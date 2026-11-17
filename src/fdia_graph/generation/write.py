@@ -7,25 +7,29 @@ columns, the episode tables, the ragged magnitudes, the attributes and the tempo
 
 from __future__ import annotations
 
+import json
 from collections.abc import Sequence
-from typing import Optional
+from typing import Optional, Union
 
 import h5py
 import numpy as np
 
 from .. import schema
-from ..engine import FdiaGenerator
 from ..formulas.temporal import SWING_WINDOW, recent_change_scale
-from ..models.choices import FAMILIES, STEALTHY_FAMILIES
+from ..models.choices import FAMILIES, SPLITS, STEALTHY_FAMILIES, family_label
 from ..models.config import OverloadSettings, TimelineSettings
-from ..models.frames import MinimizerResult
-from ..models.plan import Placement
+from ..models.frames import LayerSet, MinimizerResult
+from ..models.plan import Family, Placement
 from ..schema import Attr
-from . import _CHUNK_ROWS, _base_attrs
-from .emit import TimelineBuffers, layers
-from .plan import split_column
+from . import _CHUNK_ROWS
+from .emit import CleanSlice, TimelineBuffers, layers
 
 KIND = schema.KIND_TIMELINE  # the file attribute the loader requires
+# what a 1 in the tamper masks of an IEEE file means (the `tamper` attribute of attack/)
+TAMPER_RULE = (
+    "1 where the attacker wrote the meter: the meters the local false state moves for the "
+    "stealthy families, the changed channels for Ad/As/Ar"
+)
 
 
 def ragged(rows: Sequence[np.ndarray], dtype) -> tuple[np.ndarray, np.ndarray]:
@@ -36,14 +40,25 @@ def ragged(rows: Sequence[np.ndarray], dtype) -> tuple[np.ndarray, np.ndarray]:
     return ptr, flat
 
 
-def create_layers(f: h5py.File, T: int, C: int, E: int, currents: bool = False) -> dict[str, h5py.Dataset]:
+def start_timeline(
+    path: str, dims: tuple[int, int, int], clean: CleanSlice, spec: LayerSet = LayerSet()
+) -> tuple[h5py.File, TimelineBuffers]:
+    """A new timeline file at `path`, open for the whole walk, and the buffers its frames are stored
+    through: `dims` are its frames, buses and branches, `clean` gives the noiseless truth of a run of
+    frames and `spec` says which layers the file carries."""
+    f = h5py.File(path, "w")
+    return f, TimelineBuffers(dims, clean, create_layers(f, dims, spec), spec)
+
+
+def create_layers(f: h5py.File, dims: tuple[int, int, int], spec: LayerSet) -> dict[str, h5py.Dataset]:
     """The per-frame datasets at full length, chunked along the frame axis and gzipped, empty
-    until the walk flushes into them (the PMU current layers only when the plan reads currents)."""
+    until the walk flushes into them (the layers of `spec`, `generation.emit.layers`)."""
+    T, C, E = dims
     for group in (schema.Group.DATA, schema.Group.BENIGN, schema.Group.CLEAN, schema.Group.ATTACK):
         f.create_group(group)
     sink = {}
-    for name, (shape, dtype) in layers(currents).items():
-        trailing = shape(C, E)
+    for name, (shape, dtype) in layers(spec).items():
+        trailing = shape(C, E, spec.edge_width)
         sink[name] = f.create_dataset(
             name,
             shape=(T, *trailing),
@@ -74,9 +89,10 @@ def _write_masks(f: h5py.File, buf: TimelineBuffers, T: int) -> None:
             ds[a : min(a + 4096, T)] = np.broadcast_to(m, (min(a + 4096, T) - a, *m.shape))
 
 
-def _write_episodes(f: h5py.File, buf: TimelineBuffers) -> None:
-    """episodes/ (one row per episode, buses ragged) and the ragged magnitudes of attack/."""
-    eg = f.create_group(schema.Group.EPISODES)
+def _write_episodes(f: h5py.File, buf: TimelineBuffers, tamper_rule: str) -> None:
+    """episodes/ (one row per episode, buses ragged) and the ragged magnitudes of attack/, whose
+    `tamper` attribute says what a 1 in the tamper masks means (`tamper_rule`)."""
+    eg = f.require_group(schema.Group.EPISODES)  # a grid's own column may have made it
     ep = buf.episodes
     eg.create_dataset(schema.EPISODE_ONSET, data=np.array([e["onset"] for e in ep], np.int32))
     eg.create_dataset(schema.EPISODE_LENGTH, data=np.array([e["length"] for e in ep], np.int32))
@@ -93,10 +109,7 @@ def _write_episodes(f: h5py.File, buf: TimelineBuffers) -> None:
         _write_min_rows(eg, buf.min_rows)
     if buf.am_rows:  # the overload attack: its target branch, rating and the flow it reached
         _write_am_rows(eg, buf.am_rows)
-    f[schema.Group.ATTACK].attrs[schema.Attr.TAMPER] = (
-        "1 where the attacker wrote the meter: the meters the local false state moves for the "
-        "stealthy families, the changed channels for Ad/As/Ar"
-    )
+    f[schema.Group.ATTACK].attrs[schema.Attr.TAMPER] = tamper_rule
 
 
 def _write_min_rows(eg: h5py.Group, min_rows: list[tuple[int, MinimizerResult]]) -> None:
@@ -128,37 +141,37 @@ def _write_am_rows(eg: h5py.Group, am_rows: list[tuple[int, int, float, float, f
 
 
 def placement_attrs(
-    rec: Placement, bounds: list[tuple[int, int]], frac: Sequence[float], seq_id: np.ndarray
+    rec: Placement[Family], split: np.ndarray, frac: Sequence[float], seq_id: np.ndarray
 ) -> dict[str, object]:
-    """What the split-first placement asked for and got: the fractions and sizes of the splits, the
-    attacked fraction each reached, and per split (rows) and family (columns, `placed_families`) the
-    episodes requested, built, moved for want of a feasible design, dropped because they did not
-    fit, and short of the request (dropped or given up)."""
-    sizes = np.array([b - a for a, b in bounds], int)
-    attacked = np.array([int((seq_id[a:b] >= 0).sum()) for a, b in bounds], float)
+    """What the split-first placement asked for and got: the fractions and sizes of the splits (`split`
+    is the split code of every frame), the attacked fraction each reached, and per split (rows) and
+    family (columns, `placed_families`) the episodes requested, built, moved for want of a feasible
+    design, dropped because they did not fit, and short of the request (dropped or given up)."""
+    sizes = np.bincount(split, minlength=len(SPLITS)).astype(int)
+    attacked = np.bincount(split[seq_id >= 0], minlength=len(SPLITS)).astype(float)
     return {
         Attr.SPLIT_FRAC: np.asarray(frac, float),
         Attr.SPLIT_SIZES: sizes,
         Attr.SPLIT_ATTACKED_FRAC: attacked / np.maximum(1, sizes),
-        Attr.PLACED_FAMILIES: ",".join(FAMILIES[f] for f in rec.families),
+        Attr.PLACED_FAMILIES: ",".join(family_label(f) for f in rec.families),
         Attr.EPISODES_REQUESTED: rec.requested,
         Attr.EPISODES_BUILT: rec.built,
         Attr.EPISODE_REDRAWS: rec.redraws,
         Attr.EPISODES_DROPPED: rec.dropped,
         Attr.EPISODE_SHORTFALL: rec.requested - rec.built,
-        Attr.JITTER_KEYED: 1,
     }
 
 
 def timeline_attrs(
-    g: FdiaGenerator,
-    seed: int,
+    header: dict[str, Union[int, float, str]],
     buf: TimelineBuffers,
     knobs: dict[str, object],  # the recorded knobs, each its own type, written as file attributes
+    record: dict[str, object],
 ) -> dict[str, object]:
-    """The attributes every file carries (dims, units, provenance) plus what makes this one a timeline."""
+    """The attributes every file carries (`header`: dims, units, provenance) plus what makes this one
+    a timeline, and `record` (what identifies it, `TimelineSource.record`) as JSON with its hash."""
     T = buf.T
-    attrs: dict[str, object] = dict(_base_attrs(g, T, seed))
+    attrs: dict[str, object] = dict(header)
     in_episodes = sum(e["length"] for e in buf.episodes)
     attrs.update(
         {
@@ -172,13 +185,18 @@ def timeline_attrs(
         }
     )
     attrs.update({k: (-1 if v is None else v) for k, v in knobs.items()})
+    attrs[Attr.SETTINGS] = json.dumps(record, sort_keys=True)
+    attrs[Attr.SETTINGS_HASH] = schema.config_hash(record)
     return attrs
 
 
-def finish_timeline(f: h5py.File, buf: TimelineBuffers, bounds: list[tuple[int, int]]) -> None:
+def finish_timeline(
+    f: h5py.File, buf: TimelineBuffers, columns: dict[str, np.ndarray], tamper_rule: str = TAMPER_RULE
+) -> None:
     """After the walk: the last batch, the masks, the small per-frame columns (family, stealthy,
-    seq_id, timestep, the split by its `bounds`), the episodes and the ragged magnitudes. The file's
-    attributes come after (`timeline_attrs`, `placement_attrs`)."""
+    seq_id, timestep, and the grid's own `columns` by dataset path: the split, and on New York the
+    time and each episode's target branch), the episodes and the ragged magnitudes. The file's attributes come after (`timeline_attrs`,
+    `placement_attrs`)."""
     buf.flush()
     T = buf.T
     _write_masks(f, buf, T)
@@ -187,10 +205,10 @@ def finish_timeline(f: h5py.File, buf: TimelineBuffers, bounds: list[tuple[int, 
         (schema.STEALTHY, np.isin(buf.family, sorted(STEALTHY_FAMILIES)).astype(np.uint8)),
         (schema.SEQ_ID, buf.seq_id),
         (schema.TIMESTEP, np.arange(T, dtype=np.int32)),
-        (schema.SPLIT, split_column(bounds, T)),
+        *columns.items(),
     ):
         f.create_dataset(name, data=arr)
-    _write_episodes(f, buf)
+    _write_episodes(f, buf, tamper_rule)
 
 
 def write_temporal_layers(f: h5py.File, block: int = 2000) -> None:

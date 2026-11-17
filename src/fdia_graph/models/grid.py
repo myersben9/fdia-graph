@@ -62,7 +62,8 @@ class CurrentIndex(NamedTuple):
     phasor a PMU reads at each end of a branch [WU26 eqs. 19-20], the real and imaginary part, per
     unit on the base current. At the from end the current leaving the from bus into the branch
     (`Yf V`), at the to end the current leaving the to bus into the branch (`Yt V`); a column is
-    metered only where a PMU sits at that end."""
+    metered only where a PMU sits at that end. A New York file holds magnitude and angle (degrees) in
+    the same four places and says so (`schema.Attr.CURRENT_FORM`); these names are the IEEE files'."""
 
     re_from: int
     im_from: int

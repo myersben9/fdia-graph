@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import glob
 import os
+from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any, Optional, Union
 
 import h5py
@@ -32,6 +33,7 @@ from .._lazy import attach
 from ..engine import FdiaGenerator
 from ..errors import UnknownColumnOrder
 from ..models.config import ShardRun, TimelineSettings
+from ..models.frames import LayerSet
 from ..models.grid import NODE
 from ..models.inputs import StatePool, StateSource
 from ..registry import CACHE_DIR, register_local
@@ -147,25 +149,39 @@ def generate(
 _CHUNK_ROWS = 128  # per-frame datasets are chunked along the frame axis for efficient partial reads
 
 
-def _base_attrs(g: FdiaGenerator, n_records: int, seed: int) -> dict[str, Union[int, float, str]]:
-    """File attributes every file carries: dims, feature legends, units, topology provenance.
+def header_attrs(
+    dims: tuple[int, int, int], base_mva: float, seed: int, spec: LayerSet = LayerSet()
+) -> dict[str, Union[int, float, str]]:
+    """File attributes every file carries, on any grid: `dims` (its records, buses and branches), the
+    feature legends and their units.
 
     Units are ENGINEERING quantities (node_x = [V pu, P_inj MW, Q_inj MVAr, theta deg], edge flows
-    MW/MVAr); baseMVA lets the loader also serve a per-unit view. Topology: "base" = intact,
+    MW/MVAr, at the from end or, when `spec` says so, at both ends); baseMVA lets the loader also serve
+    a per-unit view.
+    """
+    n_records, N, E = dims
+    flows = [f"{q}_{end}" for end in (("from", "to") if spec.both_ends else ("from",)) for q in "PQ"]
+    return {
+        Attr.SYSTEM: N,
+        Attr.N: N,
+        Attr.E: E,
+        Attr.N_RECORDS: n_records,
+        Attr.NODE_FEAT: "V,P_inj,Q_inj,theta",
+        Attr.EDGE_FEAT: ",".join(flows),
+        Attr.NODE_UNITS: "V:pu,P_inj:MW,Q_inj:MVAr,theta:deg",
+        Attr.EDGE_UNITS: ",".join(f"{name}:{'MW' if name[0] == 'P' else 'MVAr'}" for name in flows),
+        Attr.BASEMVA: base_mva,
+        Attr.SEED: seed,
+    }
+
+
+def _base_attrs(g: FdiaGenerator, n_records: int, seed: int) -> dict[str, Union[int, float, str]]:
+    """The header of an IEEE file (`header_attrs`) with its topology provenance: "base" = intact,
     "n1_line" = one line out for every record, with the contingency's size (outage_base_flow_mw) so
     a file is self-describing.
     """
     return {
-        Attr.SYSTEM: g.C,
-        Attr.N: g.C,
-        Attr.E: g.E,
-        Attr.N_RECORDS: n_records,
-        Attr.NODE_FEAT: "V,P_inj,Q_inj,theta",
-        Attr.EDGE_FEAT: "P_from,Q_from",
-        Attr.NODE_UNITS: "V:pu,P_inj:MW,Q_inj:MVAr,theta:deg",
-        Attr.EDGE_UNITS: "P_from:MW,Q_from:MVAr",
-        Attr.BASEMVA: float(g.base.sn_mva),
-        Attr.SEED: seed,
+        **header_attrs((n_records, g.C, g.E), float(g.base.sn_mva), seed),
         Attr.TOPOLOGY: ("base" if g.contingency.line is None else "n1_line"),
         Attr.OUTAGE_LINE: (-1 if g.contingency.line is None else int(g.contingency.line)),
         Attr.OUTAGE_BRANCH_POS: int(g.contingency.pos),
@@ -196,20 +212,24 @@ def _static_physics(g: FdiaGenerator) -> dict[str, Optional[np.ndarray]]:
     }
 
 
-def _write_graph(f: h5py.File, g: FdiaGenerator) -> None:
-    """graph/ group: the static topology shared by all frames, including the full per-unit branch
-    physics and bus shunts that reconstruct Ybus exactly (verified against makeYbus to 7e-15, 3e-14
-    and 5e-13 on IEEE 14, 118 and 300), so a model reads exactly the estimator's physics."""
+# the legends of an IEEE file's graph/ group: what its datasets are and the order of their rows
+GRAPH_LEGEND = {
+    Attr.EDGE_FEAT_STATIC: "r,x,b,g,tap,shift,status,is_trafo (per unit, ppc order = lines then trafos)",
+    Attr.BUS_FEAT_STATIC: "shunt_g,shunt_b (MW/MVAr at 1.0 pu, ppc bus order)",
+    Attr.YBUS_RECONSTRUCTIBLE: "yes, see fdia_graph tests: Y = f(edge_r,x,b,g,tap,shift,status)+bus shunts",
+}
+
+
+def _write_graph(
+    f: h5py.File, edges: np.ndarray, values: Mapping[str, Optional[np.ndarray]], legend: Mapping[str, str]
+) -> None:
+    """graph/ group: the static topology shared by all frames (`edges [2, E]`), including the full
+    per-unit branch physics and bus shunts that reconstruct Ybus exactly (verified against makeYbus to
+    7e-15, 3e-14 and 5e-13 on IEEE 14, 118 and 300), so a model reads exactly the estimator's physics.
+    `values` are the grid's datasets by their `Static` name and `legend` the group's attributes."""
     gg = f.create_group(Group.GRAPH)
-    gg.create_dataset(schema.EDGE_INDEX.split("/")[1], data=g.ei)
-    values = _static_physics(g)
+    gg.create_dataset(schema.EDGE_INDEX.split("/")[1], data=edges)
     for name in schema.STATIC_PHYSICS:  # the reader's table, in its order; what this writer has of it
         if name in values:
             gg.create_dataset(name, data=values[name])
-    gg.attrs.update(
-        {
-            Attr.EDGE_FEAT_STATIC: "r,x,b,g,tap,shift,status,is_trafo (per unit, ppc order = lines then trafos)",
-            Attr.BUS_FEAT_STATIC: "shunt_g,shunt_b (MW/MVAr at 1.0 pu, ppc bus order)",
-            Attr.YBUS_RECONSTRUCTIBLE: "yes, see fdia_graph tests: Y = f(edge_r,x,b,g,tap,shift,status)+bus shunts",
-        }
-    )
+    gg.attrs.update(legend)

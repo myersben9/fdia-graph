@@ -70,4 +70,6 @@ from fdia_graph.generation.nygrid import Dataset
 ds = Dataset("one.h5")
 view = ds.client(ds.clients[0])
 print(view.z.shape, view.labels.shape)  # scans x this client's meters, scans x its buses
+every = view.frames  # all frames of the file
+attack = ds.z(every) - ds.z(every, benign=True)  # scans x every meter: the attack vector
 ```

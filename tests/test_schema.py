@@ -67,6 +67,12 @@ def test_the_fixture_carries_exactly_the_schema(timeline):
         | {schema.path(schema.Group.GRAPH, k) for k in schema.STATIC_PHYSICS}
     )
     assert set(names) <= known, sorted(set(names) - known)  # every dataset in the file has a name here
+    # the names only a New York file carries are optional: an IEEE file has none of them
+    graph_only = (schema.Static.BUS_CLIENT, schema.Static.EDGE_RATING)
+    new_york_only = {schema.TIME, schema.path(schema.Group.EPISODES, schema.EPISODE_TARGET_BRANCH)}
+    new_york_only |= {schema.path(schema.Group.GRAPH, name) for name in graph_only}
+    new_york_only |= {schema.Attr.CURRENT_FORM, schema.Attr.CLIENT_NAMES}
+    assert not new_york_only & (set(names) | set(attrs))
     assert attrs[schema.Attr.KIND] == schema.KIND_TIMELINE
     for key in (
         schema.Attr.N,

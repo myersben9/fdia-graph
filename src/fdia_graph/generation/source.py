@@ -15,7 +15,7 @@ under it, `SingleEpisodeSource` (one episode alone, placed by hand).
     placement_rng    the generator's one stream             the build's "place" stream
     design           Am before the walk; no design: moved   every family; no design: left benign
     walk             a scan per frame, At designed here     the noisy scan plus the attack vector
-    open, finish     the IEEE file layout                   the New York file layout
+    open, finish     the one file layout (`schema`), by the one writer (`generation.write`)
 
 The placement itself (`place`) is the same code for both: `generation.plan.place_split`.
 """
@@ -24,13 +24,20 @@ from __future__ import annotations
 
 import os
 from abc import ABC, abstractmethod
-from collections.abc import Mapping
-from typing import Generic, Optional, Union
+from collections.abc import Mapping, Sequence
+from typing import TYPE_CHECKING, Generic, Optional, Union
 
 import numpy as np
 
+from .. import schema
 from ..models.plan import Design, Family, Placement, Slot, SplitSpan
 from .plan import place_split, planned_until
+from .write import TAMPER_RULE, finish_timeline, placement_attrs, timeline_attrs
+
+if TYPE_CHECKING:  # the open file and its buffers are the writer's; named here for the type checker only
+    import h5py
+
+    from .emit import TimelineBuffers
 
 OutPath = Union[str, "os.PathLike[str]"]  # where a timeline file is written
 PART = ".part"  # the ending of a file still being written: it takes its own name only once it is whole
@@ -132,8 +139,30 @@ class TimelineSource(ABC, Generic[Family, Design]):
 
     @abstractmethod
     def finish(self) -> None:
-        """After the walk: what the file carries besides its frames (the episode table; on an IEEE
-        file also the columns, the attributes and the temporal features)."""
+        """After the walk: what the file carries besides its frames (the columns, the episode table
+        and the attributes; on an IEEE file also the temporal features)."""
+
+    @abstractmethod
+    def record(self) -> dict[str, object]:
+        """What identifies the timeline, as nested plain values: the settings it was generated with. The
+        file records them as JSON with their hash (`Attr.SETTINGS`, `Attr.SETTINGS_HASH`)."""
+
+    def _finish_file(
+        self,
+        f: h5py.File,
+        buf: TimelineBuffers,
+        columns: dict[str, np.ndarray],
+        header: dict[str, Union[int, float, str]],
+        knobs: dict[str, object],
+        frac: Sequence[float],
+        tamper_rule: str = TAMPER_RULE,
+    ) -> None:
+        """What every `finish` writes after the walk: the grid's `columns` (the split among them), the
+        episodes, and the attributes: the `header`, the grid's recorded `knobs`, `record` and what the
+        placement asked for and got, the splits by their fractions `frac`."""
+        finish_timeline(f, buf, columns, tamper_rule)
+        f.attrs.update(timeline_attrs(header, buf, knobs, self.record()))
+        f.attrs.update(placement_attrs(self.rec, columns[schema.SPLIT], frac, buf.seq_id))
 
     @abstractmethod
     def close(self, finished: bool) -> None:

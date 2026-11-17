@@ -4,22 +4,24 @@ allowed onsets, and every frame a noisy benign scan plus its attack with labels 
 import json
 from dataclasses import replace
 
-import h5py
 import numpy as np
 import pytest
 
+from fdia_graph import schema
+from fdia_graph.dataset.clients import Dataset
 from fdia_graph.engine.attacks.attacker import Attacker
 from fdia_graph.engine.attacks.ramp import Ramp
 from fdia_graph.engine.sensing.measure import Measurement
 from fdia_graph.engine.sensing.meters import plan_meters
 from fdia_graph.generation.nygrid.case import nygrid_case
 from fdia_graph.generation.nygrid.config import Settings, rng
-from fdia_graph.generation.nygrid.io import FAMILIES, read_pool
+from fdia_graph.generation.nygrid.io import read_pool
 from fdia_graph.generation.nygrid.network import Network
 from fdia_graph.generation.nygrid.ownership import assign_clients
 from fdia_graph.generation.nygrid.pool import SOLVED, Pool, peak_ratings
 from fdia_graph.generation.nygrid.source import NewYorkSource
 from fdia_graph.generation.plan import WEEK, place_episodes, split_weeks
+from fdia_graph.models.choices import FAMILIES, FAMILY_CODE
 from fdia_graph.models.config import NewYorkSettings
 
 from .inputs import DATA, POOL, TERRITORIES
@@ -124,58 +126,56 @@ def built(tmp_path_factory):
     source.generate(path)
     summary = source.summary()
     print(summary)
-    with h5py.File(path, "r") as h:
-        arrays = {
-            k: h[k][:]
-            for k in (
-                "frames/split",
-                "frames/family",
-                "frames/episode",
-                "frames/z",
-                "frames/z_benign",
-                "frames/vm",
-                "frames/va",
-                "labels/bus_attacked",
-                "labels/meter_tampered",
-                "episodes/family",
-                "episodes/onset",
-                "episodes/length",
-            )
-        }
+    ds = Dataset(path)  # the flat vectors of the meter table, gathered from the file's layers
+    h, every = ds.h, np.arange(FRAMES)
+    episodes = h[schema.Group.EPISODES]
+    arrays = {
+        "split": h[schema.SPLIT][:],
+        "family": h[schema.FAMILY][:],
+        "episode": h[schema.SEQ_ID][:],
+        "z": ds.z(every),
+        "z_benign": ds.z(every, benign=True),
+        "bus_attacked": h[schema.Y][:].astype(bool),
+        "meter_tampered": ds.tampered(every),
+        "episodes/family": np.array([FAMILIES[int(code)] for code in episodes[schema.EPISODE_FAMILY][:]]),
+        "episodes/onset": episodes[schema.EPISODE_ONSET][:],
+        "episodes/length": episodes[schema.EPISODE_LENGTH][:],
+    }
+    h.close()
     return pool, att, source.noise, fams, summary, arrays
 
 
 def test_episodes_stay_inside_their_split(built):
     pool, att, noise, fams, summary, a = built
     assert len(a["episodes/onset"]) >= 2 and sum(map(sum, summary["built"])) == len(a["episodes/onset"])
-    assert set(a["episodes/family"].astype(str)) <= {"Am", "At"}
+    assert set(a["episodes/family"].tolist()) <= {"Am", "At"}
     assert summary["families"] == ["Am", "At"] and all(
         sum(r[k] for r in summary["placed"]) > 0 for k in (0, 1)
     )
     lengths = {"Am": 32, "At": 16}
-    for fam, length in zip(a["episodes/family"].astype(str), a["episodes/length"]):
+    for fam, length in zip(a["episodes/family"].tolist(), a["episodes/length"]):
         assert length == lengths[fam]  # each episode spans its family's window
-    split = a["frames/split"]
+    split = a["split"]
     for onset, length in zip(a["episodes/onset"], a["episodes/length"]):
         assert len(set(split[onset : onset + length].tolist())) == 1  # no window spans two splits
     # every frame of an episode carries its family and row, every other frame is benign
-    ep = a["frames/episode"]
+    ep = a["episode"]
     for e, (onset, length, fam) in enumerate(
         zip(a["episodes/onset"], a["episodes/length"], a["episodes/family"])
     ):
         assert (ep[onset : onset + length] == e).all()
-        assert (a["frames/family"][onset : onset + length] == FAMILIES.index(fam.decode())).all()
-    assert (a["frames/family"][ep < 0] == 0).all()
+        assert (a["family"][onset : onset + length] == FAMILY_CODE[str(fam)]).all()
+    assert (a["family"][ep < 0] == 0).all()
 
 
 def test_frames_are_noisy_benign_plus_attack_and_labels_match_tampered(built):
     pool, att, noise, fams, summary, a = built
     meas, plan = att.meas, att.meas.plan
-    z, zb = a["frames/z"].astype(float), a["frames/z_benign"].astype(float)
-    ep = a["frames/episode"]
+    z, zb = a["z"].astype(float), a["z_benign"].astype(float)
+    ep = a["episode"]
     # benign frames: the observed scan is the benign scan, untouched, with no labels
     assert np.array_equal(z[ep < 0], zb[ep < 0])
-    assert not a["labels/meter_tampered"][ep < 0].any() and not a["labels/bus_attacked"][ep < 0].any()
+    assert not a["meter_tampered"][ep < 0].any() and not a["bus_attacked"][ep < 0].any()
     # the benign scan is h(x_true) plus accuracy-class noise: within a few class sigmas of the exact reading
     exact = meas.h(pool.vm, pool.va)
     assert (np.abs(zb - exact) <= 6 * noise.sigmas(exact) + 1e-5).all()
@@ -184,7 +184,7 @@ def test_frames_are_noisy_benign_plus_attack_and_labels_match_tampered(built):
     for e, (onset, length, fam) in enumerate(
         zip(a["episodes/onset"], a["episodes/length"], a["episodes/family"])
     ):
-        fam = fam.decode()
+        fam = str(fam)
         w = slice(onset, onset + length)
         again = fams[fam].design(
             (int(onset), pool.vm[w], pool.va[w]), rng(Settings(), f"design/{fam}/{onset}")
@@ -192,9 +192,9 @@ def test_frames_are_noisy_benign_plus_attack_and_labels_match_tampered(built):
         assert again is not None and again.family == fam
         np.testing.assert_allclose(z[w] - zb[w], again.a, rtol=0, atol=1e-5 + 1e-6 * np.abs(zb[w]).max())
         tam = att.tampered(pool.vm[w], pool.va[w], again.a)
-        assert np.array_equal(a["labels/meter_tampered"][w], tam)
+        assert np.array_equal(a["meter_tampered"][w], tam)
         bus = np.zeros((length, len(pool.vm[0])), bool)
         for j in range(len(plan.kind)):
             bus[:, plan.bus[j]] |= tam[:, j]
-        assert np.array_equal(a["labels/bus_attacked"][w], bus)  # a bus is attacked when a meter at it is
+        assert np.array_equal(a["bus_attacked"][w], bus)  # a bus is attacked when a meter at it is
     assert (pool.solve_kind == SOLVED).all()

@@ -31,13 +31,7 @@ if TYPE_CHECKING:  # the names below, with their real signatures for type checke
         read_nygrid,
     )
     from fdia_graph.generation.nygrid.interfaces import NYISO_INTERFACES, Interface, hourly_interfaces
-    from fdia_graph.generation.nygrid.io import (
-        FAMILIES,
-        TimelineWriter,
-        open_timeline,
-        read_pool,
-        write_pool,
-    )
+    from fdia_graph.generation.nygrid.io import read_pool, write_pool
     from fdia_graph.generation.nygrid.loads import LoadModel, LoadSeries
     from fdia_graph.generation.nygrid.network import Network
     from fdia_graph.generation.nygrid.ownership import Ownership, assign_clients
@@ -62,7 +56,6 @@ _PUBLIC = {
     "Dataset": "fdia_graph.dataset.clients",
     "Dispatch": "fdia_graph.generation.nygrid.dispatch",
     "FAILED": "fdia_graph.generation.nygrid.pool",
-    "FAMILIES": "fdia_graph.generation.nygrid.io",
     "Interface": "fdia_graph.generation.nygrid.interfaces",
     "LoadModel": "fdia_graph.generation.nygrid.loads",
     "LoadSeries": "fdia_graph.generation.nygrid.loads",
@@ -79,7 +72,6 @@ _PUBLIC = {
     "Settings": "fdia_graph.generation.nygrid.config",
     "SingleEpisodeSource": "fdia_graph.generation.nygrid.source",
     "Survey": "fdia_graph.generation.nygrid.source",
-    "TimelineWriter": "fdia_graph.generation.nygrid.io",
     "ZONES": "fdia_graph.generation.nygrid.case",
     "ZoneLoad": "fdia_graph.generation.nygrid.inputs",
     "assign_clients": "fdia_graph.generation.nygrid.ownership",
@@ -91,7 +83,6 @@ _PUBLIC = {
     "hvdc_links": "fdia_graph.generation.nygrid.fixes",
     "ipopt": "fdia_graph.engine.solvers",
     "nygrid_case": "fdia_graph.generation.nygrid.case",
-    "open_timeline": "fdia_graph.generation.nygrid.io",
     "peak_ratings": "fdia_graph.generation.nygrid.pool",
     "read_nygrid": "fdia_graph.generation.nygrid.inputs",
     "read_pool": "fdia_graph.generation.nygrid.io",
@@ -107,7 +98,6 @@ __all__ = [
     "Dataset",
     "Dispatch",
     "FAILED",
-    "FAMILIES",
     "Interface",
     "LoadModel",
     "LoadSeries",
@@ -124,7 +114,6 @@ __all__ = [
     "Settings",
     "SingleEpisodeSource",
     "Survey",
-    "TimelineWriter",
     "ZONES",
     "ZoneLoad",
     "assign_clients",
@@ -136,7 +125,6 @@ __all__ = [
     "hvdc_links",
     "ipopt",
     "nygrid_case",
-    "open_timeline",
     "peak_ratings",
     "read_nygrid",
     "read_pool",
