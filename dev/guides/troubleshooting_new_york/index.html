@@ -1763,7 +1763,7 @@
 
 
 <h1 id="the-new-york-grid-how-it-fails">The New York grid: how it fails<a class="headerlink" href="#the-new-york-grid-how-it-fails" title="Permanent link">&para;</a></h1>
-<p>Every stage of <code>fdia_graph.generation.nygrid</code> either raises a named error or records why it produced less than asked. This
+<p>Every stage of the New York build either raises a named error or records why it produced less than asked. This
 page lists what each stage reports, what it means and what to do. The stages are those of
 <a href="../new_york/">the guide</a>: environment, inputs, the operating-point pool and the timeline. The errors live in <code>fdia_graph.errors</code>. A wrong argument is a <code>ConfigError</code> and data that
 does not meet a condition is a <code>DataConditionError</code>. Both are a <code>ValueError</code>, so existing <code>except ValueError</code>
@@ -1782,7 +1782,7 @@ the data.</p>
 <tr>
 <td><code>SolverUnavailable: Ipopt is not found or does not start</code></td>
 <td>Ipopt is not installed, or it is installed but cannot load its DLLs. On Windows a missing DLL shows as exit code <code>0xC0000135</code></td>
-<td><code>conda install -c conda-forge ipopt</code> into the environment, and run that environment's Python with the environment active, so its <code>Library/bin</code> folder is on PATH. <code>fdia_graph.engine.solvers.ipopt()</code> adds the folder when it exists</td>
+<td><code>conda install -c conda-forge ipopt</code> into the environment, and run that environment's Python with the environment active, so its <code>Library/bin</code> folder is on PATH. <code>fdia_graph.data.ipopt.ipopt()</code> adds the folder when it exists</td>
 </tr>
 <tr>
 <td><code>SolverUnavailable: Pyomo is not installed</code></td>

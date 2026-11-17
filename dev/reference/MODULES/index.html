@@ -2012,6 +2012,50 @@
 <td>Time: the calendar, the New York frame, and how a load profile is correlated from scan to scan.</td>
 </tr>
 <tr>
+<td><code>data</code></td>
+<td>Where the load data and the operating points come from, for every test system.</td>
+</tr>
+<tr>
+<td><code>data.config</code></td>
+<td>Build settings and the one place random generators are made.</td>
+</tr>
+<tr>
+<td><code>data.dispatch</code></td>
+<td>Hourly unit dispatch, NYgrid's allocation of the NYISO fuel mix to the fixed unit list.</td>
+</tr>
+<tr>
+<td><code>data.ieee_pool</code></td>
+<td>The pool of an IEEE case: one AC operating state per step of a load profile.</td>
+</tr>
+<tr>
+<td><code>data.inputs</code></td>
+<td>Historical inputs: NYgrid's hourly 2019 tables and NYISO's 5-minute zonal load, and <code>fetch_inputs</code>, which downloads everything the build reads at its pinned version.</td>
+</tr>
+<tr>
+<td><code>data.ipopt</code></td>
+<td>The optimization solver every OPF of the New York grid runs on, found and checked in one place.</td>
+</tr>
+<tr>
+<td><code>data.load_sources</code></td>
+<td>Where the bottom-up load profiles come from ([LI21]), each downloaded once into a cache: the NREL ResStock and ComStock county profiles, each utility's EIA-861 sector sales, the census county centroids and the IAC industrial plants, with the clock rules the plants run on. <code>LoadModel</code> (<code>loads.py</code>) builds the bus profiles from these.</td>
+</tr>
+<tr>
+<td><code>data.loads</code></td>
+<td>Per-bus load profiles by the bottom-up method of [LI21], scaled to the real zone load.</td>
+</tr>
+<tr>
+<td><code>data.pool</code></td>
+<td>The pool: one AC operating state per 5-minute frame, from a ramp-constrained real-time dispatch, and the pool file of the build, HDF5. A timeline is written by the writer every grid uses (<code>fdia_graph.generation.write</code>) and read through <code>fdia_graph.dataset</code>.</td>
+</tr>
+<tr>
+<td><code>data.profiles</code></td>
+<td>Load profiles: a real load time series as a load-scaling vector, read from a file or fetched from an operator's feed.</td>
+</tr>
+<tr>
+<td><code>data.solver</code></td>
+<td>AC solutions of a Case: the hourly projection (an AC-OPF in Pyomo, solved by Ipopt) and the power flows between hours (pandapower).</td>
+</tr>
+<tr>
 <td><code>dataset</code></td>
 <td>FdiaGraph: a PyTorch-ready dataset over one HDF5 file, a timeline (one row per frame in time order, <code>kind="timeline"</code>).</td>
 </tr>
@@ -2124,10 +2168,6 @@
 <td>A scan's load and generation, read from its stored state.</td>
 </tr>
 <tr>
-<td><code>engine.solvers</code></td>
-<td>The optimization solver every nygrid OPF runs on, found and checked in one place.</td>
-</tr>
-<tr>
 <td><code>errors</code></td>
 <td>Every error the package raises on purpose, defined in this one module.</td>
 </tr>
@@ -2172,47 +2212,7 @@
 <td>An IEEE case as the source of a timeline: its pool of operating points and what its files record.</td>
 </tr>
 <tr>
-<td><code>generation.nygrid</code></td>
-<td>The New York system: NYgrid's NPCC-140 case made solvable in AC, its reduced network, the 2019 loads by bus, the hourly dispatch and the five-minute pool of AC operating states, and the timeline written from them.</td>
-</tr>
-<tr>
-<td><code>generation.nygrid.config</code></td>
-<td>Build settings and the one place random generators are made.</td>
-</tr>
-<tr>
-<td><code>generation.nygrid.dispatch</code></td>
-<td>Hourly unit dispatch, NYgrid's allocation of the NYISO fuel mix to the fixed unit list.</td>
-</tr>
-<tr>
-<td><code>generation.nygrid.inputs</code></td>
-<td>Historical inputs: NYgrid's hourly 2019 tables and NYISO's 5-minute zonal load, and <code>fetch_inputs</code>, which downloads everything the build reads at its pinned version.</td>
-</tr>
-<tr>
-<td><code>generation.nygrid.interfaces</code></td>
-<td>NYISO's internal transmission interfaces on the reduced case, with their real 2019 hourly limits and flows.</td>
-</tr>
-<tr>
-<td><code>generation.nygrid.io</code></td>
-<td>The pool file of the build, HDF5. A timeline is written by the writer every grid uses (<code>fdia_graph.generation.write</code>) and read through <code>fdia_graph.dataset</code>.</td>
-</tr>
-<tr>
-<td><code>generation.nygrid.load_sources</code></td>
-<td>Where the bottom-up load profiles come from ([LI21]), each downloaded once into a cache: the NREL ResStock and ComStock county profiles, each utility's EIA-861 sector sales, the census county centroids and the IAC industrial plants, with the clock rules the plants run on. <code>LoadModel</code> (<code>loads.py</code>) builds the bus profiles from these.</td>
-</tr>
-<tr>
-<td><code>generation.nygrid.loads</code></td>
-<td>Per-bus load profiles by the bottom-up method of [LI21], scaled to the real zone load.</td>
-</tr>
-<tr>
-<td><code>generation.nygrid.pool</code></td>
-<td>The pool: one AC operating state per 5-minute frame, from a ramp-constrained real-time dispatch.</td>
-</tr>
-<tr>
-<td><code>generation.nygrid.solver</code></td>
-<td>AC solutions of a Case: the hourly projection (an AC-OPF in Pyomo, solved by Ipopt) and the power flows between hours (pandapower).</td>
-</tr>
-<tr>
-<td><code>generation.nygrid.source</code></td>
+<td><code>generation.newyork</code></td>
 <td>The New York grid as the source of a timeline: the year of pool states and its steps of the one path.</td>
 </tr>
 <tr>
@@ -2276,10 +2276,6 @@
 <td>The one place inputs are checked (CONTRIBUTING.md, "an input is checked in one place").</td>
 </tr>
 <tr>
-<td><code>profiles</code></td>
-<td>Load profiles and operating states: the front of the pipeline.</td>
-</tr>
-<tr>
 <td><code>ratings</code></td>
 <td>Branch thermal ratings for the overload attack of [WU26] (eqs. 24-25), stored with the package.</td>
 </tr>
@@ -2318,6 +2314,10 @@
 <tr>
 <td><code>systems.fixes</code></td>
 <td>Two variants of a case, applied when one is asked for: the external areas held at the base load, and NYgrid's HVDC links in place of the AC branch 81-125. The changes every build has (zone J's split, the 765 kV line) are in the case file itself (<code>case.py</code> reads it).</td>
+</tr>
+<tr>
+<td><code>systems.interfaces</code></td>
+<td>NYISO's internal transmission interfaces on the reduced case, with their real 2019 hourly limits and flows.</td>
 </tr>
 <tr>
 <td><code>systems.network</code></td>
@@ -2678,7 +2678,7 @@
 </tr>
 <tr>
 <td><code>tests/nygrid/test_solvers.py</code></td>
-<td>The checked Ipopt every nygrid OPF runs on: a solver that is missing, or found but unable to start, raises <code>SolverUnavailable</code> with the fix, instead of reading as an infeasible model downstream.</td>
+<td>The checked Ipopt every OPF of the New York grid runs on: a solver that is missing, or found but unable to start, raises <code>SolverUnavailable</code> with the fix, instead of reading as an infeasible model downstream.</td>
 </tr>
 <tr>
 <td><code>tests/nygrid/test_stretches.py</code></td>
@@ -2983,7 +2983,7 @@
 </tr>
 <tr>
 <td><code>pipelines/newyork/build_timeline.py</code></td>
-<td>Build the release timeline from a pool: the release's source (<code>NewYorkSource.production</code> in <code>fdia_graph.generation.nygrid.source</code>), generated by the path every timeline takes (<code>TimelineSource.generate</code>).</td>
+<td>Build the release timeline from a pool: the release's source (<code>NewYorkSource.production</code> in <code>fdia_graph.generation.newyork</code>), generated by the path every timeline takes (<code>TimelineSource.generate</code>).</td>
 </tr>
 <tr>
 <td><code>pipelines/newyork/make_case.py</code></td>

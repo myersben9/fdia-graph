@@ -1848,6 +1848,91 @@
 the public API, the generated files and the numbers are the same as the previous release.</p>
 <h2 id="unreleased">Unreleased<a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
 <ul>
+<li><strong>The load data and the operating points get their own package, <code>fdia_graph.data</code>; the folder
+  <code>generation/nygrid/</code> and the module <code>profiles.py</code> are gone (a move: no function or class changes, and no
+  file changes: thirty IEEE timelines are byte for byte the files the previous code writes, and the five
+  New York digests are unchanged).</strong> <code>fg.generate_states</code>, <code>fg.load_profile</code> and <code>fg.fetch_profile</code> are
+  called as before. A module imported by its old path is imported by its new one; no old path is kept.</li>
+</ul>
+<p>New York is a test system like an IEEE case, so no folder holds "the New York code". What was in
+  <code>generation/nygrid/</code> is three general things: where the load data comes from and how the operating points
+  are solved (<code>data/</code>, for every test system), a fact about the grid (its interfaces, <code>systems/</code>) and the
+  grid as a timeline source (<code>generation/newyork.py</code>, beside <code>generation/ieee.py</code>). The imports point one
+  way: <code>constants</code>, <code>models</code>, <code>formulas</code>, <code>systems</code>, <code>sensing</code>, <code>data</code>, then <code>engine</code>, <code>generation</code> and
+  <code>dataset</code>. <code>data</code> imports nothing of <code>engine</code>, <code>generation</code> or <code>dataset</code>, and <code>systems</code> and <code>sensing</code>
+  nothing of <code>data</code> (<code>tests/test_models_package.py</code>).</p>
+<table>
+<thead>
+<tr>
+<th>Before</th>
+<th>Now</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>fdia_graph.profiles</code>: <code>load_profile</code>, <code>fetch_profile</code>, <code>LoadSource</code>, <code>RawSeries</code>, <code>CsvColumn</code>, <code>IsoFolder</code>, <code>LoadFeed</code>, <code>NyisoArchive</code>, <code>GridstatusFeed</code>, <code>nyiso_pal_month</code>, <code>nyiso_zone_load</code></td>
+<td><code>fdia_graph.data.profiles</code></td>
+</tr>
+<tr>
+<td><code>fdia_graph.profiles</code>: <code>generate_states</code>, <code>K_DEFAULT</code>, <code>SIGMA_DEFAULT</code>, <code>CLIP_DEFAULT</code></td>
+<td><code>fdia_graph.data.ieee_pool</code></td>
+</tr>
+<tr>
+<td><code>fdia_graph.generation.nygrid.config</code> (<code>Settings</code>, <code>rng</code>, <code>stream_key</code>)</td>
+<td><code>fdia_graph.data.config</code></td>
+</tr>
+<tr>
+<td><code>fdia_graph.generation.nygrid.inputs</code></td>
+<td><code>fdia_graph.data.inputs</code></td>
+</tr>
+<tr>
+<td><code>fdia_graph.generation.nygrid.load_sources</code></td>
+<td><code>fdia_graph.data.load_sources</code></td>
+</tr>
+<tr>
+<td><code>fdia_graph.generation.nygrid.loads</code></td>
+<td><code>fdia_graph.data.loads</code></td>
+</tr>
+<tr>
+<td><code>fdia_graph.generation.nygrid.dispatch</code></td>
+<td><code>fdia_graph.data.dispatch</code></td>
+</tr>
+<tr>
+<td><code>fdia_graph.generation.nygrid.solver</code> (<code>AcSolver</code>)</td>
+<td><code>fdia_graph.data.solver</code></td>
+</tr>
+<tr>
+<td><code>fdia_graph.generation.nygrid.pool</code> (<code>Pool</code>, <code>PoolBuilder</code>, <code>peak_ratings</code>)</td>
+<td><code>fdia_graph.data.pool</code></td>
+</tr>
+<tr>
+<td><code>fdia_graph.generation.nygrid.io</code> (<code>read_pool</code>, <code>write_pool</code>)</td>
+<td><code>fdia_graph.data.pool</code></td>
+</tr>
+<tr>
+<td><code>fdia_graph.engine.solvers</code> (<code>ipopt</code>)</td>
+<td><code>fdia_graph.data.ipopt</code></td>
+</tr>
+<tr>
+<td><code>fdia_graph.generation.nygrid.interfaces</code> (<code>Interface</code>, <code>hourly_interfaces</code>)</td>
+<td><code>fdia_graph.systems.interfaces</code></td>
+</tr>
+<tr>
+<td><code>fdia_graph.generation.nygrid.source</code> (<code>NewYorkSource</code>, <code>SingleEpisodeSource</code>, <code>PoolDesigner</code>, <code>Survey</code>)</td>
+<td><code>fdia_graph.generation.newyork</code></td>
+</tr>
+<tr>
+<td>the packaged <code>generation/nygrid/ny_bus_locations.csv</code></td>
+<td><code>data/ny_bus_locations.csv</code></td>
+</tr>
+</tbody>
+</table>
+<p><code>engine.solvers</code> moved because the pool's solver (<code>data/solver.py</code>) and the attack OPFs (<code>engine/attacks/</code>)
+  both run on it, and <code>data</code> may not import <code>engine</code>. A pool file is read by its path, so an existing
+  <code>pool.h5</code> reads as before. The survey cache keeps its <code>_v2</code> chunks: a chunk pickles <code>models.plan.Episode</code>
+  with numbers and text, and no pickled class moved. The rules of the New York modules not yet under the
+  SDK's gates are <code>src/fdia_graph/CLAUDE.md</code>.</p>
+<ul>
 <li><strong>One path generates a timeline on any grid, and New York adopts the original generator's noise, walk
   and move rule (a New York file changes; an IEEE file does not: the two IEEE digests are unchanged, and
   thirty-two IEEE timelines are byte for byte the files the previous code writes).</strong> <code>fg.generate</code>,

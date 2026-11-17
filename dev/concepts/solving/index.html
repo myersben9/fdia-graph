@@ -1764,12 +1764,12 @@ voltages hold. It is an optimization problem and needs a nonlinear solver.</p>
 <tr>
 <td>IEEE cases</td>
 <td>one power flow per step, in pandapower</td>
-<td><code>generate_states</code> in <code>profiles.py</code></td>
+<td><code>generate_states</code> in <code>data/ieee_pool.py</code></td>
 </tr>
 <tr>
 <td>New York</td>
 <td>one OPF per frame, in Pyomo with Ipopt</td>
-<td><code>AcSolver.dispatch</code> in <code>generation/nygrid/solver.py</code></td>
+<td><code>AcSolver.dispatch</code> in <code>data/solver.py</code></td>
 </tr>
 <tr>
 <td>New York</td>
@@ -1778,7 +1778,7 @@ voltages hold. It is an optimization problem and needs a nonlinear solver.</p>
 </tr>
 </tbody>
 </table>
-<p><code>PoolBuilder</code> (<code>generation/nygrid/pool.py</code>) runs the New York solves in time order. First,
+<p><code>PoolBuilder</code> (<code>data/pool.py</code>) runs the New York solves in time order. First,
 <code>AcSolver.project</code> solves one OPF per hour: the AC point closest to the source model's hourly
 outputs. The nuclear, hydro and external units follow these hourly points. Then each frame is
 dispatched. A thermal unit's output may differ from its output in the frame before by at most
@@ -1812,7 +1812,7 @@ attacks solve again, and only on a small area of the grid.</p>
 </tr>
 </tbody>
 </table>
-<p><code>engine/solvers.py</code> has one function, <code>ipopt</code>. Every OPF gets its solver from it. It finds
+<p><code>data/ipopt.py</code> has one function, <code>ipopt</code>. Every OPF gets its solver from it. It finds
 Ipopt, checks that it starts, and raises <code>SolverUnavailable</code> with the fix when it does not.</p>
 <p><code>Case.from_ieee</code> also solves the base power flow of an IEEE case once, in pandapower.</p>
 <h2 id="what-to-install">What to install<a class="headerlink" href="#what-to-install" title="Permanent link">&para;</a></h2>
@@ -1842,7 +1842,7 @@ Ipopt, checks that it starts, and raises <code>SolverUnavailable</code> with the
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>conda<span class="w"> </span>install<span class="w"> </span>-c<span class="w"> </span>conda-forge<span class="w"> </span>ipopt
 </code></pre></div>
 <p>Check that the package finds it:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fdia_graph.engine.solvers</span><span class="w"> </span><span class="kn">import</span> <span class="n">ipopt</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fdia_graph.data.ipopt</span><span class="w"> </span><span class="kn">import</span> <span class="n">ipopt</span>
 <a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>
 <a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="nb">print</span><span class="p">(</span><span class="n">ipopt</span><span class="p">()</span><span class="o">.</span><span class="n">version</span><span class="p">())</span>
 </code></pre></div>

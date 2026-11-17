@@ -2007,7 +2007,7 @@ NYgrid's <code>Data/</code> folder.</p>
 </code></pre></div>
 <p>In pandapower, build the net from the <code>Case</code>. <code>AcSolver</code> does it, and needs Ipopt
 (<a href="../solving/">Solving</a>):</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fdia_graph.generation.nygrid.solver</span><span class="w"> </span><span class="kn">import</span> <span class="n">AcSolver</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fdia_graph.data.solver</span><span class="w"> </span><span class="kn">import</span> <span class="n">AcSolver</span>
 <a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>
 <a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="n">net</span> <span class="o">=</span> <span class="n">AcSolver</span><span class="p">(</span><span class="n">case</span><span class="p">)</span><span class="o">.</span><span class="n">net</span>    <span class="c1"># 140 buses, 271 generators</span>
 </code></pre></div>
@@ -2026,6 +2026,10 @@ them. <code>AcSolver</code> avoids it by giving every branch a placeholder ratin
 <tr>
 <td><code>fixes.py</code></td>
 <td>two variants of the New York case, each a copy: <code>externals_at_base</code> and <code>hvdc_links</code></td>
+</tr>
+<tr>
+<td><code>interfaces.py</code></td>
+<td><code>Interface</code>: a New York transmission interface, its branches with its hourly limit and flow</td>
 </tr>
 <tr>
 <td><code>ownership.py</code></td>

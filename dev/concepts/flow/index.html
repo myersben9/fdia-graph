@@ -1871,15 +1871,25 @@ the fixed values, each with its unit and its source.</p>
 the same class. <a href="../test_systems/">Test systems</a> lists every system.</p>
 <p>You now have: a <code>Case</code> and its <code>Network</code>, which describe the grid.</p>
 <h2 id="operating-points">Operating points<a class="headerlink" href="#operating-points" title="Permanent link">&para;</a></h2>
-<p>One AC operating point per frame, in time order. The set is called the pool.</p>
+<p>One AC operating point per frame, in time order. The set is called the pool. <code>data/</code> holds
+where it comes from, for every test system: first the load data, then the solve.</p>
+<p>The load data:</p>
 <ul>
-<li>IEEE cases: <code>generate_states</code> in <code>profiles.py</code> scales the loads along a load profile and solves
-  one power flow per step. <code>load_profile</code> and <code>fetch_profile</code> read the profile.</li>
-<li>New York grid: <code>PoolBuilder</code> in <code>generation/nygrid/pool.py</code> solves one optimal power flow per
-  five-minute frame, with <code>AcSolver</code> (<code>generation/nygrid/solver.py</code>).</li>
+<li><code>data/profiles.py</code> reads a load series from a file (<code>load_profile</code>) or fetches it from an
+  operator's feed (<code>fetch_profile</code>). The result is a load profile, one number per step.</li>
+<li>The New York grid takes a load per bus. <code>data/inputs.py</code> downloads and reads its public input
+  tables, <code>data/load_sources.py</code> fetches the building and sales data, and <code>LoadModel</code> in
+  <code>data/loads.py</code> builds each bus's load from them. <code>data/config.py</code> holds that build's settings.</li>
 </ul>
-<p><code>generation/nygrid/</code> holds everything only the New York grid needs: its loads, its dispatch,
-its pool and its timeline source.</p>
+<p>The solve:</p>
+<ul>
+<li>IEEE cases: <code>generate_states</code> in <code>data/ieee_pool.py</code> scales the loads along a load profile and
+  solves one power flow per step.</li>
+<li>New York grid: <code>data/dispatch.py</code> sets each hour's dispatch. <code>PoolBuilder</code> in <code>data/pool.py</code>
+  then solves one optimal power flow per five-minute frame, with <code>AcSolver</code> (<code>data/solver.py</code>),
+  which runs on the Ipopt that <code>data/ipopt.py</code> finds and checks. <code>data/pool.py</code> also reads and
+  writes the pool file.</li>
+</ul>
 <p>The IEEE pools are released, so <code>fg.generate</code> downloads one and you do not build it.
 <a href="../solving/">Solving</a> explains the two kinds of solve, and what happens to a frame that does
 not solve.</p>
@@ -1942,7 +1952,7 @@ frames in time order, and finish the file.</p>
 <ul>
 <li>The steps are written once. A grid is a subclass that builds the generator, the pool and the
   designer of its families, and says what its files record: <code>IeeeSource</code> (<code>generation/ieee.py</code>)
-  and <code>NewYorkSource</code> (<code>generation/nygrid/source.py</code>).</li>
+  and <code>NewYorkSource</code> (<code>generation/newyork.py</code>).</li>
 <li><code>TimelineWriter</code> (<code>generation/write.py</code>) is the one writer of the HDF5 file.</li>
 <li><code>schema.py</code> defines every group, dataset and attribute name of the file, once.</li>
 <li>Settings arrive as models from <code>models/config.py</code>: <code>TimelineSettings</code> for an IEEE timeline,

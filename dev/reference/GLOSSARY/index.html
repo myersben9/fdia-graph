@@ -1805,12 +1805,12 @@ the data terms is in <a href="../../guides/generation/"><code>../guides/generati
 <tr>
 <td>onset</td>
 <td>The first frame of an episode, drawn uniformly among the positions of its split where the episode fits and, on the New York grid, where its family may start.</td>
-<td><code>generation.plan.uniform_onset</code>, <code>generation.nygrid.source.NewYorkSource.onset_masks</code>, <code>episodes/onset</code></td>
+<td><code>generation.plan.uniform_onset</code>, <code>generation.newyork.NewYorkSource.onset_masks</code>, <code>episodes/onset</code></td>
 </tr>
 <tr>
 <td>pool</td>
 <td>The operating-point pool: one converged AC state per frame, in time order. An IEEE pool is an array <code>[T, N, 4]</code> in <code>&#124;V&#124;</code>, <code>P_inj</code>, <code>Q_inj</code>, <code>theta</code> order, one state per minute of the load profile. The New York pool is a <code>Pool</code> record, one state per five-minute frame; a frame that did not solve is kept empty.</td>
-<td><code>profiles.generate_states</code>, <code>generation._load_states</code>, <code>pool_ieee{C}.h5</code>; <code>generation.nygrid.pool.Pool</code>, <code>generation.nygrid.pool.PoolBuilder</code></td>
+<td><code>data.ieee_pool.generate_states</code>, <code>generation._load_states</code>, <code>pool_ieee{C}.h5</code>; <code>data.pool.Pool</code>, <code>data.pool.PoolBuilder</code></td>
 </tr>
 <tr>
 <td>timeline</td>
@@ -1825,7 +1825,7 @@ the data terms is in <a href="../../guides/generation/"><code>../guides/generati
 <tr>
 <td>split</td>
 <td>The train, val and test partition (0, 1, 2), cut before any episode is placed, so every episode lies inside one split: three blocks in time order on an IEEE case, whole weeks by default on the New York grid.</td>
-<td><code>generation.plan.split_bounds</code>, <code>generation.nygrid.source.NewYorkSource.cut_splits</code>, <code>data/split</code>, <code>models.choices.Split</code>, <code>schema.SPLIT_CODE</code></td>
+<td><code>generation.plan.split_bounds</code>, <code>generation.newyork.NewYorkSource.cut_splits</code>, <code>data/split</code>, <code>models.choices.Split</code>, <code>schema.SPLIT_CODE</code></td>
 </tr>
 <tr>
 <td>family</td>
