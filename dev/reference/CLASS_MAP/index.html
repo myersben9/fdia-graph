@@ -1885,8 +1885,9 @@ net (<code>Case.from_pandapower</code>), its <code>Network</code>, a <code>Meter
 share. <code>PhysicsMixin</code> reads a scan's load and generation and <code>MeasurementMixin</code> emits scans; neither calls the
 other, so each has <code>GridBase</code> alone as its base. <code>AttackMixin</code> builds every attack (next section) and calls both.
 A mixin lists as bases the mixins whose methods it calls.
-<code>engine/records.py</code> emits a benign scan and hands an attacked family to the mixin; <code>timeline.py</code>
-decides when and where each episode runs.</p>
+<code>MeasurementMixin.benign_frame</code> emits a benign scan, and a designed episode (<code>engine/attacks/family.py</code>,
+<code>DesignedEpisode</code>) asks the mixin for each attacked one; <code>timeline.py</code> decides when and where each episode
+runs.</p>
 <p><a href="../../figures/diagrams/classes_engine.png"><img alt="Class diagram of the engine package: GridBase, PhysicsMixin and MeasurementMixin each under it, AttackMixin composed of EpisodeDesignMixin and StealthyMixin, and FdiaGenerator inheriting AttackMixin; the mixins use Scan, AttackDesign, Frame and FrameKnobs, and the generator holds a Case, a Network, a MeterPlan, a Measurement and a NoiseModel" src="../../figures/diagrams/classes_engine.png" /></a></p>
 <h2 id="the-attacks">The attacks<a class="headerlink" href="#the-attacks" title="Permanent link">&para;</a></h2>
 <p>Every attack is built in <code>engine/attacks/</code>, one module per concern, composed into <code>AttackMixin</code>:
@@ -1894,7 +1895,8 @@ decides when and where each episode runs.</p>
 attack vector, <code>StealthyMixin</code> builds the ramp frames, <code>MinimizeMixin</code> finds the support that tampers
 the fewest devices over an attack window [WU26, eq. 12], <code>OverloadMixin</code> builds the overload <code>Am</code>,
 and <code>EpisodeDesignMixin</code> draws what an <code>At</code> episode attacks at its onset. <code>AttackMixin.attack_frame</code>
-is the one entry for an attacked <code>At</code> scan; an <code>Am</code> frame comes from <code>overload_step</code>.</p>
+is the one entry for an attacked <code>At</code> scan; an <code>Am</code> frame comes from <code>overload_step</code>. The walk reaches
+both through a designed episode (<code>engine/attacks/search.py</code>: <code>RampEpisode</code>, <code>OverloadEpisode</code>).</p>
 <p><a href="../../figures/diagrams/classes_attacks.png"><img alt="Class diagram of the attack package: MeasurementMixin with AreaMixin under it, FalseStateMixin under AreaMixin and PhysicsMixin, StealthyMixin and MinimizeMixin under FalseStateMixin, OverloadMixin under MinimizeMixin, EpisodeDesignMixin under OverloadMixin, and AttackMixin inheriting EpisodeDesignMixin and StealthyMixin; the mixins use AttackDesign, RampDesign, LoadGoal, FlowGoal, MinimizerResult, Frame, FrameKnobs, OperatingLimits and Scan" src="../../figures/diagrams/classes_attacks.png" /></a></p>
 <h2 id="state-estimation">State estimation<a class="headerlink" href="#state-estimation" title="Permanent link">&para;</a></h2>
 <p><code>SEBase</code> holds the shared solve: the measurement function, the chord Jacobian, the meter weights and the

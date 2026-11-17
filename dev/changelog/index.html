@@ -1848,6 +1848,147 @@
 the public API, the generated files and the numbers are the same as the previous release.</p>
 <h2 id="unreleased">Unreleased<a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
 <ul>
+<li><strong>One path generates a timeline on any grid, and New York adopts the original generator's noise, walk
+  and move rule (a New York file changes; an IEEE file does not: the two IEEE digests are unchanged, and
+  thirty-two IEEE timelines are byte for byte the files the previous code writes).</strong> <code>fg.generate</code>,
+  <code>generate_timeline</code>, <code>IeeeSource(system, states, settings, seed)</code> and
+  <code>NewYorkSource(pool, attacker, families, own, settings, build)</code> are called as before.</li>
+</ul>
+<p>The steps are written once, in <code>TimelineSource</code> (<code>generation/source.py</code>): opening the file, the truth
+  layers, cutting the splits, placing, the design stage with its moves, the walk and finishing the file. A
+  source is built from a generator over its grid, its pool, the designer of its attack families, its
+  settings, the names of the families it places and a seed
+  (<code>TimelineSource(g, X, designer, settings, placed, seed)</code>); <code>IeeeSource</code> and <code>NewYorkSource</code> build those
+  and say only what is their own.</p>
+<p>"Design an attack for this window" has one shape. A family is an <code>EpisodeFamily</code>
+  (<code>engine/attacks/family.py</code>) with one method, <code>designed(onset, X, rng)</code>: the episode over the window of
+  true states <code>X</code> <code>[L, N, 4]</code>, or None. What it returns is a <code>DesignedEpisode</code>, which the walk emits by one
+  loop (<code>begin</code>, a <code>frame</code> per scan, <code>record</code>). The original search designs are the families <code>SearchRamp</code>
+  and <code>SearchOverload</code> (<code>engine/attacks/search.py</code>: each scan re-solved, with the same random draws in the
+  same order; a ramp is still designed as the walk reaches it, now inside <code>RampEpisode.begin</code>), and a New
+  York family (<code>AttackFamily</code>, unchanged for those who write one: <code>design(window, rng)</code> gives an <code>Episode</code>)
+  yields a <code>VectorEpisode</code>, the true scan plus the episode's row of its stored attack vector. A source's
+  <code>Designer</code> (<code>generation/design.py</code>) holds the families and the processes their designs run on:
+  <code>SearchDesigner</code> on an IEEE pool, <code>PoolDesigner</code> on the New York pool.</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>Before</th>
+<th>Now</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>the noise of a New York frame</td>
+<td>one stream (<code>rng(build, "noise")</code>) run over the frames in time order</td>
+<td>the frame's own stream, keyed (seed, <code>JITTER_STREAM</code>, pool frame), as on an IEEE timeline: the benign scans do not depend on the attacks placed, and one pool frame reads the same in a timeline and in a single-episode file</td>
+</tr>
+<tr>
+<td>a New York frame under an episode</td>
+<td><code>float32(z_benign + a)</code> from the float64 benign scan</td>
+<td>the stored float32 benign scan plus <code>a</code>, as an IEEE attacked frame is built (<code>FdiaGenerator.frame_from_vector</code>)</td>
+</tr>
+<tr>
+<td>how New York frames are written</td>
+<td><code>NewYorkSource._write_block</code>, <code>block</code> frames at a time (<code>NewYorkSettings.block</code>)</td>
+<td>frame by frame, by the walk every timeline uses; <code>NewYorkSettings.block</code> is removed</td>
+</tr>
+<tr>
+<td>a New York slot with no attack, or on an unsolved frame</td>
+<td>kept no episode; its frames stayed benign</td>
+<td>moved to another free onset of its split, where its family's mask allows, up to <code>REDRAWS</code> times, then given up with a warning: the rule of an IEEE timeline</td>
+</tr>
+<tr>
+<td>the move rule</td>
+<td><code>AmDesigner.design_split</code>, <code>_round</code>, <code>_move</code>, <code>_new_onset</code> (IEEE Am only)</td>
+<td><code>generation.design.SplitDesign(seed, span, rec, masks).run(slots, designs)</code>, both grids</td>
+</tr>
+<tr>
+<td><code>free_onset(rng, length, others, span)</code></td>
+<td>block splits</td>
+<td>any split, with an optional family mask</td>
+</tr>
+<tr>
+<td><code>open</code>, <code>_clean</code>, <code>frames</code>, <code>cut_splits</code>, <code>lengths</code>, <code>design</code>, <code>walk</code>, <code>finish</code>, <code>close</code></td>
+<td>written in <code>IeeeSource</code> and again in <code>NewYorkSource</code></td>
+<td>written once, in <code>TimelineSource</code></td>
+</tr>
+<tr>
+<td>the design processes</td>
+<td><code>AmDesigner</code> (IEEE) and <code>NewYorkSource._designs</code> with <code>_Task</code>, <code>_Tried</code>, <code>_Designing</code></td>
+<td><code>Designer</code> with <code>DesignTask</code> and <code>Tried</code>, one for both grids</td>
+</tr>
+<tr>
+<td><code>Walk(ctx, writer)</code>, <code>Walk.walk_split(plan, span, episodes, rec)</code>, <code>ramp_episode</code>, <code>overload_episode</code>, <code>record_episode</code></td>
+<td>one block split at a time, one loop per family</td>
+<td><code>Walk(g, X, writer, first)</code>, <code>Walk.run(t, until, pending, spans, rec)</code> and <code>Walk.episode</code>: any stretch, splits of blocks or of whole weeks, one loop</td>
+</tr>
+<tr>
+<td>an episode's family in the plan and design stages</td>
+<td>an integer code on IEEE, a name on New York (<code>Slot[Family]</code>, <code>Placement[Family]</code>, <code>models.choices.family_label</code>)</td>
+<td>its name on both (<code>Slot.family: str</code>); a designed episode carries its file code</td>
+</tr>
+<tr>
+<td>the episode lengths</td>
+<td><code>models.plan.Schedule</code> (IEEE), <code>NewYorkSettings.lengths_for</code></td>
+<td><code>lengths_for(families)</code> on both settings models; <code>Schedule</code> is removed</td>
+</tr>
+<tr>
+<td>the pool as the walk reads it</td>
+<td>an array <code>[T, N, 4]</code></td>
+<td>an array, or solved voltages read frame by frame (<code>systems.states.PoolStates</code>)</td>
+</tr>
+<tr>
+<td>a frame from its scan</td>
+<td>built field by field in three places</td>
+<td><code>Frame.from_scan</code> (<code>models/frames.py</code>)</td>
+</tr>
+<tr>
+<td>the tampered meters of an attack vector</td>
+<td><code>Attacker.tampered</code></td>
+<td><code>NoiseModel.tampered</code> (<code>sensing/noise.py</code>, with <code>wrap_angles</code>), which <code>Attacker.tampered</code> and <code>frame_from_vector</code> both call</td>
+</tr>
+<tr>
+<td>the generator on a grid that is no IEEE case</td>
+<td>not possible</td>
+<td><code>FdiaGenerator.from_network(net, plan, seed, spec)</code>; <code>FdiaGenerator(system, ...)</code> opens an IEEE case as before</td>
+</tr>
+<tr>
+<td><code>TimelineWriter.add_episode(episode, tamper, lines)</code></td>
+<td>three arguments</td>
+<td><code>add_episode(record)</code>, an <code>EpisodeRecord</code> (<code>models/plan.py</code>)</td>
+</tr>
+<tr>
+<td><code>models.frames.FrameContext</code>, <code>engine/records.py</code> (<code>attack_frame</code>)</td>
+<td>the walk's context record; the benign scan as a frame</td>
+<td>removed: the walk holds the generator and the pool, and the benign frame is <code>FdiaGenerator.benign_frame</code></td>
+</tr>
+<tr>
+<td><code>NewYorkSource._split</code>, <code>._episodes</code>, <code>._recorded()</code>, <code>._graph()</code></td>
+<td>private</td>
+<td><code>split</code>, <code>episodes</code> (the file's episode rows), <code>recorded()</code>, <code>graph()</code>, the names of the shared steps</td>
+</tr>
+<tr>
+<td><code>NewYorkSource.summary()</code></td>
+<td><code>skipped_unsolved</code>, <code>missed</code> counted placed slots</td>
+<td><code>moved</code> and <code>given_up</code> per split and family; <code>missed</code> and <code>unsolved_attempts</code> count design attempts (a slot is tried again at every onset it moves to)</td>
+</tr>
+</tbody>
+</table>
+<p>With the onset survey on, a waiting family is placed only at onsets whose design the survey already
+  holds, so it never moves; the rule then acts on the families that start anywhere (the ramp). A verbose
+  New York build no longer prints a line per stretch written or per fifty designs; the survey still reports
+  its progress. The survey cache keeps its <code>_v2</code> chunks.</p>
+<p>What changes in a New York dataset: every noisy reading (<code>data/node_x</code>, <code>data/edge_x</code>, <code>data/pmu_i</code> and
+  their <code>benign/</code> twins) is a new draw of the same noise model, and through the rounding of the benign scan
+  the attack <code>z - z_benign</code> moves in its last float32 digit. Where every placed design finds an attack (the
+  three stored digests) nothing else moves: the true state (<code>clean/</code>), the splits, the placed and designed
+  episodes, the labels, the tamper masks and every attribute are the same. Where a design fails, the
+  timeline now holds an episode at another onset in place of benign frames, so it carries more attacked
+  frames, closer to <code>attacked_frac</code>, and its <code>episode_redraws</code> attribute is no longer always zero. No New
+  York dataset is released, so no published number changes.</p>
+<ul>
 <li>
 <p><strong>Docs: three concept pages, and the roadmap page is retired (no change to the code of either
   package).</strong> <code>docs/concepts/flow.md</code> follows the package stage by stage, from the test system to the

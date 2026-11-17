@@ -1929,7 +1929,10 @@ added to the benign scan.</p>
 </tbody>
 </table>
 <p>The IEEE designs are methods of <code>FdiaGenerator</code> (<code>engine/core.py</code>), which gets them from
-<code>AttackMixin</code>. The New York designs are classes on one <code>Attacker</code> (<code>engine/attacks/attacker.py</code>).</p>
+<code>AttackMixin</code>. The New York designs are classes on one <code>Attacker</code> (<code>engine/attacks/attacker.py</code>).
+A timeline asks every family the same thing, the episode of a window (<code>EpisodeFamily.designed</code>,
+<code>engine/attacks/family.py</code>); the IEEE designs answer as the families <code>SearchRamp</code> and
+<code>SearchOverload</code> (<code>engine/attacks/search.py</code>).</p>
 <p>You now have: the episodes, each with its frames, its buses and its attack vectors.</p>
 <h2 id="the-timeline-file">The timeline file<a class="headerlink" href="#the-timeline-file" title="Permanent link">&para;</a></h2>
 <p><code>generation/</code> holds the stages that walk a timeline: the plan, the designs, the frames and the
@@ -1937,8 +1940,9 @@ writer. <code>TimelineSource.generate</code> in <code>generation/source.py</code
 the file, cut the train, validation and test splits, place the episodes, design them, walk the
 frames in time order, and finish the file.</p>
 <ul>
-<li>A grid is a subclass that writes the steps that depend on it: <code>IeeeSource</code>
-  (<code>generation/ieee.py</code>) and <code>NewYorkSource</code> (<code>generation/nygrid/source.py</code>).</li>
+<li>The steps are written once. A grid is a subclass that builds the generator, the pool and the
+  designer of its families, and says what its files record: <code>IeeeSource</code> (<code>generation/ieee.py</code>)
+  and <code>NewYorkSource</code> (<code>generation/nygrid/source.py</code>).</li>
 <li><code>TimelineWriter</code> (<code>generation/write.py</code>) is the one writer of the HDF5 file.</li>
 <li><code>schema.py</code> defines every group, dataset and attribute name of the file, once.</li>
 <li>Settings arrive as models from <code>models/config.py</code>: <code>TimelineSettings</code> for an IEEE timeline,

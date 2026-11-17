@@ -1864,9 +1864,11 @@ the data.</p>
 <p><code>report()</code> before <code>build()</code> raises <code>NotFitted</code>. A span whose first hour has no AC point raises a
 <code>DataConditionError</code> naming the frame.</p>
 <h2 id="the-timeline">The timeline<a class="headerlink" href="#the-timeline" title="Permanent link">&para;</a></h2>
-<p>After <code>source.generate(path)</code>, <code>NewYorkSource.summary()</code> returns a summary. When the build made fewer
-attacks than it placed, <code>missed</code> (and, with the
-onset survey on, <code>survey_missed</code>) says why, counted per family:</p>
+<p>After <code>source.generate(path)</code>, <code>NewYorkSource.summary()</code> returns a summary. A placed episode whose design
+finds no attack moves to another onset of its split (<code>moved</code> counts the moves) and is given up, with a
+warning, after <code>REDRAWS</code> moves (<code>given_up</code>). <code>missed</code> (and, with the
+onset survey on, <code>survey_missed</code>) says why design attempts found no attack, counted per family; a slot is
+tried again at every onset it moves to:</p>
 <table>
 <thead>
 <tr>

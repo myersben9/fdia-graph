@@ -2073,7 +2073,7 @@
 </tr>
 <tr>
 <td><code>engine.attacks.family</code></td>
-<td>The interface the attack families share: a design is one <code>Episode</code> (<code>models.plan</code>) or a miss.</td>
+<td>The interface the attack families share. The design stage asks a family one thing, the episode of a window (<code>EpisodeFamily.designed</code>), and the walk emits what it gets (<code>DesignedEpisode</code>), whichever family made it. A New York family (<code>AttackFamily</code>) designs one <code>Episode</code> (<code>models.plan</code>) or a miss.</td>
 </tr>
 <tr>
 <td><code>engine.attacks.interface</code></td>
@@ -2100,6 +2100,10 @@
 <td>[WU26]'s construction of the attack's support: row reduction of the transposed area Jacobian.</td>
 </tr>
 <tr>
+<td><code>engine.attacks.search</code></td>
+<td>The search-based families: the slow ramp At and the overload Am [WU26].</td>
+</tr>
+<tr>
 <td><code>engine.attacks.stealthy</code></td>
 <td>The stealthy ramp At: one scan at a time, a local false state added to the true scan.</td>
 </tr>
@@ -2118,10 +2122,6 @@
 <tr>
 <td><code>engine.physics</code></td>
 <td>A scan's load and generation, read from its stored state.</td>
-</tr>
-<tr>
-<td><code>engine.records</code></td>
-<td>One scan of the timeline writer: a benign scan, or an attacked At scan built by <code>engine.attacks</code>.</td>
 </tr>
 <tr>
 <td><code>engine.solvers</code></td>
@@ -2161,7 +2161,7 @@
 </tr>
 <tr>
 <td><code>generation.design</code></td>
-<td>The design stage of a timeline: the overload Am episodes of a split, designed before it is walked.</td>
+<td>The design stage of a timeline: every placed episode of a split gets its design before the split is walked, from its family (<code>engine.attacks.family.EpisodeFamily.designed</code>).</td>
 </tr>
 <tr>
 <td><code>generation.emit</code></td>
@@ -2169,7 +2169,7 @@
 </tr>
 <tr>
 <td><code>generation.ieee</code></td>
-<td>An IEEE case as the source of a timeline: its pool of operating points and its steps of the driver.</td>
+<td>An IEEE case as the source of a timeline: its pool of operating points and what its files record.</td>
 </tr>
 <tr>
 <td><code>generation.nygrid</code></td>
@@ -2221,7 +2221,7 @@
 </tr>
 <tr>
 <td><code>generation.source</code></td>
-<td>The system a timeline is generated on, and the one path that generates it.</td>
+<td>The one source of a timeline: a grid, its pool of operating points, and the path that generates it.</td>
 </tr>
 <tr>
 <td><code>generation.write</code></td>
@@ -2269,7 +2269,7 @@
 </tr>
 <tr>
 <td><code>models.plan</code></td>
-<td>The records of a timeline's plan and design stages: a placed episode (<code>Slot</code>), a split and its frames (<code>SplitSpan</code>), a placed episode on its way through the design stage (<code>Planned</code>), the attack as it is written (<code>Episode</code>), what is placed (<code>Schedule</code>) and what the placement asked for and got (<code>Placement</code>), and what a design worker rebuilds its generator from (<code>GeneratorSpec</code>).</td>
+<td>The records of a timeline's plan and design stages: a placed episode (<code>Slot</code>), a split and its frames (<code>SplitSpan</code>), a placed episode on its way through the design stage (<code>Planned</code>), the attack as it is written (<code>Episode</code>, <code>EpisodeRecord</code>), what the placement asked for and got (<code>Placement</code>), and what a design worker rebuilds its generator from (<code>GeneratorSpec</code>).</td>
 </tr>
 <tr>
 <td><code>models.validation</code></td>
@@ -2330,6 +2330,10 @@
 <tr>
 <td><code>systems.pandapower_types</code></td>
 <td>The pandapower objects the package reads, as types.</td>
+</tr>
+<tr>
+<td><code>systems.states</code></td>
+<td>The pool of operating points a timeline walks, one frame per point: an array [T, N, 4] in memory, or <code>PoolStates</code>, which keeps a year of solved voltages as they are and gives a frame's state when it is asked for.</td>
 </tr>
 <tr>
 <td><code>systems.tables</code></td>
@@ -2651,6 +2655,10 @@
 <tr>
 <td><code>tests/nygrid/test_misses.py</code></td>
 <td>Every design that finds no attack says why (a miss reason), so a timeline with few attacks can be read: nothing to attack, nothing feasible, or a solver that failed (no data needed).</td>
+</tr>
+<tr>
+<td><code>tests/nygrid/test_moves.py</code></td>
+<td>The move rule on the New York grid, and the noise of a pool frame, on the synthetic grid of <code>conftest.py</code> (no NYgrid data, no solver): a placed episode with no design moves inside its split and only where its family's mask allows, is given up after the redraw limit, never moves when the survey already holds its design; and one pool frame reads the same in a timeline and in a single-episode file.</td>
 </tr>
 <tr>
 <td><code>tests/nygrid/test_public.py</code></td>

@@ -1909,7 +1909,7 @@ each is named beside it. Terms are defined in <a href="../../reference/GLOSSARY/
 </tr>
 <tr>
 <td>3. attack families</td>
-<td><code>engine/attacks/</code> (the <code>AttackMixin</code>: the false states, the fewest-tamper search and each family's episode design are methods of the generator), <code>engine/records.py</code></td>
+<td><code>engine/attacks/</code> (the <code>AttackMixin</code>: the false states, the fewest-tamper search and each family's episode design are methods of the generator), <code>engine/attacks/family.py</code> and <code>engine/attacks/search.py</code> (a family gives the episode of a window, and the episode its scans)</td>
 <td>the attacked scan of each family</td>
 </tr>
 <tr>
@@ -1918,13 +1918,13 @@ each is named beside it. Terms are defined in <a href="../../reference/GLOSSARY/
 <td>the split, onsets, lengths</td>
 </tr>
 <tr>
-<td>5. design: the overload Am of each split</td>
-<td><code>generation/design.py</code> (<code>AmDesigner</code>, in parallel over <code>workers</code> processes)</td>
-<td>each Am's design, or its move</td>
+<td>5. design: the episodes of each split designed before it is walked</td>
+<td><code>generation/design.py</code> (<code>SplitDesign</code>, the move rule; <code>Designer</code>, each family's designs in parallel over <code>workers</code> processes)</td>
+<td>each design, or its move</td>
 </tr>
 <tr>
 <td>6. emit and write: the per-frame layers</td>
-<td><code>generation/emit.py</code> (<code>Walk.walk_split</code>), <code>generation/write.py</code> (<code>TimelineWriter</code>)</td>
+<td><code>generation/emit.py</code> (<code>Walk.run</code>), <code>generation/write.py</code> (<code>TimelineWriter</code>)</td>
 <td>the HDF5 file</td>
 </tr>
 </tbody>
@@ -1948,8 +1948,12 @@ body is short; read it there. In words:</p>
 <li><strong>walk</strong>: every frame not yet written whose split is planned by now, in time order.</li>
 <li><strong>finish</strong>: what the file carries besides its frames. Then <strong>close</strong>, after a failed run too.</li>
 </ol>
-<p>A <code>TimelineSource</code> is the grid a timeline is generated on. Each subclass owns only what differs between the
-grids:</p>
+<p>A <code>TimelineSource</code> is the grid a timeline is generated on. The steps are written once, in
+<code>generation/source.py</code>, on a generator over the grid (<code>g</code>) and the pool (<code>X</code>): the file is opened, the splits
+cut (<code>split_codes</code>: three blocks in time order unless a source says otherwise), the episodes placed, designed
+and moved (the source's <code>Designer</code> asks each family for the episode of a window), the frames walked (<code>Walk.run</code>) and the file finished (<code>graph</code>, <code>columns</code>,
+<code>header</code>, <code>recorded</code> and <code>record</code> say what it carries). A subclass builds <code>g</code>, <code>X</code> and the designer and owns only what
+differs between the grids:</p>
 <table>
 <thead>
 <tr>
@@ -1985,14 +1989,19 @@ grids:</p>
 <td>the build's <code>place</code> stream</td>
 </tr>
 <tr>
-<td><code>design</code></td>
-<td>the overload Am, before the split is walked; one with no design is moved</td>
-<td>every family; one with no design is left benign</td>
+<td>the designer</td>
+<td><code>SearchDesigner</code>: the overload Am is designed before the split is walked, the ramp At as the walk reaches it (<code>RampEpisode.begin</code>)</td>
+<td><code>PoolDesigner</code>: every family, before the split is walked, on its window of pool states, the survey's designs reused</td>
+</tr>
+<tr>
+<td>an episode with no design</td>
+<td>moved to another free onset of its split, up to <code>REDRAWS</code> times (<code>generation.design.SplitDesign</code>); a ramp At, designed by the walk, moves later</td>
+<td>moved by the same rule (<code>SplitDesign</code>), only to an onset its family's mask allows</td>
 </tr>
 <tr>
 <td><code>walk(until)</code></td>
-<td>the frames of the split just designed (its end is <code>until</code>), a scan per frame; a ramp At is designed as the walk reaches it</td>
-<td>the frames up to <code>until</code>: the noisy benign scan plus the episode's attack vector</td>
+<td>the frames of the split just designed (its end is <code>until</code>), a scan per frame; a ramp At is designed as the walk reaches it, and each scan of an episode is re-solved (<code>RampEpisode</code>, <code>OverloadEpisode</code>)</td>
+<td>the frames up to <code>until</code>, a scan per frame through the same walk (<code>generation/emit.py</code>, <code>Walk.episode</code>): the noisy benign scan, plus under an episode its row of the attack vector (<code>VectorEpisode</code>)</td>
 </tr>
 <tr>
 <td><code>open</code>, <code>finish</code></td>
@@ -2006,8 +2015,9 @@ rule serves both grids. An IEEE timeline's splits are blocks in time order, so i
 and each split is placed only after the one before it is walked, because placements, ramp designs and the
 moves of an infeasible ramp draw from the generator's one random stream. The New York splits are whole
 weeks, which interleave in time, so the walk waits until every week before a frame is planned and the file
-is written in a few stretches. Its noise stream runs over the frames in time order, so the scans do not
-depend on where a stretch ends (<code>tests/nygrid/test_stretches.py</code> pins that).</p>
+is written in a few stretches. On both grids a frame's meter jitter comes from the frame's own stream,
+keyed by (seed, <code>JITTER_STREAM</code>, pool frame), so the benign scans depend neither on where a stretch ends nor on
+which attacks are placed (<code>tests/nygrid/test_stretches.py</code> pins that).</p>
 <p><code>SingleEpisodeSource</code>, under <code>NewYorkSource</code>, is the New York grid with one episode placed by hand. The
 design processes of both grids are one class, <code>generation.design.DesignPool</code>; they are spawned, so a script
 that asks for more than one worker starts under <code>if __name__ == "__main__":</code>.</p>
@@ -2254,7 +2264,7 @@ rated accuracy. <code>Am</code> carries no such bound, because under one no over
 stealthy: moving one line's flow moves the injections and flows around its ends by several times
 that change, beyond the rated accuracy of the small loads there. A window with no stealthy
 overload moves the episode to another free onset of its split, earlier or later, up to 20 times
-(<code>generation.design.AmDesigner</code>: the Am of a split are designed before it is walked); past that it is
+(<code>generation.design.SearchDesigner</code>: the Am of a split are designed before it is walked); past that it is
 given up and counted in <code>episode_shortfall</code>. With the hybrid meters the attacker also
 writes the PMU branch currents its false state moves, which counts in the PMU of the bus at that end.
 Only <code>At</code>'s channels are bounded between snapshots, the currents included (the PMU class); <code>Am</code>'s
@@ -2402,12 +2412,12 @@ and 2,000 frames; IEEE-30 a smoke run; experiment
 <tr>
 <td>walk</td>
 <td>every frame emitted in time order, its meter jitter from its own stream keyed by the seed and the timestep: benign runs between episodes, each episode where it was placed</td>
-<td><code>emit.Walk.walk_split</code>, <code>MeasurementMixin._jitter_stream</code></td>
+<td><code>emit.Walk.run</code>, <code>MeasurementMixin._jitter_stream</code></td>
 </tr>
 <tr>
 <td>move</td>
 <td>an episode with no feasible design at its onset moves, up to 20 times, then is given up and recorded (<code>RuntimeWarning</code>): an overload Am to an onset drawn uniformly among every free one of its split, earlier or later, since the design stage designs a split's Am before any of its frames is written and an Am design reads no earlier frame (no stealth bound); a ramp At to a later free onset, since its design reads the frame before its onset and the walk has written the frames before the failed one. The moves draw from streams keyed by the seed, the split, the episode and the move, so they do not depend on the workers</td>
-<td><code>design.AmDesigner</code>, <code>emit.Walk.relocate_later</code></td>
+<td><code>design.SplitDesign</code>, <code>emit.Walk.relocate_later</code></td>
 </tr>
 <tr>
 <td>fallback</td>
@@ -2659,7 +2669,7 @@ any program using <code>multiprocessing</code> must. An Am-only IEEE-14 timeline
 <td><code>clean/</code></td>
 <td><code>node_clean</code>, <code>edge_clean</code></td>
 <td>the noiseless pool state and the exact flows on metered branches</td>
-<td><code>IeeeSource._clean</code></td>
+<td><code>TimelineSource._clean</code></td>
 </tr>
 <tr>
 <td><code>attack/</code></td>
@@ -2842,10 +2852,6 @@ grid; neither imports the engine or the generation stages:</p>
 <td>a scan's load and generation, read from its stored state</td>
 </tr>
 <tr>
-<td><code>engine/records.py</code></td>
-<td>one scan of the timeline writer: benign, or attacked by <code>engine.attacks</code></td>
-</tr>
-<tr>
 <td><code>engine/solvers.py</code></td>
 <td>the optimization solver the AC optimal power flows run on, found and checked in one place</td>
 </tr>
@@ -2864,6 +2870,10 @@ grid; neither imports the engine or the generation stages:</p>
 <tr>
 <td><code>systems/ownership.py</code></td>
 <td><code>Ownership</code>: the utility that owns each New York bus, assigned from the service territories (<code>assign_clients</code>)</td>
+</tr>
+<tr>
+<td><code>systems/states.py</code></td>
+<td><code>PoolStates</code>: solved voltages read frame by frame as the states a timeline walks, in place of an array in memory (<code>States</code> is either)</td>
 </tr>
 <tr>
 <td><code>systems/tables.py</code></td>
@@ -2910,6 +2920,10 @@ grid; neither imports the engine or the generation stages:</p>
 <td>the support by [WU26]'s row reduction</td>
 </tr>
 <tr>
+<td><code>engine/attacks/search.py</code></td>
+<td>the search-based families <code>SearchRamp</code> and <code>SearchOverload</code> and their episodes as the walk emits them: <code>RampEpisode</code> (designed as the walk reaches it) and <code>OverloadEpisode</code>, each scan re-solved</td>
+</tr>
+<tr>
 <td><code>engine/attacks/episodes.py</code></td>
 <td>each episode's design, drawn at onset: <code>ramp_design</code> and <code>am_overload_design</code>, methods of the generator</td>
 </tr>
@@ -2920,7 +2934,7 @@ grid; neither imports the engine or the generation stages:</p>
 </tbody>
 </table>
 <p>The New York grid's attacks are separate classes on the New York network: <code>engine/attacks/attacker.py</code>
-(<code>Attacker</code>), <code>engine/attacks/family.py</code> (the interface of an attack family; its design is an <code>Episode</code>, <code>models/plan.py</code>), <code>engine/attacks/ramp.py</code>
+(<code>Attacker</code>), <code>engine/attacks/family.py</code> (the interface of an attack family; its design is an <code>Episode</code>, <code>models/plan.py</code>; and <code>DesignedEpisode</code>, what the walk emits of any design, a New York one as a <code>VectorEpisode</code>), <code>engine/attacks/ramp.py</code>
 (<code>Ramp</code>), <code>engine/attacks/opf.py</code> and <code>engine/attacks/interface.py</code>
 (the overload of an interface, with false states from a local optimal power flow); they are described in
 <a href="../../concepts/new_york_grid/"><code>../concepts/new_york_grid.md</code></a>.</p>

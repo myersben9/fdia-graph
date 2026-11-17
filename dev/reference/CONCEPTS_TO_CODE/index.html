@@ -1815,7 +1815,7 @@ Paths are under <code>src/fdia_graph/</code>; <code>se/</code> and <code>localiz
 <p>Every attack is built in <code>engine.attacks</code>, the generator's <code>AttackMixin</code>: a local false state
 (<code>engine.attacks.false_state</code>) designed per episode (<code>ramp_design</code> for At, <code>am_overload_design</code> for
 Am, <code>engine.attacks.episodes</code>) on a support the search or [WU26]'s row reduction chooses
-(<code>MinimizeMixin.min_tamper</code>, <code>RrefSupport</code>); <code>engine.records.attack_frame</code> adds the attack vector to the
+(<code>MinimizeMixin.min_tamper</code>, <code>RrefSupport</code>); <code>FalseStateMixin.frame_from_state</code> adds the attack vector to the
 benign scan.</p>
 <h2 id="modules">Modules<a class="headerlink" href="#modules" title="Permanent link">&para;</a></h2>
 <p>The paper's math lives in <code>engine/</code>. <code>generation/</code> drives it in stages (<code>TimelineSource.generate</code>
