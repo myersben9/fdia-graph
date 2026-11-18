@@ -2023,7 +2023,8 @@ design processes of both grids are one class, <code>generation.design.DesignPool
 that asks for more than one worker starts under <code>if __name__ == "__main__":</code>.</p>
 <p><code>generate_timeline("ieee14", ...)</code> is <code>IeeeSource(...).generate(out)</code>; the New York build is
 <code>NewYorkSource.production(pool_path).generate(path)</code>. To switch a grid's load profiles, attacks or solver,
-change what its source holds (the pool, the families); the path stays.</p>
+change what its source holds (the pool, the families); the path stays. The solver is chosen where the
+pool is built, by a <code>SolveSettings</code> (<a href="../../concepts/solving/#the-solve-setting">Solving</a>).</p>
 <p><img alt="Seven boxes, top to bottom. 1. Pool of operating points: one AC state per frame. 2. Cut the splits: blocks in time order for an IEEE case, whole weeks for New York. 3. Place a split's episodes: whole, at random onsets. 4. Design each episode: a local false state. 5. Walk the split's frames: a benign scan, or the scan under the attack; then the next split. 6. After the last split: the episode table. Last, one timeline file: observed, benign, true state" src="../../figures/diagrams/generation_flow.png" /></p>
 <p>The published default release is v0.8.3 (<code>registry._RELEASE</code>). Its files hold seven families (the
 single-snapshot <code>Aq</code>, <code>Al</code>, <code>Ad</code>, <code>As</code>, <code>Ar</code> among them) on the v0.8.3 meters. The package reads every
@@ -2074,6 +2075,11 @@ noiseless pool.</p>
 <td>solve</td>
 <td>pandapower AC power flow, flat start, 50 iterations, 1e-6 MVA tolerance</td>
 <td><code>data.ieee_pool._solve_states_chunk</code></td>
+</tr>
+<tr>
+<td>another solve</td>
+<td><code>generate_states(..., solve=SolveSettings(method="opf", engine="ipopt"))</code>: a least-cost AC OPF per step at the case's own cost curve, in Ipopt or in pandapower (<a href="../../concepts/solving/#the-solve-setting">Solving</a>)</td>
+<td><code>data.ieee_pool._opf_states_chunk</code></td>
 </tr>
 <tr>
 <td>states kept</td>

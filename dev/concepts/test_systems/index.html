@@ -2005,15 +2005,15 @@ NYgrid's <code>Data/</code> folder.</p>
 <p>In MATPOWER the file is an ordinary case function:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">mpc</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="n">loadcase</span><span class="p">(</span><span class="s">'case_nygrid'</span><span class="p">);</span>
 </code></pre></div>
-<p>In pandapower, build the net from the <code>Case</code>. <code>AcSolver</code> does it, and needs Ipopt
+<p>In pandapower, build the net from the <code>Case</code>. <code>PandapowerSolver</code> does it
 (<a href="../solving/">Solving</a>):</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fdia_graph.data.solver</span><span class="w"> </span><span class="kn">import</span> <span class="n">AcSolver</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fdia_graph.data.pandapower_solver</span><span class="w"> </span><span class="kn">import</span> <span class="n">PandapowerSolver</span>
 <a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>
-<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="n">net</span> <span class="o">=</span> <span class="n">AcSolver</span><span class="p">(</span><span class="n">case</span><span class="p">)</span><span class="o">.</span><span class="n">net</span>    <span class="c1"># 140 buses, 271 generators</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="n">net</span> <span class="o">=</span> <span class="n">PandapowerSolver</span><span class="p">(</span><span class="n">case</span><span class="p">)</span><span class="o">.</span><span class="n">net</span>    <span class="c1"># 140 buses, 271 generators</span>
 </code></pre></div>
 <p>pandapower's own converter, <code>from_mpc</code>, fails on this file in pandapower 3.4.0. The converter
 has a bug on a branch that joins two voltage levels and has no rating, and the file has 83 of
-them. <code>AcSolver</code> avoids it by giving every branch a placeholder rating.</p>
+them. <code>PandapowerSolver</code> avoids it by giving every branch a placeholder rating.</p>
 <h2 id="the-other-files-of-systems">The other files of <code>systems/</code><a class="headerlink" href="#the-other-files-of-systems" title="Permanent link">&para;</a></h2>
 <table>
 <thead>

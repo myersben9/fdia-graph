@@ -1848,11 +1848,41 @@
 the public API, the generated files and the numbers are the same as the previous release.</p>
 <h2 id="unreleased">Unreleased<a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
 <ul>
-<li><strong>The load data and the operating points get their own package, <code>fdia_graph.data</code>; the folder
+<li><strong>The pool-building step takes one solve setting, <code>SolveSettings(method, engine)</code>, for every test system
+  (the default of each builder is what it did before: the IEEE and New York pools built without the setting
+  are byte for byte the same).</strong> <code>method</code> is <code>"power_flow"</code> or <code>"opf"</code>, <code>engine</code> is <code>"pandapower"</code> or
+  <code>"ipopt"</code>. <code>generate_states(..., solve=SolveSettings("opf", "ipopt"))</code> builds an IEEE pool by a
+  least-cost AC OPF per step (the case's limits and its own cost curve, linear and quadratic), in either
+  engine; the pool is the same for any number of <code>workers</code>, and a case with no optimum at any step raises
+  <code>DataConditionError</code>. <code>PoolBuilder.from_settings(case, loads, dispatch, renew, ramp, solve=None)</code> builds
+  the New York pool; it refuses a power flow and pandapower's OPF with the reason (<code>ConfigError</code>, declared on
+  the model <code>NewYorkSolve</code>), and <code>SolveSettings</code> refuses a power flow in Ipopt. <code>docs/concepts/solving.md</code>
+  has the table.</li>
+<li>The two engines are classes of one interface, <code>fdia_graph.data.solver.Solver</code>:
+    <code>fdia_graph.data.ipopt_solver.IpoptSolver</code> (the package's OPF, with <code>Compensation</code>) and
+    <code>fdia_graph.data.pandapower_solver.PandapowerSolver</code> (the power flow, and pandapower's OPF). Both have
+    <code>opf(pd, qd, costs)</code>, and a solve returns an <code>OperatingPoint</code> or, from an OPF, an <code>OpfPoint</code>
+    (<code>fdia_graph.models.grid</code>), read by attribute or as the dict it was.</li>
+<li><strong><code>AcSolver</code> is removed, with no alias.</strong> Its <code>project</code> and <code>dispatch</code> are <code>IpoptSolver</code>'s, its
+    <code>power_flow</code> and <code>net</code> are <code>PandapowerSolver</code>'s.</li>
+<li><code>PandapowerSolver.net</code> carries the case's bus shunts and each branch's shunt conductance (as bus shunts),
+    where <code>AcSolver.net</code> carried neither. Both are zero on the New York case, so its net is the same.</li>
+<li>A power flow given no start now starts flat where it started from a DC solution; the pool build always
+    gives a start. <code>power_flow</code> and <code>opf</code> return None only when pandapower reports no convergence; any other
+    error is raised.</li>
+<li><code>Case.pandapower_costs(net)</code> reads each unit's linear and quadratic cost from a pandapower net into a
+    <code>UnitCosts</code> (<code>fdia_graph.models.inputs</code>); the constant term is not read.</li>
+<li>
+<p><code>tests/nygrid/test_solve_engines.py</code> compares the two OPF engines on IEEE-14, 30 and 118 and on the
+    New York case: the cost agrees within 0.01 % and every unit within 0.1 MW.</p>
+</li>
+<li>
+<p><strong>The load data and the operating points get their own package, <code>fdia_graph.data</code>; the folder
   <code>generation/nygrid/</code> and the module <code>profiles.py</code> are gone (a move: no function or class changes, and no
   file changes: thirty IEEE timelines are byte for byte the files the previous code writes, and the five
   New York digests are unchanged).</strong> <code>fg.generate_states</code>, <code>fg.load_profile</code> and <code>fg.fetch_profile</code> are
-  called as before. A module imported by its old path is imported by its new one; no old path is kept.</li>
+  called as before. A module imported by its old path is imported by its new one; no old path is kept.</p>
+</li>
 </ul>
 <p>New York is a test system like an IEEE case, so no folder holds "the New York code". What was in
   <code>generation/nygrid/</code> is three general things: where the load data comes from and how the operating points

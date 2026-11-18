@@ -2036,12 +2036,20 @@
 <td>The optimization solver every OPF of the New York grid runs on, found and checked in one place.</td>
 </tr>
 <tr>
+<td><code>data.ipopt_solver</code></td>
+<td>The package's own OPF engine: one polar AC-OPF model of a Case in Pyomo, solved by Ipopt.</td>
+</tr>
+<tr>
 <td><code>data.load_sources</code></td>
 <td>Where the bottom-up load profiles come from ([LI21]), each downloaded once into a cache: the NREL ResStock and ComStock county profiles, each utility's EIA-861 sector sales, the census county centroids and the IAC industrial plants, with the clock rules the plants run on. <code>LoadModel</code> (<code>loads.py</code>) builds the bus profiles from these.</td>
 </tr>
 <tr>
 <td><code>data.loads</code></td>
 <td>Per-bus load profiles by the bottom-up method of [LI21], scaled to the real zone load.</td>
+</tr>
+<tr>
+<td><code>data.pandapower_solver</code></td>
+<td>pandapower as a solve engine of a Case: its Newton AC power flow and its interior-point AC OPF.</td>
 </tr>
 <tr>
 <td><code>data.pool</code></td>
@@ -2053,7 +2061,7 @@
 </tr>
 <tr>
 <td><code>data.solver</code></td>
-<td>AC solutions of a Case: the hourly projection (an AC-OPF in Pyomo, solved by Ipopt) and the power flows between hours (pandapower).</td>
+<td>The AC solves of a Case, behind one interface with two engines.</td>
 </tr>
 <tr>
 <td><code>dataset</code></td>
@@ -2261,7 +2269,7 @@
 </tr>
 <tr>
 <td><code>models.grid</code></td>
-<td>The static description of a system: the per-branch pi model and the admittance matrices built from it. Nothing here changes from one scan to the next.</td>
+<td>The static description of a system (the per-branch pi model and the admittance matrices built from it, which never change from one scan to the next) and one solved operating point of it.</td>
 </tr>
 <tr>
 <td><code>models.inputs</code></td>
@@ -2677,6 +2685,10 @@
 <td>The New York meter plan and its readings: the fewest PMUs on small graphs, the plan, the measurement Jacobian against finite differences, observability and the meter noise.</td>
 </tr>
 <tr>
+<td><code>tests/nygrid/test_solve_engines.py</code></td>
+<td>The two OPF engines against each other: the package's (Pyomo and Ipopt) and pandapower's, on the same case, loads and costs. Also the choices the New York pool refuses. The comparisons read no NYgrid data and are skipped where Ipopt cannot start.</td>
+</tr>
+<tr>
 <td><code>tests/nygrid/test_solvers.py</code></td>
 <td>The checked Ipopt every OPF of the New York grid runs on: a solver that is missing, or found but unable to start, raises <code>SolverUnavailable</code> with the fix, instead of reading as an infeasible model downstream.</td>
 </tr>
@@ -2795,6 +2807,10 @@
 <tr>
 <td><code>tests/test_search_speed.py</code></td>
 <td>The fewest-tamper search's speed-ups change nothing it finds: exhaustive searches on fixed IEEE-14 windows return the answers the search returned before them (pinned), and each shortcut equals the computation it replaced (the cached boundary, the reused solve blocks, the attack vector over the support's branches only).</td>
+</tr>
+<tr>
+<td><code>tests/test_solve_settings.py</code></td>
+<td>The solve setting of the pool-building step (<code>SolveSettings</code>) on the IEEE cases, with pandapower alone: what the model refuses, the default as the released power flow, and a least-cost OPF pool.</td>
 </tr>
 <tr>
 <td><code>tests/test_split_first.py</code></td>

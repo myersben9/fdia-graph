@@ -1886,9 +1886,12 @@ where it comes from, for every test system: first the load data, then the solve.
 <li>IEEE cases: <code>generate_states</code> in <code>data/ieee_pool.py</code> scales the loads along a load profile and
   solves one power flow per step.</li>
 <li>New York grid: <code>data/dispatch.py</code> sets each hour's dispatch. <code>PoolBuilder</code> in <code>data/pool.py</code>
-  then solves one optimal power flow per five-minute frame, with <code>AcSolver</code> (<code>data/solver.py</code>),
-  which runs on the Ipopt that <code>data/ipopt.py</code> finds and checks. <code>data/pool.py</code> also reads and
-  writes the pool file.</li>
+  then solves one optimal power flow per five-minute frame, with <code>IpoptSolver</code>
+  (<code>data/ipopt_solver.py</code>), which runs on the Ipopt that <code>data/ipopt.py</code> finds and checks, and
+  one power flow at its outputs, with <code>PandapowerSolver</code> (<code>data/pandapower_solver.py</code>).
+  <code>data/pool.py</code> also reads and writes the pool file.</li>
+<li>Both solvers are engines of one interface, <code>Solver</code> (<code>data/solver.py</code>). A <code>SolveSettings</code>
+  passed to either builder picks the kind of solve and the engine (<a href="../solving/">Solving</a>).</li>
 </ul>
 <p>The IEEE pools are released, so <code>fg.generate</code> downloads one and you do not build it.
 <a href="../solving/">Solving</a> explains the two kinds of solve, and what happens to a frame that does

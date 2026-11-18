@@ -1849,6 +1849,9 @@ Every step keeps a file that is already there.</p>
 </code></pre></div>
 <p>The year is dispatched in weekly chunks in parallel, then each seam between chunks is solved again until
 the dispatch is continuous. The pool holds the true state and injections of every five-minute frame.</p>
+<p>The script builds each chunk with <code>PoolBuilder.from_settings</code>, which solves an OPF in Ipopt per frame.
+It takes a <code>SolveSettings</code> like the IEEE pool builder, and refuses the other choices with the reason
+(<a href="../../concepts/solving/#the-solve-setting">Solving</a>).</p>
 <h3 id="how-the-within-hour-load-terms-are-fitted">How the within-hour load terms are fitted<a class="headerlink" href="#how-the-within-hour-load-terms-are-fitted" title="Permanent link">&para;</a></h3>
 <p>The load model (<code>data/loads.py</code>) gives each bus two five-minute terms of its own, so a
 bus's steps are not its zone's. Their constants are in <code>constants/newyork.py</code>.</p>

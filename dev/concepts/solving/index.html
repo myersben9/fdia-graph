@@ -978,10 +978,49 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#the-choice-is-fixed-per-test-system" class="md-nav__link">
+  <a href="#the-solve-setting" class="md-nav__link">
     <span class="md-ellipsis">
       
-        The choice is fixed per test system
+        The solve setting
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="The solve setting">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#an-ieee-pool-by-opf" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        An IEEE pool by OPF
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#why-a-choice-is-refused" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Why a choice is refused
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-two-opf-engines-compared" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The two OPF engines compared
       
     </span>
   </a>
@@ -1710,10 +1749,49 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#the-choice-is-fixed-per-test-system" class="md-nav__link">
+  <a href="#the-solve-setting" class="md-nav__link">
     <span class="md-ellipsis">
       
-        The choice is fixed per test system
+        The solve setting
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="The solve setting">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#an-ieee-pool-by-opf" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        An IEEE pool by OPF
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#why-a-choice-is-refused" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Why a choice is refused
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-two-opf-engines-compared" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The two OPF engines compared
       
     </span>
   </a>
@@ -1751,7 +1829,8 @@ every bus that satisfies the AC equations. Nothing is chosen.</p>
 make a cost as small as possible, while the AC equations and the limits of the units and the
 voltages hold. It is an optimization problem and needs a nonlinear solver.</p>
 <h2 id="where-each-is-used">Where each is used<a class="headerlink" href="#where-each-is-used" title="Permanent link">&para;</a></h2>
-<p>Building the pool:</p>
+<p>Building the pool, with each builder's own choice
+(<a href="#the-solve-setting">the setting</a> changes it):</p>
 <table>
 <thead>
 <tr>
@@ -1769,17 +1848,26 @@ voltages hold. It is an optimization problem and needs a nonlinear solver.</p>
 <tr>
 <td>New York</td>
 <td>one OPF per frame, in Pyomo with Ipopt</td>
-<td><code>AcSolver.dispatch</code> in <code>data/solver.py</code></td>
+<td><code>IpoptSolver.dispatch</code> in <code>data/ipopt_solver.py</code></td>
 </tr>
 <tr>
 <td>New York</td>
 <td>then one power flow at the OPF's outputs, in pandapower</td>
-<td><code>AcSolver.power_flow</code></td>
+<td><code>PandapowerSolver.power_flow</code> in <code>data/pandapower_solver.py</code></td>
 </tr>
 </tbody>
 </table>
+<p>The two engines are two classes behind one interface, <code>Solver</code> (<code>data/solver.py</code>).
+<code>IpoptSolver</code> is the package's own OPF, a Pyomo model solved by Ipopt. <code>PandapowerSolver</code>
+builds a pandapower net from the <code>Case</code> and runs pandapower's power flow and its OPF.</p>
+<p>Only one solve is shared by both engines: <code>opf(pd, qd, costs)</code>, the AC point of least cost for
+the bus loads, with every unit and every voltage within the case's limits and no branch limit.
+<code>power_flow</code> is <code>PandapowerSolver</code>'s only. <code>project</code> and <code>dispatch</code>, the New York dispatch's own
+OPFs, are <code>IpoptSolver</code>'s only.</p>
+<p>The released IEEE power flow does not go through <code>Solver</code>. <code>generate_states</code> runs it on the net
+pandapower ships, as it always has, because the released pools depend on that net bit for bit.</p>
 <p><code>PoolBuilder</code> (<code>data/pool.py</code>) runs the New York solves in time order. First,
-<code>AcSolver.project</code> solves one OPF per hour: the AC point closest to the source model's hourly
+<code>IpoptSolver.project</code> solves one OPF per hour: the AC point closest to the source model's hourly
 outputs. The nuclear, hydro and external units follow these hourly points. Then each frame is
 dispatched. A thermal unit's output may differ from its output in the frame before by at most
 its ramp. A New York frame that does not solve keeps its place in the pool with an empty state.
@@ -1846,10 +1934,187 @@ Ipopt, checks that it starts, and raises <code>SolverUnavailable</code> with the
 <a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>
 <a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="nb">print</span><span class="p">(</span><span class="n">ipopt</span><span class="p">()</span><span class="o">.</span><span class="n">version</span><span class="p">())</span>
 </code></pre></div>
-<h2 id="the-choice-is-fixed-per-test-system">The choice is fixed per test system<a class="headerlink" href="#the-choice-is-fixed-per-test-system" title="Permanent link">&para;</a></h2>
-<p>Today the kind of solve is part of each test system's code, not a setting. An IEEE pool is
-built with power flows and the New York pool with OPFs, and no argument switches one for the
-other.</p>
+<h2 id="the-solve-setting">The solve setting<a class="headerlink" href="#the-solve-setting" title="Permanent link">&para;</a></h2>
+<p>The pool-building step of every test system takes one setting, <code>SolveSettings</code>
+(<code>models/config.py</code>). It has two fields:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Values</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>method</code></td>
+<td><code>"power_flow"</code>, <code>"opf"</code></td>
+<td>how each step is solved</td>
+</tr>
+<tr>
+<td><code>engine</code></td>
+<td><code>"pandapower"</code>, <code>"ipopt"</code></td>
+<td>what runs the solve</td>
+</tr>
+</tbody>
+</table>
+<p>Leave the setting out and each builder solves as the first table says: <code>generate_states</code> with
+a power flow in pandapower, <code>PoolBuilder.from_settings</code> with an OPF in Ipopt. The generator
+reads the pool and does not solve again.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fdia_graph.data.ieee_pool</span><span class="w"> </span><span class="kn">import</span> <span class="n">generate_states</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fdia_graph.models.config</span><span class="w"> </span><span class="kn">import</span> <span class="n">SolveSettings</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="n">profile</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">288</span><span class="p">)</span> <span class="o">/</span> <span class="mf">46.0</span><span class="p">)</span>
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="n">pool</span> <span class="o">=</span> <span class="n">generate_states</span><span class="p">(</span><span class="mi">118</span><span class="p">,</span> <span class="n">profile</span><span class="p">,</span> <span class="n">solve</span><span class="o">=</span><span class="n">SolveSettings</span><span class="p">(</span><span class="n">method</span><span class="o">=</span><span class="s2">"opf"</span><span class="p">,</span> <span class="n">engine</span><span class="o">=</span><span class="s2">"ipopt"</span><span class="p">))</span>
+</code></pre></div>
+<p>What each choice does:</p>
+<table>
+<thead>
+<tr>
+<th>Test system</th>
+<th><code>method</code></th>
+<th><code>engine</code></th>
+<th>Result</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>IEEE</td>
+<td><code>power_flow</code></td>
+<td><code>pandapower</code></td>
+<td>the default: the released pools</td>
+</tr>
+<tr>
+<td>IEEE</td>
+<td><code>opf</code></td>
+<td><code>ipopt</code></td>
+<td>a least-cost OPF per step</td>
+</tr>
+<tr>
+<td>IEEE</td>
+<td><code>opf</code></td>
+<td><code>pandapower</code></td>
+<td>the same problem, in pandapower</td>
+</tr>
+<tr>
+<td>New York</td>
+<td><code>opf</code></td>
+<td><code>ipopt</code></td>
+<td>the default: the dispatch described above</td>
+</tr>
+<tr>
+<td>New York</td>
+<td><code>opf</code></td>
+<td><code>pandapower</code></td>
+<td>refused</td>
+</tr>
+<tr>
+<td>New York</td>
+<td><code>power_flow</code></td>
+<td><code>pandapower</code></td>
+<td>refused</td>
+</tr>
+<tr>
+<td>any</td>
+<td><code>power_flow</code></td>
+<td><code>ipopt</code></td>
+<td>refused</td>
+</tr>
+</tbody>
+</table>
+<h3 id="an-ieee-pool-by-opf">An IEEE pool by OPF<a class="headerlink" href="#an-ieee-pool-by-opf" title="Permanent link">&para;</a></h3>
+<p>An IEEE OPF step scales the loads as the power-flow step does, then chooses each generator's
+output. The limits are the case's own. The cost is the case's own cost curve, read by
+<code>Case.pandapower_costs</code> into a <code>UnitCosts</code>: the linear term ($/MWh) and the quadratic term
+($/MW^2h) of each unit. The constant term is not read. It does not change the optimum, and it
+is not in the cost an OPF reports. Branch ratings are not enforced, and the voltage at the
+reference bus is free within its limits.</p>
+<p>Every step is solved from the same start, the case's base state. The pool is therefore the
+same for any number of <code>workers</code>.</p>
+<p>A step with no optimum is dropped, as a step whose power flow does not converge is. At their
+base loads IEEE-57, IEEE-145, IEEE-200 and IEEE-300 have no optimum within the case's limits in
+either engine. An OPF pool in which no step has an optimum raises <code>DataConditionError</code>.</p>
+<h3 id="why-a-choice-is-refused">Why a choice is refused<a class="headerlink" href="#why-a-choice-is-refused" title="Permanent link">&para;</a></h3>
+<p>Each refusal is a <code>ConfigError</code>.</p>
+<ul>
+<li>A power flow in Ipopt: the Ipopt engine solves an OPF only. pandapower runs every power
+  flow.</li>
+<li>New York with a power flow: <code>PoolBuilder</code> builds by OPF only. The source model gives hourly
+  generator outputs, and a power flow at those outputs leaves voltages far below the case's
+  limits. A power flow at given outputs is <code>PandapowerSolver(case).power_flow</code>.</li>
+<li>New York with pandapower's OPF: the dispatch limits each unit's change between frames by
+  its ramp and holds the hydro and external units near their schedule by a penalty.
+  pandapower's OPF solves plain least cost only.</li>
+</ul>
+<p>The New York power flow was measured on 40 hours of 2019, every 219th hour, each from a flat
+start at the source model's outputs and the case's voltage setpoints. All 40 converged. The
+lowest bus voltage was between 0.72 and 0.82 p.u., where the case's lower limit is 0.9, and the
+reference bus made up between 1,001 and 2,532 MW. No hour was within the voltage limits.</p>
+<p>One New York operating point at plain least cost can be solved in either engine, with
+<code>IpoptSolver(case).opf(pd, qd, costs)</code> or <code>PandapowerSolver(case).opf(pd, qd, costs)</code>.</p>
+<h2 id="the-two-opf-engines-compared">The two OPF engines compared<a class="headerlink" href="#the-two-opf-engines-compared" title="Permanent link">&para;</a></h2>
+<p><code>tests/nygrid/test_solve_engines.py</code> solves the same case, loads and costs in both engines
+and checks that they agree.</p>
+<table>
+<thead>
+<tr>
+<th>Case</th>
+<th>Cost, Ipopt ($/h)</th>
+<th>Cost, pandapower ($/h)</th>
+<th>Time, Ipopt</th>
+<th>Time, pandapower</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>IEEE-14</td>
+<td>8,081.526</td>
+<td>8,081.527</td>
+<td>0.09 s</td>
+<td>0.40 s</td>
+</tr>
+<tr>
+<td>IEEE-30</td>
+<td>574.517</td>
+<td>574.517</td>
+<td>0.09 s</td>
+<td>0.33 s</td>
+</tr>
+<tr>
+<td>IEEE-118</td>
+<td>129,668.852</td>
+<td>129,668.854</td>
+<td>0.18 s</td>
+<td>0.71 s</td>
+</tr>
+<tr>
+<td>New York, 70 % load</td>
+<td>417,428.790</td>
+<td>417,428.797</td>
+<td>0.22 s</td>
+<td>3.69 s</td>
+</tr>
+</tbody>
+</table>
+<p>The IEEE rows use the case's base loads and its linear and quadratic cost. The New York row
+uses a flat linear cost per fuel. On these four the cost agrees within 0.01 %, the losses
+within 0.01 MW and every unit's output within 0.1 MW. The times are one solve on one desktop
+machine, after the model is built.</p>
+<p>The engines agree on every unit's output only where the optimum is one point. IEEE-89 has
+linear costs and several units at the same cost: the two costs agree to 2 parts in 10 million,
+and single units differ by up to about 20 MW. Over a load profile on IEEE-14, a unit near its
+lower limit differs by up to 0.3 MW between the engines at the same cost.</p>
+<p>pandapower's OPF of the net it ships gives 8,081.527 $/h on IEEE-14, the same problem. On
+IEEE-30 it gives 578.486 $/h against 574.517 here. That net's OPF also enforces branch
+ratings, which this problem does not: with the ratings lifted it gives 575.352 $/h. The rest
+of the difference is not accounted for.</p>
+<p>pandapower's OPF is fragile on the New York case. At the case's base load, and at 80 %, 90 %
+and 105 % of it, it does not converge where Ipopt does. The comparison therefore uses 70 % of
+the base load. Even there it depends on the machine: it converges on Windows and not on the
+Linux test runner, where the test reports that it was skipped. The IEEE comparisons run
+everywhere Ipopt is installed.</p>
 
 
 
