@@ -53,7 +53,7 @@ The solve:
 
 The IEEE pools are released, so `fg.generate` downloads one and you do not build it.
 [Solving](solving.md) explains the two kinds of solve, and what happens to a frame that does
-not solve.
+not solve. [Build the operating points](../guides/operating_points.md) has the steps.
 
 You now have: the pool, the true state of the grid at every frame.
 
@@ -69,6 +69,7 @@ What the operator reads from a state. The three classes are in `sensing/` and se
   drawn again at every scan.
 
 A benign scan is h(x) of a pool state plus noise. It needs no new solve.
+[Meters and noise](meters.md) explains the plan, the accuracy classes and the noise.
 
 You now have: one benign scan per frame, the readings with no attack.
 
@@ -94,7 +95,8 @@ The IEEE designs are methods of `FdiaGenerator` (`engine/core.py`), which gets t
 `AttackMixin`. The New York designs are classes on one `Attacker` (`engine/attacks/attacker.py`).
 A timeline asks every family the same thing, the episode of a window (`EpisodeFamily.designed`,
 `engine/attacks/family.py`); the IEEE designs answer as the families `SearchRamp` and
-`SearchOverload` (`engine/attacks/search.py`).
+`SearchOverload` (`engine/attacks/search.py`). [The attack families](attacks.md) describes
+both families and both kinds of design.
 
 You now have: the episodes, each with its frames, its buses and its attack vectors.
 
@@ -119,7 +121,8 @@ frames in time order, and finish the file.
 
 `fg.generate` starts an IEEE timeline through `generate_timeline` in `timeline.py`. The script
 `pipelines/newyork/build_timeline.py` starts the New York one.
-[The generation guide](../guides/generation.md) has every step and every setting.
+[Generate a timeline](../guides/generation.md) has every step and every setting, and
+[Layers and labels](layers.md) what the file stores per frame.
 
 You now have: one HDF5 file. `fg.generate` also registers it under a name, for `fg.load`.
 
@@ -172,20 +175,22 @@ and `tests/test_toolkit_boundary.py` checks it. The generation toolkit installs 
 
 Read in this order.
 
-1. [The landing page](https://github.com/myersben9/fdia-graph#three-steps): install, then load,
-   generate and analyse in three steps.
-2. [New York walkthrough](../getting-started/new_york_walkthrough.md): one attack followed
-   through every stage.
-3. [Test systems](test_systems.md) and [Solving](solving.md): the grids, and how their operating
+1. The three tutorials: [load a dataset](../getting-started/load.md),
+   [generate a timeline](../getting-started/generate.md) and
+   [analyse a timeline](../getting-started/analyse.md).
+2. [Test systems](test_systems.md) and [Solving](solving.md): the grids, and how their operating
    points are solved.
-4. [Timeline generation](../guides/generation.md): how a timeline is built, step by step.
+3. [Meters and noise](meters.md), [The attack families](attacks.md) and
+   [Layers and labels](layers.md): what a frame of a timeline holds.
+4. [Generate a timeline](../guides/generation.md) and
+   [Build the operating points](../guides/operating_points.md): the steps and the settings.
 5. [Glossary](../reference/GLOSSARY.md) and [Data dictionary](../reference/DATA_DICTIONARY.md):
    every term, every array and its shape.
 6. [Modules](../reference/MODULES.md): what every file does, in one line.
 7. [Concepts to code](../reference/CONCEPTS_TO_CODE.md) and [Formulas](../reference/FORMULAS.md):
    the function behind each idea and equation.
 8. [Class map](../reference/CLASS_MAP.md) and [Examples](../reference/EXAMPLES.md): the class
-   diagrams, and training examples to copy.
+   diagrams, and runnable baselines to copy.
 9. [State estimation guide](../guides/state_estimation.md): fitting and scoring an estimator.
 10. The four study pages in the table above: what was measured, on what, and the result.
 11. [Contributing](https://github.com/myersben9/fdia-graph/blob/main/CONTRIBUTING.md): the rules

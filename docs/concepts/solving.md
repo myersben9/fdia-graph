@@ -1,7 +1,8 @@
 # Solving: power flow and optimal power flow
 
 A timeline starts from a pool: the AC operating point of every frame
-([How the package flows](flow.md)). Solving is the step that builds the pool. There are two kinds
+([How the package flows](flow.md)). Solving is the step that builds the pool
+([Build the operating points](../guides/operating_points.md) has the commands). There are two kinds
 of solve, and every model in the package is AC.
 
 ## The two kinds

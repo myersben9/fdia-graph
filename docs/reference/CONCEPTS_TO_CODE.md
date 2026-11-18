@@ -62,7 +62,7 @@ Walkthrough: `../guides/state_estimation.md`. Results: `../analysis/estimation/R
   drives a line's reported flow to its rating, eqs. (24)-(25) (by default 1.25 times its peak pool
   flow), on the support that tampers the fewest devices, eq. (12); `At` is held on that
   support when `min_tamper=True` (the default), else on the region within `hops`
-  (`../guides/generation.md`, section 3). The single-snapshot families of older releases (`Aq`,
+  (`../concepts/attacks.md`). The single-snapshot families of older releases (`Aq`,
   `Al`, and the in-place `Ad`, `As`, `Ar`) are read-only: fdia-graph 0.20 generates them.
 - With `min_tamper=True` an At episode is held on the support that tampers the fewest devices over
   the episode, the objective of [WU26, eq. 12] (`engine/attacks/minimize.MinimizeMixin.min_tamper`,

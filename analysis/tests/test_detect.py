@@ -1,6 +1,6 @@
 """The detection building block: the persistence rule and its calibration, the package that exports no name,
 the rule's golden snapshot (`golden/persistence_rule.json`: a change of behavior fails here and has to
-say why), and the alarm-rule example of docs/guides/extending_new_york.md run as published (no data
+say why), and the alarm-rule example of docs/guides/extending.md run as published (no data
 needed)."""
 
 from __future__ import annotations

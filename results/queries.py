@@ -463,7 +463,7 @@ def span(store: Store, experiment: str, metric: str, fmt: str = "", **keys: str)
     return lo if lo == hi else f"{lo} to {hi}"
 
 
-# ---- generation (docs/guides/generation.md)
+# ---- generation (docs/guides/generation.md, docs/concepts/attacks.md)
 _AM_RUNS = (
     ("1", "none", "one line, without the load and generator bounds"),
     ("1", "d16", "one line, with the load and generator bounds"),

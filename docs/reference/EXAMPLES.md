@@ -1,73 +1,14 @@
 # Examples and dataset statistics
 
-Runnable model examples, the temporal state-estimation recipe, and per-system statistics.
-Quickstart is in `../../README.md`, field definitions in `DATA_DICTIONARY.md`.
+Runnable baselines to copy, the temporal state-estimation recipe, and per-system statistics of
+the released data.
 
-## Loading
+Loading a dataset is a tutorial of its own: [Load a dataset](../getting-started/load.md) has the
+loader's options, batches, exports, windows and episodes. The three layers of a frame are
+explained in [Layers and labels](../concepts/layers.md), and every field is defined in
+`DATA_DICTIONARY.md`.
 
-One file per system, one loader. `order` decides what the file is to you: a record table when
-shuffled, a time series when not.
-
-```python
-import fdia_graph as fg
-
-# the chronological 60/20/20 split; no episode is cut
-fg.load("ieee300", split="train")
-# a subset of the families
-fg.load("ieee118", split="test", families=["At"])
-# per unit and radians (the default is physical units)
-fg.load("ieee118", units="pu")
-# the record table: a fixed permutation
-fg.load("ieee118", order="random", seed=0)
-# the time series: windows and episodes
-fg.load("ieee118", split="test", order="time")
-```
-
-| you want | call |
-|---|---|
-| batches for PyTorch | `ds.loader(batch_size=64)`: each batch holds `node_x`, `edge_x`, `edge_index`, `y`, `family` |
-| a whole split at once | `ds.export()` (arrays), `ds.export(format="torch")`, `ds.export(format="pandas")` |
-| windows for an LSTM / TGN | `ds.windows(W, stride, label, layer, per_bus=True)` on a time-ordered view (one sequence per bus) |
-| the attack episodes | `ds.episodes` (onset, length, family, buses) |
-| the attack removed | every record carries `benign` and `edge_benign` next to `node_x` and `clean` |
-| custom data | `fg.generate(system, name, attacked_frac=..., families=..., frames=...)`, then `fg.load(name)` |
-
-## The timeline as sequences (LSTM / TGN)
-
-Every system is one continuous timeline of 72,000 frames on the real NYISO load trajectory, about
-half of them under attack as timed episodes. `fg.load(name, order="time")` keeps the frames in
-order, and the view then slides windows and lists episodes; `order="random"` is the same frames as
-a record table. Three aligned measurement layers come with every frame, for buses and for branches:
-
-```python
-ts = fg.load("ieee118", split="train", order="time")
-
-a = ts.export()
-a["node_x"]  # [T, N, 4] OBSERVED: attacked+noisy where attacked, benign+noisy elsewhere (the model input)
-a["benign"]  # the same meters with the ATTACK REMOVED (noise kept)
-a["clean"]  # NOISELESS, attack-free TRUE state (the SE target)
-a["edge_x"], a["edge_benign"], a["edge_clean"]  # [T, E, 2] the same three layers for branch flows
-a["y"], a["family"], a["seq_id"]  # per-frame labels, family, episode index (-1 benign)
-ts.edge_index, ts.edge_attr  # static graph; ts.export()["node_m"][0] the meter plan
-
-Xw, yw = ts.windows(W=24, stride=12)  # [n, 24, N, 4] windows + per-window labels
-ep = ts.episodes  # onset, length, family, buses of every episode in the view
-```
-
-On the metered channels:
-
-| difference | is | exact for |
-|---|---|---|
-| `observed − benign` | the attack | every family (the observed scan is the benign draw plus the attack) |
-| `benign − clean` | meter noise | all families |
-
-Every frame draws its meter noise once, for the true scan; that scan is `benign`, and the observed
-scan is `benign` plus the attack on the meters the attack moves (`attack/node_tamper`,
-`attack/edge_tamper`). For `Aq`/`At`/`Al`/`Am` the attack is the local false state's change of the
-noiseless readings, so `observed − benign` is that change exactly and zero elsewhere. `clean` is
-always the exact SE target.
-
-### Recipe: a temporal state estimator (attacked window → clean V/θ)
+## Recipe: a temporal state estimator (attacked window → clean V/θ)
 
 Feed an LSTM/TGN windows of the **attacked** measurements and train it to recover the **clean** state.
 

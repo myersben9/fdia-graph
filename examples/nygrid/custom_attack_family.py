@@ -9,7 +9,8 @@ why a design found nothing, and the timeline's source counts those reasons (`New
 
 The example runs on synthetic window states, so it needs no data. In a real build you pass the family to the
 `NewYorkSource` under a name of your own, beside the package's families, and `source.generate(path)` places,
-designs and writes its episodes like theirs.
+designs and writes its episodes like theirs. The name of the dictionary key is free; `Episode.family` must be a
+name in `fdia_graph.FAMILIES`, whose code a file stores. This one uses "Ad", the meter-corruption family.
 
 Run: python examples/nygrid/custom_attack_family.py
 """
@@ -37,7 +38,7 @@ class SlowBias(AttackFamily):
         a = np.zeros((vm.shape[0], len(self.meter_bus)))
         a[:, meter] = self.rate * np.arange(vm.shape[0])  # grows scan by scan
         return Episode(
-            family="Ab",
+            family="Ad",  # a name in fdia_graph.FAMILIES: a file stores its code
             clients=np.array([self.meter_owner[meter]]),
             onset=onset,
             length=vm.shape[0],
@@ -55,6 +56,11 @@ def main() -> None:
     print("designed:", ep is not None, "| meter moved on bus", ep.buses, "| last scan's bias", ep.a[-1].max())
     _, why = fam.design_explained((100, vm[:1], va[:1]), rng)
     print("a one-scan window:", why)
+    # what the design stage of a timeline calls: the window as states [L, N, 4] = |V|, P, Q, angle
+    states = np.zeros((16, 6, 4))
+    states[:, :, 0] = 1.0
+    designed = fam.designed(100, states, rng)
+    print("as a timeline asks it: family code", designed.code)
 
 
 if __name__ == "__main__":

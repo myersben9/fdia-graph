@@ -61,10 +61,10 @@ PAGES = {
         "ratings": "docs/concepts/test_systems.md",
         "formulas": "docs/reference/FORMULAS.md",
         "systems": "docs/concepts/test_systems.md",
-        "sensing": "docs/concepts/flow.md",
-        "data": "docs/concepts/flow.md",
+        "sensing": "docs/concepts/meters.md",
+        "data": "docs/guides/operating_points.md",
         "engine": "docs/guides/generation.md",
-        "engine/attacks": "docs/guides/generation.md",
+        "engine/attacks": "docs/concepts/attacks.md",
         "generation": "docs/guides/generation.md",
     },
     ANALYSIS: {
@@ -73,7 +73,7 @@ PAGES = {
         "formulas": "docs/reference/FORMULAS.md",
         "results": "results/README.md",
         "se": "docs/analysis/estimation/README.md",
-        "se/detect": "docs/concepts/new_york_grid.md",
+        "se/detect": "docs/guides/extending.md",
         "localization": "docs/analysis/localization/README.md",
         "trust": "docs/analysis/trust/README.md",
         "federated": "docs/analysis/federated/README.md",
@@ -99,7 +99,7 @@ REPO = {
 }
 # Each folder of docs/ (the Diataxis kinds, and the images they share).
 DOCS = {
-    "getting-started": "tutorials: a first run, start to finish",
+    "getting-started": "tutorials: load a dataset, generate one, analyse one, each start to finish",
     "guides": "how to do one task",
     "concepts": "explanations: how a part is built and why",
     "analysis": "one page per study with its figures: what was measured, on what, and the result",

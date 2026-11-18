@@ -94,7 +94,41 @@ Beyond MATPOWER's own fields the file has `mpc.bus_name`, `mpc.genfuel`, `mpc.bu
 (degrees) and `mpc.gen_ramp` (MW per minute). It has no `mpc.gencost`.
 
 `pipelines/newyork/make_case.py` is the recipe of the file: it makes the file again from
-NYgrid's `Data/` folder.
+NYgrid's `Data/` folder. A test checks that the recipe still reproduces the shipped file
+exactly.
+
+A change to the grid is an edit to the file, one row per line. No code patches the case on the
+way in. A variant in code is a copy, never a change in place: `hvdc_links(case)` or
+`case.with_voltage_margin(0.02)`.
+
+### What the reader refuses
+
+`Case.from_matpower` reads the file with matpowercaseframes, the reader pandapower uses for
+`.m` files. A branch with status 0 is left out, and a tap ratio of 0, MATPOWER's mark of a
+line, is read as 1. A file whose parts disagree is refused with a `DataConditionError` that
+names the file and what is wrong:
+
+- a bus number that is not whole, or is on two rows;
+- a unit or a branch on a bus the case does not have;
+- a zone number outside 1 to 15, or an area other than 1;
+- an indexed assignment such as `mpc.bus(1, 3) = 500;`;
+- a field that is not one of the case's. The standard `mpc.gencost`, `mpc.gentype`,
+  `mpc.areas` and `mpc.dclinecost` are passed over.
+
+`tests/nygrid/test_case_file.py` has one test per rule.
+
+### Areas in the code
+
+The file has one area, but `Case.area` is derived from the zone code on read: 2 for a New York
+bus (`NY_AREA`), and the source model's own area number for each neighbor.
+
+| Zone code | `Case.zone` | `Case.area` |
+|---|---|---|
+| 1 to 11 | `A` to `K` | 2 |
+| 12, New England | `""` | 1 |
+| 13, Ontario | `""` | 4 |
+| 14, MISO | `""` | 5 |
+| 15, PJM | `""` | 6 |
 
 ### Reading the file
 
@@ -142,7 +176,7 @@ them. `PandapowerSolver` avoids it by giving every branch a placeholder rating.
 | System | Released | How to get a timeline |
 |---|---|---|
 | the eight `ieee` systems | a pool and a timeline of 72,000 frames each | `fg.load("ieee118")` downloads it |
-| New York | nothing yet | build it: [the New York guide](../guides/new_york.md) |
+| New York | nothing yet | build the pool ([Build the operating points](../guides/operating_points.md)), then the timeline ([Generate a timeline](../guides/generation.md)) |
 
 You can also generate your own timeline on any of the eight `ieee` systems with `fg.generate`
-([the generation guide](../guides/generation.md)).
+([the tutorial](../getting-started/generate.md)).

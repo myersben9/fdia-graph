@@ -5,6 +5,26 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- **Docs: one guide for every test system, three tutorials and three new concept pages (no user-visible
+  change to the packages).** The New York grid no longer has pages of its own; it is a test system in the
+  pages every system shares.
+
+  | Kind | Pages |
+  |---|---|
+  | tutorials | `docs/getting-started/load.md`, `generate.md`, `analyse.md` |
+  | guides | `docs/guides/generation.md` (rewritten), `operating_points.md`, `extending.md`, `troubleshooting.md` |
+  | concepts | `docs/concepts/meters.md`, `attacks.md`, `layers.md` |
+
+  The five New York pages are removed and their content folded into the pages above, into
+  `docs/concepts/test_systems.md` and into `CONTRIBUTING.md` (the New York tests and snapshots). The
+  loading part of `docs/reference/EXAMPLES.md` is the load tutorial. The generation flow diagram is redrawn
+  for every system, and the New York pipeline diagram is removed. `NOT_YET_PLAIN` in `tools/prereview.py`
+  is empty: no docs page holds an internal decision code. Docstrings that cited a moved page cite its new
+  place.
+  The example `examples/nygrid/custom_attack_family.py` labels its episode with a family name of
+  `fg.FAMILIES` ("Ad"; it was "Ab", which a timeline cannot write) and also designs through
+  `EpisodeFamily.designed`, the call a timeline makes.
+
 - **The original generator is built on a `Network`, and `IeeeSource` builds it for an IEEE case (every IEEE
   file is byte for byte the same, and so are the New York release's files).**
   `fdia_graph.generation.search.SearchSource(net, X, settings, seed, time)` is the source `IeeeSource` was, on a
@@ -310,7 +330,7 @@ the public API, the generated files and the numbers are the same as the previous
   keeps its equation, source key, units and the invariants a caller must respect. By
   `python tools/count_lines.py`, `fdia_graph` goes from 14,897 to 13,850 lines with its 9,194 lines of
   code unchanged. The file layout and knobs that the docstring of `timeline.py` listed are in
-  `docs/guides/generation.md`, and the fit of the within-hour load terms is in `docs/guides/new_york.md`.
+  `docs/guides/generation.md`, and the fit of the within-hour load terms is in docs/guides/new_york.md (since moved to `docs/guides/operating_points.md`).
 
 - **Less code to read in `fdia_graph` (breaking for the internal names below; no behaviour and no stored
   byte changed: the five whole-file digests are unchanged, an IEEE timeline is byte for byte the file the
@@ -1072,8 +1092,8 @@ the public API, the generated files and the numbers are the same as the previous
   are `pipelines/newyork/` (was tools/nygrid/). The docs are sorted by kind: `docs/getting-started/`,
   `docs/guides/`, `docs/concepts/`, `docs/analysis/` (one page per study with its figures, docs/se/ now
   `docs/analysis/estimation/`, docs/wu26/ then the `defense_reproduction` folder beside it, since removed) and `docs/reference/`; the four
-  pages of docs/nygrid/ are `docs/concepts/new_york_grid.md`, `docs/getting-started/new_york_walkthrough.md`,
-  `docs/guides/extending_new_york.md` and `docs/guides/troubleshooting_new_york.md`. The run scripts keep their caches
+  pages of docs/nygrid/ are docs/concepts/new_york_grid.md, docs/getting-started/new_york_walkthrough.md,
+  docs/guides/extending_new_york.md and docs/guides/troubleshooting_new_york.md (since folded into the pages every test system shares). The run scripts keep their caches
   in `experiments/<study>/cache/` (move a cache from docs/<package>/results/cache/ to keep it).
   `tools/site_index.py` was scripts/site_index.py. `tools/` holds repository tooling only.
 - **Removed with the move:** the design documents of docs/plans/ (in the git history: `git show
@@ -1210,10 +1230,10 @@ the public API, the generated files and the numbers are the same as the previous
   is built. `tests/nygrid/inputs.py` names every input in one place and says which tests it lets run, in place
   of a path block repeated in nine test files. No user-visible change.
 
-- **Docs to read the New York grid by, and to extend it (New York grid).** `docs/getting-started/new_york_walkthrough.md` follows one
+- **Docs to read the New York grid by, and to extend it (New York grid).** docs/getting-started/new_york_walkthrough.md follows one
   attack through every stage with the call that does each step (each snippet checked on the 2019 data);
-  `docs/guides/extending_new_york.md` names the extension points (an attack family, an alarm rule, an operator, a study), each
-  with a runnable example under `examples/nygrid/` that CI runs; `docs/concepts/new_york_grid.md` opens with a rendered
+  docs/guides/extending_new_york.md names the extension points (an attack family, an alarm rule, an operator, a study), each
+  with a runnable example under `examples/nygrid/` that CI runs; docs/concepts/new_york_grid.md opens with a rendered
   diagram of the stages and its principles as they now hold, in place of an ASCII diagram that predated the operator
   and the detectors.
 
@@ -1274,7 +1294,7 @@ the public API, the generated files and the numbers are the same as the previous
   `ConfigError` for a wrong argument, `DataConditionError` (or `NoAdmissibleTarget`, `NotFitted`) for data that does
   not meet a condition, instead of bare `ValueError`s and asserts. Both subclass `ValueError`, so existing handlers
   keep working. The input CSV tables are read through one reader that closes them (`fdia_graph.nyfed.tables`), and
-  the research tools no longer silence warnings. `docs/guides/troubleshooting_new_york.md` lists what each stage reports when
+  the research tools no longer silence warnings. docs/guides/troubleshooting_new_york.md lists what each stage reports when
   it fails and what to do.
 
 - **A failed power flow reads as unknown, not safe (New York grid).** The operator's `Twin` gains `pf_failed [T]`,

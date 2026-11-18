@@ -40,8 +40,10 @@ est = SubspacePrior(prior=PriorConfig(rank_frac=0.5, reweight="huber", c=2.5)).f
 print(est.score(test))  # angle and voltage error per attack family
 ```
 
-The documentation is the repository's: the pages under `docs/analysis/` (one per study),
-`docs/guides/state_estimation.md`, and `results/README.md` for the results store.
+The documentation is the repository's: the tutorial `docs/getting-started/analyse.md`, the pages
+under `docs/analysis/` (one per study), `docs/guides/state_estimation.md`,
+`docs/concepts/layers.md` for which layers an analysis may read, and `results/README.md` for the
+results store.
 
 ## In this repository
 

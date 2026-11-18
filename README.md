@@ -24,12 +24,13 @@ selection and a results store. It depends on `fdia-graph`. `fdia-graph` never im
 | New York grid | 140 | case file in the package; you build the dataset |
 
 Each released dataset is one timeline of 72,000 frames. The New York grid is a MATPOWER case file
-with 140 buses and 227 branches; [the New York guide](docs/guides/new_york.md) builds its dataset.
+with 140 buses and 227 branches. It goes through the same generator, and
+[Build the operating points](docs/guides/operating_points.md) starts its dataset.
 
 The generator makes two attack families: `At`, a slow load ramp, and `Am`, a line overload. The
 released files hold seven families: five that the generator does not make (`Aq`, `Ad`, `As`, `Ar`,
 `Al`), and an `Am` that drives no line to its limit.
-[The generation guide](docs/guides/generation.md) has the details.
+[The attack families](docs/concepts/attacks.md) has the details.
 
 ## Three steps
 
@@ -82,12 +83,19 @@ Every extra of both toolkits is listed in [Install and data versions](docs/guide
 
 ## Where next
 
-- [How the package flows](docs/concepts/flow.md), [the test systems](docs/concepts/test_systems.md)
-  and [how they are solved](docs/concepts/solving.md)
-- [How a timeline is generated](docs/guides/generation.md)
-- [Building the New York dataset](docs/guides/new_york.md)
+- Tutorials: [load a dataset](docs/getting-started/load.md),
+  [generate a timeline](docs/getting-started/generate.md),
+  [analyse a timeline](docs/getting-started/analyse.md)
+- Guides: [generate a timeline](docs/guides/generation.md),
+  [build the operating points](docs/guides/operating_points.md),
+  [add a design family or a test system](docs/guides/extending.md),
+  [troubleshooting](docs/guides/troubleshooting.md)
+- Concepts: [how the package flows](docs/concepts/flow.md),
+  [the test systems](docs/concepts/test_systems.md), [solving](docs/concepts/solving.md),
+  [meters and noise](docs/concepts/meters.md), [the attack families](docs/concepts/attacks.md),
+  [layers and labels](docs/concepts/layers.md)
 - [Data dictionary: what every array means](docs/reference/DATA_DICTIONARY.md)
-- [Loading options and runnable baselines](docs/reference/EXAMPLES.md)
+- [Runnable baselines and dataset statistics](docs/reference/EXAMPLES.md)
 - Analysis pages: [state estimation](docs/analysis/estimation/README.md),
   [localization](docs/analysis/localization/README.md),
   [trusted meters](docs/analysis/trust/README.md),

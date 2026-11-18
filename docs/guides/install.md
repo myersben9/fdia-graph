@@ -16,7 +16,8 @@ The repository holds two distributions. `fdia-graph` generates a timeline and lo
 | `pip install "fdia-graph[all]"` | every extra above |
 
 NYISO load profiles need no extra. The New York build also needs Ipopt, a solver that pip does
-not install: see [Solving](../concepts/solving.md) and [the New York guide](new_york.md).
+not install: see [Solving](../concepts/solving.md) and
+[Build the operating points](operating_points.md).
 
 ## The analysis toolkit
 

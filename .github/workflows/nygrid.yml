@@ -3,7 +3,7 @@ name: nygrid
 # The New York grid's tests (tests/nygrid). They need the [ny] extra,
 # the Ipopt program and NYgrid's public inputs, none of which the per-push suite installs, so the root conftest.py
 # leaves the folder out there. This job installs
-# Ipopt from conda-forge (as docs/guides/new_york.md does), downloads the inputs with fetch_inputs (NYgrid's Data/ at
+# Ipopt from conda-forge (as docs/guides/operating_points.md does), downloads the inputs with fetch_inputs (NYgrid's Data/ at
 # the pinned commit, the NYS utility territories and NYISO's load archives) into a cache keyed on that commit, and
 # runs the folder. The pool frames the timeline digests build on are checked in (tests/nygrid/data/days); the tests that
 # need the whole 2019 pool (370 MB, built locally) skip here, as tests/nygrid/inputs.py says.

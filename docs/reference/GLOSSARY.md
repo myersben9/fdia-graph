@@ -2,7 +2,10 @@
 
 One definition per term and where it lives in the code: under `src/fdia_graph`, or under
 `analysis/src/fdia_analysis` for `se`, `localization`, `trust` and `federated`. The generation pipeline behind
-the data terms is in [`../guides/generation.md`](../guides/generation.md); citation keys are in
+the data terms is in [`../guides/generation.md`](../guides/generation.md), the meters in
+[`../concepts/meters.md`](../concepts/meters.md), the attacks in
+[`../concepts/attacks.md`](../concepts/attacks.md) and the layers in
+[`../concepts/layers.md`](../concepts/layers.md); citation keys are in
 [`REFERENCES.md`](REFERENCES.md).
 
 ## Data

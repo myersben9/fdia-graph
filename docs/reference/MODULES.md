@@ -15,7 +15,7 @@ What every folder of the repository holds, then what every Python file does, in 
 | `pipelines/` | the builds of released data: the New York pool and timeline, and the MATLAB reference they are checked against |
 | `tools/` | repository tooling only: the gates, the generated docs, pull requests and releases |
 | `docs/` | the documentation, one folder per kind of page |
-| `docs/getting-started/` | tutorials: a first run, start to finish |
+| `docs/getting-started/` | tutorials: load a dataset, generate one, analyse one, each start to finish |
 | `docs/guides/` | how to do one task |
 | `docs/concepts/` | explanations: how a part is built and why |
 | `docs/analysis/` | one page per study with its figures: what was measured, on what, and the result |
@@ -208,7 +208,7 @@ What every folder of the repository holds, then what every Python file does, in 
 | `tests/nygrid/test_case_file.py` | `Case.from_matpower` on a three-bus case file written here: what it reads and what it refuses. Needs no input data. |
 | `tests/nygrid/test_configs.py` | Settings are passed in, never patched onto shared objects: a widened case and an overshoot variant are copies, and the originals stay as they were (no data needed). |
 | `tests/nygrid/test_dataset.py` | A New York timeline read back (`dataset.clients`): the file holds what the source stored, in the layout of `fdia_graph.schema`; the meter table and the flat reading vector come back from its layers exactly; each client sees only its own meters, buses and labels; the operator and split views select the right frames; and the static graph gives the case's admittance matrix. On the synthetic grid of `conftest.py`: no data, no solver. |
-| `tests/nygrid/test_examples.py` | The extension examples of docs/guides/extending_new_york.md run as published, so the guide never shows code that broke (no data needed). |
+| `tests/nygrid/test_examples.py` | The extension examples of docs/guides/extending.md run as published, so the guide never shows code that broke (no data needed). |
 | `tests/nygrid/test_golden.py` | Golden snapshots of nygrid's outputs on fixed inputs, the safety net of the readability refactor. |
 | `tests/nygrid/test_grid.py` | The New York grid's case file: what it holds, its exact round trip through the MATPOWER reader and writer, the recipe that made it from NYgrid, the two case variants and the utility of each bus. |
 | `tests/nygrid/test_misses.py` | Every design that finds no attack says why (a miss reason), so a timeline with few attacks can be read: nothing to attack, nothing feasible, or a solver that failed (no data needed). |
@@ -264,7 +264,7 @@ What every folder of the repository holds, then what every Python file does, in 
 
 | file | what it does |
 |---|---|
-| `analysis/tests/test_detect.py` | The detection building block: the persistence rule and its calibration, the package that exports no name, the rule's golden snapshot (`golden/persistence_rule.json`: a change of behavior fails here and has to say why), and the alarm-rule example of docs/guides/extending_new_york.md run as published (no data needed). |
+| `analysis/tests/test_detect.py` | The detection building block: the persistence rule and its calibration, the package that exports no name, the rule's golden snapshot (`golden/persistence_rule.json`: a change of behavior fails here and has to say why), and the alarm-rule example of docs/guides/extending.md run as published (no data needed). |
 | `analysis/tests/test_edges.py` | The analysis toolkit's part of tests/test_edges.py: the tests that run an estimator, a localizer, a trust selector or an analysis formula. Of that module: The public edges: wrong arguments fail early with a message naming what is allowed, and the filters mean what the docs say. The other test files prove the happy path; this file is the rest. |
 | `analysis/tests/test_estimators.py` | Estimator behaviour the frozen scores cannot see: the per-unit guard on every public path, one estimator whatever calls it, the weighted solve keeping its best step, classical one-at-a-time residual removal, and the spread-out meter-sigma calibration. |
 | `analysis/tests/test_federated.py` | fdia_analysis.federated: the partition of buses into clients and the averaging formulas. |
