@@ -79,7 +79,7 @@ What every folder of the repository holds, then what every Python file does, in 
 | `engine.attacks.search` | The search-based families: the slow ramp At and the overload Am [WU26]. |
 | `engine.attacks.stealthy` | The stealthy ramp At: one scan at a time, a local false state added to the true scan. |
 | `engine.base` | The state FdiaGenerator's mixins share: attribute annotations only. |
-| `engine.core` | The dataset generation engine: attack simulation and realistic meter readings on an IEEE case. |
+| `engine.core` | The dataset generation engine: attack simulation and realistic meter readings on a test system. |
 | `engine.measurement` | Measurement emission: the generator's meter readings of a stored state, as a file's layers. |
 | `engine.physics` | A scan's load and generation, read from its stored state. |
 | `errors` | Every error the package raises on purpose, defined in this one module. |
@@ -92,9 +92,10 @@ What every folder of the repository holds, then what every Python file does, in 
 | `generation` | generate(system, name, **knobs) — build a custom dataset and register it as `name`. |
 | `generation.design` | The design stage of a timeline: every placed episode of a split gets its design before the split is walked, from its family (`engine.attacks.family.EpisodeFamily.designed`). |
 | `generation.emit` | The emit stage of a timeline: every frame in time order, benign or under its episode's design. |
-| `generation.ieee` | An IEEE case as the source of a timeline: its pool of operating points and what its files record. |
+| `generation.ieee` | An IEEE case by its name as the source of a timeline: the original generator (`generation.search.SearchSource`) on the case's network and its pool of operating points. |
 | `generation.newyork` | The New York grid as the source of a timeline: the year of pool states and its steps of the one path. |
 | `generation.plan` | The plan stage of a timeline: where its splits are cut and where each split's episodes go. |
+| `generation.search` | A test system as the source of a timeline, the original generator: coverage meters and the search-based designs, on any grid. |
 | `generation.source` | The one source of a timeline: a grid, its pool of operating points, and the path that generates it. |
 | `generation.write` | The one writer of a timeline file, for every grid: `TimelineWriter` owns the open HDF5 file. |
 | `models` | Every data model of the generation toolkit, one module per subject; import a model from its module. |
@@ -222,6 +223,7 @@ What every folder of the repository holds, then what every Python file does, in 
 | `tests/nygrid/test_tables.py` | The input tables are read whole and closed: no ResourceWarning, a byte-order mark dropped (no data needed). |
 | `tests/nygrid/test_timeline.py` | The New York timeline: splits cut whole and disjoint, episodes placed at random within their split and only at allowed onsets, and every frame a noisy benign scan plus its attack with labels that match the meters tampered. |
 | `tests/nygrid/test_timeline_digests.py` | The New York timeline, whole: every dataset and attribute of the files the release's source writes on the checked-in days' pool, against stored digests (`tests/digests.py` says what is compared where). |
+| `tests/test_any_case.py` | The per-case choices are settings of the one source: each works on any case whose data allows it, and is refused with the reason where the data is missing. The New York grid's side of these tests is in tests/nygrid/test_any_case.py. |
 | `tests/test_attack_area.py` | The attacker's area [WU26] Sec. III-A and the window ratings of the overload attack: the paper's own area where it states one, the region its four principles pick otherwise (rules 1 and 2 as checks, 3 and 4 as a score of ours), the "delta" ratings matched to its Fig. 4 magnitudes, and the validity of every attack the search returns (the goal met, every untampered channel within its noise, trusted buses true). |
 | `tests/test_edges.py` | The public edges: wrong arguments fail early with a message naming what is allowed, and the filters mean what the docs say. The other test files prove the happy path; this file is the rest. |
 | `tests/test_formulas.py` | The generation toolkit's formulas: each function on a case small enough to check by hand. The analysis toolkit's formulas, and the estimator's torch measurement function pinned to the numpy kernel here, are checked in analysis/tests/test_formulas.py. |

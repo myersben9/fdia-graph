@@ -59,7 +59,7 @@ CAPABILITIES: dict[str, tuple[Callable[[DatasetBase], bool], str]] = {
     Capability.CONSECUTIVE: (
         lambda ds: not len(ds.idx) or bool(np.all(np.diff(ds.idx) == 1)),
         "consecutive frames; a families= or heldout= view is not, nor is a split of whole weeks that "
-        "interleave with the other splits' weeks (a New York file)",
+        "interleave with the other splits' weeks (a file made with split_by='week')",
     ),
     Capability.SPLIT: (lambda ds: ds.has_split, "a file with the split column"),
     Capability.SWING: (lambda ds: ds.has_swing, "a file with the swing layer"),

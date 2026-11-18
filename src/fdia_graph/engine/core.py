@@ -1,10 +1,10 @@
-"""The dataset generation engine: attack simulation and realistic meter readings on an IEEE case.
+"""The dataset generation engine: attack simulation and realistic meter readings on a test system.
 
-Requires pandapower ('fdia-graph[generate]'), which solves the case's base power flow once. The grid
-is then a `Case` with its `Network`, the meters a `MeterPlan` with its `Measurement` and `NoiseModel`:
-the classes the New York grid is built on. A benign scan is emitted exactly from a stored state (no
-re-solve); only attacks re-solve, locally. The attack families are At (the slow ramp) and Am (the
-overload attack) [WU26].
+The grid is a `Case` with its `Network`, the meters a `MeterPlan` with its `Measurement` and
+`NoiseModel`, the same classes for an IEEE case and the New York grid. An IEEE case
+(`Network.from_ieee`) requires pandapower ('fdia-graph[generate]'), which solves its base power
+flow once. A benign scan is emitted exactly from a stored state (no re-solve); only attacks
+re-solve, locally. The attack families are At (the slow ramp) and Am (the overload attack) [WU26].
 
 FdiaGenerator sets up the state here (`__init__`) and gets its methods from three mixins:
 physics.py (a scan's load and generation), measurement.py (meter readings from a state) and
@@ -13,7 +13,7 @@ attacks/ (every attack).
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Optional, Union
+from typing import TYPE_CHECKING, Optional
 
 import numpy as np
 
@@ -21,11 +21,9 @@ from ..constants.grid import BusType
 from ..constants.meters import FLOW_KINDS, MeterKind
 from ..models.config import GeneratorOptions, MeterSettings
 from ..models.frames import LayerSet
-from ..registry import system_id
 from ..sensing.measure import Measurement
 from ..sensing.meters import MeterPlan
 from ..sensing.noise import NoiseModel
-from ..systems.case import Case
 from ..systems.network import Network
 from .attacks import AttackMixin
 
@@ -36,34 +34,22 @@ if TYPE_CHECKING:
 class FdiaGenerator(AttackMixin):
     def __init__(
         self,
-        system: Union[int, str],
+        net: Network,
         seed: int = 123,
         meters: MeterSettings = MeterSettings(),
         max_load_mw: Optional[float] = 2000.0,
         plan: Optional[MeterPlan] = None,
+        spec: LayerSet = LayerSet(),
     ) -> None:
-        """Load the IEEE case `system` ("ieee118" and 118 alike), solve the base power flow, and draw
-        the meter plan of `meters` from `seed` (`MeterPlan.from_coverage`: the meters, then their
-        biases). Only PMUs read angles, and they read branch currents [WU26 eqs. 17-20]. A `plan` is
-        used as given and nothing is drawn. The bus admittance is in MATPOWER's order (`Network`,
-        `matpower_order`): the stored IEEE files were made with it, to the last bit."""
-        options = GeneratorOptions(max_load_mw)  # refused here, before the case is built
-        net = Network(Case.from_ieee(system_id(system)), matpower_order=True)
-        self._open(net, seed, LayerSet(), options.max_load_mw)
+        """The generator of any grid: its `Network`, and the meter plan of `meters` drawn from `seed`
+        (`MeterPlan.from_coverage`: the meters, then their biases). Only PMUs read angles, and they
+        read branch currents [WU26 eqs. 17-20]. A `plan` is used as given and nothing is drawn. A
+        scan is laid out in the layers of `spec` (the New York release meters both ends of a branch)."""
+        options = GeneratorOptions(max_load_mw)
+        self._open(net, seed, spec, options.max_load_mw)
         self._meter(MeterPlan.from_coverage(self.case, meters, self.rng) if plan is None else plan)
 
-    @classmethod
-    def from_network(
-        cls, net: Network, plan: MeterPlan, seed: int = 123, spec: LayerSet = LayerSet()
-    ) -> FdiaGenerator:
-        """The generator of any grid: its `Network` and its meter `plan`, a scan laid out in the
-        layers of `spec` (New York meters both ends of a branch)."""
-        g = cls.__new__(cls)
-        g._open(net, seed, spec)
-        g._meter(plan)
-        return g
-
-    def _open(self, net: Network, seed: int, spec: LayerSet, max_load_mw: Optional[float] = 2000.0) -> None:
+    def _open(self, net: Network, seed: int, spec: LayerSet, max_load_mw: Optional[float]) -> None:
         """The grid, the generator's random stream and the tables of the case."""
         self.spec = spec
         # `max_load_mw` keeps a larger load out of the attack targets (None: no cap): it is an area
@@ -89,7 +75,7 @@ class FdiaGenerator(AttackMixin):
     @classmethod
     def from_spec(cls, spec: GeneratorSpec) -> FdiaGenerator:
         """The generator of `spec`: its case, meter plan and ratings."""
-        g = cls(spec.system, spec.seed, spec.meters, spec.max_load_mw)
+        g = cls(spec.net, spec.seed, spec.meters, spec.max_load_mw)
         g._line_ratings, g._rating_delta = spec.ratings, spec.rating_delta
         return g
 

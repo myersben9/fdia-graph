@@ -154,10 +154,13 @@ def test_a_stealthy_frame_is_the_benign_scan_plus_its_attack_vector(timeline_fil
     and is zero elsewhere: no second noise draw enters."""
     from fdia_graph.engine.core import FdiaGenerator
     from fdia_graph.models.config import MeterSettings
+    from fdia_graph.systems.network import Network
 
     a, attrs = _read(timeline_file)
     red = {k: float(attrs[k]) for k in ("vbus_frac", "pmu_frac", "flow_frac")}  # the file's meter plan
-    g = FdiaGenerator(int(attrs["system"]), seed=int(attrs["seed"]), meters=MeterSettings(**red))
+    g = FdiaGenerator(
+        Network.from_ieee(int(attrs["system"])), seed=int(attrs["seed"]), meters=MeterSettings(**red)
+    )
     pos = {int(b): i for i, b in enumerate(g.load_bus)}
     ptr, mag, mag_bus = a["attack/mag_ptr"], a["attack/mag"], a["attack/mag_bus"]
     frames = np.flatnonzero(a["data/family"] == 5)[:20]
@@ -191,8 +194,9 @@ def test_a_slack_bus_load_is_never_a_target():
     """IEEE-57 carries a load on its slack bus; the slack never enters a region, so that load is
     not attackable (a frame scaling it would be labelled attacked with no attack in the state)."""
     from fdia_graph.engine.core import FdiaGenerator
+    from fdia_graph.systems.network import Network
 
-    g = FdiaGenerator(57, seed=1)
+    g = FdiaGenerator(Network.from_ieee(57), seed=1)
     assert g.slack_bus in set(g.load_bus.tolist())
     assert g.slack_bus not in set(g.load_bus[g.attackable_pos].tolist())
 
@@ -201,8 +205,9 @@ def test_area_equivalent_loads_are_never_targets():
     """IEEE-145 lumps regions into gigawatt loads; the cap keeps them out of the target set and
     leaves every other ladder system's set as it was."""
     from fdia_graph.engine.core import FdiaGenerator
+    from fdia_graph.systems.network import Network
 
-    g = FdiaGenerator(145, seed=1)
+    g = FdiaGenerator(Network.from_ieee(145), seed=1)
     load = ieee_net(145).load
     per_bus = np.zeros(g.C)
     np.add.at(per_bus, load.bus.to_numpy(int), load.p_mw.to_numpy(float))
@@ -210,10 +215,12 @@ def test_area_equivalent_loads_are_never_targets():
     p = np.abs(g.load_p0)
     assert (p > 2000).sum() >= 10 and p[g.attackable_pos].max() <= 2000
     assert set(g.attackable_pos) == set(np.flatnonzero((p > 0) & (p <= 2000)))
-    g14 = FdiaGenerator(14, seed=1)
-    assert set(g14.attackable_pos) == set(FdiaGenerator(14, seed=1, max_load_mw=None).attackable_pos)
+    g14 = FdiaGenerator(Network.from_ieee(14), seed=1)
+    assert set(g14.attackable_pos) == set(
+        FdiaGenerator(Network.from_ieee(14), seed=1, max_load_mw=None).attackable_pos
+    )
     with pytest.raises(ValueError):
-        FdiaGenerator(14, seed=1, max_load_mw=0)
+        FdiaGenerator(Network.from_ieee(14), seed=1, max_load_mw=0)
 
 
 def test_a_step_without_a_local_solution_is_halved(monkeypatch):
@@ -221,8 +228,9 @@ def test_a_step_without_a_local_solution_is_halved(monkeypatch):
     past the noise floor: its design step is sub-floor anyway."""
     from fdia_graph.engine.core import FdiaGenerator
     from fdia_graph.models.frames import AttackDesign, FrameKnobs
+    from fdia_graph.systems.network import Network
 
-    g = FdiaGenerator(14, seed=1)
+    g = FdiaGenerator(Network.from_ieee(14), seed=1)
     steps: list[float] = []
 
     def fake(Xt, design, k):
@@ -246,8 +254,9 @@ def test_operating_limits_are_the_case_limits_widened_to_the_pool():
     a false state that pushes a generator past its cap or a bus past its limit is refused."""
     from fdia_graph.engine.core import FdiaGenerator
     from fdia_graph.formulas.attacks import generator_output, within_limits
+    from fdia_graph.systems.network import Network
 
-    g = FdiaGenerator(14, seed=1)
+    g = FdiaGenerator(Network.from_ieee(14), seed=1)
     net = ieee_net(14)
     X0 = net.res_bus.reindex(sorted(net.bus.index))[["vm_pu", "p_mw", "q_mvar", "va_degree"]].to_numpy()
     for b, ps, qs in zip(net.shunt.bus, net.res_shunt.p_mw, net.res_shunt.q_mvar):
@@ -290,8 +299,9 @@ def test_the_fixture_records_its_limits(timeline_file):
 def test_local_region_keeps_a_boundary_and_the_slack_fixed():
     from fdia_graph.engine.core import FdiaGenerator
     from fdia_graph.formulas.network import subnetwork
+    from fdia_graph.systems.network import Network
 
-    g = FdiaGenerator(14, seed=1)
+    g = FdiaGenerator(Network.from_ieee(14), seed=1)
     for hops in (0, 1, 2, 3):
         region = g.local_region(g.load_bus[:5], hops)
         assert region is not None and g.slack_bus not in region
@@ -324,13 +334,14 @@ def test_a_producing_static_generator_bus_injects():
     as such, never zero-injection junctions; IEEE-200's static generators all produce 0 MW, so their
     buses stay zero-injection unless another element sits there."""
     from fdia_graph.engine.core import FdiaGenerator
+    from fdia_graph.systems.network import Network
 
-    g = FdiaGenerator(89, seed=1)
+    g = FdiaGenerator(Network.from_ieee(89), seed=1)
     for b in (1, 65, 69, 79):
         assert (
             b not in g.zero_inj and g.masks.node[b, NodeChannel.P_INJ] and g.masks.node[b, NodeChannel.Q_INJ]
         )
-    g = FdiaGenerator(200, seed=1)
+    g = FdiaGenerator(Network.from_ieee(200), seed=1)
     base = ieee_net(200)
     others = set(base.gen.bus) | set(base.load.bus) | set(base.ext_grid.bus) | set(base.shunt.bus)
     idle = [int(b) for b in base.sgen.bus if int(b) not in others]
@@ -342,8 +353,9 @@ def test_reactive_load_adds_back_the_generators_output():
     reactive load adds it back; the local solve with unchanged loads reproduces the scan."""
     from fdia_graph.data.ieee_pool import _case_buses, _solve_states_chunk
     from fdia_graph.engine.core import FdiaGenerator
+    from fdia_graph.systems.network import Network
 
-    g = FdiaGenerator(14, seed=5)
+    g = FdiaGenerator(Network.from_ieee(14), seed=5)
     X = _solve_states_chunk(14, np.full((1, len(_case_buses(14))), 1.1))[0]
     Lq = g.true_reactive_load(X)
     for pos, b in enumerate(g.load_bus):
@@ -371,9 +383,10 @@ def test_stealthy_targets_avoid_every_generator_and_live_static_generator_bus():
     """On the two systems with static generators, no stealthy target sits on a bus holding a
     generator or a static generator that produces P or Q; the in-place set is not narrowed by it."""
     from fdia_graph.engine.core import FdiaGenerator
+    from fdia_graph.systems.network import Network
 
     for C in (89, 300):
-        g = FdiaGenerator(C, seed=1)
+        g = FdiaGenerator(Network.from_ieee(C), seed=1)
         net = ieee_net(C)
         sg = net.sgen[(net.sgen.p_mw.abs() > 0) | (net.sgen.q_mvar.abs() > 0)]
         banned = set(net.gen.bus) | set(sg.bus)

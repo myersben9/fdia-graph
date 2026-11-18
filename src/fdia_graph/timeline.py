@@ -26,10 +26,12 @@ def generate_timeline(
     settings: Optional[TimelineSettings] = None,
     seed: int = 123,
     out: Optional[OutPath] = None,
+    time: Optional[np.ndarray] = None,
     **knobs: object,
 ) -> str:
     """Walk one attacked timeline over the IEEE `system`'s operating-point pool, write it as one HDF5
     file and return the path (default: `timeline_ieee{N}.h5` under the cache directory). A flat keyword
     in `knobs` (attacked_frac, families, ramp_rate, hops, ...; the table is in docs/guides/generation.md)
-    overrides the same field of `settings` (`TimelineSettings.of`)."""
-    return IeeeSource(system, states, TimelineSettings.of(settings, **knobs), seed).generate(out)
+    overrides the same field of `settings` (`TimelineSettings.of`). `time` [T] is each frame's time,
+    for a pool that has it: a split by weeks (`split_by="week"`) reads it, and the file stores it."""
+    return IeeeSource(system, states, TimelineSettings.of(settings, **knobs), seed, time).generate(out)

@@ -36,16 +36,19 @@ body is short; read it there. In words:
 
 A `TimelineSource` is the grid a timeline is generated on. The steps are written once, in
 `generation/source.py`, on a generator over the grid (`g`) and the pool (`X`): the file is opened, the splits
-cut (`split_codes`: three blocks in time order unless a source says otherwise), the episodes placed, designed
+cut (`split_codes`, as the `split_by` setting says: three blocks in time order, or whole weeks on a pool whose frames carry their time), the episodes placed, designed
 and moved (the source's `Designer` asks each family for the episode of a window), the frames walked (`Walk.run`) and the file finished (`graph`, `columns`,
 `header`, `recorded` and `record` say what it carries). A subclass builds `g`, `X` and the designer and owns only what
-differs between the grids:
+differs. `SearchSource` is the original generator, built on a `Network` and its pool; `IeeeSource`
+(`generation/ieee.py`) builds it for an IEEE case by name. `NewYorkSource` is the New York release:
 
-| step | `IeeeSource` (`generation/ieee.py`) | `NewYorkSource` (`generation/newyork.py`) |
+| step | `SearchSource` (`generation/search.py`) | `NewYorkSource` (`generation/newyork.py`) |
 |---|---|---|
-| the pool | `[T, N, 4]` AC states of a pandapower case | the year of five-minute AC states (`Pool`) |
+| the grid | a `Network`: an IEEE case's (`Network.from_ieee`) | the New York case with the utility that owns each bus |
+| the meters | random coverage (`MeterPlan.from_coverage`) | every bus and branch end a utility owns (`plan_meters`) |
+| the pool | `[T, N, 4]` AC states of a pool that scales each bus's load and generation by one factor (`generate_states`), injections positive for load | the year of five-minute AC states (`Pool`) |
 | `prepare` | nothing | each waiting family's onset mask; with `survey`, the onset survey (kept in a `Survey` record) |
-| `cut_splits` | three blocks in time order (`split_bounds`) | whole weeks, stratified (`split_weeks`) |
+| `split_by`, the setting `cut_splits` reads | `"time"` by default: three blocks in time order (`split_bounds`) | `"week"` by default: whole weeks, stratified (`split_weeks`) |
 | `onset_masks` | none: any onset of the split | the masks, or the onsets the survey found an attack at |
 | `placement_rng` | the generator's one stream | the build's `place` stream |
 | the designer | `SearchDesigner`: the overload Am is designed before the split is walked, the ramp At as the walk reaches it (`RampEpisode.begin`) | `PoolDesigner`: every family, before the split is walked, on its window of pool states, the survey's designs reused |
@@ -70,6 +73,13 @@ that asks for more than one worker starts under `if __name__ == "__main__":`.
 `NewYorkSource.production(pool_path).generate(path)`. To switch a grid's load profiles, attacks or solver,
 change what its source holds (the pool, the families); the path stays. The solver is chosen where the
 pool is built, by a `SolveSettings` ([Solving](../concepts/solving.md#the-solve-setting)).
+
+The two kinds of design each run on their own meters. The search-based designs read a flow at a branch's from
+end and PMU currents as real and imaginary parts (coverage meters); the designs of the New York release
+read the owned meters, both branch ends and currents as magnitude and angle. So the meter placement is not
+a setting on its own yet: it follows the source. The search-based designs also read a scan's load and
+generation from its state by the rule of the IEEE pools (one scale factor per bus, `formulas/attacks.py`),
+which a dispatched pool such as New York's does not follow, so they are not offered on that pool.
 
 ![Seven boxes, top to bottom. 1. Pool of operating points: one AC state per frame. 2. Cut the splits: blocks in time order for an IEEE case, whole weeks for New York. 3. Place a split's episodes: whole, at random onsets. 4. Design each episode: a local false state. 5. Walk the split's frames: a benign scan, or the scan under the attack; then the next split. 6. After the last split: the episode table. Last, one timeline file: observed, benign, true state](../figures/diagrams/generation_flow.png)
 
@@ -367,7 +377,7 @@ grid; neither imports the engine or the generation stages:
 
 | file | holds |
 |---|---|
-| `engine/core.py` | `FdiaGenerator`: the IEEE case as a `Case` with its `Network` (`systems/`), its `MeterPlan`, `Measurement` and `NoiseModel` (`sensing/`; the classes the New York grid uses too), attack targeting, and the mixins below composed |
+| `engine/core.py` | `FdiaGenerator`: a grid as a `Network` over its `Case` (`systems/`; `Network.from_ieee` is an IEEE case's), its `MeterPlan`, `Measurement` and `NoiseModel` (`sensing/`), attack targeting, and the mixins below composed |
 | `engine/base.py` | `GridBase`: the attributes the mixins share |
 | `engine/measurement.py` | `MeasurementMixin`: a scan from a stored state, `Measurement.h` and `NoiseModel.sample` laid out as a file's layers |
 | `engine/physics.py` | a scan's load and generation, read from its stored state |
@@ -424,7 +434,9 @@ under `name`. Without `states`, it reads `$FDIA_GRAPH_INIT` or downloads the sys
 | `ramp_len` | 60 | `At` episode length |
 | `am_len` | `ramp_len` | `Am` episode length |
 | `hops` | 2 | the attacker's subnetwork reach in branches |
-| `split` | (0.6, 0.2, 0.2) | chronological train/val/test fractions |
+| `split` | (0.6, 0.2, 0.2) | train/val/test fractions |
+| `split_by` | `"time"` | how the splits are cut: `"time"`, three blocks in time order, or `"week"`, whole weeks drawn into the three splits. Weeks read each frame's time; a pool without it refuses `"week"` with the reason (`SplitRule`). A file records `split_by` only when it is not `"time"` |
+| `time` | None | each frame's time `[T]`, for a pool that has it: numpy datetime64 values, one per frame, strictly increasing (anything else is refused when the source is built). An IEEE pool stores none, so an IEEE case with week splits needs it passed in. With it the file stores `data/time`, and no episode is placed across a gap (a step that differs from the median step) |
 | `max_load_mw` | 2000.0 | a larger load (MW) is never a target: it is an area equivalent, not a substation (IEEE-145 lumps regions into loads of 4 to 58 GW); None disables |
 | `seed` | 123 | the meter plan, the biases and every attack draw |
 | `workers` | 1 | processes the overload Am designs run on; the file does not depend on it |

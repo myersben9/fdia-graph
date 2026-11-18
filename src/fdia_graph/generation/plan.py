@@ -242,6 +242,16 @@ def split_column(bounds: list[tuple[int, int]], T: int) -> np.ndarray:
     return split
 
 
+def time_runs(time: np.ndarray) -> np.ndarray:
+    """[T] int: the run of regularly spaced frames each frame lies in. The regular step is the median
+    step between two frames; a step of any other size is a gap and starts a new run. An episode is
+    placed inside one run (`SplitSpan.onsets_fit`)."""
+    step = np.diff(time).astype(np.int64)
+    if not len(step):
+        return np.zeros(len(time), int)
+    return np.r_[0, np.cumsum(step != np.median(step))]
+
+
 def week_index(time: np.ndarray) -> np.ndarray:
     """[T] int: each frame's week counted from the first frame's time (`time` [T] in seconds or datetime64)."""
     t = np.asarray(time)

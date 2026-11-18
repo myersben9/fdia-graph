@@ -4,15 +4,17 @@
 splits, then split by split place the episodes, design them and walk the frames in time order, and
 finish the file. Those steps are written here once, on a generator over the grid, the pool and the
 designer of the attack families. A subclass builds them and says what its files record:
-`generation.ieee.IeeeSource` (an IEEE case, random meters, the search-based families) and
-`generation.newyork.NewYorkSource` (the New York grid, owned meters, the families that design
-an attack vector, splits of whole weeks). docs/guides/generation.md has the step-by-step table.
+`generation.search.SearchSource` (any grid, random meters, the search-based families; an IEEE case
+by name is `generation.ieee.IeeeSource`) and `generation.newyork.NewYorkSource` (the New York
+release: owned meters, the families that design an attack vector, splits of whole weeks).
+docs/guides/generation.md has the step-by-step table.
 """
 
 from __future__ import annotations
 
 import os
 import time
+import zlib
 from abc import ABC, abstractmethod
 from collections.abc import Mapping, Sequence
 from typing import Optional, Union
@@ -23,13 +25,23 @@ from .. import schema
 from ..constants.files import PART
 from ..engine.attacks.family import DesignedEpisode
 from ..engine.core import FdiaGenerator
-from ..models.choices import Split
+from ..errors import ConfigError
+from ..models.choices import Split, SplitBy
 from ..models.config import NewYorkSettings, TimelineSettings
+from ..models.inputs import SplitRule
 from ..models.plan import Episode, Placement, Planned, Slot, SplitSpan
 from ..systems.states import States
 from .design import Designer, SplitDesign
 from .emit import Walk
-from .plan import place_split, planned_until, split_bounds, split_column
+from .plan import (
+    STRATUM,
+    place_split,
+    planned_until,
+    split_bounds,
+    split_column,
+    split_weeks,
+    time_runs,
+)
 from .write import TimelineWriter
 
 OutPath = Union[str, "os.PathLike[str]"]  # where a timeline file is written
@@ -40,14 +52,16 @@ SourceSettings = Union[TimelineSettings, NewYorkSettings]
 class TimelineSource(ABC):
     """A timeline to generate: the generator `g` over the grid and its meter plan, the pool `X` (one
     frame per operating point), the `designer` of the attack families, the `settings`, the names of
-    the families `placed` and the `seed`.
+    the families `placed`, the `seed` and, when the pool has it, each frame's `time` [T].
 
-    The defaults of the steps are the original's: three blocks in time order, any onset of a split,
-    a file that records the case's static graph."""
+    The splits are cut as the settings say (`split_by`); whole weeks need the frames' time and are
+    refused without it (`SplitRule`). The other defaults are the original's: any onset of a split, a
+    file that records the case's static graph."""
 
     legend: Mapping[str, str] = schema.GRAPH_LEGEND
     tamper_rule: str = schema.IEEE_TAMPER_RULE
     first: int = 0  # the pool frame the file starts at (a file of a stretch of its pool starts later)
+    stratum: int = STRATUM  # weeks per stratum of a split by weeks
     seconds: float = 0.0  # how long the last run took
     _writer: Optional[TimelineWriter] = None
 
@@ -59,8 +73,12 @@ class TimelineSource(ABC):
         settings: SourceSettings,
         placed: Sequence[str],
         seed: int,
+        time: Optional[np.ndarray] = None,
     ) -> None:
+        # the frames' times are checked here, and weeks without them refused, before any file is made
+        self.split_rule = SplitRule(settings.split_by, len(X), time)
         self.g, self.X, self.designer, self.settings, self.seed = g, X, designer, settings, seed
+        self.time = self.split_rule.time
         self.placed, self.fractions = list(placed), settings.split.fractions
         self.episodes: list[Episode] = []  # the episode rows of the last file written
 
@@ -104,9 +122,11 @@ class TimelineSource(ABC):
         """The length of the timeline: one frame per operating point of the pool."""
         return len(self.X)
 
-    @abstractmethod
     def out_path(self, out: Optional[OutPath]) -> str:
-        """The path of the timeline file: `out`, or the source's default when it has one."""
+        """The path of the timeline file: `out`. A source with a default path gives it for None."""
+        if out is None:
+            raise ConfigError("a timeline needs the path of its file: source.generate(path)")
+        return os.fspath(out)
 
     # ---- open --------------------------------------------------------------------------------------
 
@@ -143,19 +163,33 @@ class TimelineSource(ABC):
         """The train, val and test splits of the timeline, cut before any episode is placed: each
         with the frames `split_codes` gives it."""
         self.split = self.split_codes()
-        self._spans = [self._span(code) for code in range(len(Split))]
+        runs = None if self.time is None else time_runs(self.time)  # no episode crosses a gap in time
+        self._spans = [self._span(code, runs) for code in range(len(Split))]
         return self._spans
 
-    def split_codes(self) -> np.ndarray:
-        """[T] the split of every frame (0 train, 1 val, 2 test): three blocks in time order, by the
-        settings' fractions (`generation.plan.split_bounds`)."""
-        return split_column(split_bounds(self.frames, self.fractions), self.frames)
+    def stream(self, name: str) -> np.random.Generator:
+        """The random stream of this timeline keyed by its seed and the stream's `name`."""
+        return np.random.default_rng((self.seed, zlib.crc32(name.encode())))
 
-    def _span(self, code: int) -> SplitSpan:
-        """The split `code` with the frames it holds, in time order."""
+    def split_codes(self) -> np.ndarray:
+        """[T] the split of every frame (0 train, 1 val, 2 test), cut as the settings' `split_by`
+        says: three blocks in time order (`generation.plan.split_bounds`), or whole weeks stratified
+        on the frames some family is held to (`onset_masks`), drawn from the seed's "split" stream
+        (`generation.plan.split_weeks`)."""
+        if self.settings.split_by == SplitBy.TIME:
+            return split_column(split_bounds(self.frames, self.fractions), self.frames)
+        held = np.zeros(self.frames, bool)
+        for mask in self.onset_masks().values():
+            held |= mask
+        time = self.split_rule.times
+        return split_weeks(time, self.fractions, held, self.stream("split"), self.stratum)
+
+    def _span(self, code: int, runs: Optional[np.ndarray]) -> SplitSpan:
+        """The split `code` with the frames it holds, in time order, and the timeline's `runs` of
+        regularly spaced frames."""
         where = np.flatnonzero(self.split == code)
         start, stop = (int(where[0]), int(where[-1]) + 1) if len(where) else (0, 0)
-        return SplitSpan(code, start, stop, where)
+        return SplitSpan(code, start, stop, where, runs)
 
     def lengths(self) -> dict[str, int]:
         """The episode length in frames of every family the timeline places, in the order of the
@@ -204,8 +238,12 @@ class TimelineSource(ABC):
         w.finish(self.columns(), header, self.recorded(), self.record(), self.rec, frac, self.tamper_rule)
 
     def columns(self) -> dict[str, np.ndarray]:
-        """The per-frame columns the source adds to a file, by dataset path: each frame's split."""
-        return {schema.SPLIT: self.split}
+        """The per-frame columns the source adds to a file, by dataset path: each frame's split and,
+        when the pool has it, its time (int64 seconds)."""
+        columns = {schema.SPLIT: self.split}
+        if self.time is not None:
+            columns[schema.TIME] = self.time.astype("datetime64[s]").astype(np.int64)
+        return columns
 
     def header(self) -> dict[str, object]:
         """What the source adds to a file's header attributes. Nothing by default."""

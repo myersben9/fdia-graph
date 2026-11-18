@@ -12,7 +12,6 @@ file. `SingleEpisodeSource` is the same grid with one episode placed by hand."""
 from __future__ import annotations
 
 import json
-import os
 import pickle
 from collections import Counter
 from dataclasses import dataclass, field, replace
@@ -39,8 +38,8 @@ from fdia_graph.engine.attacks.ramp import Ramp
 from fdia_graph.engine.core import FdiaGenerator
 from fdia_graph.errors import ConfigError, DataConditionError, NoAdmissibleTarget
 from fdia_graph.generation.design import Designer, Families
-from fdia_graph.generation.plan import STRATUM, split_weeks, week_index
-from fdia_graph.generation.source import OutPath, TimelineSource
+from fdia_graph.generation.plan import STRATUM, week_index
+from fdia_graph.generation.source import TimelineSource
 from fdia_graph.models.choices import Split, SplitBy
 from fdia_graph.models.config import NewYorkRelease, NewYorkSettings
 from fdia_graph.models.frames import LayerSet
@@ -199,9 +198,10 @@ class NewYorkSource(TimelineSource):
         self.stop = len(pool.time)  # with `first`, the pool frames the file covers: the whole pool
         # the generator every scan is emitted by: the grid, its meter plan and each frame's noise
         net = self.meas.net
-        g = FdiaGenerator.from_network(net, self.meas.plan, build.seed, LAYERS)
+        g = FdiaGenerator(net, build.seed, plan=self.meas.plan, spec=LAYERS)
         designer = PoolDesigner(pool, net, families, build, settings.workers)
-        super().__init__(g, PoolStates(pool.vm, pool.va, net), designer, settings, list(families), build.seed)
+        states = PoolStates(pool.vm, pool.va, net)
+        super().__init__(g, states, designer, settings, list(families), build.seed, pool.time)
         self.noise, self._survey = g.noise, Survey()
 
     @classmethod
@@ -240,12 +240,6 @@ class NewYorkSource(TimelineSource):
         return source
 
     # ---- the steps of `generate` that are this grid's own ---------------------------------------------
-
-    def out_path(self, out: OutPath | None) -> str:
-        """`out`: a New York timeline has no default path."""
-        if out is None:
-            raise ConfigError("a New York timeline needs the path of its file: source.generate(path)")
-        return os.fspath(out)
 
     def graph(self) -> dict[str, np.ndarray]:
         """The static graph a file carries, by `Static` name: the case's (`Case.static_graph`: the branch
@@ -290,7 +284,6 @@ class NewYorkSource(TimelineSource):
         targets = np.array([ep.target_branch for ep in self.episodes], np.int32)
         return {
             **super().columns(),
-            schema.TIME: self.pool.time[self.first : self.stop].astype("datetime64[s]").astype(np.int64),
             schema.path(schema.Group.EPISODES, schema.EPISODE_TARGET_BRANCH): targets,
         }
 
@@ -301,18 +294,7 @@ class NewYorkSource(TimelineSource):
         masks = self._family_masks()
         self._survey = self._surveyed(masks) if self.settings.survey else Survey(masks)
         self.designer.known = self._survey.designs  # a surveyed slot reuses its design
-
-    def split_codes(self) -> np.ndarray:
-        """[T] each frame's split: whole weeks stratified on the frames some waiting family may start at
-        (after a survey, on the onsets with an attack), or three blocks in time order."""
-        if self.settings.split_by == SplitBy.TIME:
-            return super().split_codes()
-        loaded = np.zeros(self.frames, bool)
-        for mask in self._survey.masks.values():
-            loaded |= mask
-        return split_weeks(
-            self.pool.time, self.fractions, loaded, rng(self.build, "split"), self._survey.stratum
-        )
+        self.stratum = self._survey.stratum
 
     def placement_rng(self) -> np.random.Generator:
         """The build's "place" stream, fresh for each run: one generator over the three splits in turn."""
@@ -460,7 +442,7 @@ class SingleEpisodeSource(NewYorkSource):
         self.first = onset if lo is None else lo
         self.stop = onset + self.slot.length if hi is None else hi
         w = slice(self.first, self.stop)
-        self.X = PoolStates(self.pool.vm[w], self.pool.va[w], self.meas.net)
+        self.X, self.time = PoolStates(self.pool.vm[w], self.pool.va[w], self.meas.net), self.pool.time[w]
         self.fractions = (1.0, 0.0, 0.0)  # every frame is in train: one block
         self._check_window()
 

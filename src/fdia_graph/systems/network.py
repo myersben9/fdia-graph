@@ -27,7 +27,7 @@ class Network:
     IEEE cases): `ybus` is then summed in MATPOWER's order (`branch_admittances`, `sides_apart`) and
     held by column. Those files depend on its last bit and on the order a product runs over it."""
 
-    def __init__(self, case: Case, matpower_order: bool = False):
+    def __init__(self, case: Case, matpower_order: bool = False) -> None:
         self.case = case
         n = len(case.bus_id)
         self._edges = np.vstack([case.f, case.t])
@@ -36,6 +36,12 @@ class Network:
         self.ybus = sp.csc_matrix(adm.ybus) if matpower_order else sp.csr_matrix(adm.ybus)
         self.yf, self.yt = sp.csr_matrix(adm.yf), sp.csr_matrix(adm.yt)
         self.adjacency = edge_adjacency(self._edges, n).astype(int)
+
+    @classmethod
+    def from_ieee(cls, system: int) -> Network:
+        """The network of the IEEE case of `system` buses, its admittance in MATPOWER's order: the
+        stored IEEE files were made with it, to the last bit."""
+        return cls(Case.from_ieee(system), matpower_order=True)
 
     def _v(self, vm: np.ndarray, va: np.ndarray) -> np.ndarray:
         return complex_voltages(vm, va)

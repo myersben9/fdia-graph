@@ -17,8 +17,11 @@ pytest.importorskip("pandapower")
 @pytest.fixture(scope="module")
 def gens():
     from fdia_graph.engine.core import FdiaGenerator
+    from fdia_graph.systems.network import Network
 
-    return FdiaGenerator(14, seed=1)  # the hybrid meters, the only model the generator makes
+    return FdiaGenerator(
+        Network.from_ieee(14), seed=1
+    )  # the hybrid meters, the only model the generator makes
 
 
 @pytest.fixture(scope="module")

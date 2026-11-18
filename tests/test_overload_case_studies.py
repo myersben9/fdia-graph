@@ -21,6 +21,7 @@ from fdia_graph.engine.core import FdiaGenerator  # noqa: E402
 from fdia_graph.generation import _load_states  # noqa: E402
 from fdia_graph.models.config import OverloadSettings  # noqa: E402
 from fdia_graph.models.frames import FrameKnobs  # noqa: E402
+from fdia_graph.systems.network import Network
 
 from . import case_studies  # noqa: E402
 
@@ -40,7 +41,7 @@ BAND = (0.05, 1.0)  # the largest per-device change must be of the paper's order
 
 def _scenario(system: int, scenario: tuple) -> tuple:
     """The generator on the paper's metering, the window, the knobs, the goal and the search result."""
-    g = FdiaGenerator(system, seed=1)
+    g = FdiaGenerator(Network.from_ieee(system), seed=1)
     X = _load_states(system, None)
     lines = [case_studies.branch(g, *pair) for pair in scenario]
     flow = g.flow_metered.copy()
@@ -91,7 +92,7 @@ def _reaches_both_ratings(g, window, k, goal, support) -> None:
 
 
 def test_the_scenario_table_maps_to_our_branches_and_buses():
-    g14, g118 = FdiaGenerator(14, seed=1), FdiaGenerator(118, seed=1)
+    g14, g118 = FdiaGenerator(Network.from_ieee(14), seed=1), FdiaGenerator(Network.from_ieee(118), seed=1)
     for g, system in ((g14, 14), (g118, 118)):
         for scenario in case_studies.SCENARIOS[system]:
             for a, b in scenario:

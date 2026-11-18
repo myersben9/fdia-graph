@@ -12,6 +12,7 @@ import numpy as np
 from fdia_graph.engine.core import FdiaGenerator
 from fdia_graph.models.config import MeterSettings
 from fdia_graph.sensing.meters import MeterPlan
+from fdia_graph.systems.network import Network
 
 # the two lines each scenario overloads at once
 SCENARIOS: dict[int, tuple[tuple[tuple[int, int], tuple[int, int]], ...]] = {
@@ -62,4 +63,4 @@ def paper_metering(g: FdiaGenerator, pmu_numbers: tuple[int, ...], flow: np.ndar
     pmu[buses(g, pmu_numbers)] = True
     stream = np.random.default_rng(g.seed)
     plan = MeterPlan.from_coverage(g.case, MeterSettings(), stream, pmu_at=pmu, flow_at=flow)
-    return FdiaGenerator(g.C, g.seed, plan=plan)
+    return FdiaGenerator(Network.from_ieee(g.C), g.seed, plan=plan)

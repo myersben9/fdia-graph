@@ -20,8 +20,19 @@ import numpy as np
 from ..constants.families import FAMILIES, FAMILY_CODE, GENERATED_FAMILIES
 from ..constants.releases import FIRST_RELEASE
 from ..errors import DataConditionError, NoAdmissibleTarget
-from .choices import Capability
-from .validation import AsArray, AsTuple, AtLeast, Dims, Integer, NonEmpty, Parses, Required, Validated
+from .choices import Capability, SplitBy
+from .validation import (
+    AsArray,
+    AsTuple,
+    AtLeast,
+    Dims,
+    Integer,
+    NonEmpty,
+    OneOf,
+    Parses,
+    Required,
+    Validated,
+)
 
 
 # ---- parsers of loose input -----------------------------------------------------------------------
@@ -68,6 +79,14 @@ def iso_date(d: object) -> _dt.date:
     if not isinstance(d, str) or not re.match(r"\d{4}-\d{2}-\d{2}", d.strip()):
         raise ValueError(d)
     return _dt.date.fromisoformat(d.strip()[:10])
+
+
+def frame_times(time: object) -> np.ndarray:
+    """Frame times as a 1-d numpy datetime64 array with no NaT; anything else is refused."""
+    t = np.asarray(time)
+    if t.ndim != 1 or t.dtype.kind != "M" or np.isnat(t).any():
+        raise ValueError(time)
+    return t
 
 
 @dataclass(frozen=True)
@@ -288,6 +307,51 @@ class AdmissibleTargets(Validated):
         empty = sorted(f for f in codes if self.targets.get(f, 0) == 0)
         names = ", ".join(FAMILIES[f] for f in empty)
         yield not empty, f"no admissible target on this case for {names}; drop them from families"
+
+
+@dataclass(frozen=True)
+class SplitRule(Validated):
+    """How a timeline's splits are cut (`SplitBy`) against its pool of `frames` frames and their
+    `time` [T] (None: the pool carries none): numpy datetime64 values, one per frame, each later
+    than the one before. Whole weeks are cut by each frame's time, so a pool without it refuses
+    them with the reason."""
+
+    split_by: Annotated[str, OneOf(SplitBy)]
+    frames: Annotated[int, Integer()]
+    time: Annotated[
+        Optional[np.ndarray],
+        Parses(
+            frame_times,
+            "must be the frames' times as a 1-d array of numpy datetime64 values, none of them NaT "
+            "(numbers, strings, Python datetime objects and timezone-aware times are not read)",
+        ),
+    ] = None
+
+    @property
+    def times(self) -> np.ndarray:
+        """The frames' times of a rule that has them (a cut by weeks does)."""
+        return cast(np.ndarray, self.time)
+
+    def invariants(self) -> Iterable[tuple[bool, str]]:
+        timed = 0 if self.time is None else len(self.time)
+        yield (
+            self.time is None or timed == self.frames,
+            f"time must hold one entry per frame of the pool ({self.frames}), got {timed}",
+        )
+        late = (
+            np.zeros(0, int) if self.time is None else np.flatnonzero(np.diff(self.time) <= np.timedelta64(0))
+        )
+        yield (
+            len(late) == 0,
+            f"time must be strictly increasing, and frame {int(late[:1].sum()) + 1} is not later than "
+            "the frame before it",
+        )
+        yield (
+            self.split_by == SplitBy.TIME or self.time is not None,
+            "split_by='week' cuts the timeline into whole weeks by each frame's time, and this pool "
+            "carries no time: pass the frames' times (time=...), or use split_by='time' (three blocks "
+            "in time order)",
+        )
 
 
 @dataclass(frozen=True)

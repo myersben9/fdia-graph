@@ -6,7 +6,8 @@ table (`order="random"`) or as the timeline (`order="time"`). This module also r
 (`_load_states`): a .npz or .h5 file with key 'X' [T, N, 4], or a directory of X_*.npy files.
 
 The one path that generates a timeline is `TimelineSource.generate` (`generation/source.py`). Its
-subclasses are the grids: `IeeeSource` (`generation/ieee.py`) and `generation/newyork.py`.
+subclasses are `SearchSource` (`generation/search.py`; `IeeeSource` in `generation/ieee.py`) and
+`NewYorkSource` (`generation/newyork.py`).
 """
 
 from __future__ import annotations
@@ -85,20 +86,22 @@ def generate(
     out: Optional[str] = None,
     seed: int = 123,
     settings: Optional[TimelineSettings] = None,
+    time: Optional[np.ndarray] = None,
     **knobs: Any,
 ) -> str:
     """Walk one attacked timeline over the operating-point pool of `system`, write it as one HDF5
-    file, register it as `name` and return the path. `frames` caps the pool timesteps walked; the
-    other knobs are those of `timeline.generate_timeline` (docs/guides/generation.md lists them)."""
+    file, register it as `name` and return the path. `frames` caps the pool timesteps walked; `time`
+    [T] is each frame's time, for a pool that has it (a split by weeks reads it); the other knobs
+    are those of `timeline.generate_timeline` (docs/guides/generation.md lists them)."""
     from ..timeline import generate_timeline
 
     frames = ShardRun(frames).frames
     s = TimelineSettings.of(settings, **knobs)
     X = _load_states(system, states)
     if frames is not None:
-        X = X[:frames]
+        X, time = X[:frames], None if time is None else time[:frames]
     out = out or os.path.join(CACHE_DIR, f"{name}.h5")
-    path = generate_timeline(system, states=X, settings=s, seed=seed, out=out)
+    path = generate_timeline(system, states=X, settings=s, seed=seed, out=out, time=time)
     meta = dict(system=system, kind=KIND_TIMELINE, frames=len(X), seed=seed, settings=s.as_record())
     register_local(name, path, meta=meta)
     return path

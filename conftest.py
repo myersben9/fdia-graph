@@ -91,8 +91,9 @@ def case():
     from fdia_graph.engine.core import FdiaGenerator
     from fdia_graph.generation import _load_states
     from fdia_graph.models.frames import FrameKnobs
+    from fdia_graph.systems.network import Network
 
-    g = FdiaGenerator(14, seed=1)
+    g = FdiaGenerator(Network.from_ieee(14), seed=1)
     X = _load_states(14, None)
     k = FrameKnobs(2, g.operating_limits(X), True, 4096)
     return g, X, k

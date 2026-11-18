@@ -42,8 +42,8 @@ class Split(Choice):
 
 
 class SplitBy(Choice):
-    """How a New York timeline's splits are cut: whole weeks drawn into the three splits, or three
-    blocks in time order (what the IEEE timelines do)."""
+    """How a timeline's splits are cut: three blocks in time order, or whole weeks drawn into the
+    three splits (a pool whose frames carry their time)."""
 
     WEEK = "week"
     TIME = "time"

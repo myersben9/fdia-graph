@@ -165,7 +165,8 @@ class _SearchSetup:
 class SearchDesigner(Designer[_SearchSetup]):
     """The design stage of the search-based families on the pool `X` [T, N, 4]: in this process on
     the walk's own generator with one worker, else in `workers` processes that each rebuild it from
-    `spec`. One designer serves one timeline: the walk uses up the generator's random stream."""
+    `spec`. One designer serves one timeline: the walk uses up the generator's random stream, and a
+    second run is refused in the name of its source (`owner`, "an IeeeSource")."""
 
     def __init__(
         self,
@@ -175,15 +176,16 @@ class SearchDesigner(Designer[_SearchSetup]):
         X: np.ndarray,
         ramp: tuple[int, float],
         workers: int,
+        owner: str,
     ) -> None:
         setup = _SearchSetup(spec, None if workers > 1 else g, knobs, ramp)
         super().__init__(workers, _SearchSetup.families, setup, spec.seed)
-        self.X, self._used = X, False
+        self.X, self.owner, self._used = X, owner, False
 
     def open(self) -> None:
         """Start the one run; a second is refused."""
         if self._used:
-            raise ConfigError("an IeeeSource generates one timeline; build a new source for another")
+            raise ConfigError(f"{self.owner} generates one timeline; build a new source for another")
         self._used = True
         super().open()
 

@@ -9,8 +9,8 @@ from __future__ import annotations
 import math
 import os
 from collections.abc import Iterable, Mapping, Sequence
-from dataclasses import asdict, dataclass, field, replace
-from typing import Annotated, Optional, Union, cast
+from dataclasses import dataclass, field, fields, replace
+from typing import Annotated, Optional, Union, cast, get_args, get_type_hints
 
 import numpy as np
 
@@ -36,6 +36,7 @@ from .choices import (
     SupportMethod,
     Units,
 )
+from .inputs import GeneratedFamilies
 from .validation import (
     AsTuple,
     AtLeast,
@@ -47,6 +48,7 @@ from .validation import (
     Parses,
     Positive,
     Validated,
+    WhenSet,
 )
 
 Count = Annotated[int, Integer(), AtLeast(1)]  # a whole number of rounds, frames, clients
@@ -222,7 +224,7 @@ _FLAT: dict[str, tuple[str, str]] = {
     "min_tamper": ("search", "min_tamper"),
     "min_budget": ("search", "min_budget"),
 }
-_TOP = ("attacked_frac", "families", "am_len", "max_load_mw", "workers")
+_TOP = ("attacked_frac", "families", "am_len", "max_load_mw", "workers", "split_by")
 
 
 @dataclass(frozen=True)
@@ -230,8 +232,9 @@ class TimelineSettings(Validated):
     """Everything one timeline walk is built from, nested by subject: `attacked_frac` of each split's
     frames under an episode, the `families` generated (At and Am), the overload Am's length `am_len`
     (None: the ramp's), the load cap `max_load_mw` (None: off) and the processes the Am designs run on
-    (`workers`; the result does not depend on it). `generate_timeline` also takes every field as a
-    flat keyword (`TimelineSettings.of`)."""
+    (`workers`; the result does not depend on it). `split_by` cuts the splits as three blocks in time
+    order or as whole weeks (`SplitBy`). `generate_timeline` also takes every field as a flat keyword
+    (`TimelineSettings.of`)."""
 
     attacked_frac: Annotated[float, InRange(0.0, 1.0, lo_closed=True, hi_closed=True)] = 0.5
     families: Annotated[Sequence[str], AsTuple()] = GENERATED_FAMILIES
@@ -244,6 +247,7 @@ class TimelineSettings(Validated):
     max_load_mw: Annotated[Optional[float], Positive()] = 2000.0
     workers: Count = 1
     am_attack: Annotated[str, OneOf(AmAttack)] = "overload"  # [WU26]'s overload attack, the one kind
+    split_by: Annotated[str, OneOf(SplitBy), WhenSet(legacy="time")] = "time"
 
     @property
     def am_frames(self) -> int:
@@ -253,6 +257,10 @@ class TimelineSettings(Validated):
     def lengths_for(self, families: Sequence[str]) -> dict[str, int]:
         """The episode length in frames of each of `families`: the ramp's for At, `am_frames` for Am."""
         return {f: self.ramp.length if f == AT else self.am_frames for f in families}
+
+    def invariants(self) -> Iterable[tuple[bool, str]]:
+        GeneratedFamilies(self.families)  # refuses a family the generator does not make
+        return ()
 
     def as_record(self) -> dict[str, object]:
         """The settings as nested plain values (JSON-ready), what a file and the results store record;
@@ -311,9 +319,16 @@ def _model(model: type, value: object, name: str) -> object:
 
 
 def _record(settings: Validated, *left_out: str) -> dict[str, object]:
-    """A settings model as nested plain values (JSON-ready), without the fields `left_out`."""
-    record = {name: value for name, value in asdict(settings).items() if name not in left_out}
-    return cast("dict[str, object]", _plain(record))
+    """A settings model as nested plain values (JSON-ready), without the fields `left_out` and
+    without a `WhenSet` field that holds its legacy value."""
+    hints = get_type_hints(type(settings), include_extras=True)
+    record: dict[str, object] = {}
+    for f in fields(settings):
+        value = getattr(settings, f.name)
+        unset = any(isinstance(m, WhenSet) and value == m.legacy for m in get_args(hints[f.name]))
+        if f.name not in left_out and not unset:
+            record[f.name] = _record(value) if isinstance(value, Validated) else _plain(value)
+    return record
 
 
 def _plain(value: object) -> object:

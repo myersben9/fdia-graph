@@ -39,6 +39,7 @@ VALID = {
     inputs.ProfileSource: dict(source=type("Series", (), {"loads": lambda self: np.ones(2)})()),
     inputs.DatasetName: dict(name="ieee14", local=frozenset(), builtin=frozenset({"ieee14"})),
     inputs.AdmissibleTargets: dict(families=("Aq", "Ad"), targets={1: 2, 2: 3}),
+    inputs.SplitRule: dict(split_by="time", frames=3),
     inputs.ModelledNet: dict(
         out_of_service=(), scaled=(), not_read=(), open_branches=0, buses=14, solved_buses=14
     ),
@@ -153,9 +154,9 @@ def test_timeline_knobs_refuse_a_bad_value_before_any_work(knobs):
 )
 def test_generate_timeline_refuses_a_bad_knob_before_building_the_case(kwargs, monkeypatch):
     from fdia_graph import timeline
-    from fdia_graph.engine.core import FdiaGenerator
+    from fdia_graph.systems.network import Network
 
-    monkeypatch.setattr(FdiaGenerator, "from_spec", _no_work)
+    monkeypatch.setattr(Network, "from_ieee", _no_work)
     with pytest.raises(ConfigError):
         timeline.generate_timeline(14, **kwargs)
 
