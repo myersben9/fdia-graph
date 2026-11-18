@@ -252,7 +252,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../getting-started/new_york_walkthrough/" class="md-tabs__link">
+        <a href="../../getting-started/load/" class="md-tabs__link">
           
   
   
@@ -514,14 +514,70 @@
   
   
     <li class="md-nav__item">
-      <a href="../../getting-started/new_york_walkthrough/" class="md-nav__link">
+      <a href="../../getting-started/load/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    New York walkthrough
+    Load a dataset
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/generate/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Generate your first timeline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/analyse/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Analyse a timeline
   
 
     
@@ -634,7 +690,35 @@
   <span class="md-ellipsis">
     
   
-    Timeline generation
+    Generate a timeline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/operating_points/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Build the operating points
   
 
     
@@ -662,7 +746,7 @@
   <span class="md-ellipsis">
     
   
-    State estimation
+    Estimate the state
   
 
     
@@ -683,14 +767,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../guides/new_york/" class="md-nav__link">
+      <a href="../../guides/extending/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    New York grid
+    Add a design family, an alarm rule or a test system
   
 
     
@@ -711,42 +795,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../guides/extending_new_york/" class="md-nav__link">
+      <a href="../../guides/troubleshooting/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Extending the New York grid
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../guides/troubleshooting_new_york/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Troubleshooting the New York grid
+    Troubleshooting
   
 
     
@@ -908,14 +964,70 @@
   
   
     <li class="md-nav__item">
-      <a href="../../concepts/new_york_grid/" class="md-nav__link">
+      <a href="../../concepts/meters/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    New York grid architecture
+    Meters and noise
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../concepts/attacks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    The attack families
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../concepts/layers/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Layers and labels
   
 
     
@@ -2384,7 +2496,7 @@ layers (<code>edge_x</code>, <code>edge_m</code>, <code>edge_benign</code>, <cod
 (<code>attrs["current_form"]</code> is <code>polar</code>); it has no <code>temporal_delta</code> and no <code>swing</code>. Only it carries <code>data/time</code>
 (int64 seconds, NYISO's local clock), <code>episodes/target_branch</code>, <code>graph/bus_client</code> with the attribute
 <code>client_names</code>, and <code>graph/edge_rating</code> (MVA).
-<a href="../../concepts/new_york_grid/#the-timeline-file">The New York grid</a> lists the whole file.</p>
+<a href="../../concepts/layers/#what-a-new-york-file-declares">Layers and labels</a> lists what such a file declares.</p>
 <h2 id="labels-y-says-which-buses-family-says-which-attack">Labels: <code>y</code> says which buses, <code>family</code> says which attack<a class="headerlink" href="#labels-y-says-which-buses-family-says-which-attack" title="Permanent link">&para;</a></h2>
 <p>Two fields, two questions. <code>y</code> <code>[N]</code> is binary per bus because a bus is either tampered with or not.
 <code>family</code> is one code per record because the generator runs one attack episode at a time, on one
@@ -2657,7 +2769,8 @@ physics live on the dataset as <code>ds.edge_attr</code> <code>[E,8]</code> and 
 <li>This is the state-estimation target.</li>
 </ul>
 <h2 id="the-three-layers-of-a-frame">The three layers of a frame<a class="headerlink" href="#the-three-layers-of-a-frame" title="Permanent link">&para;</a></h2>
-<p>Every frame of a timeline carries three aligned layers, for node and for edge measurements:</p>
+<p>Every frame of a timeline carries three aligned layers, for node and for edge measurements
+(<a href="../../concepts/layers/">Layers and labels</a> explains what each is for and which a feature may read):</p>
 <p><img alt="three layers, top to bottom: clean and edge_clean, the noiseless true state; plus meter noise gives benign and edge_benign, the scan without the attack; plus the attack gives node_x and edge_x, the observed model input, so observed minus benign is the attack exactly" src="../../figures/diagrams/data_dictionary_layers.png" /></p>
 <table>
 <thead>

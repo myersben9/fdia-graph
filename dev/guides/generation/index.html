@@ -16,7 +16,7 @@
         <link rel="prev" href="../install/">
       
       
-        <link rel="next" href="../state_estimation/">
+        <link rel="next" href="../operating_points/">
       
       
         
@@ -27,7 +27,7 @@
     
     
       
-        <title>Timeline generation - fdia-graph</title>
+        <title>Generate a timeline - fdia-graph</title>
       
     
     
@@ -80,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#how-a-timeline-is-generated" class="md-skip">
+        <a href="#generate-a-timeline" class="md-skip">
           Skip to content
         </a>
       
@@ -118,7 +118,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Timeline generation
+              Generate a timeline
             
           </span>
         </div>
@@ -252,7 +252,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../getting-started/new_york_walkthrough/" class="md-tabs__link">
+        <a href="../../getting-started/load/" class="md-tabs__link">
           
   
   
@@ -514,14 +514,70 @@
   
   
     <li class="md-nav__item">
-      <a href="../../getting-started/new_york_walkthrough/" class="md-nav__link">
+      <a href="../../getting-started/load/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    New York walkthrough
+    Load a dataset
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/generate/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Generate your first timeline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/analyse/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Analyse a timeline
   
 
     
@@ -648,7 +704,7 @@
   <span class="md-ellipsis">
     
   
-    Timeline generation
+    Generate a timeline
   
 
     
@@ -666,7 +722,7 @@
   <span class="md-ellipsis">
     
   
-    Timeline generation
+    Generate a timeline
   
 
     
@@ -692,10 +748,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#one-path-two-grids" class="md-nav__link">
+  <a href="#what-you-need" class="md-nav__link">
     <span class="md-ellipsis">
       
-        One path, two grids
+        What you need
       
     </span>
   </a>
@@ -703,55 +759,77 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#1-operating-point-pools" class="md-nav__link">
+  <a href="#the-steps" class="md-nav__link">
     <span class="md-ellipsis">
       
-        1. Operating-point pools
+        The steps
       
     </span>
   </a>
   
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#2-meter-plan-and-noise" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        2. Meter plan and noise
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#3-the-attack-families" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        3. The attack families
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#4-episode-placement" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        4. Episode placement
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="4. Episode placement">
+    <nav class="md-nav" aria-label="The steps">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#designing-in-parallel" class="md-nav__link">
+  <a href="#1-open" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Designing in parallel
+        1. Open
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-cut-the-splits" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Cut the splits
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-place" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Place
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#4-design" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Design
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#5-walk" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Walk
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#6-finish" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Finish
       
     </span>
   </a>
@@ -764,10 +842,60 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#5-the-per-frame-layers" class="md-nav__link">
+  <a href="#the-settings" class="md-nav__link">
     <span class="md-ellipsis">
       
-        5. The per-frame layers
+        The settings
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="The settings">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#timelinesettings" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        TimelineSettings
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#split_by-and-time" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        split_by and time=
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-new-york-settings" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The New York settings
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-differs-between-the-ieee-cases-and-the-new-york-case-today" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What differs between the IEEE cases and the New York case today
       
     </span>
   </a>
@@ -775,10 +903,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#6-the-rule-for-features" class="md-nav__link">
+  <a href="#entry-point-an-ieee-case" class="md-nav__link">
     <span class="md-ellipsis">
       
-        6. The rule for features
+        Entry point: an IEEE case
       
     </span>
   </a>
@@ -786,21 +914,49 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#where-each-piece-lives" class="md-nav__link">
+  <a href="#entry-point-the-new-york-case" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Where each piece lives
+        Entry point: the New York case
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Entry point: the New York case">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#one-episode-alone" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        One episode alone
       
     </span>
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
-  <a href="#7-building-your-own" class="md-nav__link">
+        
+          <li class="md-nav__item">
+  <a href="#reading-the-file-by-utility" class="md-nav__link">
     <span class="md-ellipsis">
       
-        7. Building your own
+        Reading the file by utility
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#where-the-code-is" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Where the code is
       
     </span>
   </a>
@@ -823,6 +979,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../operating_points/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Build the operating points
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../state_estimation/" class="md-nav__link">
         
   
@@ -830,7 +1014,7 @@
   <span class="md-ellipsis">
     
   
-    State estimation
+    Estimate the state
   
 
     
@@ -851,14 +1035,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../new_york/" class="md-nav__link">
+      <a href="../extending/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    New York grid
+    Add a design family, an alarm rule or a test system
   
 
     
@@ -879,42 +1063,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../extending_new_york/" class="md-nav__link">
+      <a href="../troubleshooting/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Extending the New York grid
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../troubleshooting_new_york/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Troubleshooting the New York grid
+    Troubleshooting
   
 
     
@@ -1076,14 +1232,70 @@
   
   
     <li class="md-nav__item">
-      <a href="../../concepts/new_york_grid/" class="md-nav__link">
+      <a href="../../concepts/meters/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    New York grid architecture
+    Meters and noise
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../concepts/attacks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    The attack families
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../concepts/layers/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Layers and labels
   
 
     
@@ -1749,10 +1961,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#one-path-two-grids" class="md-nav__link">
+  <a href="#what-you-need" class="md-nav__link">
     <span class="md-ellipsis">
       
-        One path, two grids
+        What you need
       
     </span>
   </a>
@@ -1760,55 +1972,77 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#1-operating-point-pools" class="md-nav__link">
+  <a href="#the-steps" class="md-nav__link">
     <span class="md-ellipsis">
       
-        1. Operating-point pools
+        The steps
       
     </span>
   </a>
   
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#2-meter-plan-and-noise" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        2. Meter plan and noise
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#3-the-attack-families" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        3. The attack families
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#4-episode-placement" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        4. Episode placement
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="4. Episode placement">
+    <nav class="md-nav" aria-label="The steps">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#designing-in-parallel" class="md-nav__link">
+  <a href="#1-open" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Designing in parallel
+        1. Open
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-cut-the-splits" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Cut the splits
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-place" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Place
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#4-design" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Design
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#5-walk" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Walk
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#6-finish" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Finish
       
     </span>
   </a>
@@ -1821,10 +2055,60 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#5-the-per-frame-layers" class="md-nav__link">
+  <a href="#the-settings" class="md-nav__link">
     <span class="md-ellipsis">
       
-        5. The per-frame layers
+        The settings
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="The settings">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#timelinesettings" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        TimelineSettings
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#split_by-and-time" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        split_by and time=
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-new-york-settings" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The New York settings
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-differs-between-the-ieee-cases-and-the-new-york-case-today" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What differs between the IEEE cases and the New York case today
       
     </span>
   </a>
@@ -1832,10 +2116,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#6-the-rule-for-features" class="md-nav__link">
+  <a href="#entry-point-an-ieee-case" class="md-nav__link">
     <span class="md-ellipsis">
       
-        6. The rule for features
+        Entry point: an IEEE case
       
     </span>
   </a>
@@ -1843,21 +2127,49 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#where-each-piece-lives" class="md-nav__link">
+  <a href="#entry-point-the-new-york-case" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Where each piece lives
+        Entry point: the New York case
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Entry point: the New York case">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#one-episode-alone" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        One episode alone
       
     </span>
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
-  <a href="#7-building-your-own" class="md-nav__link">
+        
+          <li class="md-nav__item">
+  <a href="#reading-the-file-by-utility" class="md-nav__link">
     <span class="md-ellipsis">
       
-        7. Building your own
+        Reading the file by utility
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#where-the-code-is" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Where the code is
       
     </span>
   </a>
@@ -1884,582 +2196,665 @@
   
 
 
-<h1 id="how-a-timeline-is-generated">How a timeline is generated<a class="headerlink" href="#how-a-timeline-is-generated" title="Permanent link">&para;</a></h1>
-<p>One timeline per system is the dataset. This page follows it from the load profile to the file,
-and states which layers a detector may read. Every value below is the code's default; the source of
-each is named beside it. Terms are defined in <a href="../../reference/GLOSSARY/"><code>../reference/GLOSSARY.md</code></a>.</p>
-<table>
-<thead>
-<tr>
-<th>stage</th>
-<th>code</th>
-<th>output</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>1. operating-point pool</td>
-<td><code>data.profiles.fetch_profile</code>, <code>data.ieee_pool.generate_states</code>, the v0.7.1 pool build</td>
-<td><code>[T, N, 4]</code> AC states, one per minute</td>
-</tr>
-<tr>
-<td>2. meter plan and noise</td>
-<td><code>sensing/meters.py</code> (<code>MeterPlan</code>), <code>sensing/noise.py</code> (<code>NoiseModel</code>)</td>
-<td>which channels are metered, one noisy scan per state</td>
-</tr>
-<tr>
-<td>3. attack families</td>
-<td><code>engine/attacks/</code> (the <code>AttackMixin</code>: the false states, the fewest-tamper search and each family's episode design are methods of the generator), <code>engine/attacks/family.py</code> and <code>engine/attacks/search.py</code> (a family gives the episode of a window, and the episode its scans)</td>
-<td>the attacked scan of each family</td>
-</tr>
-<tr>
-<td>4. plan: split and episode placement</td>
-<td><code>generation/plan.py</code> (<code>split_bounds</code>, <code>place_split</code>, <code>planned_until</code>)</td>
-<td>the split, onsets, lengths</td>
-</tr>
-<tr>
-<td>5. design: the episodes of each split designed before it is walked</td>
-<td><code>generation/design.py</code> (<code>SplitDesign</code>, the move rule; <code>Designer</code>, each family's designs in parallel over <code>workers</code> processes)</td>
-<td>each design, or its move</td>
-</tr>
-<tr>
-<td>6. emit and write: the per-frame layers</td>
-<td><code>generation/emit.py</code> (<code>Walk.run</code>), <code>generation/write.py</code> (<code>TimelineWriter</code>)</td>
-<td>the HDF5 file</td>
-</tr>
-</tbody>
-</table>
-<p><code>TimelineSource.generate</code> (<code>generation/source.py</code>) runs stages 4 to 6, for the IEEE cases and for the New York
-grid alike; each stage hands the next a typed value (the splits, the slots, the designed episodes). The steps
-that depend on the grid are the methods of the source's subclasses, described next.</p>
-<h2 id="one-path-two-grids">One path, two grids<a class="headerlink" href="#one-path-two-grids" title="Permanent link">&para;</a></h2>
-<p>A timeline is generated in the same order on either grid, by one method: <code>TimelineSource.generate(out)</code>. Its
-body is short; read it there. In words:</p>
-<ol>
-<li><strong>open</strong>: the file is started beside <code>out</code> under a <code>.part</code> name. It takes the name <code>out</code> only when it is
-   whole, so a run that fails leaves no file, and a file already at <code>out</code> is left as it was.</li>
-<li><strong>prepare</strong>: the source works out what it must know before the splits are cut. Nothing on an IEEE case;
-   on the New York grid, the onsets its families may take (their masks, and the onset survey).</li>
-<li><strong>cut_splits</strong>: train, val and test.</li>
-<li>Then, split by split:</li>
-<li><strong>place</strong>: the split's episodes at uniform random onsets (<code>generation/plan.py</code>, the same code for both
-     grids);</li>
-<li><strong>design</strong>: what each episode attacks, kept on the source for the walk;</li>
-<li><strong>walk</strong>: every frame not yet written whose split is planned by now, in time order.</li>
-<li><strong>finish</strong>: what the file carries besides its frames. Then <strong>close</strong>, after a failed run too.</li>
-</ol>
-<p>A <code>TimelineSource</code> is the grid a timeline is generated on. The steps are written once, in
-<code>generation/source.py</code>, on a generator over the grid (<code>g</code>) and the pool (<code>X</code>): the file is opened, the splits
-cut (<code>split_codes</code>, as the <code>split_by</code> setting says: three blocks in time order, or whole weeks on a pool whose frames carry their time), the episodes placed, designed
-and moved (the source's <code>Designer</code> asks each family for the episode of a window), the frames walked (<code>Walk.run</code>) and the file finished (<code>graph</code>, <code>columns</code>,
-<code>header</code>, <code>recorded</code> and <code>record</code> say what it carries). A subclass builds <code>g</code>, <code>X</code> and the designer and owns only what
-differs. <code>SearchSource</code> is the original generator, built on a <code>Network</code> and its pool; <code>IeeeSource</code>
-(<code>generation/ieee.py</code>) builds it for an IEEE case by name. <code>NewYorkSource</code> is the New York release:</p>
-<table>
-<thead>
-<tr>
-<th>step</th>
-<th><code>SearchSource</code> (<code>generation/search.py</code>)</th>
-<th><code>NewYorkSource</code> (<code>generation/newyork.py</code>)</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>the grid</td>
-<td>a <code>Network</code>: an IEEE case's (<code>Network.from_ieee</code>)</td>
-<td>the New York case with the utility that owns each bus</td>
-</tr>
-<tr>
-<td>the meters</td>
-<td>random coverage (<code>MeterPlan.from_coverage</code>)</td>
-<td>every bus and branch end a utility owns (<code>plan_meters</code>)</td>
-</tr>
-<tr>
-<td>the pool</td>
-<td><code>[T, N, 4]</code> AC states of a pool that scales each bus's load and generation by one factor (<code>generate_states</code>), injections positive for load</td>
-<td>the year of five-minute AC states (<code>Pool</code>)</td>
-</tr>
-<tr>
-<td><code>prepare</code></td>
-<td>nothing</td>
-<td>each waiting family's onset mask; with <code>survey</code>, the onset survey (kept in a <code>Survey</code> record)</td>
-</tr>
-<tr>
-<td><code>split_by</code>, the setting <code>cut_splits</code> reads</td>
-<td><code>"time"</code> by default: three blocks in time order (<code>split_bounds</code>)</td>
-<td><code>"week"</code> by default: whole weeks, stratified (<code>split_weeks</code>)</td>
-</tr>
-<tr>
-<td><code>onset_masks</code></td>
-<td>none: any onset of the split</td>
-<td>the masks, or the onsets the survey found an attack at</td>
-</tr>
-<tr>
-<td><code>placement_rng</code></td>
-<td>the generator's one stream</td>
-<td>the build's <code>place</code> stream</td>
-</tr>
-<tr>
-<td>the designer</td>
-<td><code>SearchDesigner</code>: the overload Am is designed before the split is walked, the ramp At as the walk reaches it (<code>RampEpisode.begin</code>)</td>
-<td><code>PoolDesigner</code>: every family, before the split is walked, on its window of pool states, the survey's designs reused</td>
-</tr>
-<tr>
-<td>an episode with no design</td>
-<td>moved to another free onset of its split, up to <code>REDRAWS</code> times (<code>generation.design.SplitDesign</code>); a ramp At, designed by the walk, moves later</td>
-<td>moved by the same rule (<code>SplitDesign</code>), only to an onset its family's mask allows</td>
-</tr>
-<tr>
-<td><code>walk(until)</code></td>
-<td>the frames of the split just designed (its end is <code>until</code>), a scan per frame; a ramp At is designed as the walk reaches it, and each scan of an episode is re-solved (<code>RampEpisode</code>, <code>OverloadEpisode</code>)</td>
-<td>the frames up to <code>until</code>, a scan per frame through the same walk (<code>generation/emit.py</code>, <code>Walk.episode</code>): the noisy benign scan, plus under an episode its row of the attack vector (<code>VectorEpisode</code>)</td>
-</tr>
-<tr>
-<td><code>open</code>, <code>finish</code></td>
-<td>the file layout of this page, through <code>generation/write.py</code></td>
-<td>the same layout through the same writer, a value per meter laid out as layers (<code>MeterPlan.scatter</code>); what a New York file declares differently is in <a href="../../concepts/new_york_grid/#the-timeline-file"><code>new_york_grid.md</code></a></td>
-</tr>
-</tbody>
-</table>
-<p>The walk writes <em>every frame whose split is planned by now</em> (<code>generation.plan.planned_until</code>), and that one
-rule serves both grids. An IEEE timeline's splits are blocks in time order, so it is the split just designed;
-and each split is placed only after the one before it is walked, because placements, ramp designs and the
-moves of an infeasible ramp draw from the generator's one random stream. The New York splits are whole
-weeks, which interleave in time, so the walk waits until every week before a frame is planned and the file
-is written in a few stretches. On both grids a frame's meter jitter comes from the frame's own stream,
-keyed by (seed, <code>JITTER_STREAM</code>, pool frame), so the benign scans depend neither on where a stretch ends nor on
-which attacks are placed (<code>tests/nygrid/test_stretches.py</code> pins that).</p>
-<p><code>SingleEpisodeSource</code>, under <code>NewYorkSource</code>, is the New York grid with one episode placed by hand. The
-design processes of both grids are one class, <code>generation.design.DesignPool</code>; they are spawned, so a script
-that asks for more than one worker starts under <code>if __name__ == "__main__":</code>.</p>
-<p><code>generate_timeline("ieee14", ...)</code> is <code>IeeeSource(...).generate(out)</code>; the New York build is
-<code>NewYorkSource.production(pool_path).generate(path)</code>. To switch a grid's load profiles, attacks or solver,
-change what its source holds (the pool, the families); the path stays. The solver is chosen where the
-pool is built, by a <code>SolveSettings</code> (<a href="../../concepts/solving/#the-solve-setting">Solving</a>).</p>
-<p>The two kinds of design each run on their own meters. The search-based designs read a flow at a branch's from
-end and PMU currents as real and imaginary parts (coverage meters); the designs of the New York release
-read the owned meters, both branch ends and currents as magnitude and angle. So the meter placement is not
-a setting on its own yet: it follows the source. The search-based designs also read a scan's load and
-generation from its state by the rule of the IEEE pools (one scale factor per bus, <code>formulas/attacks.py</code>),
-which a dispatched pool such as New York's does not follow, so they are not offered on that pool.</p>
-<p><img alt="Seven boxes, top to bottom. 1. Pool of operating points: one AC state per frame. 2. Cut the splits: blocks in time order for an IEEE case, whole weeks for New York. 3. Place a split's episodes: whole, at random onsets. 4. Design each episode: a local false state. 5. Walk the split's frames: a benign scan, or the scan under the attack; then the next split. 6. After the last split: the episode table. Last, one timeline file: observed, benign, true state" src="../../figures/diagrams/generation_flow.png" /></p>
-<p>The published default release is v0.8.3 (<code>registry._RELEASE</code>). Its files hold seven families (the
-single-snapshot <code>Aq</code>, <code>Al</code>, <code>Ad</code>, <code>As</code>, <code>Ar</code> among them) on the v0.8.3 meters. The package reads every
-timeline release and generates the multi-snapshot families <code>At</code> and <code>Am</code> on the hybrid meters. Releases
-up to v0.8.1 hold <code>Aq</code> for 15 to 44 frames and <code>Al</code> for 10 to 29, and compute the swing scale from the
-noiseless pool.</p>
-<h2 id="1-operating-point-pools">1. Operating-point pools<a class="headerlink" href="#1-operating-point-pools" title="Permanent link">&para;</a></h2>
-<table>
-<thead>
-<tr>
-<th>item</th>
-<th>value</th>
-<th>source</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>load profile</td>
-<td>NYISO system load, 11 zones summed, native 5-minute cadence</td>
-<td><code>data.profiles.NyisoArchive</code> (the NYISO entry of <code>data.profiles._FEEDS</code>)</td>
-</tr>
-<tr>
-<td>window</td>
-<td>2024-01-01 to 2024-03-16</td>
-<td>the v0.7.1 pool build (a release script kept outside the repository; <code>WINDOW</code>)</td>
-</tr>
-<tr>
-<td>resampling</td>
-<td>time-interpolated to a 1-minute grid, then standardized to zero mean and unit variance</td>
-<td><code>data.profiles.fetch_profile(resample_min=1)</code></td>
-</tr>
-<tr>
-<td>per-bus scale</td>
-<td><code>clip(1 + k * S_t + j_t, 0.7, 1.3)</code>, <code>k = 0.1</code></td>
-<td><code>data.ieee_pool._ar1_scale</code>, <code>K_DEFAULT</code>, <code>CLIP_DEFAULT</code></td>
-</tr>
-<tr>
-<td>jitter <code>j_t</code></td>
-<td>per-bus AR(1), <code>j_t = 0.98 j_{t-1} + sqrt(1 - 0.98^2) * 0.03 * eps</code>, stationary std 0.03</td>
-<td><code>LOAD_JITTER_RHO</code> (<code>constants.time</code>), <code>SIGMA_DEFAULT</code></td>
-</tr>
-<tr>
-<td>what is scaled</td>
-<td>every load's P and Q and every generator's P at the bus, by the same factor</td>
-<td><code>data.ieee_pool._solve_states_chunk</code></td>
-</tr>
-<tr>
-<td>solve</td>
-<td>pandapower AC power flow, flat start, 50 iterations, 1e-6 MVA tolerance</td>
-<td><code>data.ieee_pool._solve_states_chunk</code></td>
-</tr>
-<tr>
-<td>another solve</td>
-<td><code>generate_states(..., solve=SolveSettings(method="opf", engine="ipopt"))</code>: a least-cost AC OPF per step at the case's own cost curve, in Ipopt or in pandapower (<a href="../../concepts/solving/#the-solve-setting">Solving</a>)</td>
-<td><code>data.ieee_pool._opf_states_chunk</code></td>
-</tr>
-<tr>
-<td>states kept</td>
-<td>82,000 requested, the first 72,000 converged kept per system</td>
-<td>the v0.7.1 pool build (<code>REQUEST</code>, <code>TARGET</code>)</td>
-</tr>
-<tr>
-<td>column order</td>
-<td><code>&#124;V&#124;</code> pu, <code>P_inj</code> MW, <code>Q_inj</code> MVAr, <code>theta</code> deg, voltage first</td>
-<td><code>generation.as_v_first</code>, pool attribute <code>columns</code></td>
-</tr>
-<tr>
-<td>file</td>
-<td><code>pool_ieee{C}.h5</code>, dataset <code>X</code></td>
-<td><code>registry.pool_spec</code></td>
-</tr>
-</tbody>
-</table>
-<p>The AR(1) jitter makes each bus drift smoothly from minute to minute rather than jump. The clip holds
-every bus inside a plausible load band. Shunt draws are subtracted from the stored injections,
-because the estimator models a shunt in the admittance matrix, not as an injection
-(<code>data.ieee_pool._remove_shunt_injections</code>).</p>
-<p>Consecutive pool timesteps are one minute apart on the profile grid. A timestep whose power flow
-does not converge is skipped, not filled, and the pool stores no timestamps. Frame <code>t</code> of a
-timeline is pool timestep <code>t</code> (<code>data/timestep</code>).</p>
-<h2 id="2-meter-plan-and-noise">2. Meter plan and noise<a class="headerlink" href="#2-meter-plan-and-noise" title="Permanent link">&para;</a></h2>
-<p>The meter plan is drawn once per generator from the seed and is the same on every frame
-(<code>MeterPlan.from_coverage</code> in <code>sensing/meters.py</code>, the table of meters the New York grid
-also uses; <code>emit_from_state</code> lays a scan's readings out per bus and per branch).</p>
-<table>
-<thead>
-<tr>
-<th>channel</th>
-<th>metered at</th>
-<th>default</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>&#124;V&#124;</code></td>
-<td>the union of the voltage buses and the PMU buses</td>
-<td><code>vbus_frac = 0.6</code> (<code>int(0.6 N)</code> buses), <code>pmu_frac = 0.2</code> (<code>max(1, int(0.2 N))</code> buses)</td>
-</tr>
-<tr>
-<td><code>theta</code></td>
-<td>the PMU buses (hybrid meters); every <code>&#124;V&#124;</code> bus (v0.8.3 meters)</td>
-<td>as above</td>
-</tr>
-<tr>
-<td>branch current, <code>pmu_i</code></td>
-<td>both ends' real and imaginary part of every in-service branch with a PMU at that end (hybrid meters only)</td>
-<td>as above</td>
-</tr>
-<tr>
-<td><code>P_inj</code>, <code>Q_inj</code></td>
-<td>every injection bus and every zero-injection bus</td>
-<td>always</td>
-</tr>
-<tr>
-<td><code>P_from</code>, <code>Q_from</code></td>
-<td>each branch independently with probability <code>flow_frac</code></td>
-<td><code>flow_frac = 0.9</code></td>
-</tr>
-</tbody>
-</table>
-<p>The meter model decides what a meter reads (<code>meter_model</code> in the meter plan). The
-default, <code>"hybrid"</code>, is a SCADA and PMU plan as in [WU26]: a SCADA voltmeter reads <code>|V|</code> only, a PMU
-reads <code>|V|</code>, the angle and the current phasor of every in-service branch at its bus [WU26, eqs.
-17-20]. The released files up to v0.8.3 hold an angle at every voltmeter bus and no
-currents; the loader reads them, and the generator does not write that plan (<code>models.config.MeterSettings</code>).</p>
-<p>Injection buses are those with a generator, a load, the external grid, a shunt or a producing static
-generator; every other bus is zero-injection (<code>FdiaGenerator._load_tables</code>). The two sets cover every
-bus, so every bus carries P and Q injection meters. On IEEE-14 the plan meters <code>|V|</code> and <code>theta</code> at
-9 buses, P and Q at 14 buses, and 18 of 20 branch flows.</p>
-<p>Each reading is the true value (<code>Measurement.h</code>) plus a constant per-meter bias plus a fresh
-per-scan jitter (<code>NoiseModel.sample</code>). The accuracy-class standard deviations follow [ASP14]
-(<code>ACCURACY_CLASS</code> and, per meter kind, <code>KIND_ACCURACY</code> in <code>constants/meters.py</code>):</p>
-<table>
-<thead>
-<tr>
-<th>channel</th>
-<th>total std</th>
-<th>kind</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>P_inj</code>, <code>Q_inj</code>, <code>P_from</code>, <code>Q_from</code></td>
-<td>0.017</td>
-<td>relative to the reading</td>
-</tr>
-<tr>
-<td><code>&#124;V&#124;</code></td>
-<td>0.0012 pu</td>
-<td>absolute</td>
-</tr>
-<tr>
-<td><code>theta</code></td>
-<td>0.00168 rad</td>
-<td>absolute</td>
-</tr>
-</tbody>
-</table>
-<p>A branch current (hybrid meters) carries the PMU class of IEEE C37.118.1, a total vector error of
-at most 1% taken as three standard deviations, relative to the current's magnitude on the real and
-the imaginary part alike, plus a <code>1e-5</code> pu floor (<code>formulas.noise.current_sigma</code>,
-<code>PMU_CURRENT_CLASS</code>) [C37118]; its bias is drawn once per channel after the other meters' biases.
-In the meter table the two parts of a phasor are the kinds <code>IR</code> and <code>II</code>.</p>
-<p>Each total is split into jitter <code>0.25 SD</code> (<code>JITTER_FRAC</code>) and bias <code>sqrt(1 - 0.25^2) SD</code>, so the two
-add to the class total in quadrature. The bias is drawn once per meter, with the plan
-(<code>MeterPlan.from_placement</code>): one draw for every bus and branch, metered or not, in the order P, Q,
-<code>&#124;V&#124;</code>, angle, P flow, Q flow, then the currents. The jitter of frame <code>t</code> comes from the
-frame's own stream, one draw per meter in the table's row order: bus by bus
-(<code>&#124;V&#124;</code>, angle, P, Q), then the flows, then the currents, branch by branch. Power and
-flow jitter also carry an absolute floor of <code>1e-3</code> MW or MVAr, so a near-zero reading still has
-noise. Treating the whole class error as per-scan noise would over-jitter one-minute traces and
-hide the temporal signal.</p>
-<h2 id="3-the-attack-families">3. The attack families<a class="headerlink" href="#3-the-attack-families" title="Permanent link">&para;</a></h2>
-<p>The two families are local false states: the attacker changes loads (and, for <code>Am</code>, generator
-outputs) inside a subnetwork, solves that subnetwork with the boundary voltages held true, and adds
-<code>a = h(x_false) - h(x_true)</code> to the true scan (<code>engine/attacks/stealthy._stealthy_frame</code>,
-<code>engine/attacks/overload.py</code>). Every meter keeps its own noise draw, so the residual test sees noise
-only. Every false state must also stay within the case's bus voltage limits and the generator P and
-Q limits widened to the range the pool used (<code>engine/attacks/false_state._within_limits</code>,
-<code>operating_limits</code>). They satisfy equations (13)-(25) of [WU26] (the SCADA measurements, the PMU
-voltage magnitudes, angles and branch currents, the operating limits and the line-overload goal) and
-its objective, eq. (12): each episode is held on the support that tampers the fewest devices.</p>
-<table>
-<thead>
-<tr>
-<th>family</th>
-<th>code</th>
-<th>construction</th>
-<th>magnitude per bus</th>
-<th>episode length</th>
-<th>stealthy</th>
-<th>target set</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>At</code></td>
-<td>5</td>
-<td>slow ramp: one load factor on a fixed bus set, rise, hold, return, each frame a local false state on the fewest-tamper support</td>
-<td>0.2% per frame (<code>ramp_rate</code>), peak 2.4% to 5.2%</td>
-<td>60 frames (<code>ramp_len</code>)</td>
-<td>yes</td>
-<td>5 stealthy loads (<code>draw_ramp</code>)</td>
-</tr>
-<tr>
-<td><code>Am</code></td>
-<td>7</td>
-<td>the overload attack of [WU26]: one or two lines' reported flow driven to their ratings over the window, on the fewest-tamper support</td>
-<td>the least-norm false state that meets the goal</td>
-<td>60 frames (<code>am_len</code> defaults to <code>ramp_len</code>)</td>
-<td>yes</td>
-<td>the rated, metered lines of the window (<code>eligible_lines</code>)</td>
-</tr>
-</tbody>
-</table>
-<p>The codes of the single-snapshot families of older releases (1 <code>Aq</code>, 2 <code>Ad</code>, 3 <code>As</code>, 4 <code>Ar</code>, 6 <code>Al</code>)
-stay in the read-only label table <code>fg.FAMILIES</code>, and the files of data release v0.8.3 that carry them
-load, filter and score by name (<code>fg.load(..., release="v0.8.3", families=["Aq"])</code>). The generator does
-not make them. Those families, and the <code>Am</code> of that release, were drawn at random targets, on meters
-without branch currents, and drove no line to its limit.</p>
-<p>Both families run on the fewest-tamper search. <code>Am</code> is the overload attack of [WU26, eqs. 24-25]
-(<code>engine/attacks/overload.py</code>): at onset, the eligible branches (rated, flow metered, true flow
-below the rating at every snapshot of the window) are tried in a random order, and the first whose
-fewest-tamper support meets the goal at every snapshot is the episode's target. Snapshot t's goal is
-the true flow plus a linear share of what separates the window's last true flow from the rating,
-<code>S_true_t + (t - kappa)/T (S_max - S_true_{kappa+T})</code>, on the noiseless reading of
-the false state, reaching the rating <code>S_max</code> at the last snapshot; the attackable loads of the
-support are free, every other bus keeps its injection, and the false state is the least-norm voltage
-change that meets the flow. The ratings are by default 1.25 times each branch's peak true apparent flow
-over the operating pool (<code>am_attack=OverloadSettings(rating_margin=...)</code>), which works on every system; the
-PGLib-OPF ratings are the alternative, <code>am_attack=OverloadSettings(rating_source="pglib")</code> (IEEE-14, 118 and 300;
-other cases raise <code>NoLineRatings</code>). The generators of the support are free inside their limits, like its attackable loads, and the
-flow solve enforces the voltage and generator limits by an active set; the limits
-bind every generator the attack moves, on the support's edge too, and every load bus it moves shows
-at most <code>load_cap</code> (0.5, <code>OverloadSettings(load_cap=...)</code>) times its true load [YUA11]. Each
-episode overloads two lines at once, as [WU26]'s case studies do, drawn so one held support reaches
-both (<code>OverloadSettings(n_lines=1)</code> for one); <code>episodes/am_*</code> holds one row per target line. <code>OverloadSettings(support_method="rref")</code> picks the support by [WU26]'s own method instead of the search: row reduction of the transposed attack-area Jacobian with column exchanges (p. 655 and Sec. IV-D1, after [YAN17]; <code>engine/attacks/rref.py</code>), the sparsest attack that moves each target line at every snapshot joined over the window, grown by the next sparsest rows when the AC solve cannot reach the goal on it (ours). It is much faster on IEEE-14 and tampers more devices than the search. As in
-[WU26], nothing bounds how far <code>Am</code> moves a channel between snapshots: a
-device counts as tampered beyond [WU26]'s own case-study noise (0.03 pu SCADA, 0.01 pu PMU, the
-current channels included; <code>formulas.noise.paper_sigma</code>), and the attack is
-stealthy because every snapshot is one AC state. <code>At</code> keeps its bound, each step within the meters'
-rated accuracy. <code>Am</code> carries no such bound, because under one no overload window is
-stealthy: moving one line's flow moves the injections and flows around its ends by several times
-that change, beyond the rated accuracy of the small loads there. A window with no stealthy
-overload moves the episode to another free onset of its split, earlier or later, up to 20 times
-(<code>generation.design.SearchDesigner</code>: the Am of a split are designed before it is walked); past that it is
-given up and counted in <code>episode_shortfall</code>. With the hybrid meters the attacker also
-writes the PMU branch currents its false state moves, which counts in the PMU of the bus at that end.
-Only <code>At</code>'s channels are bounded between snapshots, the currents included (the PMU class); <code>Am</code>'s
-current channels are only counted when they move by more than 0.01 pu.</p>
-<p>The overload episodes these recipes build, measured on the hybrid meters with <code>families=("Am",)</code>,
-seed 1, the pool ratings computed over the frames walked (IEEE-14 and IEEE-118 timelines of 3,000
-and 2,000 frames; IEEE-30 a smoke run; experiment
-<code>generation.am_overload</code>; every line of every built episode reaches its rating):</p>
-<!-- results: gen.am -->
-<table>
-<thead>
-<tr>
-<th>system</th>
-<th>recipe</th>
-<th style="text-align: right;">frames</th>
-<th style="text-align: right;">episodes</th>
-<th style="text-align: right;">fallen back</th>
-<th style="text-align: right;">devices (mean)</th>
-<th style="text-align: right;">channels (mean)</th>
-<th style="text-align: right;">largest change, pu (median / max episode)</th>
-<th style="text-align: right;">s per episode</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>IEEE-14</td>
-<td>one line, without the load and generator bounds</td>
-<td style="text-align: right;">3000</td>
-<td style="text-align: right;">25</td>
-<td style="text-align: right;">0</td>
-<td style="text-align: right;">5.3</td>
-<td style="text-align: right;">15.0</td>
-<td style="text-align: right;">0.18 / 5.74</td>
-<td style="text-align: right;">15</td>
-</tr>
-<tr>
-<td>IEEE-14</td>
-<td>one line, with the load and generator bounds</td>
-<td style="text-align: right;">3000</td>
-<td style="text-align: right;">25</td>
-<td style="text-align: right;">0</td>
-<td style="text-align: right;">3.9</td>
-<td style="text-align: right;">9.9</td>
-<td style="text-align: right;">0.14 / 0.82</td>
-<td style="text-align: right;">30</td>
-</tr>
-<tr>
-<td>IEEE-14</td>
-<td>two lines, with the load and generator bounds (default)</td>
-<td style="text-align: right;">3000</td>
-<td style="text-align: right;">25</td>
-<td style="text-align: right;">0</td>
-<td style="text-align: right;">6.8</td>
-<td style="text-align: right;">19.3</td>
-<td style="text-align: right;">0.17 / 1.59</td>
-<td style="text-align: right;">39</td>
-</tr>
-<tr>
-<td>IEEE-30</td>
-<td>one line, without the load and generator bounds</td>
-<td style="text-align: right;">600</td>
-<td style="text-align: right;">5</td>
-<td style="text-align: right;">0</td>
-<td style="text-align: right;">3.8</td>
-<td style="text-align: right;">8.8</td>
-<td style="text-align: right;">0.09 / 0.29</td>
-<td style="text-align: right;">20</td>
-</tr>
-<tr>
-<td>IEEE-118</td>
-<td>one line, without the load and generator bounds</td>
-<td style="text-align: right;">2000</td>
-<td style="text-align: right;">17</td>
-<td style="text-align: right;">0</td>
-<td style="text-align: right;">6.8</td>
-<td style="text-align: right;">21.4</td>
-<td style="text-align: right;">1.05 / 44.94</td>
-<td style="text-align: right;">43</td>
-</tr>
-<tr>
-<td>IEEE-118</td>
-<td>one line, with the load and generator bounds</td>
-<td style="text-align: right;">2000</td>
-<td style="text-align: right;">17</td>
-<td style="text-align: right;">0</td>
-<td style="text-align: right;">9.6</td>
-<td style="text-align: right;">30.4</td>
-<td style="text-align: right;">0.40 / 3.29</td>
-<td style="text-align: right;">71</td>
-</tr>
-<tr>
-<td>IEEE-118</td>
-<td>two lines, with the load and generator bounds (default)</td>
-<td style="text-align: right;">2000</td>
-<td style="text-align: right;">17</td>
-<td style="text-align: right;">0</td>
-<td style="text-align: right;">17.8</td>
-<td style="text-align: right;">72.0</td>
-<td style="text-align: right;">1.33 / 3.39</td>
-<td style="text-align: right;">78</td>
-</tr>
-</tbody>
-</table>
-<!-- /results -->
-
-<p>Notes on the table:</p>
+<h1 id="generate-a-timeline">Generate a timeline<a class="headerlink" href="#generate-a-timeline" title="Permanent link">&para;</a></h1>
+<p>A timeline is the meter readings of one test system, frame by frame, with attack episodes placed
+in it. This guide generates one. It is the same guide for every test system: one method makes
+every timeline, and what differs between systems is settings and data.</p>
+<p>Terms are in the <a href="../../reference/GLOSSARY/">glossary</a>. Paths are under <code>src/fdia_graph/</code>.</p>
+<h2 id="what-you-need">What you need<a class="headerlink" href="#what-you-need" title="Permanent link">&para;</a></h2>
 <ul>
-<li>A stealthy target is an attackable load that is not on a generator bus, zero-MW condensers
-  included [BOY22] (<code>_load_tables</code>, <code>stealthy_pos</code>). An attackable load has nonzero active power,
-  is not on the slack bus and is at most <code>max_load_mw = 2000</code> MW (<code>attackable_pos</code>).</li>
-<li>The <code>At</code> rise lasts 20% to 45% of the episode and the hold 0% to 25% (<code>draw_ramp</code>). Every frame
-  carries at least one <code>ramp_rate</code> of change, so every frame labelled <code>At</code> is attacked
-  (<code>EpisodeDesignMixin.ramp_step</code>).</li>
-<li>A ramp step with no local solution is halved, up to 6 times (<code>STEP_HALVINGS</code>). <code>At</code> designs are
-  tested on every frame they will occupy before they are accepted, up to 40 draws (<code>ONSET_DRAWS</code>).</li>
-<li>An overload <code>Am</code> window's snapshots are kappa+1 ... kappa+T after the untouched reference kappa
-  [WU26, eq. 25], so its first snapshot already carries 1/T of the way to the rating and every frame
-  labelled <code>Am</code> is attacked.</li>
+<li><strong>A test system.</strong> One of the eight IEEE cases, or the New York case
+  (<a href="../../concepts/test_systems/">Test systems</a>).</li>
+<li><strong>A pool of operating points.</strong> One solved AC state per frame, in time order
+  (<a href="../operating_points/">Build the operating points</a>).</li>
 </ul>
-<h2 id="4-episode-placement">4. Episode placement<a class="headerlink" href="#4-episode-placement" title="Permanent link">&para;</a></h2>
+<p>For an IEEE case <code>fg.generate</code> downloads the released pool, so you need nothing else. For the
+New York case you build the pool first.</p>
+<h2 id="the-steps">The steps<a class="headerlink" href="#the-steps" title="Permanent link">&para;</a></h2>
+<p><code>TimelineSource.generate(out)</code> in <code>generation/source.py</code> makes every timeline. Its body is short,
+and it runs these steps in this order.</p>
+<p><img alt="Eight boxes, top to bottom. A test system and its pool: one AC state per frame. 1. Open: the file, under a .part name. 2. Cut the splits: blocks in time order, or whole weeks. 3. Place: a split's episodes, whole, at random onsets. 4. Design: each episode. 5. Walk: the frames, in time order; an arrow labelled next split goes back to Place. 6. Finish: the episode table. Last, one timeline file: observed, benign, clean." src="../../figures/diagrams/generation_flow.png" /></p>
+<p>A source is a subclass of <code>TimelineSource</code>. It builds the generator, the pool and the designer
+of its attack families, and it says what its files record. There are two.</p>
 <table>
 <thead>
 <tr>
-<th>step</th>
-<th>rule</th>
-<th>source</th>
+<th>Source</th>
+<th>File</th>
+<th>Built on</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>split</td>
-<td>chronological, cut before anything is placed: train <code>round(0.6 T)</code> frames, val <code>round(0.2 T)</code>, test the rest (<code>split=</code>, validated by <code>SplitSettings</code>)</td>
-<td><code>plan.split_bounds</code></td>
+<td><code>SearchSource</code></td>
+<td><code>generation/search.py</code></td>
+<td>a <code>Network</code> and a pool array</td>
 </tr>
 <tr>
-<td>count</td>
-<td>per split, the whole number of episodes whose frames come closest to <code>attacked_frac</code> of its frames (whole episodes, so a short split can be off by one or two), shared between the families by largest remainder over the weights <code>1 / length</code>, so every family gets about the same share of attacked frames</td>
-<td><code>plan.whole_episode_counts</code>, <code>plan.largest_remainder</code></td>
-</tr>
-<tr>
-<td>place</td>
-<td>per split, longest first, each at an onset drawn uniformly among the positions where it fits inside the split, never overlapping and never cut; a placement that jams is retried whole 10 times, then one episode of the family that jammed is dropped and recorded (<code>RuntimeWarning</code>)</td>
-<td><code>plan.place_split</code>, <code>plan.uniform_onset</code></td>
-</tr>
-<tr>
-<td>walk</td>
-<td>every frame emitted in time order, its meter jitter from its own stream keyed by the seed and the timestep: benign runs between episodes, each episode where it was placed</td>
-<td><code>emit.Walk.run</code>, <code>MeasurementMixin._jitter_stream</code></td>
-</tr>
-<tr>
-<td>move</td>
-<td>an episode with no feasible design at its onset moves, up to 20 times, then is given up and recorded (<code>RuntimeWarning</code>): an overload Am to an onset drawn uniformly among every free one of its split, earlier or later, since the design stage designs a split's Am before any of its frames is written and an Am design reads no earlier frame (no stealth bound); a ramp At to a later free onset, since its design reads the frame before its onset and the walk has written the frames before the failed one. The moves draw from streams keyed by the seed, the split, the episode and the move, so they do not depend on the workers</td>
-<td><code>design.SplitDesign</code>, <code>emit.Walk.relocate_later</code></td>
-</tr>
-<tr>
-<td>fallback</td>
-<td>a frame inside a built episode whose own scan cannot be built is emitted benign; the count is the <code>fallback_benign</code> attribute</td>
-<td><code>TimelineWriter.finish</code></td>
-</tr>
-<tr>
-<td>record</td>
-<td>the split fractions and sizes, the attacked fraction each split reached, and per split and family the episodes requested, built, moved, dropped and short</td>
-<td><code>TimelineWriter.finish</code></td>
+<td><code>NewYorkSource</code></td>
+<td><code>generation/newyork.py</code></td>
+<td>the New York pool file</td>
 </tr>
 </tbody>
 </table>
-<p>Adjacent episodes and long quiet stretches are outcomes of the uniform draw, not of a rule. Placing
-the longest episodes first keeps a long episode from being squeezed out by shorter ones. The
-default <code>attacked_frac = 0.5</code> gives a balanced file: on a 72,000-frame timeline with 60-frame
-episodes every split is half attacked, up to an overload window that stays infeasible after its 20
-moves. The full IEEE-14 builds of the three release datasets (seed 123, experiment
-<code>generation.split_first</code>; episodes and redraws per family, <code>At / Am</code>):</p>
+<p><code>IeeeSource</code> (<code>generation/ieee.py</code>) is a <code>SearchSource</code> for an IEEE case by its name.</p>
+<h3 id="1-open">1. Open<a class="headerlink" href="#1-open" title="Permanent link">&para;</a></h3>
+<p>Owner: <code>TimelineSource.open</code>, with <code>TimelineWriter</code> (<code>generation/write.py</code>).</p>
+<p>The file is started beside <code>out</code> under a <code>.part</code> name. It takes the name <code>out</code> only when it is
+whole. A run that fails leaves no file, and a file already at <code>out</code> is left as it was.
+The writer stores the static graph first: the branches and what gives the admittance matrix.</p>
+<h3 id="2-cut-the-splits">2. Cut the splits<a class="headerlink" href="#2-cut-the-splits" title="Permanent link">&para;</a></h3>
+<p>Owner: <code>TimelineSource.cut_splits</code>, with <code>split_bounds</code> and <code>split_weeks</code> in
+<code>generation/plan.py</code>.</p>
+<p>The train, validation and test splits are cut before any episode is placed, so no episode is cut
+by a split. The setting <code>split_by</code> chooses how.</p>
+<ul>
+<li><code>"time"</code>: three blocks in time order.</li>
+<li><code>"week"</code>: whole weeks, drawn into the three splits. This needs each frame's time. The weeks
+  are ranked by how many allowed onsets they hold and drawn in strata of 20 weeks
+  (<code>split_weeks</code>). Where no family limits its onsets, as on a <code>SearchSource</code>, the order is
+  random.</li>
+</ul>
+<p>Just before the cut the source runs <code>prepare</code>. It does nothing on a <code>SearchSource</code>. A
+<code>NewYorkSource</code> finds there the onsets its families may take (see
+<a href="#the-new-york-settings">the New York settings</a>).</p>
+<h3 id="3-place">3. Place<a class="headerlink" href="#3-place" title="Permanent link">&para;</a></h3>
+<p>Owner: <code>TimelineSource.place</code>, with <code>place_split</code> in <code>generation/plan.py</code>.</p>
+<p>Each split gets whole episodes at random onsets.</p>
+<ul>
+<li><strong>How many.</strong> The whole number of episodes whose frames come closest to <code>attacked_frac</code> of the
+  split. The families share them so that each family gets about the same number of attacked
+  frames (<code>whole_episode_counts</code>, <code>largest_remainder</code>).</li>
+<li><strong>Where.</strong> Longest first, each at an onset drawn uniformly among the positions where it fits.
+  Episodes never overlap and none is cut (<code>uniform_onset</code>).</li>
+<li><strong>When it jams.</strong> A placement that cannot fit is retried whole 10 times (<code>PLACE_TRIES</code>). Then
+  one episode of the family that jammed is dropped, recorded, and reported with a
+  <code>RuntimeWarning</code>.</li>
+</ul>
+<p>Adjacent episodes and long quiet stretches are outcomes of the uniform draw, not of a rule.</p>
+<h3 id="4-design">4. Design<a class="headerlink" href="#4-design" title="Permanent link">&para;</a></h3>
+<p>Owner: <code>TimelineSource.design</code>, with <code>SplitDesign</code> and the source's <code>Designer</code>
+(<code>generation/design.py</code>).</p>
+<p>The designer asks each family for the episode of a window: what the attacker changes on each
+frame (<a href="../../concepts/attacks/">The attack families</a>). An episode with no design at its onset
+moves to another free onset of its split, up to 20 times (<code>REDRAWS</code>). After that it is given up,
+recorded, and reported with a <code>RuntimeWarning</code>.</p>
+<p>On a <code>SearchSource</code> the ramp <code>At</code> is the one family designed as the walk reaches it, because
+its design reads the frame before its onset. A ramp with no design therefore moves to a later
+onset only (<code>Walk.relocate_later</code>).</p>
+<p>The designs of a split can run in several processes (<code>workers</code>). The file does not depend on the
+number of workers. The processes are spawned, so a script that asks for more than one worker
+must start under <code>if __name__ == "__main__":</code>.</p>
+<h3 id="5-walk">5. Walk<a class="headerlink" href="#5-walk" title="Permanent link">&para;</a></h3>
+<p>Owner: <code>TimelineSource.walk</code>, with <code>Walk.run</code> in <code>generation/emit.py</code>.</p>
+<p>Every frame is emitted in time order. A frame outside an episode is a benign scan: the readings
+of the pool state plus meter noise (<a href="../../concepts/meters/">Meters and noise</a>). A frame inside
+an episode is that scan plus the attack. A frame of an episode whose own scan cannot be built is
+stored benign, and the file counts it in the attribute <code>fallback_benign</code>.</p>
+<p>The walk writes a frame only after its split is placed and designed (<code>planned_until</code> in
+<code>generation/plan.py</code>). With <code>split_by="time"</code> each split is one block, so the walk writes that
+block next. With <code>split_by="week"</code> the weeks of the three splits alternate, so the walk stops
+at the first frame whose split is not designed yet.</p>
+<h3 id="6-finish">6. Finish<a class="headerlink" href="#6-finish" title="Permanent link">&para;</a></h3>
+<p>Owner: <code>TimelineSource.finish</code>, with <code>TimelineWriter.finish</code>.</p>
+<p>After the last frame the writer stores what the file carries besides its frames: the per-frame
+columns, the episode table, the attributes, and the temporal features where the file has them.
+The attributes record the settings as JSON (<code>settings</code>) with their hash (<code>settings_hash</code>), and
+per split and family the episodes requested, built, moved, dropped and short.
+<a href="../../concepts/layers/">Layers and labels</a> says what each layer means, and
+<a href="../../reference/DATA_DICTIONARY/">the data dictionary</a> lists every array.</p>
+<h2 id="the-settings">The settings<a class="headerlink" href="#the-settings" title="Permanent link">&para;</a></h2>
+<p>Settings arrive as models from <code>models/config.py</code>. Each model checks its values when it is
+built, and a value it does not allow raises <code>ConfigError</code>.</p>
+<h3 id="timelinesettings"><code>TimelineSettings</code><a class="headerlink" href="#timelinesettings" title="Permanent link">&para;</a></h3>
+<p>The settings of a <code>SearchSource</code>, so of every IEEE timeline.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Default</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>attacked_frac</code></td>
+<td>0.5</td>
+<td>share of each split's frames under an episode</td>
+</tr>
+<tr>
+<td><code>families</code></td>
+<td><code>("At", "Am")</code></td>
+<td>the families placed</td>
+</tr>
+<tr>
+<td><code>am_len</code></td>
+<td><code>None</code></td>
+<td><code>Am</code> episode length in frames; <code>None</code> is the ramp's</td>
+</tr>
+<tr>
+<td><code>max_load_mw</code></td>
+<td>2000.0</td>
+<td>a larger load is never a target; <code>None</code> is off</td>
+</tr>
+<tr>
+<td><code>workers</code></td>
+<td>1</td>
+<td>processes that design the <code>Am</code> episodes</td>
+</tr>
+<tr>
+<td><code>split_by</code></td>
+<td><code>"time"</code></td>
+<td>how the splits are cut</td>
+</tr>
+<tr>
+<td><code>am_attack</code></td>
+<td><code>"overload"</code></td>
+<td>what an <code>Am</code> episode is; the one kind</td>
+</tr>
+<tr>
+<td><code>ramp</code></td>
+<td><code>RampSettings()</code></td>
+<td>the slow ramp <code>At</code></td>
+</tr>
+<tr>
+<td><code>search</code></td>
+<td><code>SearchSettings()</code></td>
+<td>the attacker's area and the search</td>
+</tr>
+<tr>
+<td><code>overload</code></td>
+<td><code>OverloadSettings()</code></td>
+<td>the overload <code>Am</code></td>
+</tr>
+<tr>
+<td><code>meters</code></td>
+<td><code>MeterSettings()</code></td>
+<td>the meter plan</td>
+</tr>
+<tr>
+<td><code>split</code></td>
+<td><code>SplitSettings()</code></td>
+<td>the three fractions</td>
+</tr>
+</tbody>
+</table>
+<p>The sections:</p>
+<table>
+<thead>
+<tr>
+<th>Model</th>
+<th>Field</th>
+<th>Default</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>RampSettings</code></td>
+<td><code>rate</code></td>
+<td>0.002</td>
+<td><code>At</code> growth per frame</td>
+</tr>
+<tr>
+<td><code>RampSettings</code></td>
+<td><code>length</code></td>
+<td>60</td>
+<td><code>At</code> episode length in frames</td>
+</tr>
+<tr>
+<td><code>RampSettings</code></td>
+<td><code>stealth_scale</code></td>
+<td>1.0</td>
+<td>multiplier on <code>At</code>'s stealth bound</td>
+</tr>
+<tr>
+<td><code>SearchSettings</code></td>
+<td><code>hops</code></td>
+<td>2</td>
+<td>the attacker's reach in branches</td>
+</tr>
+<tr>
+<td><code>SearchSettings</code></td>
+<td><code>min_tamper</code></td>
+<td><code>True</code></td>
+<td>hold each <code>At</code> episode on the fewest devices</td>
+</tr>
+<tr>
+<td><code>SearchSettings</code></td>
+<td><code>min_budget</code></td>
+<td>256</td>
+<td>candidate supports solved per search</td>
+</tr>
+<tr>
+<td><code>SearchSettings</code></td>
+<td><code>area_rule</code></td>
+<td><code>"hops"</code></td>
+<td>how the attacker's area is chosen</td>
+</tr>
+<tr>
+<td><code>OverloadSettings</code></td>
+<td><code>rating_source</code></td>
+<td><code>"pool"</code></td>
+<td><code>"pool"</code>, <code>"pglib"</code> or <code>"delta"</code></td>
+</tr>
+<tr>
+<td><code>OverloadSettings</code></td>
+<td><code>rating_margin</code></td>
+<td>1.25</td>
+<td>rating over the pool's peak flow</td>
+</tr>
+<tr>
+<td><code>OverloadSettings</code></td>
+<td><code>load_cap</code></td>
+<td>0.5</td>
+<td>largest shown load change, as a share</td>
+</tr>
+<tr>
+<td><code>OverloadSettings</code></td>
+<td><code>n_lines</code></td>
+<td>2</td>
+<td>lines one episode overloads</td>
+</tr>
+<tr>
+<td><code>OverloadSettings</code></td>
+<td><code>support_method</code></td>
+<td><code>"search"</code></td>
+<td><code>"search"</code> or <code>"rref"</code></td>
+</tr>
+<tr>
+<td><code>OverloadSettings</code></td>
+<td><code>rating_delta</code></td>
+<td>0.10</td>
+<td>with <code>"delta"</code>: p.u. added to the target's true flow</td>
+</tr>
+<tr>
+<td><code>MeterSettings</code></td>
+<td><code>vbus_frac</code></td>
+<td>0.6</td>
+<td>share of buses with a voltmeter</td>
+</tr>
+<tr>
+<td><code>MeterSettings</code></td>
+<td><code>pmu_frac</code></td>
+<td>0.2</td>
+<td>share of buses with a PMU</td>
+</tr>
+<tr>
+<td><code>MeterSettings</code></td>
+<td><code>flow_frac</code></td>
+<td>0.9</td>
+<td>share of branches with a flow meter</td>
+</tr>
+<tr>
+<td><code>MeterSettings</code></td>
+<td><code>meter_model</code></td>
+<td><code>"hybrid"</code></td>
+<td>what the meters read</td>
+</tr>
+<tr>
+<td><code>SplitSettings</code></td>
+<td><code>fractions</code></td>
+<td><code>(0.6, 0.2, 0.2)</code></td>
+<td>train, validation, test</td>
+</tr>
+</tbody>
+</table>
+<p><code>fg.generate</code> and <code>generate_timeline</code> take a <code>TimelineSettings</code>, and also flat keywords that set
+one field each. A flat keyword is applied over the settings.</p>
+<table>
+<thead>
+<tr>
+<th>Flat keyword</th>
+<th>Sets</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>attacked_frac</code>, <code>families</code>, <code>am_len</code>, <code>max_load_mw</code>, <code>workers</code>, <code>split_by</code></td>
+<td>the field of that name</td>
+</tr>
+<tr>
+<td><code>ramp_rate</code>, <code>ramp_len</code>, <code>stealth_scale</code></td>
+<td><code>ramp.rate</code>, <code>ramp.length</code>, <code>ramp.stealth_scale</code></td>
+</tr>
+<tr>
+<td><code>hops</code>, <code>min_tamper</code>, <code>min_budget</code></td>
+<td>the <code>search</code> field of that name</td>
+</tr>
+<tr>
+<td><code>redundancy</code></td>
+<td><code>meters</code> (a <code>MeterSettings</code>)</td>
+</tr>
+<tr>
+<td><code>split</code></td>
+<td><code>split</code> (three fractions, or a <code>SplitSettings</code>)</td>
+</tr>
+<tr>
+<td><code>am_attack</code></td>
+<td><code>"overload"</code> sets <code>am_attack</code>; an <code>OverloadSettings</code> sets <code>overload</code></td>
+</tr>
+</tbody>
+</table>
+<p><code>seed</code> (default 123) is an argument beside the settings. It fixes the meter plan, the meter
+biases and every attack draw.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fdia_graph.models.config</span><span class="w"> </span><span class="kn">import</span> <span class="n">RampSettings</span><span class="p">,</span> <span class="n">TimelineSettings</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">settings</span> <span class="o">=</span> <span class="n">TimelineSettings</span><span class="p">(</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">attacked_frac</span><span class="o">=</span><span class="mf">0.3</span><span class="p">,</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">ramp</span><span class="o">=</span><span class="n">RampSettings</span><span class="p">(</span><span class="n">length</span><span class="o">=</span><span class="mi">30</span><span class="p">),</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="p">)</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="nb">print</span><span class="p">(</span><span class="n">settings</span><span class="o">.</span><span class="n">lengths_for</span><span class="p">((</span><span class="s2">"At"</span><span class="p">,</span> <span class="s2">"Am"</span><span class="p">)))</span>  <span class="c1"># {'At': 30, 'Am': 30}</span>
+</code></pre></div>
+<h3 id="split_by-and-time"><code>split_by</code> and <code>time=</code><a class="headerlink" href="#split_by-and-time" title="Permanent link">&para;</a></h3>
+<p><code>split_by</code> is a setting of every source.</p>
+<table>
+<thead>
+<tr>
+<th>Value</th>
+<th>The splits</th>
+<th>Needs</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>"time"</code></td>
+<td>three blocks in time order</td>
+<td>nothing</td>
+</tr>
+<tr>
+<td><code>"week"</code></td>
+<td>whole weeks, drawn into the three splits</td>
+<td>each frame's time</td>
+</tr>
+</tbody>
+</table>
+<p>The frames' times are the argument <code>time=</code>: numpy <code>datetime64</code> values, one per frame, strictly
+increasing. Anything else is refused when the source is built. An IEEE pool stores no time, so
+an IEEE timeline split by weeks needs <code>time=</code> passed in. A New York pool stores its times.</p>
+<p>With times, the file stores <code>data/time</code>, and no episode is placed across a gap in time. Without
+them, <code>split_by="week"</code> is refused with a <code>ConfigError</code> that says the pool carries no time.</p>
+<h3 id="the-new-york-settings">The New York settings<a class="headerlink" href="#the-new-york-settings" title="Permanent link">&para;</a></h3>
+<p><code>NewYorkSettings</code> holds the settings of a <code>NewYorkSource</code>.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Default</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>length</code></td>
+<td>16</td>
+<td>frames per episode, or <code>{family: frames}</code></td>
+</tr>
+<tr>
+<td><code>attacked_frac</code></td>
+<td>0.2</td>
+<td>share of each split's frames under an episode</td>
+</tr>
+<tr>
+<td><code>split</code></td>
+<td><code>SplitSettings((0.7, 0.15, 0.15))</code></td>
+<td>train, validation, test</td>
+</tr>
+<tr>
+<td><code>split_by</code></td>
+<td><code>"week"</code></td>
+<td>how the splits are cut</td>
+</tr>
+<tr>
+<td><code>workers</code></td>
+<td>1</td>
+<td>processes that design the episodes</td>
+</tr>
+<tr>
+<td><code>verbose</code></td>
+<td><code>False</code></td>
+<td>print progress</td>
+</tr>
+<tr>
+<td><code>survey</code></td>
+<td>0</td>
+<td>frames between surveyed onsets; 0 is off</td>
+</tr>
+<tr>
+<td><code>survey_cache</code></td>
+<td><code>None</code></td>
+<td>folder that keeps the survey by chunk</td>
+</tr>
+</tbody>
+</table>
+<p>The overload family of the New York case waits for a loaded grid: it may start only where an
+interface is near its limit. <code>prepare</code> asks each family for its <code>onset_mask</code>. With <code>survey</code> on,
+it also designs every allowed onset on that grid of frames first, and then places episodes only
+at onsets where an attack was found. A survey saved under <code>survey_cache</code> lets a stopped build
+resume.</p>
+<p><code>NewYorkRelease</code> holds what <code>NewYorkSource.production</code> builds its source from.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Default</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>families</code></td>
+<td><code>("Am", "At")</code></td>
+<td>the families built</td>
+</tr>
+<tr>
+<td><code>interfaces</code></td>
+<td><code>("SPR/DUN-SOUTH",)</code></td>
+<td>the interfaces <code>Am</code> targets</td>
+</tr>
+<tr>
+<td><code>workers</code></td>
+<td>12</td>
+<td>processes that design the episodes</td>
+</tr>
+<tr>
+<td><code>survey</code></td>
+<td>12</td>
+<td>the survey's grid in frames; 0 is off</td>
+</tr>
+<tr>
+<td><code>survey_cache</code></td>
+<td><code>None</code></td>
+<td>folder that keeps the survey by chunk</td>
+</tr>
+<tr>
+<td><code>root</code></td>
+<td><code>"."</code></td>
+<td>folder whose <code>data/</code> holds the inputs</td>
+</tr>
+<tr>
+<td><code>hold_external</code></td>
+<td><code>False</code></td>
+<td>keep every bus outside New York true</td>
+</tr>
+<tr>
+<td><code>v_margin</code></td>
+<td>0.0</td>
+<td>widens the attacker's voltage limits (p.u.)</td>
+</tr>
+<tr>
+<td><code>gen_v_tol</code></td>
+<td><code>None</code></td>
+<td>holds generator voltages near schedule (p.u.)</td>
+</tr>
+<tr>
+<td><code>load_cap</code></td>
+<td><code>None</code></td>
+<td>cap on a shown load change; <code>None</code> keeps 0.1</td>
+</tr>
+<tr>
+<td><code>band</code></td>
+<td><code>None</code></td>
+<td>basepoint band's share; <code>None</code> keeps 0.03</td>
+</tr>
+</tbody>
+</table>
+<p><code>production</code> sets the episode lengths itself: 32 frames for <code>Am</code> and 16 for <code>At</code>.</p>
+<h2 id="what-differs-between-the-ieee-cases-and-the-new-york-case-today">What differs between the IEEE cases and the New York case today<a class="headerlink" href="#what-differs-between-the-ieee-cases-and-the-new-york-case-today" title="Permanent link">&para;</a></h2>
+<p>Every row is a difference in settings or in data. The steps above are the same.</p>
+<table>
+<thead>
+<tr>
+<th>Item</th>
+<th>IEEE cases</th>
+<th>New York case</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Case</td>
+<td><code>Case.from_ieee(n)</code>, the case pandapower ships</td>
+<td><code>nygrid_case()</code>, a MATPOWER file in the package</td>
+</tr>
+<tr>
+<td>Load data</td>
+<td>one system load profile scales every bus</td>
+<td>a load per bus, from <code>LoadModel</code></td>
+</tr>
+<tr>
+<td>Pool solve</td>
+<td>one power flow per step, in pandapower</td>
+<td>one OPF per frame in Ipopt, then one power flow</td>
+</tr>
+<tr>
+<td>A step that does not solve</td>
+<td>dropped from the pool</td>
+<td>kept in place, with an empty state</td>
+</tr>
+<tr>
+<td>Frame times</td>
+<td>not stored in the pool</td>
+<td>stored in the pool</td>
+</tr>
+<tr>
+<td>Meter placement</td>
+<td><code>MeterPlan.from_coverage</code>: random shares</td>
+<td><code>plan_meters</code>: every bus and branch end a utility owns</td>
+</tr>
+<tr>
+<td>Design family</td>
+<td><code>SearchRamp</code>, <code>SearchOverload</code></td>
+<td><code>Ramp</code>, <code>InterfaceFdia</code></td>
+</tr>
+<tr>
+<td>Episode lengths</td>
+<td>60 frames, both families</td>
+<td>16 frames; <code>NewYorkSource.production</code> uses 32 for <code>Am</code></td>
+</tr>
+<tr>
+<td>Attacked share</td>
+<td>0.5</td>
+<td>0.2</td>
+</tr>
+<tr>
+<td>Split default</td>
+<td><code>"time"</code>, 0.6 / 0.2 / 0.2</td>
+<td><code>"week"</code>, 0.7 / 0.15 / 0.15</td>
+</tr>
+<tr>
+<td>Allowed onsets</td>
+<td>any onset of the split</td>
+<td><code>Am</code> only where an interface is near its limit</td>
+</tr>
+<tr>
+<td>Temporal features</td>
+<td><code>temporal_delta</code> and <code>swing</code> are written</td>
+<td>not written</td>
+</tr>
+<tr>
+<td>Entry point</td>
+<td><code>fg.generate</code></td>
+<td><code>pipelines/newyork/build_timeline.py</code></td>
+</tr>
+<tr>
+<td>Released data</td>
+<td>a pool and a timeline per system</td>
+<td>none; you build both</td>
+</tr>
+</tbody>
+</table>
+<p>Two of these rows are tied together today. The search-based designs read the meters that
+<code>MeterPlan.from_coverage</code> places, and the New York designs read the meters that <code>plan_meters</code>
+places. So the meter placement and the design family both follow the source. Neither is a
+setting of its own. <a href="../../concepts/attacks/">The attack families</a> says what each design does.</p>
+<h2 id="entry-point-an-ieee-case">Entry point: an IEEE case<a class="headerlink" href="#entry-point-an-ieee-case" title="Permanent link">&para;</a></h2>
+<p><code>fg.generate</code> loads the pool, generates the timeline and registers the file under a name.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">fdia_graph</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">fg</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="c1"># needs fdia-graph[generate]</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="c1"># downloads the IEEE-14 pool (about 25 MB) once</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="c1"># about five minutes on a laptop</span>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="n">fg</span><span class="o">.</span><span class="n">generate</span><span class="p">(</span><span class="s2">"ieee14"</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">"my_run"</span><span class="p">,</span> <span class="n">frames</span><span class="o">=</span><span class="mi">2000</span><span class="p">)</span>
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="n">mine</span> <span class="o">=</span> <span class="n">fg</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">"my_run"</span><span class="p">,</span> <span class="n">split</span><span class="o">=</span><span class="s2">"train"</span><span class="p">)</span>
+</code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Argument</th>
+<th>Default</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>system</code></td>
+<td></td>
+<td><code>"ieee14"</code> to <code>"ieee300"</code>, or the bus count</td>
+</tr>
+<tr>
+<td><code>name</code></td>
+<td></td>
+<td>the name <code>fg.load</code> finds the file under</td>
+</tr>
+<tr>
+<td><code>frames</code></td>
+<td><code>None</code></td>
+<td>walk only the first frames of the pool</td>
+</tr>
+<tr>
+<td><code>states</code></td>
+<td><code>None</code></td>
+<td>your own pool: an array or a path</td>
+</tr>
+<tr>
+<td><code>out</code></td>
+<td><code>None</code></td>
+<td>the file's path; <code>None</code> is <code>&lt;name&gt;.h5</code> in the cache</td>
+</tr>
+<tr>
+<td><code>seed</code></td>
+<td>123</td>
+<td>the seed</td>
+</tr>
+<tr>
+<td><code>settings</code></td>
+<td><code>None</code></td>
+<td>a <code>TimelineSettings</code></td>
+</tr>
+<tr>
+<td><code>time</code></td>
+<td><code>None</code></td>
+<td>each frame's time</td>
+</tr>
+</tbody>
+</table>
+<p>Without <code>states</code>, the pool is the path in <code>$FDIA_GRAPH_INIT</code> when that variable is set, else the
+released pool of the system, downloaded once.</p>
+<p><code>fg.generate</code> calls <code>generate_timeline</code> in <code>timeline.py</code>, which builds an <code>IeeeSource</code> and calls
+its <code>generate</code>. To generate on a grid that is not an IEEE case, build a <code>SearchSource</code> on its
+<code>Network</code> (<a href="../extending/">Add a design family, an alarm rule or a test system</a>).</p>
+<p>Two measured builds on IEEE-14 follow. The first is the three release recipes at 72,000 frames
+(seed 123, experiment <code>generation.split_first</code>; episodes and redraws per family, <code>At / Am</code>).</p>
 <!-- results: gen.split_first -->
 <table>
 <thead>
@@ -2599,18 +2994,9 @@ moves. The full IEEE-14 builds of the three release datasets (seed 123, experime
 </table>
 <!-- /results -->
 
-<p>Because
-the jitter of frame t depends only on the seed and t, the files of one seed and pool that place
-different families (<code>families=("Am",)</code>, <code>("At", "Am")</code>, <code>("At",)</code>) carry byte-identical benign
-frames; only the attacks differ.</p>
-<h3 id="designing-in-parallel">Designing in parallel<a class="headerlink" href="#designing-in-parallel" title="Permanent link">&para;</a></h3>
-<p>The overload Am dominates generation time: each episode runs the fewest-tamper search on up to
-<code>AM_LINE_TRIES</code> line pairs. A split's Am episodes are independent (a flow goal reads only its own
-window, and each design draws its line order from a stream keyed by the seed, the split, the episode
-and the move), so <code>workers=N</code> designs them in N processes and the file is byte-identical for any N.
-On Windows a script that passes <code>workers</code> above 1 must start under <code>if __name__ == "__main__":</code>, as
-any program using <code>multiprocessing</code> must. An Am-only IEEE-14 timeline (experiment
-<code>generation.parallel_design</code>):</p>
+<p>The overload <code>Am</code> takes most of the time. A split's <code>Am</code> episodes are independent, so
+<code>workers=N</code> designs them in N processes and the file is the same for any N. An <code>Am</code>-only IEEE-14
+timeline (experiment <code>generation.parallel_design</code>):</p>
 <!-- results: gen.workers -->
 <table>
 <thead>
@@ -2641,445 +3027,256 @@ any program using <code>multiprocessing</code> must. An Am-only IEEE-14 timeline
 </table>
 <!-- /results -->
 
-<h2 id="5-the-per-frame-layers">5. The per-frame layers<a class="headerlink" href="#5-the-per-frame-layers" title="Permanent link">&para;</a></h2>
+<h2 id="entry-point-the-new-york-case">Entry point: the New York case<a class="headerlink" href="#entry-point-the-new-york-case" title="Permanent link">&para;</a></h2>
+<p>The build scripts are in the repository's <code>pipelines/newyork/</code>, not in the wheel, so work from a
+checkout. You need the <code>[ny]</code> extra, Ipopt, the inputs and the pool
+(<a href="../operating_points/">Build the operating points</a>).</p>
+<p>Run from the work folder whose <code>data/</code> holds the inputs:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>python<span class="w"> </span><span class="nv">$FG</span>/pipelines/newyork/build_timeline.py<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">    </span>out/timeline_2019.h5<span class="w"> </span>--pool<span class="w"> </span>out/pool_2019_v3.h5<span class="w"> </span>--workers<span class="w"> </span><span class="m">4</span>
+</code></pre></div>
 <table>
 <thead>
 <tr>
-<th>group</th>
-<th>datasets</th>
-<th>meaning</th>
-<th>written by</th>
+<th>Option</th>
+<th>Default</th>
+<th>Meaning</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><code>data/</code></td>
-<td><code>node_x [T, N, 4]</code>, <code>edge_x [T, E, 2]</code></td>
-<td>observed readings: benign plus noise, plus the attack where attacked</td>
-<td><code>TimelineWriter.store</code></td>
+<td><code>--pool</code></td>
+<td><code>out/pool_2019_v3.h5</code></td>
+<td>the pool file</td>
 </tr>
 <tr>
-<td><code>data/</code></td>
-<td><code>node_m</code>, <code>edge_m</code></td>
-<td>the meter plan per frame</td>
-<td><code>TimelineWriter._write_masks</code></td>
+<td><code>--families</code></td>
+<td><code>Am,At</code></td>
+<td>the families built</td>
 </tr>
 <tr>
-<td><code>data/</code></td>
-<td><code>y [T, N]</code></td>
-<td>1 on each attacked bus</td>
-<td><code>store</code></td>
+<td><code>--interface</code></td>
+<td><code>SPR/DUN-SOUTH</code></td>
+<td>the interfaces <code>Am</code> targets</td>
 </tr>
 <tr>
-<td><code>data/</code></td>
-<td><code>family</code>, <code>stealthy</code>, <code>seq_id</code>, <code>timestep</code>, <code>split [T]</code></td>
-<td>family code, 1 for a stealthy family (<code>At</code>, <code>Am</code>; <code>Aq</code> and <code>Al</code> in older releases), episode index (-1 benign), pool timestep, 0/1/2</td>
-<td><code>TimelineWriter.finish</code></td>
+<td><code>--workers</code></td>
+<td>12</td>
+<td>processes that design the episodes</td>
 </tr>
 <tr>
-<td><code>data/</code></td>
-<td><code>temporal_delta</code>, <code>swing [T, N, 2]</code></td>
-<td>temporal features from the observed frames</td>
-<td><code>TimelineWriter.write_temporal_layers</code></td>
+<td><code>--survey</code></td>
+<td>12</td>
+<td>the survey's grid in frames; 0 is off</td>
 </tr>
 <tr>
-<td><code>benign/</code></td>
-<td><code>node_benign</code>, <code>edge_benign</code></td>
-<td>the same scan with the attack removed and the same noise draw</td>
-<td><code>store</code></td>
+<td><code>--survey-cache</code></td>
+<td>none</td>
+<td>folder that keeps the survey by chunk</td>
 </tr>
 <tr>
-<td><code>clean/</code></td>
-<td><code>node_clean</code>, <code>edge_clean</code></td>
-<td>the noiseless pool state and the exact flows on metered branches</td>
-<td><code>TimelineSource._clean</code></td>
-</tr>
-<tr>
-<td><code>attack/</code></td>
-<td><code>node_tamper</code>, <code>edge_tamper</code></td>
-<td>1 where the attacker wrote the meter</td>
-<td><code>_store_attack</code></td>
-</tr>
-<tr>
-<td><code>data/</code>, <code>benign/</code>, <code>attack/</code></td>
-<td><code>pmu_i</code>, <code>pmu_i_m</code>, <code>pmu_i_benign</code>, <code>pmu_i_tamper [T, E, 4]</code></td>
-<td>hybrid meters only: the PMU branch currents (Re and Im of <code>I_from</code>, then of <code>I_to</code>, per unit), their mask, the attack-removed twin, and 1 where the attacker wrote the channel</td>
-<td><code>_store_currents</code>, <code>_write_masks</code></td>
-</tr>
-<tr>
-<td><code>attack/</code></td>
-<td><code>mag_ptr</code>, <code>mag_bus</code>, <code>mag</code></td>
-<td>designed change per attacked bus, ragged by frame</td>
-<td><code>TimelineWriter.finish</code></td>
-</tr>
-<tr>
-<td><code>episodes/</code></td>
-<td><code>onset</code>, <code>length</code>, <code>family</code>, <code>bus_ptr</code>, <code>bus_idx</code></td>
-<td>one row per episode; the attacked buses are ragged (<code>bus_ptr [K+1]</code> points into <code>bus_idx</code>)</td>
-<td><code>TimelineWriter.finish</code></td>
-</tr>
-<tr>
-<td><code>episodes/</code></td>
-<td><code>min_episode</code>, <code>min_devices</code>, <code>min_channels</code>, <code>min_evaluated</code>, <code>min_support_ptr</code>, <code>min_support_idx</code></td>
-<td>with <code>min_tamper</code> on: what the fewest-tamper search chose for each episode it ran on</td>
-<td><code>TimelineWriter.finish</code></td>
-</tr>
-<tr>
-<td><code>graph/</code></td>
-<td><code>edge_index [2, E]</code>, the per-unit branch physics and the bus shunts</td>
-<td>the static topology, the same for every frame; enough to rebuild Ybus</td>
-<td><code>TimelineWriter.write_graph</code></td>
-</tr>
-<tr>
-<td>file attributes</td>
-<td><code>system</code>, <code>N</code>, <code>E</code>, <code>baseMVA</code>, <code>seed</code>, <code>T</code>, <code>families</code>, <code>kind</code> (<code>"timeline"</code>), <code>attacked_frac</code>, the knobs, <code>v_lo</code> and <code>v_hi</code> (the widest bus voltage limits of the case), <code>settings</code>, <code>settings_hash</code></td>
-<td>what identifies the file and how it was generated</td>
-<td><code>TimelineWriter.header</code>, <code>TimelineWriter.finish</code></td>
+<td><code>--fetch</code></td>
+<td></td>
+<td>download the inputs into the work folder and stop</td>
 </tr>
 </tbody>
 </table>
-<p><code>node_x - node_benign</code> is the attack exactly, for every family. The loader derives
-<code>edge_clean_full</code>, the clean flow on every branch, at read time (<code>dataset/__init__.py</code>).</p>
-<p>The temporal features are written after the walk from <code>data/node_x</code> alone
-(<code>generation.write.TimelineWriter.write_temporal_layers</code>, <code>formulas.temporal</code>):</p>
+<p>The script writes a summary beside the file, as JSON. In Python the same build is:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fdia_graph.generation.newyork</span><span class="w"> </span><span class="kn">import</span> <span class="n">NewYorkSource</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fdia_graph.models.config</span><span class="w"> </span><span class="kn">import</span> <span class="n">NewYorkRelease</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">"__main__"</span><span class="p">:</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>    <span class="n">release</span> <span class="o">=</span> <span class="n">NewYorkRelease</span><span class="p">(</span><span class="n">workers</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>    <span class="n">pool</span> <span class="o">=</span> <span class="s2">"out/pool_2019_v3.h5"</span>
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>    <span class="n">source</span> <span class="o">=</span> <span class="n">NewYorkSource</span><span class="o">.</span><span class="n">production</span><span class="p">(</span><span class="n">pool</span><span class="p">,</span> <span class="n">release</span><span class="p">)</span>
+<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>    <span class="n">source</span><span class="o">.</span><span class="n">generate</span><span class="p">(</span><span class="s2">"out/timeline_2019.h5"</span><span class="p">)</span>
+<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a>    <span class="nb">print</span><span class="p">(</span><span class="n">source</span><span class="o">.</span><span class="n">summary</span><span class="p">()[</span><span class="s2">"built"</span><span class="p">])</span>
+</code></pre></div>
+<p><code>production</code> reads the case, assigns each New York bus to its utility, rates each unrated branch
+at its peak flow over the pool, places the meters and builds the two families. <code>summary()</code> then
+counts, per split and family, the slots placed, the moves, the episodes built and the slots given
+up. <a href="../troubleshooting/#the-timeline">Troubleshooting</a> explains its miss reasons.</p>
+<h3 id="one-episode-alone">One episode alone<a class="headerlink" href="#one-episode-alone" title="Permanent link">&para;</a></h3>
+<p><code>pipelines/newyork/build_single_episodes.py</code> writes the whole day of one onset with a single
+<code>Am</code> episode in it:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>python<span class="w"> </span><span class="nv">$FG</span>/pipelines/newyork/build_single_episodes.py<span class="w"> </span>OUT_DIR<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">    </span>--pool<span class="w"> </span>out/pool_2019_v3.h5<span class="w"> </span>--onset<span class="w"> </span><span class="m">2019</span>-07-05T10:30:00
+</code></pre></div>
+<p>It uses <code>SingleEpisodeSource</code> (<code>generation/newyork.py</code>), a <code>NewYorkSource</code> with one episode
+placed by hand:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fdia_graph.generation.newyork</span><span class="w"> </span><span class="kn">import</span> <span class="n">SingleEpisodeSource</span>
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="c1"># source: the NewYorkSource built above, with workers=1</span>
+<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="n">when</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">datetime64</span><span class="p">(</span><span class="s2">"2019-07-05T10:30:00"</span><span class="p">)</span>
+<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="n">times</span> <span class="o">=</span> <span class="n">source</span><span class="o">.</span><span class="n">pool</span><span class="o">.</span><span class="n">time</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="s2">"datetime64[s]"</span><span class="p">)</span>
+<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="n">onset</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">flatnonzero</span><span class="p">(</span><span class="n">times</span> <span class="o">==</span> <span class="n">when</span><span class="p">)[</span><span class="mi">0</span><span class="p">])</span>
+<a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="n">one</span> <span class="o">=</span> <span class="n">SingleEpisodeSource</span><span class="p">(</span><span class="n">source</span><span class="p">,</span> <span class="n">onset</span><span class="p">,</span> <span class="n">family</span><span class="o">=</span><span class="s2">"Am"</span><span class="p">)</span>
+<a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a><span class="n">one</span><span class="o">.</span><span class="n">generate</span><span class="p">(</span><span class="s2">"one.h5"</span><span class="p">)</span>
+</code></pre></div>
+<p><code>onset</code> is a frame of the pool. The snippet finds the frame of the same time the command above
+names.</p>
+<p><code>lo</code> and <code>hi</code> set the pool frames the file covers. <code>using=</code> designs the episode with a variant
+of the family, such as <code>InterfaceFdia.with_overshoot(mw)</code>. <code>lag=</code> designs it on the window that
+many frames earlier.</p>
+<h3 id="reading-the-file-by-utility">Reading the file by utility<a class="headerlink" href="#reading-the-file-by-utility" title="Permanent link">&para;</a></h3>
+<p>A New York timeline opens with <code>fg.FdiaGraph(path)</code> like any timeline. <code>Dataset</code>
+(<code>dataset/clients.py</code>) is a second view of it, by meter and by utility:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fdia_graph.dataset.clients</span><span class="w"> </span><span class="kn">import</span> <span class="n">Dataset</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="n">ds</span> <span class="o">=</span> <span class="n">Dataset</span><span class="p">(</span><span class="s2">"out/timeline_2019.h5"</span><span class="p">)</span>
+<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="n">con_ed</span> <span class="o">=</span> <span class="n">ds</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">"ConEd"</span><span class="p">,</span> <span class="n">split</span><span class="o">=</span><span class="s2">"train"</span><span class="p">)</span>
+<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="n">x</span> <span class="o">=</span> <span class="n">con_ed</span><span class="o">.</span><span class="n">node_features</span><span class="p">()</span>      <span class="c1"># [T, N_c, 4]</span>
+<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="n">op</span> <span class="o">=</span> <span class="n">ds</span><span class="o">.</span><span class="n">operator</span><span class="p">(</span><span class="n">split</span><span class="o">=</span><span class="s2">"test"</span><span class="p">)</span>  <span class="c1"># every meter</span>
+</code></pre></div>
+<p>A client sees only its own meters and the labels of its own buses. The operator view is the full
+scan. <code>ds.clients</code> lists the utility names.</p>
 <table>
 <thead>
 <tr>
-<th>feature</th>
-<th>definition</th>
+<th>On a <code>ClientView</code></th>
+<th>Shape</th>
+<th>Holds</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><code>temporal_delta</code></td>
-<td><code>[P_inj, Q_inj](t) - [P_inj, Q_inj](t-1)</code> of the observed frames; zero on frame 0</td>
+<td><code>z</code></td>
+<td><code>[T, M_c]</code></td>
+<td>its observed scans, one column per meter it owns</td>
 </tr>
 <tr>
-<td><code>swing</code></td>
-<td><code>temporal_delta</code> divided by the bus's recent-change scale</td>
+<td><code>labels</code></td>
+<td><code>[T, N_c]</code></td>
+<td>the attack labels of its buses</td>
 </tr>
 <tr>
-<td>scale</td>
-<td>std of the observed scan-to-scan absolute change over the last <code>SWING_WINDOW_SCANS = 60</code> changes before <code>t</code>, plus <code>1e-3</code>; <code>1e-3</code> alone with fewer than three changes (<code>recent_change_scale</code>)</td>
+<td><code>meters</code></td>
+<td></td>
+<td>its rows of the meter table</td>
+</tr>
+<tr>
+<td><code>buses</code></td>
+<td><code>[N_c]</code></td>
+<td>the positions of the buses it owns</td>
+</tr>
+<tr>
+<td><code>frames</code></td>
+<td><code>[T]</code></td>
+<td>the frames selected; a week split has gaps</td>
+</tr>
+<tr>
+<td><code>node_features()</code></td>
+<td><code>[T, N_c, 4]</code></td>
+<td>voltage, angle, P, Q per bus; NaN where not metered</td>
+</tr>
+<tr>
+<td><code>temporal()</code></td>
+<td><code>[T, M_c]</code></td>
+<td>the change from the frame before</td>
 </tr>
 </tbody>
 </table>
-<p>A spike reads as a large swing at its first frame. The slow ramp <code>At</code> changes by less than the typical
-recent change on every frame, so its swing stays near the benign level (<code>formulas/temporal.py</code>).</p>
-<h2 id="6-the-rule-for-features">6. The rule for features<a class="headerlink" href="#6-the-rule-for-features" title="Permanent link">&para;</a></h2>
-<p>At test time a feature may use only measurements and quantities derived from them. The <code>clean</code> and
-<code>benign</code> layers exist for evaluation and for fitting, never as feature inputs. <code>y</code>, <code>family</code>,
-<code>stealthy</code>, <code>seq_id</code>, the tamper masks and the magnitudes are labels.</p>
 <table>
 <thead>
 <tr>
-<th>SDK path</th>
-<th>reads</th>
-<th>layer role</th>
+<th>On the <code>Dataset</code></th>
+<th>Holds</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><code>SEBase.estimate</code></td>
-<td><code>node_x</code>, <code>edge_x</code></td>
-<td>measurements</td>
+<td><code>ds.plan</code></td>
+<td>the meter table</td>
 </tr>
 <tr>
-<td><code>SEBase.fit(calibrate="truth")</code></td>
-<td><code>node_x</code>, <code>edge_x</code>, <code>family</code>, <code>clean</code></td>
-<td>fitting for the estimation benchmark: meter sigmas, benign mean state, <code>theta_ref</code></td>
+<td><code>ds.z(frames)</code></td>
+<td>the flat reading vector of that table</td>
 </tr>
 <tr>
-<td><code>SEBase.fit(calibrate="measured")</code></td>
-<td><code>node_x</code>, <code>edge_x</code>, <code>family</code></td>
-<td>fitting from the meters' accuracy classes and the estimated benign states</td>
+<td><code>ds.z(frames, benign=True)</code></td>
+<td>the same scans without the attack</td>
 </tr>
 <tr>
-<td><code>SEBase.score</code></td>
-<td><code>node_x</code>, <code>edge_x</code> (through <code>estimate</code>), then <code>family</code>, <code>clean</code></td>
-<td>the estimate from measurements, then evaluation against the truth</td>
-</tr>
-<tr>
-<td><code>JacobianFeatures</code>, <code>JacobianWeighting</code></td>
-<td><code>node_x</code>, <code>edge_x</code>, <code>prev_node_x</code>, <code>prev_edge_x</code>, <code>prev_timestep</code></td>
-<td>measurements</td>
-</tr>
-<tr>
-<td><code>GatedPrior(GateConfig(gate="oracle"))</code></td>
-<td><code>y</code></td>
-<td>evaluation ceiling only</td>
-</tr>
-<tr>
-<td><code>SwingThreshold</code>, <code>DeltaThreshold</code></td>
-<td><code>swing</code>, <code>temporal_delta</code></td>
-<td>measurements</td>
-</tr>
-<tr>
-<td><code>ResidualLocalizer</code></td>
-<td><code>node_x</code>, <code>edge_x</code></td>
-<td>measurements</td>
-</tr>
-<tr>
-<td><code>BusCNN</code>, <code>BusMLP</code>, <code>FedBusCNN</code>, <code>FedBusMLP</code></td>
-<td><code>node_x</code>, <code>node_m</code>, <code>edge_x</code>, <code>temporal_delta</code>, <code>swing</code>, <code>prev_swing</code>, <code>prev_*</code>; <code>y</code> as the training label</td>
-<td>measurements</td>
-</tr>
-<tr>
-<td><code>TrustSelector.fit</code></td>
-<td><code>node_x</code>, <code>edge_x</code>, <code>family</code></td>
-<td>measurements</td>
-</tr>
-<tr>
-<td><code>TrustSelector.score</code></td>
-<td><code>benign</code>, <code>edge_benign</code></td>
-<td>evaluation: what a secured meter reads</td>
-</tr>
-<tr>
-<td><code>trust.secured.secured_copy</code></td>
-<td><code>benign</code>, the tamper masks</td>
-<td>builds a counterfactual file, then rewrites the temporal features from its observed frames</td>
+<td><code>ds.tampered(frames)</code></td>
+<td>the tampered meters</td>
 </tr>
 </tbody>
 </table>
-<p>Sources: <code>se/base.py</code>, <code>se/jacobian.py</code>, <code>se/methods.py</code>, <code>localization/methods.py</code>,
-<code>localization/learned.py</code> (<code>_fields</code>), <code>trust/base.py</code>, <code>trust/secured.py</code>. Every path whose
-output feeds a detector (<code>ResidualLocalizer</code>, the Jacobian feature sets, <code>TrustSelector</code>) fits its
-estimator with <code>calibrate="measured"</code>, so no clean layer is read at fit or test time. The state
-estimators themselves default to <code>calibrate="truth"</code>, the estimation benchmark's calibration.</p>
-<h2 id="where-each-piece-lives">Where each piece lives<a class="headerlink" href="#where-each-piece-lives" title="Permanent link">&para;</a></h2>
-<p>The generator is <code>FdiaGenerator</code> in <code>engine/core.py</code>, composed of mixins over the shared state contract of
-<code>engine/base.py</code>. The grid it runs on is in <code>systems/</code> and its meters are in <code>sensing/</code>, the same for every
-grid; neither imports the engine or the generation stages:</p>
+<p><code>Dataset</code> refuses a file that is not a New York timeline with <code>NotATimeline</code>.</p>
+<h2 id="where-the-code-is">Where the code is<a class="headerlink" href="#where-the-code-is" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
 <tr>
-<th>file</th>
-<th>holds</th>
+<th>File</th>
+<th>Holds</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>generation/source.py</code></td>
+<td><code>TimelineSource</code>: the steps, written once</td>
+</tr>
+<tr>
+<td><code>generation/search.py</code></td>
+<td><code>SearchSource</code>: coverage meters, search-based designs</td>
+</tr>
+<tr>
+<td><code>generation/ieee.py</code></td>
+<td><code>IeeeSource</code>: a <code>SearchSource</code> for an IEEE case by name</td>
+</tr>
+<tr>
+<td><code>generation/newyork.py</code></td>
+<td><code>NewYorkSource</code>, <code>SingleEpisodeSource</code>, <code>Survey</code></td>
+</tr>
+<tr>
+<td><code>generation/plan.py</code></td>
+<td>the splits, the episode counts, the placement</td>
+</tr>
+<tr>
+<td><code>generation/design.py</code></td>
+<td><code>Designer</code>, <code>SplitDesign</code>, the design processes</td>
+</tr>
+<tr>
+<td><code>generation/emit.py</code></td>
+<td><code>Walk</code>: the frames, in time order</td>
+</tr>
+<tr>
+<td><code>generation/write.py</code></td>
+<td><code>TimelineWriter</code>: the one writer of the file</td>
+</tr>
+</tbody>
+</table>
+<p>Every source emits its scans through one generator, <code>FdiaGenerator</code>, in <code>engine/</code>:</p>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Holds</th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td><code>engine/core.py</code></td>
-<td><code>FdiaGenerator</code>: a grid as a <code>Network</code> over its <code>Case</code> (<code>systems/</code>; <code>Network.from_ieee</code> is an IEEE case's), its <code>MeterPlan</code>, <code>Measurement</code> and <code>NoiseModel</code> (<code>sensing/</code>), attack targeting, and the mixins below composed</td>
+<td><code>FdiaGenerator</code>: a <code>Network</code>, its meter plan and noise</td>
 </tr>
 <tr>
 <td><code>engine/base.py</code></td>
-<td><code>GridBase</code>: the attributes the mixins share</td>
+<td><code>GridBase</code>: the attributes the generator's parts share</td>
 </tr>
 <tr>
 <td><code>engine/measurement.py</code></td>
-<td><code>MeasurementMixin</code>: a scan from a stored state, <code>Measurement.h</code> and <code>NoiseModel.sample</code> laid out as a file's layers</td>
+<td><code>MeasurementMixin</code>: a scan from a stored state</td>
 </tr>
 <tr>
 <td><code>engine/physics.py</code></td>
-<td>a scan's load and generation, read from its stored state</td>
-</tr>
-<tr>
-<td><code>data/ipopt.py</code></td>
-<td>the optimization solver the AC optimal power flows run on, found and checked in one place</td>
-</tr>
-<tr>
-<td><code>systems/case.py</code></td>
-<td><code>Case</code>: one grid as a frozen record of arrays, read from a MATPOWER case file (<code>Case.from_matpower</code>) or from a pandapower net (<code>Case.from_pandapower</code>); <code>Case.from_ieee</code> is the IEEE case pandapower ships for a bus count, with its base power flow solved, and <code>nygrid_case()</code> reads the New York case file <code>case_nygrid.m</code> beside the module</td>
-</tr>
-<tr>
-<td><code>systems/network.py</code></td>
-<td><code>Network</code>: a case's admittances, built once, and the AC quantities they give for a state</td>
-</tr>
-<tr>
-<td><code>systems/fixes.py</code></td>
-<td>two variants of the New York case: the external areas held at the base load, and the HVDC links</td>
-</tr>
-<tr>
-<td><code>systems/ownership.py</code></td>
-<td><code>Ownership</code>: the utility that owns each New York bus, assigned from the service territories (<code>assign_clients</code>)</td>
-</tr>
-<tr>
-<td><code>systems/states.py</code></td>
-<td><code>PoolStates</code>: solved voltages read frame by frame as the states a timeline walks, in place of an array in memory (<code>States</code> is either)</td>
-</tr>
-<tr>
-<td><code>systems/tables.py</code></td>
-<td><code>read_rows</code>: a CSV table of the inputs, read whole and closed</td>
-</tr>
-<tr>
-<td><code>systems/pandapower_types.py</code></td>
-<td>the pandapower objects <code>Case.from_pandapower</code> and the profile helpers read, as types</td>
-</tr>
-<tr>
-<td><code>sensing/meters.py</code></td>
-<td><code>MeterPlan</code>: every meter of a grid as one row of a table (<code>MeterPlan.from_coverage</code> places an IEEE case's, <code>plan_meters</code> the New York grid's)</td>
-</tr>
-<tr>
-<td><code>sensing/measure.py</code></td>
-<td><code>Measurement</code>: the measurement function h(x) of a meter plan, and its Jacobian</td>
-</tr>
-<tr>
-<td><code>sensing/noise.py</code></td>
-<td><code>NoiseModel</code>: each meter's accuracy class as a constant bias and a per-scan jitter</td>
-</tr>
-<tr>
-<td><code>engine/attacks/area.py</code></td>
-<td>the attacker's area: the subnetwork a stealthy attack re-solves and the boundary it holds</td>
-</tr>
-<tr>
-<td><code>engine/attacks/false_state.py</code></td>
-<td>the local false state: the area re-solved under false loads with the boundary held true</td>
-</tr>
-<tr>
-<td><code>engine/attacks/stealthy.py</code></td>
-<td><code>At</code> one scan at a time: a local false state added to the true scan</td>
-</tr>
-<tr>
-<td><code>engine/attacks/overload.py</code></td>
-<td><code>Am</code>, the multi-snapshot overload attack of [WU26]</td>
-</tr>
-<tr>
-<td><code>engine/attacks/minimize.py</code></td>
-<td>the cheapest support of an attack window [WU26, eq. 12]</td>
-</tr>
-<tr>
-<td><code>engine/attacks/rref.py</code></td>
-<td>the support by [WU26]'s row reduction</td>
-</tr>
-<tr>
-<td><code>engine/attacks/search.py</code></td>
-<td>the search-based families <code>SearchRamp</code> and <code>SearchOverload</code> and their episodes as the walk emits them: <code>RampEpisode</code> (designed as the walk reaches it) and <code>OverloadEpisode</code>, each scan re-solved</td>
-</tr>
-<tr>
-<td><code>engine/attacks/episodes.py</code></td>
-<td>each episode's design, drawn at onset: <code>ramp_design</code> and <code>am_overload_design</code>, methods of the generator</td>
-</tr>
-<tr>
-<td><code>generation/plan.py</code>, <code>generation/design.py</code>, <code>generation/emit.py</code>, <code>generation/write.py</code></td>
-<td>the stages of a timeline: plan the splits and episodes, design the <code>Am</code> episodes, emit every frame, write the file</td>
+<td>a scan's load and generation, read from its state</td>
 </tr>
 </tbody>
 </table>
-<p>The New York grid's attacks are separate classes on the New York network: <code>engine/attacks/attacker.py</code>
-(<code>Attacker</code>), <code>engine/attacks/family.py</code> (the interface of an attack family; its design is an <code>Episode</code>, <code>models/plan.py</code>; and <code>DesignedEpisode</code>, what the walk emits of any design, a New York one as a <code>VectorEpisode</code>), <code>engine/attacks/ramp.py</code>
-(<code>Ramp</code>), <code>engine/attacks/opf.py</code> and <code>engine/attacks/interface.py</code>
-(the overload of an interface, with false states from a local optimal power flow); they are described in
-<a href="../../concepts/new_york_grid/"><code>../concepts/new_york_grid.md</code></a>.</p>
-<h2 id="7-building-your-own">7. Building your own<a class="headerlink" href="#7-building-your-own" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">fdia_graph</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">fg</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">fg</span><span class="o">.</span><span class="n">generate</span><span class="p">(</span><span class="s2">"ieee118"</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">"my_run"</span><span class="p">,</span> <span class="n">frames</span><span class="o">=</span><span class="mi">10_000</span><span class="p">,</span> <span class="n">attacked_frac</span><span class="o">=</span><span class="mf">0.5</span><span class="p">)</span>  <span class="c1"># needs [generate]</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="n">ds</span> <span class="o">=</span> <span class="n">fg</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">"my_run"</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="s2">"time"</span><span class="p">)</span>
-</code></pre></div>
-<p><code>generation.generate(system, name, frames=None, states=None, out=None, seed=123, settings=None, **knobs)</code> loads the
-pool, keeps the first <code>frames</code> timesteps, calls <code>timeline.generate_timeline</code> and registers the file
-under <code>name</code>. Without <code>states</code>, it reads <code>$FDIA_GRAPH_INIT</code> or downloads the system's pool.</p>
-<table>
-<thead>
-<tr>
-<th>knob</th>
-<th>default</th>
-<th>meaning</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>attacked_frac</code></td>
-<td>0.5</td>
-<td>fraction of frames under an episode</td>
-</tr>
-<tr>
-<td><code>families</code></td>
-<td>("At", "Am")</td>
-<td>the families in rotation; the single-snapshot families of older releases are refused</td>
-</tr>
-<tr>
-<td><code>min_tamper</code></td>
-<td>True</td>
-<td>hold each episode on the support that tampers the fewest devices [WU26, eq. 12]; a change under a meter's noise is not counted. Off: the whole region within <code>hops</code></td>
-</tr>
-<tr>
-<td><code>min_budget</code></td>
-<td>256</td>
-<td>candidate supports the search solves per episode before it settles on the best found (recorded as not proven)</td>
-</tr>
-<tr>
-<td><code>am_attack</code></td>
-<td>"overload"</td>
-<td><code>Am</code> as the overload attack of [WU26], or an <code>OverloadSettings</code></td>
-</tr>
-<tr>
-<td><code>stealth_scale</code></td>
-<td>1.0</td>
-<td>a multiplier on At's stealth bound, in units of the rated accuracy (Am has none)</td>
-</tr>
-<tr>
-<td><code>redundancy</code></td>
-<td><code>MeterSettings()</code></td>
-<td>the meter plan, a <code>MeterSettings</code>: coverage <code>vbus_frac</code> 0.6, <code>pmu_frac</code> 0.2, <code>flow_frac</code> 0.9, and <code>meter_model</code> <code>"hybrid"</code></td>
-</tr>
-<tr>
-<td><code>ramp_rate</code></td>
-<td>0.002</td>
-<td><code>At</code> growth per frame</td>
-</tr>
-<tr>
-<td><code>ramp_len</code></td>
-<td>60</td>
-<td><code>At</code> episode length</td>
-</tr>
-<tr>
-<td><code>am_len</code></td>
-<td><code>ramp_len</code></td>
-<td><code>Am</code> episode length</td>
-</tr>
-<tr>
-<td><code>hops</code></td>
-<td>2</td>
-<td>the attacker's subnetwork reach in branches</td>
-</tr>
-<tr>
-<td><code>split</code></td>
-<td>(0.6, 0.2, 0.2)</td>
-<td>train/val/test fractions</td>
-</tr>
-<tr>
-<td><code>split_by</code></td>
-<td><code>"time"</code></td>
-<td>how the splits are cut: <code>"time"</code>, three blocks in time order, or <code>"week"</code>, whole weeks drawn into the three splits. Weeks read each frame's time; a pool without it refuses <code>"week"</code> with the reason (<code>SplitRule</code>). A file records <code>split_by</code> only when it is not <code>"time"</code></td>
-</tr>
-<tr>
-<td><code>time</code></td>
-<td>None</td>
-<td>each frame's time <code>[T]</code>, for a pool that has it: numpy datetime64 values, one per frame, strictly increasing (anything else is refused when the source is built). An IEEE pool stores none, so an IEEE case with week splits needs it passed in. With it the file stores <code>data/time</code>, and no episode is placed across a gap (a step that differs from the median step)</td>
-</tr>
-<tr>
-<td><code>max_load_mw</code></td>
-<td>2000.0</td>
-<td>a larger load (MW) is never a target: it is an area equivalent, not a substation (IEEE-145 lumps regions into loads of 4 to 58 GW); None disables</td>
-</tr>
-<tr>
-<td><code>seed</code></td>
-<td>123</td>
-<td>the meter plan, the biases and every attack draw</td>
-</tr>
-<tr>
-<td><code>workers</code></td>
-<td>1</td>
-<td>processes the overload Am designs run on; the file does not depend on it</td>
-</tr>
-</tbody>
-</table>
-<p>Every knob is also a field of <code>TimelineSettings</code>, nested by subject (<code>ramp</code>, <code>search</code>, <code>overload</code>,
-<code>meters</code>, <code>split</code>): <code>generate(..., settings=TimelineSettings(ramp=RampSettings(length=30)))</code>, with any
-flat knob applied over it. The file records the settings it ran as JSON (attribute <code>settings</code>) with
-their hash (<code>settings_hash</code>).</p>
-<p>A data release (the build scripts of v0.8.0 to v0.8.3 are in the git history at <code>aa77d0b</code>):</p>
-<ol>
-<li>Per system, copy the unchanged pool and run <code>fg.generate(C, ..., states=pool, seed=123, frames=72000)</code>
-   into <code>timeline_ieee{C}.h5</code>; each system writes a manifest fragment with sha256 and size.</li>
-<li>Run once more with <code>MERGE=1</code> to combine the fragments into <code>manifest.json</code>.</li>
-<li>Upload with <code>python tools/upload_assets.py vX.Y.Z notes.md &lt;files&gt;</code>; it creates the <code>data-vX.Y.Z</code>
-   tag and never replaces an asset already on the release.</li>
-<li>Add the release's sha256 values to <code>constants.releases.SHA256</code>, then bump
-   <code>constants.releases.PINNED_RELEASE</code> (the default of <code>registry._RELEASE</code>) last.</li>
-</ol>
+<p>The attack designs are under <code>engine/attacks/</code>
+(<a href="../../concepts/attacks/#where-the-code-is">The attack families</a>).</p>
 
 
 
@@ -3132,13 +3329,13 @@ their hash (<code>settings_hash</code>).</p>
         
         
           
-          <a href="../state_estimation/" class="md-footer__link md-footer__link--next" aria-label="Next: State estimation">
+          <a href="../operating_points/" class="md-footer__link md-footer__link--next" aria-label="Next: Build the operating points">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                State estimation
+                Build the operating points
               </div>
             </div>
             <div class="md-footer__button md-icon">

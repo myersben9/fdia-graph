@@ -13,7 +13,7 @@
         <link rel="canonical" href="https://fdia.artecommercellc.com/dev/concepts/flow/">
       
       
-        <link rel="prev" href="../../guides/troubleshooting_new_york/">
+        <link rel="prev" href="../../guides/troubleshooting/">
       
       
         <link rel="next" href="../test_systems/">
@@ -252,7 +252,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../getting-started/new_york_walkthrough/" class="md-tabs__link">
+        <a href="../../getting-started/load/" class="md-tabs__link">
           
   
   
@@ -514,14 +514,70 @@
   
   
     <li class="md-nav__item">
-      <a href="../../getting-started/new_york_walkthrough/" class="md-nav__link">
+      <a href="../../getting-started/load/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    New York walkthrough
+    Load a dataset
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/generate/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Generate your first timeline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/analyse/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Analyse a timeline
   
 
     
@@ -634,7 +690,35 @@
   <span class="md-ellipsis">
     
   
-    Timeline generation
+    Generate a timeline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/operating_points/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Build the operating points
   
 
     
@@ -662,7 +746,7 @@
   <span class="md-ellipsis">
     
   
-    State estimation
+    Estimate the state
   
 
     
@@ -683,14 +767,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../guides/new_york/" class="md-nav__link">
+      <a href="../../guides/extending/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    New York grid
+    Add a design family, an alarm rule or a test system
   
 
     
@@ -711,42 +795,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../guides/extending_new_york/" class="md-nav__link">
+      <a href="../../guides/troubleshooting/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Extending the New York grid
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../guides/troubleshooting_new_york/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Troubleshooting the New York grid
+    Troubleshooting
   
 
     
@@ -1059,14 +1115,70 @@
   
   
     <li class="md-nav__item">
-      <a href="../new_york_grid/" class="md-nav__link">
+      <a href="../meters/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    New York grid architecture
+    Meters and noise
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../attacks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    The attack families
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../layers/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Layers and labels
   
 
     
@@ -1895,7 +2007,7 @@ where it comes from, for every test system: first the load data, then the solve.
 </ul>
 <p>The IEEE pools are released, so <code>fg.generate</code> downloads one and you do not build it.
 <a href="../solving/">Solving</a> explains the two kinds of solve, and what happens to a frame that does
-not solve.</p>
+not solve. <a href="../../guides/operating_points/">Build the operating points</a> has the steps.</p>
 <p>You now have: the pool, the true state of the grid at every frame.</p>
 <h2 id="meters-and-noise">Meters and noise<a class="headerlink" href="#meters-and-noise" title="Permanent link">&para;</a></h2>
 <p>What the operator reads from a state. The three classes are in <code>sensing/</code> and serve every grid.</p>
@@ -1907,7 +2019,8 @@ not solve.</p>
 <li><code>NoiseModel</code> (<code>noise.py</code>): each meter's accuracy class, split into a constant bias and a jitter
   drawn again at every scan.</li>
 </ul>
-<p>A benign scan is h(x) of a pool state plus noise. It needs no new solve.</p>
+<p>A benign scan is h(x) of a pool state plus noise. It needs no new solve.
+<a href="../meters/">Meters and noise</a> explains the plan, the accuracy classes and the noise.</p>
 <p>You now have: one benign scan per frame, the readings with no attack.</p>
 <h2 id="attacks">Attacks<a class="headerlink" href="#attacks" title="Permanent link">&para;</a></h2>
 <p>An attack is an episode: a run of consecutive frames under one design. <code>engine/</code> holds the
@@ -1945,7 +2058,8 @@ added to the benign scan.</p>
 <code>AttackMixin</code>. The New York designs are classes on one <code>Attacker</code> (<code>engine/attacks/attacker.py</code>).
 A timeline asks every family the same thing, the episode of a window (<code>EpisodeFamily.designed</code>,
 <code>engine/attacks/family.py</code>); the IEEE designs answer as the families <code>SearchRamp</code> and
-<code>SearchOverload</code> (<code>engine/attacks/search.py</code>).</p>
+<code>SearchOverload</code> (<code>engine/attacks/search.py</code>). <a href="../attacks/">The attack families</a> describes
+both families and both kinds of design.</p>
 <p>You now have: the episodes, each with its frames, its buses and its attack vectors.</p>
 <h2 id="the-timeline-file">The timeline file<a class="headerlink" href="#the-timeline-file" title="Permanent link">&para;</a></h2>
 <p><code>generation/</code> holds the stages that walk a timeline: the plan, the designs, the frames and the
@@ -1967,7 +2081,8 @@ frames in time order, and finish the file.</p>
 </ul>
 <p><code>fg.generate</code> starts an IEEE timeline through <code>generate_timeline</code> in <code>timeline.py</code>. The script
 <code>pipelines/newyork/build_timeline.py</code> starts the New York one.
-<a href="../../guides/generation/">The generation guide</a> has every step and every setting.</p>
+<a href="../../guides/generation/">Generate a timeline</a> has every step and every setting, and
+<a href="../layers/">Layers and labels</a> what the file stores per frame.</p>
 <p>You now have: one HDF5 file. <code>fg.generate</code> also registers it under a name, for <code>fg.load</code>.</p>
 <h2 id="loading">Loading<a class="headerlink" href="#loading" title="Permanent link">&para;</a></h2>
 <p><code>fg.load(name, split="train")</code> returns an <code>FdiaGraph</code>, the dataset class in <code>dataset/</code>. It reads
@@ -2032,20 +2147,22 @@ and <code>tests/test_toolkit_boundary.py</code> checks it. The generation toolki
 <h2 id="where-next">Where next<a class="headerlink" href="#where-next" title="Permanent link">&para;</a></h2>
 <p>Read in this order.</p>
 <ol>
-<li><a href="https://github.com/myersben9/fdia-graph#three-steps">The landing page</a>: install, then load,
-   generate and analyse in three steps.</li>
-<li><a href="../../getting-started/new_york_walkthrough/">New York walkthrough</a>: one attack followed
-   through every stage.</li>
+<li>The three tutorials: <a href="../../getting-started/load/">load a dataset</a>,
+   <a href="../../getting-started/generate/">generate a timeline</a> and
+   <a href="../../getting-started/analyse/">analyse a timeline</a>.</li>
 <li><a href="../test_systems/">Test systems</a> and <a href="../solving/">Solving</a>: the grids, and how their operating
    points are solved.</li>
-<li><a href="../../guides/generation/">Timeline generation</a>: how a timeline is built, step by step.</li>
+<li><a href="../meters/">Meters and noise</a>, <a href="../attacks/">The attack families</a> and
+   <a href="../layers/">Layers and labels</a>: what a frame of a timeline holds.</li>
+<li><a href="../../guides/generation/">Generate a timeline</a> and
+   <a href="../../guides/operating_points/">Build the operating points</a>: the steps and the settings.</li>
 <li><a href="../../reference/GLOSSARY/">Glossary</a> and <a href="../../reference/DATA_DICTIONARY/">Data dictionary</a>:
    every term, every array and its shape.</li>
 <li><a href="../../reference/MODULES/">Modules</a>: what every file does, in one line.</li>
 <li><a href="../../reference/CONCEPTS_TO_CODE/">Concepts to code</a> and <a href="../../reference/FORMULAS/">Formulas</a>:
    the function behind each idea and equation.</li>
 <li><a href="../../reference/CLASS_MAP/">Class map</a> and <a href="../../reference/EXAMPLES/">Examples</a>: the class
-   diagrams, and training examples to copy.</li>
+   diagrams, and runnable baselines to copy.</li>
 <li><a href="../../guides/state_estimation/">State estimation guide</a>: fitting and scoring an estimator.</li>
 <li>The four study pages in the table above: what was measured, on what, and the result.</li>
 <li><a href="https://github.com/myersben9/fdia-graph/blob/main/CONTRIBUTING.md">Contributing</a>: the rules
@@ -2086,7 +2203,7 @@ and <code>tests/test_toolkit_boundary.py</code> checks it. The generation toolki
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../../guides/troubleshooting_new_york/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Troubleshooting the New York grid">
+          <a href="../../guides/troubleshooting/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Troubleshooting">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
@@ -2096,7 +2213,7 @@ and <code>tests/test_toolkit_boundary.py</code> checks it. The generation toolki
                 Previous
               </span>
               <div class="md-ellipsis">
-                Troubleshooting the New York grid
+                Troubleshooting
               </div>
             </div>
           </a>

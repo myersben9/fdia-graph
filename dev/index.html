@@ -14,7 +14,7 @@
       
       
       
-        <link rel="next" href="getting-started/new_york_walkthrough/">
+        <link rel="next" href="getting-started/load/">
       
       
         
@@ -252,7 +252,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="getting-started/new_york_walkthrough/" class="md-tabs__link">
+        <a href="getting-started/load/" class="md-tabs__link">
           
   
   
@@ -647,14 +647,70 @@
   
   
     <li class="md-nav__item">
-      <a href="getting-started/new_york_walkthrough/" class="md-nav__link">
+      <a href="getting-started/load/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    New York walkthrough
+    Load a dataset
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="getting-started/generate/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Generate your first timeline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="getting-started/analyse/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Analyse a timeline
   
 
     
@@ -767,7 +823,35 @@
   <span class="md-ellipsis">
     
   
-    Timeline generation
+    Generate a timeline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="guides/operating_points/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Build the operating points
   
 
     
@@ -795,7 +879,7 @@
   <span class="md-ellipsis">
     
   
-    State estimation
+    Estimate the state
   
 
     
@@ -816,14 +900,14 @@
   
   
     <li class="md-nav__item">
-      <a href="guides/new_york/" class="md-nav__link">
+      <a href="guides/extending/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    New York grid
+    Add a design family, an alarm rule or a test system
   
 
     
@@ -844,42 +928,14 @@
   
   
     <li class="md-nav__item">
-      <a href="guides/extending_new_york/" class="md-nav__link">
+      <a href="guides/troubleshooting/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Extending the New York grid
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="guides/troubleshooting_new_york/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Troubleshooting the New York grid
+    Troubleshooting
   
 
     
@@ -1041,14 +1097,70 @@
   
   
     <li class="md-nav__item">
-      <a href="concepts/new_york_grid/" class="md-nav__link">
+      <a href="concepts/meters/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    New York grid architecture
+    Meters and noise
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="concepts/attacks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    The attack families
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="concepts/layers/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Layers and labels
   
 
     
@@ -1873,11 +1985,12 @@ selection and a results store. It depends on <code>fdia-graph</code>. <code>fdia
 </tbody>
 </table>
 <p>Each released dataset is one timeline of 72,000 frames. The New York grid is a MATPOWER case file
-with 140 buses and 227 branches; <a href="guides/new_york/">the New York guide</a> builds its dataset.</p>
+with 140 buses and 227 branches. It goes through the same generator, and
+<a href="guides/operating_points/">Build the operating points</a> starts its dataset.</p>
 <p>The generator makes two attack families: <code>At</code>, a slow load ramp, and <code>Am</code>, a line overload. The
 released files hold seven families: five that the generator does not make (<code>Aq</code>, <code>Ad</code>, <code>As</code>, <code>Ar</code>,
 <code>Al</code>), and an <code>Am</code> that drives no line to its limit.
-<a href="guides/generation/">The generation guide</a> has the details.</p>
+<a href="concepts/attacks/">The attack families</a> has the details.</p>
 <h2 id="three-steps">Three steps<a class="headerlink" href="#three-steps" title="Permanent link">&para;</a></h2>
 <p><strong>1. Load</strong> a released dataset.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">fdia_graph</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">fg</span>
@@ -1934,12 +2047,19 @@ released files hold seven families: five that the generator does not make (<code
 <p>Every extra of both toolkits is listed in <a href="guides/install/">Install and data versions</a>.</p>
 <h2 id="where-next">Where next<a class="headerlink" href="#where-next" title="Permanent link">&para;</a></h2>
 <ul>
-<li><a href="concepts/flow/">How the package flows</a>, <a href="concepts/test_systems/">the test systems</a>
-  and <a href="concepts/solving/">how they are solved</a></li>
-<li><a href="guides/generation/">How a timeline is generated</a></li>
-<li><a href="guides/new_york/">Building the New York dataset</a></li>
+<li>Tutorials: <a href="getting-started/load/">load a dataset</a>,
+  <a href="getting-started/generate/">generate a timeline</a>,
+  <a href="getting-started/analyse/">analyse a timeline</a></li>
+<li>Guides: <a href="guides/generation/">generate a timeline</a>,
+  <a href="guides/operating_points/">build the operating points</a>,
+  <a href="guides/extending/">add a design family or a test system</a>,
+  <a href="guides/troubleshooting/">troubleshooting</a></li>
+<li>Concepts: <a href="concepts/flow/">how the package flows</a>,
+  <a href="concepts/test_systems/">the test systems</a>, <a href="concepts/solving/">solving</a>,
+  <a href="concepts/meters/">meters and noise</a>, <a href="concepts/attacks/">the attack families</a>,
+  <a href="concepts/layers/">layers and labels</a></li>
 <li><a href="reference/DATA_DICTIONARY/">Data dictionary: what every array means</a></li>
-<li><a href="reference/EXAMPLES/">Loading options and runnable baselines</a></li>
+<li><a href="reference/EXAMPLES/">Runnable baselines and dataset statistics</a></li>
 <li>Analysis pages: <a href="analysis/estimation/">state estimation</a>,
   <a href="analysis/localization/">localization</a>,
   <a href="analysis/trust/">trusted meters</a>,
@@ -1999,13 +2119,13 @@ operational decisions.</p>
         
         
           
-          <a href="getting-started/new_york_walkthrough/" class="md-footer__link md-footer__link--next" aria-label="Next: New York walkthrough">
+          <a href="getting-started/load/" class="md-footer__link md-footer__link--next" aria-label="Next: Load a dataset">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                New York walkthrough
+                Load a dataset
               </div>
             </div>
             <div class="md-footer__button md-icon">

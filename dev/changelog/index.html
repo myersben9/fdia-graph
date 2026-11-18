@@ -250,7 +250,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../getting-started/new_york_walkthrough/" class="md-tabs__link">
+        <a href="../getting-started/load/" class="md-tabs__link">
           
   
   
@@ -512,14 +512,70 @@
   
   
     <li class="md-nav__item">
-      <a href="../getting-started/new_york_walkthrough/" class="md-nav__link">
+      <a href="../getting-started/load/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    New York walkthrough
+    Load a dataset
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../getting-started/generate/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Generate your first timeline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../getting-started/analyse/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Analyse a timeline
   
 
     
@@ -632,7 +688,35 @@
   <span class="md-ellipsis">
     
   
-    Timeline generation
+    Generate a timeline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guides/operating_points/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Build the operating points
   
 
     
@@ -660,7 +744,7 @@
   <span class="md-ellipsis">
     
   
-    State estimation
+    Estimate the state
   
 
     
@@ -681,14 +765,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../guides/new_york/" class="md-nav__link">
+      <a href="../guides/extending/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    New York grid
+    Add a design family, an alarm rule or a test system
   
 
     
@@ -709,42 +793,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../guides/extending_new_york/" class="md-nav__link">
+      <a href="../guides/troubleshooting/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Extending the New York grid
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../guides/troubleshooting_new_york/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Troubleshooting the New York grid
+    Troubleshooting
   
 
     
@@ -906,14 +962,70 @@
   
   
     <li class="md-nav__item">
-      <a href="../concepts/new_york_grid/" class="md-nav__link">
+      <a href="../concepts/meters/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    New York grid architecture
+    Meters and noise
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../concepts/attacks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    The attack families
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../concepts/layers/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Layers and labels
   
 
     
@@ -1848,6 +1960,42 @@
 the public API, the generated files and the numbers are the same as the previous release.</p>
 <h2 id="unreleased">Unreleased<a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
 <ul>
+<li><strong>Docs: one guide for every test system, three tutorials and three new concept pages (no user-visible
+  change to the packages).</strong> The New York grid no longer has pages of its own; it is a test system in the
+  pages every system shares.</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>Kind</th>
+<th>Pages</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>tutorials</td>
+<td><code>docs/getting-started/load.md</code>, <code>generate.md</code>, <code>analyse.md</code></td>
+</tr>
+<tr>
+<td>guides</td>
+<td><code>docs/guides/generation.md</code> (rewritten), <code>operating_points.md</code>, <code>extending.md</code>, <code>troubleshooting.md</code></td>
+</tr>
+<tr>
+<td>concepts</td>
+<td><code>docs/concepts/meters.md</code>, <code>attacks.md</code>, <code>layers.md</code></td>
+</tr>
+</tbody>
+</table>
+<p>The five New York pages are removed and their content folded into the pages above, into
+  <code>docs/concepts/test_systems.md</code> and into <code>CONTRIBUTING.md</code> (the New York tests and snapshots). The
+  loading part of <code>docs/reference/EXAMPLES.md</code> is the load tutorial. The generation flow diagram is redrawn
+  for every system, and the New York pipeline diagram is removed. <code>NOT_YET_PLAIN</code> in <code>tools/prereview.py</code>
+  is empty: no docs page holds an internal decision code. Docstrings that cited a moved page cite its new
+  place.
+  The example <code>examples/nygrid/custom_attack_family.py</code> labels its episode with a family name of
+  <code>fg.FAMILIES</code> ("Ad"; it was "Ab", which a timeline cannot write) and also designs through
+  <code>EpisodeFamily.designed</code>, the call a timeline makes.</p>
+<ul>
 <li><strong>The original generator is built on a <code>Network</code>, and <code>IeeeSource</code> builds it for an IEEE case (every IEEE
   file is byte for byte the same, and so are the New York release's files).</strong>
   <code>fdia_graph.generation.search.SearchSource(net, X, settings, seed, time)</code> is the source <code>IeeeSource</code> was, on a
@@ -2468,7 +2616,7 @@ the public API, the generated files and the numbers are the same as the previous
   keeps its equation, source key, units and the invariants a caller must respect. By
   <code>python tools/count_lines.py</code>, <code>fdia_graph</code> goes from 14,897 to 13,850 lines with its 9,194 lines of
   code unchanged. The file layout and knobs that the docstring of <code>timeline.py</code> listed are in
-  <code>docs/guides/generation.md</code>, and the fit of the within-hour load terms is in <code>docs/guides/new_york.md</code>.</p>
+  <code>docs/guides/generation.md</code>, and the fit of the within-hour load terms is in docs/guides/new_york.md (since moved to <code>docs/guides/operating_points.md</code>).</p>
 </li>
 <li>
 <p><strong>Less code to read in <code>fdia_graph</code> (breaking for the internal names below; no behaviour and no stored
@@ -3456,8 +3604,8 @@ the public API, the generated files and the numbers are the same as the previous
   are <code>pipelines/newyork/</code> (was tools/nygrid/). The docs are sorted by kind: <code>docs/getting-started/</code>,
   <code>docs/guides/</code>, <code>docs/concepts/</code>, <code>docs/analysis/</code> (one page per study with its figures, docs/se/ now
   <code>docs/analysis/estimation/</code>, docs/wu26/ then the <code>defense_reproduction</code> folder beside it, since removed) and <code>docs/reference/</code>; the four
-  pages of docs/nygrid/ are <code>docs/concepts/new_york_grid.md</code>, <code>docs/getting-started/new_york_walkthrough.md</code>,
-  <code>docs/guides/extending_new_york.md</code> and <code>docs/guides/troubleshooting_new_york.md</code>. The run scripts keep their caches
+  pages of docs/nygrid/ are docs/concepts/new_york_grid.md, docs/getting-started/new_york_walkthrough.md,
+  docs/guides/extending_new_york.md and docs/guides/troubleshooting_new_york.md (since folded into the pages every test system shares). The run scripts keep their caches
   in <code>experiments/&lt;study&gt;/cache/</code> (move a cache from docs/<package>/results/cache/ to keep it).
   <code>tools/site_index.py</code> was scripts/site_index.py. <code>tools/</code> holds repository tooling only.</p>
 </li>
@@ -3614,10 +3762,10 @@ the public API, the generated files and the numbers are the same as the previous
   of a path block repeated in nine test files. No user-visible change.</p>
 </li>
 <li>
-<p><strong>Docs to read the New York grid by, and to extend it (New York grid).</strong> <code>docs/getting-started/new_york_walkthrough.md</code> follows one
+<p><strong>Docs to read the New York grid by, and to extend it (New York grid).</strong> docs/getting-started/new_york_walkthrough.md follows one
   attack through every stage with the call that does each step (each snippet checked on the 2019 data);
-  <code>docs/guides/extending_new_york.md</code> names the extension points (an attack family, an alarm rule, an operator, a study), each
-  with a runnable example under <code>examples/nygrid/</code> that CI runs; <code>docs/concepts/new_york_grid.md</code> opens with a rendered
+  docs/guides/extending_new_york.md names the extension points (an attack family, an alarm rule, an operator, a study), each
+  with a runnable example under <code>examples/nygrid/</code> that CI runs; docs/concepts/new_york_grid.md opens with a rendered
   diagram of the stages and its principles as they now hold, in place of an ASCII diagram that predated the operator
   and the detectors.</p>
 </li>
@@ -3687,7 +3835,7 @@ the public API, the generated files and the numbers are the same as the previous
   <code>ConfigError</code> for a wrong argument, <code>DataConditionError</code> (or <code>NoAdmissibleTarget</code>, <code>NotFitted</code>) for data that does
   not meet a condition, instead of bare <code>ValueError</code>s and asserts. Both subclass <code>ValueError</code>, so existing handlers
   keep working. The input CSV tables are read through one reader that closes them (<code>fdia_graph.nyfed.tables</code>), and
-  the research tools no longer silence warnings. <code>docs/guides/troubleshooting_new_york.md</code> lists what each stage reports when
+  the research tools no longer silence warnings. docs/guides/troubleshooting_new_york.md lists what each stage reports when
   it fails and what to do.</p>
 </li>
 <li>

@@ -252,7 +252,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../getting-started/new_york_walkthrough/" class="md-tabs__link">
+        <a href="../getting-started/load/" class="md-tabs__link">
           
   
   
@@ -514,14 +514,70 @@
   
   
     <li class="md-nav__item">
-      <a href="../getting-started/new_york_walkthrough/" class="md-nav__link">
+      <a href="../getting-started/load/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    New York walkthrough
+    Load a dataset
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../getting-started/generate/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Generate your first timeline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../getting-started/analyse/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Analyse a timeline
   
 
     
@@ -634,7 +690,35 @@
   <span class="md-ellipsis">
     
   
-    Timeline generation
+    Generate a timeline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guides/operating_points/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Build the operating points
   
 
     
@@ -662,7 +746,7 @@
   <span class="md-ellipsis">
     
   
-    State estimation
+    Estimate the state
   
 
     
@@ -683,14 +767,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../guides/new_york/" class="md-nav__link">
+      <a href="../guides/extending/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    New York grid
+    Add a design family, an alarm rule or a test system
   
 
     
@@ -711,42 +795,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../guides/extending_new_york/" class="md-nav__link">
+      <a href="../guides/troubleshooting/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Extending the New York grid
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../guides/troubleshooting_new_york/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Troubleshooting the New York grid
+    Troubleshooting
   
 
     
@@ -908,14 +964,70 @@
   
   
     <li class="md-nav__item">
-      <a href="../concepts/new_york_grid/" class="md-nav__link">
+      <a href="../concepts/meters/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    New York grid architecture
+    Meters and noise
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../concepts/attacks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    The attack families
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../concepts/layers/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Layers and labels
   
 
     
@@ -1591,6 +1703,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#the-new-york-tests-and-snapshots" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The New York tests and snapshots
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#where-things-live" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1747,6 +1870,17 @@
     <span class="md-ellipsis">
       
         Test and release commands
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-new-york-tests-and-snapshots" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The New York tests and snapshots
       
     </span>
   </a>
@@ -1970,6 +2104,10 @@ tags, <code>data-v&lt;x.y.z&gt;</code> (the bare <code>v0.x.y</code> tags belong
 package version. The
 registry maps the short name (<code>fg.load(..., release="v0.8.0")</code>) to the tag, and
 <code>tools/upload_assets.py v0.8.0 &lt;files&gt;</code> refuses to touch a package tag.</p>
+<p>The files of a data release are one <code>pool_ieee{N}.h5</code> and one <code>timeline_ieee{N}.h5</code> per system. <code>python tools/upload_assets.py vX.Y.Z notes.md &lt;files&gt;</code> creates the
+<code>data-vX.Y.Z</code> release and uploads them; it never replaces an asset already on the release. The sha256 of
+each file then goes in <code>SHA256</code> in <code>src/fdia_graph/constants/releases.py</code>, and <code>PINNED_RELEASE</code> in the same
+module is moved last.</p>
 <h2 id="test-and-release-commands">Test and release commands<a class="headerlink" href="#test-and-release-commands" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -2009,6 +2147,69 @@ registry maps the short name (<code>fg.load(..., release="v0.8.0")</code>) to th
 </tr>
 </tbody>
 </table>
+<h2 id="the-new-york-tests-and-snapshots">The New York tests and snapshots<a class="headerlink" href="#the-new-york-tests-and-snapshots" title="Permanent link">&para;</a></h2>
+<p><code>tests/nygrid</code> holds the tests of the New York case. They need the <code>[ny]</code> extra and read their inputs
+under <code>NYGRID_ROOT</code>, the work folder of <code>docs/guides/operating_points.md</code> (its <code>data/</code> and <code>out/</code>). A
+test whose input is missing is skipped. <code>tests/nygrid/inputs.py</code> says which input each test needs.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nv">NYGRID_ROOT</span><span class="o">=</span>/path/to/nygrid<span class="w"> </span>pytest<span class="w"> </span>tests/nygrid
+</code></pre></div>
+<table>
+<thead>
+<tr>
+<th>input</th>
+<th>where</th>
+<th>which tests</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>the public inputs</td>
+<td><code>NYGRID_ROOT/data</code>, downloaded by <code>fetch_inputs</code></td>
+<td>most tests; CI runs the folder on these (<code>.github/workflows/nygrid.yml</code>)</td>
+</tr>
+<tr>
+<td>the pool's frames of two days</td>
+<td>checked in, <code>tests/nygrid/data/days</code></td>
+<td>the timeline digests</td>
+</tr>
+<tr>
+<td>the whole 2019 pool</td>
+<td><code>NYGRID_ROOT/out</code>, built locally</td>
+<td>the tests that rate lines or survey onsets over the year</td>
+</tr>
+</tbody>
+</table>
+<p>The golden snapshots pin what the interface attack and the persistence rule return on fixed inputs.</p>
+<table>
+<thead>
+<tr>
+<th>snapshot</th>
+<th>compared by</th>
+<th>rewritten with</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>tests/nygrid/golden/</code>, the interface attack's designs</td>
+<td><code>tests/nygrid/test_golden.py</code>; needs the whole 2019 pool and skips without it</td>
+<td><code>NYGRID_UPDATE_GOLDEN=1</code></td>
+</tr>
+<tr>
+<td><code>analysis/tests/golden/persistence_rule.json</code>, two numbers</td>
+<td><code>analysis/tests/test_detect.py</code>; needs no data</td>
+<td>an edit to the file</td>
+</tr>
+<tr>
+<td><code>tests/nygrid/golden/</code>, whole-file digests of a New York timeline and of two episodes</td>
+<td><code>tests/nygrid/test_timeline_digests.py</code>; bit for bit on the machine that recorded them, skipped elsewhere</td>
+<td><code>FDIA_UPDATE_DIGESTS=1</code></td>
+</tr>
+</tbody>
+</table>
+<p>A failure of <code>tests/nygrid/test_golden.py</code> names the first value that changed.
+<code>tests/nygrid/test_examples.py</code> runs the attack-family example of <code>docs/guides/extending.md</code> as
+published, and <code>analysis/tests/test_detect.py</code> the alarm-rule example. A change to the case file
+<code>src/fdia_graph/systems/case_nygrid.m</code> moves generated numbers, so it comes with the snapshots it moves.</p>
 <h2 id="where-things-live">Where things live<a class="headerlink" href="#where-things-live" title="Permanent link">&para;</a></h2>
 <p>The first four rows are the generation toolkit (<code>src/fdia_graph/</code>), the next four the analysis toolkit
 (<code>analysis/src/fdia_analysis/</code>); a record or a formula is in the <code>models/</code> or <code>formulas/</code> of the toolkit

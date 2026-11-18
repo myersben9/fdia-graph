@@ -10,13 +10,13 @@
       
       
       
-        <link rel="canonical" href="https://fdia.artecommercellc.com/dev/guides/troubleshooting_new_york/">
+        <link rel="canonical" href="https://fdia.artecommercellc.com/dev/guides/extending/">
       
       
-        <link rel="prev" href="../extending_new_york/">
+        <link rel="prev" href="../state_estimation/">
       
       
-        <link rel="next" href="../../concepts/flow/">
+        <link rel="next" href="../troubleshooting/">
       
       
         
@@ -27,7 +27,7 @@
     
     
       
-        <title>Troubleshooting the New York grid - fdia-graph</title>
+        <title>Add a design family, an alarm rule or a test system - fdia-graph</title>
       
     
     
@@ -80,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#the-new-york-grid-how-it-fails" class="md-skip">
+        <a href="#add-a-design-family-an-alarm-rule-or-a-test-system" class="md-skip">
           Skip to content
         </a>
       
@@ -118,7 +118,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Troubleshooting the New York grid
+              Add a design family, an alarm rule or a test system
             
           </span>
         </div>
@@ -252,7 +252,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../getting-started/new_york_walkthrough/" class="md-tabs__link">
+        <a href="../../getting-started/load/" class="md-tabs__link">
           
   
   
@@ -514,14 +514,70 @@
   
   
     <li class="md-nav__item">
-      <a href="../../getting-started/new_york_walkthrough/" class="md-nav__link">
+      <a href="../../getting-started/load/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    New York walkthrough
+    Load a dataset
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/generate/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Generate your first timeline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/analyse/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Analyse a timeline
   
 
     
@@ -639,7 +695,35 @@
   <span class="md-ellipsis">
     
   
-    Timeline generation
+    Generate a timeline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../operating_points/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Build the operating points
   
 
     
@@ -667,63 +751,7 @@
   <span class="md-ellipsis">
     
   
-    State estimation
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../new_york/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    New York grid
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../extending_new_york/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Extending the New York grid
+    Estimate the state
   
 
     
@@ -760,7 +788,7 @@
   <span class="md-ellipsis">
     
   
-    Troubleshooting the New York grid
+    Add a design family, an alarm rule or a test system
   
 
     
@@ -778,7 +806,7 @@
   <span class="md-ellipsis">
     
   
-    Troubleshooting the New York grid
+    Add a design family, an alarm rule or a test system
   
 
     
@@ -804,10 +832,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#environment" class="md-nav__link">
+  <a href="#a-design-family" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Environment
+        A design family
       
     </span>
   </a>
@@ -815,10 +843,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#inputs" class="md-nav__link">
+  <a href="#an-alarm-rule" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Inputs
+        An alarm rule
       
     </span>
   </a>
@@ -826,10 +854,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#the-operating-point-pool" class="md-nav__link">
+  <a href="#a-test-system" class="md-nav__link">
     <span class="md-ellipsis">
       
-        The operating-point pool
+        A test system
       
     </span>
   </a>
@@ -837,21 +865,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#the-timeline" class="md-nav__link">
+  <a href="#what-an-extension-should-keep-to" class="md-nav__link">
     <span class="md-ellipsis">
       
-        The timeline
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#the-golden-snapshots" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        The golden snapshots
+        What an extension should keep to
       
     </span>
   </a>
@@ -862,6 +879,34 @@
   
 </nav>
       
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../troubleshooting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Troubleshooting
+  
+
+    
+  </span>
+  
+  
+
+      </a>
     </li>
   
 
@@ -1015,14 +1060,70 @@
   
   
     <li class="md-nav__item">
-      <a href="../../concepts/new_york_grid/" class="md-nav__link">
+      <a href="../../concepts/meters/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    New York grid architecture
+    Meters and noise
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../concepts/attacks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    The attack families
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../concepts/layers/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Layers and labels
   
 
     
@@ -1688,10 +1789,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#environment" class="md-nav__link">
+  <a href="#a-design-family" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Environment
+        A design family
       
     </span>
   </a>
@@ -1699,10 +1800,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#inputs" class="md-nav__link">
+  <a href="#an-alarm-rule" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Inputs
+        An alarm rule
       
     </span>
   </a>
@@ -1710,10 +1811,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#the-operating-point-pool" class="md-nav__link">
+  <a href="#a-test-system" class="md-nav__link">
     <span class="md-ellipsis">
       
-        The operating-point pool
+        A test system
       
     </span>
   </a>
@@ -1721,21 +1822,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#the-timeline" class="md-nav__link">
+  <a href="#what-an-extension-should-keep-to" class="md-nav__link">
     <span class="md-ellipsis">
       
-        The timeline
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#the-golden-snapshots" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        The golden snapshots
+        What an extension should keep to
       
     </span>
   </a>
@@ -1762,154 +1852,232 @@
   
 
 
-<h1 id="the-new-york-grid-how-it-fails">The New York grid: how it fails<a class="headerlink" href="#the-new-york-grid-how-it-fails" title="Permanent link">&para;</a></h1>
-<p>Every stage of the New York build either raises a named error or records why it produced less than asked. This
-page lists what each stage reports, what it means and what to do. The stages are those of
-<a href="../new_york/">the guide</a>: environment, inputs, the operating-point pool and the timeline. The errors live in <code>fdia_graph.errors</code>. A wrong argument is a <code>ConfigError</code> and data that
-does not meet a condition is a <code>DataConditionError</code>. Both are a <code>ValueError</code>, so existing <code>except ValueError</code>
-code keeps working. <code>SolverUnavailable</code> is a <code>RuntimeError</code>, because a broken environment is not a property of
-the data.</p>
-<h2 id="environment">Environment<a class="headerlink" href="#environment" title="Permanent link">&para;</a></h2>
+<h1 id="add-a-design-family-an-alarm-rule-or-a-test-system">Add a design family, an alarm rule or a test system<a class="headerlink" href="#add-a-design-family-an-alarm-rule-or-a-test-system" title="Permanent link">&para;</a></h1>
+<p>The package has three extension points. Each is a small base class or constructor of the
+package itself, not of one test system. This guide names each one, says what it must provide,
+and where it plugs in today.</p>
 <table>
 <thead>
 <tr>
-<th>What you see</th>
-<th>Why</th>
-<th>Fix</th>
+<th>You add</th>
+<th>You write</th>
+<th>Base</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><code>SolverUnavailable: Ipopt is not found or does not start</code></td>
-<td>Ipopt is not installed, or it is installed but cannot load its DLLs. On Windows a missing DLL shows as exit code <code>0xC0000135</code></td>
-<td><code>conda install -c conda-forge ipopt</code> into the environment, and run that environment's Python with the environment active, so its <code>Library/bin</code> folder is on PATH. <code>fdia_graph.data.ipopt.ipopt()</code> adds the folder when it exists</td>
+<td>A design family</td>
+<td><code>design(window, rng)</code></td>
+<td><code>AttackFamily</code></td>
 </tr>
 <tr>
-<td><code>SolverUnavailable: Pyomo is not installed</code></td>
-<td>The <code>[ny]</code> extra is missing</td>
-<td><code>pip install "fdia-graph[ny]"</code></td>
+<td>An alarm rule</td>
+<td><code>first_alarm(stat)</code></td>
+<td><code>AlarmRule</code></td>
 </tr>
 <tr>
-<td>A change you made does not show up</td>
-<td>Python imports another copy of the package, usually the editable install of the main checkout when you work in a git worktree</td>
-<td>Put the worktree's <code>src</code> first: <code>PYTHONPATH=&lt;worktree&gt;/src</code></td>
-</tr>
-<tr>
-<td><code>FileNotFoundError</code> on <code>data/...</code></td>
-<td>The build tools read <code>data/</code> and <code>out/</code> relative to the working folder</td>
-<td>Run from the work folder that holds <code>data/</code>, or pass <code>--data</code> and <code>--pool</code></td>
+<td>A test system</td>
+<td>a <code>Case</code></td>
+<td><code>Case.from_pandapower</code>, <code>Case.from_matpower</code></td>
 </tr>
 </tbody>
 </table>
-<h2 id="inputs">Inputs<a class="headerlink" href="#inputs" title="Permanent link">&para;</a></h2>
+<p>Two runnable examples are in the repository under <code>examples/nygrid/</code>. They need no data, and the
+tests run both, so they stay current with the code.</p>
+<h2 id="a-design-family">A design family<a class="headerlink" href="#a-design-family" title="Permanent link">&para;</a></h2>
+<p>The design stage asks every family one thing: the episode of a window
+(<code>EpisodeFamily.designed</code> in <code>src/fdia_graph/engine/attacks/family.py</code>). Subclass
+<code>AttackFamily</code>, which answers that for you, and write <code>design</code>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fdia_graph.engine.attacks.family</span><span class="w"> </span><span class="kn">import</span> <span class="n">AttackFamily</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fdia_graph.models.plan</span><span class="w"> </span><span class="kn">import</span> <span class="n">Episode</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="k">class</span><span class="w"> </span><span class="nc">MyFamily</span><span class="p">(</span><span class="n">AttackFamily</span><span class="p">):</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">design</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">window</span><span class="p">,</span> <span class="n">rng</span><span class="p">):</span>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>        <span class="n">onset</span><span class="p">,</span> <span class="n">vm</span><span class="p">,</span> <span class="n">va</span> <span class="o">=</span> <span class="n">window</span>
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>        <span class="o">...</span>
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>        <span class="k">return</span> <span class="n">Episode</span><span class="p">(</span><span class="o">...</span><span class="p">)</span>  <span class="c1"># or None</span>
+</code></pre></div>
+<p><strong>What <code>design</code> receives.</strong> <code>window</code> is <code>(onset, vm, va)</code>: the pool frame the window starts at,
+and the true voltage magnitudes (p.u.) and angles (degrees) over it, each <code>[L, N]</code>. <code>rng</code> is the random
+generator for this design.</p>
+<p><strong>What it returns.</strong> An <code>Episode</code> (<code>models/plan.py</code>), or <code>None</code> where the window holds nothing
+to attack.</p>
 <table>
 <thead>
 <tr>
-<th>What you see</th>
-<th>Why</th>
-<th>Fix</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>DataConditionError: bus ... has no row in ...</code></td>
-<td>A bus of the case has no location in the bus-location table</td>
-<td>Re-fetch the inputs (<code>build_timeline.py --fetch</code>). The table ships with the package</td>
-</tr>
-<tr>
-<td><code>DataConditionError: ...: branch f-t is not in the case in that orientation</code></td>
-<td>An interface definition names a branch the case does not hold</td>
-<td>The case or the interface table changed; check both against the NYgrid commit the guide pins</td>
-</tr>
-<tr>
-<td><code>DataConditionError: ...: no rows in interflowHourly_&lt;year&gt;.csv</code></td>
-<td>No interface flows for that year</td>
-<td>Fetch the inputs for the year you build</td>
-</tr>
-</tbody>
-</table>
-<h2 id="the-operating-point-pool">The operating-point pool<a class="headerlink" href="#the-operating-point-pool" title="Permanent link">&para;</a></h2>
-<p><code>PoolBuilder.report()</code> counts every frame by its solve kind. Only <code>solved</code> frames are used downstream.</p>
-<table>
-<thead>
-<tr>
-<th>Solve kind</th>
+<th>Field of <code>Episode</code></th>
 <th>Meaning</th>
-<th>What to do</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><code>solved</code></td>
-<td>The dispatch and the AC power flow converged</td>
-<td>Nothing</td>
+<td><code>family</code></td>
+<td>the family's name; it must be a name in <code>fg.FAMILIES</code>, whose code the file stores</td>
 </tr>
 <tr>
-<td><code>failed</code></td>
-<td>The dispatch or the power flow did not converge for that frame</td>
-<td>A few per year are expected (the 2019 pool solves 99.8 percent). Many in a row point at the inputs of those hours</td>
+<td><code>onset</code>, <code>length</code></td>
+<td>the window</td>
 </tr>
 <tr>
-<td><code>no_hour</code></td>
-<td>The hour a chunk starts from has no AC point, so the chunk has no start</td>
-<td>Usually follows a <code>failed</code> hour; rebuild that span</td>
+<td><code>a</code></td>
+<td>the attack vector <code>[L, M]</code>, added to each scan</td>
 </tr>
 <tr>
-<td><code>no_load</code></td>
-<td>NYISO has no load for the frame (the spring-forward gap and data gaps)</td>
-<td>Nothing; these frames are skipped everywhere</td>
+<td><code>buses</code></td>
+<td>the buses it attacks</td>
+</tr>
+<tr>
+<td><code>clients</code></td>
+<td>the owners of the meters it moves</td>
+</tr>
+<tr>
+<td><code>target_branch</code></td>
+<td>the branch it is anchored on; -1 for none</td>
 </tr>
 </tbody>
 </table>
-<p><code>report()</code> before <code>build()</code> raises <code>NotFitted</code>. A span whose first hour has no AC point raises a
-<code>DataConditionError</code> naming the frame.</p>
-<h2 id="the-timeline">The timeline<a class="headerlink" href="#the-timeline" title="Permanent link">&para;</a></h2>
-<p>After <code>source.generate(path)</code>, <code>NewYorkSource.summary()</code> returns a summary. A placed episode whose design
-finds no attack moves to another onset of its split (<code>moved</code> counts the moves) and is given up, with a
-warning, after <code>REDRAWS</code> moves (<code>given_up</code>). <code>missed</code> (and, with the
-onset survey on, <code>survey_missed</code>) says why design attempts found no attack, counted per family; a slot is
-tried again at every onset it moves to:</p>
+<p><strong>Saying why there is no attack.</strong> When <code>design</code> returns <code>None</code>, set
+<code>self.last_miss = "no_target"</code> if the window held nothing to attack. <code>design_explained</code> then
+reports <code>no_target</code>. A <code>None</code> left unexplained reads as <code>infeasible</code>.</p>
+<p><strong>Limiting the onsets.</strong> Override <code>onset_mask(vm, va, length)</code> to hold the family to the frames
+it may start at. It receives the states of the whole pool, <code>[T, N]</code>, and returns one flag per
+frame. The default allows any frame.</p>
+<p><strong>Keeping it stealthy.</strong> An attack the residual test should not see has to change the readings
+as <code>h(x_false) - h(x_true)</code> for a false state, as the package's <code>Attacker</code> does
+(<a href="../../concepts/attacks/#the-local-false-state">The attack families</a>). A family that does not,
+like the example's slow bias, is the naive attack the residual test is meant to catch. It is
+useful as a baseline.</p>
+<p><strong>Where it plugs in today.</strong> <code>NewYorkSource</code> takes its families as a dictionary, name to
+family, beside the package's own. <code>source.generate(path)</code> then places, designs and writes its
+episodes like theirs. The dictionary key may be any name, but <code>Episode.family</code> must be a name
+in <code>fg.FAMILIES</code>. A <code>SearchSource</code> builds its two families itself and takes none from the
+caller.</p>
+<p>Example:
+<a href="https://github.com/myersben9/fdia-graph/blob/main/examples/nygrid/custom_attack_family.py">custom_attack_family.py</a>.</p>
+<h2 id="an-alarm-rule">An alarm rule<a class="headerlink" href="#an-alarm-rule" title="Permanent link">&para;</a></h2>
+<p>A rule turns a statistic per scan into the first scan it alarms on, or -1. The statistic can be
+a residual sum, a gap between two meters, or any score. <code>AlarmRule</code> is a protocol in the
+analysis toolkit, in <code>se/detect/rules.py</code> under <code>analysis/src/fdia_analysis/</code>. Any object with
+this method is a rule:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fdia_analysis.se.detect.rules</span><span class="w"> </span><span class="kn">import</span> <span class="n">AlarmRule</span><span class="p">,</span> <span class="n">PersistenceRule</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="k">class</span><span class="w"> </span><span class="nc">FirstOver</span><span class="p">:</span>
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">    </span><span class="sd">"""Alarm at the first scan above a fixed level."""</span>
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">level</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">level</span> <span class="o">=</span> <span class="n">level</span>
+<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>
+<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">first_alarm</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">stat</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a>        <span class="n">hit</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">flatnonzero</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">stat</span><span class="p">)</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">level</span><span class="p">)</span>
+<a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a>        <span class="k">return</span> <span class="nb">int</span><span class="p">(</span><span class="n">hit</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">hit</span><span class="p">)</span> <span class="k">else</span> <span class="o">-</span><span class="mi">1</span>
+<a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a>
+<a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a>
+<a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a><span class="n">rule</span> <span class="o">=</span> <span class="n">FirstOver</span><span class="p">(</span><span class="mf">3.0</span><span class="p">)</span>
+<a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a><span class="nb">print</span><span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">rule</span><span class="p">,</span> <span class="n">AlarmRule</span><span class="p">))</span>          <span class="c1"># True</span>
+<a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a><span class="nb">print</span><span class="p">(</span><span class="n">rule</span><span class="o">.</span><span class="n">first_alarm</span><span class="p">([</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">2.0</span><span class="p">,</span> <span class="mf">4.0</span><span class="p">]))</span>    <span class="c1"># 2</span>
+</code></pre></div>
+<p>The package ships one rule, <code>PersistenceRule</code>: it alarms when <code>k</code> of the last <code>n</code> statistics
+exceed a threshold (2 of 3 by default), which a single noisy scan cannot trip.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">benign</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">default_rng</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">normal</span><span class="p">(</span><span class="n">size</span><span class="o">=</span><span class="mi">2000</span><span class="p">)</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="n">rule</span> <span class="o">=</span> <span class="n">PersistenceRule</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">benign</span><span class="p">,</span> <span class="n">q</span><span class="o">=</span><span class="mf">99.9</span><span class="p">)</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="nb">print</span><span class="p">(</span><span class="n">rule</span><span class="o">.</span><span class="n">first_alarm</span><span class="p">(</span><span class="n">benign</span><span class="p">[:</span><span class="mi">300</span><span class="p">]))</span>  <span class="c1"># -1</span>
+</code></pre></div>
+<ul>
+<li>Calibrate a rule on benign scans only. <code>PersistenceRule.fit</code> takes a percentile of benign
+  statistics.</li>
+<li>A rule fitted on no statistic at all raises <code>NoBenignRecords</code>, since it would never alarm.</li>
+<li>Report a rule's false alarms on benign data beside its detection rate.</li>
+</ul>
+<p>The package ships the rule and the protocol. The code that computes the statistic and asks the
+rule is yours. <code>se/detect/__init__.py</code> exports no name: import from <code>rules.py</code>.</p>
+<p>Example:
+<a href="https://github.com/myersben9/fdia-graph/blob/main/examples/nygrid/custom_alarm_rule.py">custom_alarm_rule.py</a>.</p>
+<h2 id="a-test-system">A test system<a class="headerlink" href="#a-test-system" title="Permanent link">&para;</a></h2>
+<p>A test system is a <code>Case</code> (<a href="../../concepts/test_systems/">Test systems</a>). There are two ways to
+make one of your own.</p>
 <table>
 <thead>
 <tr>
-<th>Reason</th>
-<th>Meaning</th>
-<th>What to do</th>
+<th>Call</th>
+<th>Takes</th>
+<th>Note</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><code>no_target</code></td>
-<td>The window has nothing to attack: no line or interface near its limit, or no load bus for a ramp</td>
-<td>Expected outside the near-limit hours. If it covers every slot, the onset mask and the interface data disagree</td>
+<td><code>Case.from_pandapower(net)</code></td>
+<td>a pandapower net with its power flow solved</td>
+<td>the general route</td>
 </tr>
 <tr>
-<td><code>infeasible</code></td>
-<td>Targets existed, but no support met every bound of the attacker (load cap, basepoint band, ramps, voltage limits)</td>
-<td>The bounds are binding. Widening them is a modeling decision, not a fix</td>
-</tr>
-<tr>
-<td><code>solver_error</code></td>
-<td>Ipopt started but stopped abnormally on a support the search tried, so the window may hold an attack the search did not see</td>
-<td>A few are tolerable. Many mean a numerically hard case; the family's <code>solver_errors</code> counts them</td>
+<td><code>Case.from_matpower(path)</code></td>
+<td>a MATPOWER case file</td>
+<td>needs the <code>[ny]</code> extra; the file must follow the New York file's conventions</td>
 </tr>
 </tbody>
 </table>
-<p>For one episode alone, building the <code>SingleEpisodeSource</code> raises a <code>DataConditionError</code> when the window touches an
-unsolved frame, and its <code>generate</code> raises <code>NoAdmissibleTarget</code> naming the reason when that one window has no attack.</p>
-<p>A run that fails leaves no file: the timeline is written under a <code>.part</code> name and takes its own only when it is
-whole. A build whose design processes never start, or that starts itself again and again, is a script without
-<code>if __name__ == "__main__":</code> around its entry: the processes are spawned and import the script.</p>
-<h2 id="the-golden-snapshots">The golden snapshots<a class="headerlink" href="#the-golden-snapshots" title="Permanent link">&para;</a></h2>
-<p><code>tests/nygrid/test_golden.py</code> compares what the interface attack returns
-on fixed inputs with the snapshots in <code>tests/nygrid/golden/</code>. A failure names the first value that changed. If the
-change is intended, rewrite the snapshots with <code>NYGRID_UPDATE_GOLDEN=1</code> and say in the pull request which numbers
-moved and why. The interface attack's design needs the whole 2019 pool under <code>NYGRID_ROOT</code> and skips without it.
-The persistence rule's snapshot is two numbers, <code>analysis/tests/golden/persistence_rule.json</code>, compared by
-<code>analysis/tests/test_detect.py</code>; it needs no data, and an intended change edits the file.</p>
-<p>The same folder holds whole-file digests of a New York timeline and of two episodes
-(<code>tests/nygrid/test_timeline_digests.py</code>): bit for bit on the machine that recorded them, skipped
-elsewhere. Rewrite those with <code>FDIA_UPDATE_DIGESTS=1</code>, under the same rule.</p>
+<p><code>Case.from_matpower</code> reads a file laid out like <code>case_nygrid.m</code>: area 1 on every bus, and the
+zone codes of that file's legend (1 to 11 the NYISO load zones, 12 to 15 the neighbors). A file
+whose parts disagree is refused with a <code>DataConditionError</code> that names the file and what is
+wrong.</p>
+<p>A <code>SearchSource</code> generates a timeline on any <code>Network</code>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="kn">import</span><span class="w"> </span><span class="nn">pandapower</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pp</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="kn">import</span><span class="w"> </span><span class="nn">pandapower.networks</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pn</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="kn">import</span><span class="w"> </span><span class="nn">fdia_graph</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">fg</span>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fdia_graph.data.profiles</span><span class="w"> </span><span class="kn">import</span> <span class="n">RawSeries</span>
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fdia_graph.generation.search</span><span class="w"> </span><span class="kn">import</span> <span class="n">SearchSource</span>
+<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fdia_graph.models.config</span><span class="w"> </span><span class="kn">import</span> <span class="n">TimelineSettings</span>
+<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fdia_graph.systems.case</span><span class="w"> </span><span class="kn">import</span> <span class="n">Case</span>
+<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fdia_graph.systems.network</span><span class="w"> </span><span class="kn">import</span> <span class="n">Network</span>
+<a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a>
+<a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a><span class="n">net</span> <span class="o">=</span> <span class="n">pn</span><span class="o">.</span><span class="n">case14</span><span class="p">()</span>
+<a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a><span class="n">pp</span><span class="o">.</span><span class="n">runpp</span><span class="p">(</span><span class="n">net</span><span class="p">)</span>
+<a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a><span class="n">grid</span> <span class="o">=</span> <span class="n">Network</span><span class="p">(</span><span class="n">Case</span><span class="o">.</span><span class="n">from_pandapower</span><span class="p">(</span><span class="n">net</span><span class="p">))</span>
+<a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a>
+<a id="__codelineno-3-16" name="__codelineno-3-16" href="#__codelineno-3-16"></a><span class="c1"># a pool for this grid: [T, N, 4], one solved state per frame</span>
+<a id="__codelineno-3-17" name="__codelineno-3-17" href="#__codelineno-3-17"></a><span class="n">hours</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">300</span><span class="p">)</span> <span class="o">/</span> <span class="mf">60.0</span>
+<a id="__codelineno-3-18" name="__codelineno-3-18" href="#__codelineno-3-18"></a><span class="n">profile</span> <span class="o">=</span> <span class="n">fg</span><span class="o">.</span><span class="n">load_profile</span><span class="p">(</span><span class="n">RawSeries</span><span class="p">(</span><span class="mi">100</span> <span class="o">+</span> <span class="mi">10</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">hours</span><span class="p">)))</span>
+<a id="__codelineno-3-19" name="__codelineno-3-19" href="#__codelineno-3-19"></a><span class="n">pool</span> <span class="o">=</span> <span class="n">fg</span><span class="o">.</span><span class="n">generate_states</span><span class="p">(</span><span class="s2">"ieee14"</span><span class="p">,</span> <span class="n">profile</span><span class="p">)</span>
+<a id="__codelineno-3-20" name="__codelineno-3-20" href="#__codelineno-3-20"></a>
+<a id="__codelineno-3-21" name="__codelineno-3-21" href="#__codelineno-3-21"></a><span class="n">settings</span> <span class="o">=</span> <span class="n">TimelineSettings</span><span class="o">.</span><span class="n">of</span><span class="p">(</span>
+<a id="__codelineno-3-22" name="__codelineno-3-22" href="#__codelineno-3-22"></a>    <span class="n">families</span><span class="o">=</span><span class="p">(</span><span class="s2">"At"</span><span class="p">,),</span> <span class="n">ramp_len</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span> <span class="n">min_tamper</span><span class="o">=</span><span class="kc">False</span>
+<a id="__codelineno-3-23" name="__codelineno-3-23" href="#__codelineno-3-23"></a><span class="p">)</span>
+<a id="__codelineno-3-24" name="__codelineno-3-24" href="#__codelineno-3-24"></a><span class="n">source</span> <span class="o">=</span> <span class="n">SearchSource</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">pool</span><span class="p">,</span> <span class="n">settings</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<a id="__codelineno-3-25" name="__codelineno-3-25" href="#__codelineno-3-25"></a><span class="n">path</span> <span class="o">=</span> <span class="n">source</span><span class="o">.</span><span class="n">generate</span><span class="p">(</span><span class="s2">"own_grid.h5"</span><span class="p">)</span>
+<a id="__codelineno-3-26" name="__codelineno-3-26" href="#__codelineno-3-26"></a><span class="nb">print</span><span class="p">(</span><span class="n">fg</span><span class="o">.</span><span class="n">FdiaGraph</span><span class="p">(</span><span class="n">path</span><span class="p">)</span><span class="o">.</span><span class="n">summary</span><span class="p">())</span>
+</code></pre></div>
+<p>The example borrows the IEEE-14 pool builder, because <code>pn.case14()</code> is that grid. For a grid of
+your own you bring the pool. Two things hold for it today:</p>
+<ul>
+<li><code>fg.generate_states</code> builds pools for the eight IEEE cases only.</li>
+<li>The search-based designs read a scan's load and generation from its state by the rule of the
+  IEEE pools: each bus's load and generation scaled by one factor, load positive. A pool built
+  another way does not fit them.</li>
+</ul>
+<p>One source generates one timeline. A second <code>generate</code> on the same <code>SearchSource</code> is refused;
+build a new source.</p>
+<p>To change the New York grid itself, edit its case file
+(<a href="../../concepts/test_systems/#the-new-york-case-file">Test systems</a>). Edit rows in place, or add
+and delete whole rows. A variant in code is a copy, never a change in place:
+<code>hvdc_links(case)</code>, <code>externals_at_base(case, base)</code>, <code>case.with_voltage_margin(0.02)</code>.</p>
+<h2 id="what-an-extension-should-keep-to">What an extension should keep to<a class="headerlink" href="#what-an-extension-should-keep-to" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Named errors.</strong> Raise the errors of <code>fdia_graph.errors</code>: <code>ConfigError</code> for a wrong
+  argument, a <code>DataConditionError</code> for data that does not meet a condition, <code>SolverUnavailable</code>
+  for an environment that cannot run the solver.</li>
+<li><strong>Settings are arguments.</strong> A setting is an argument of the function or constructor that uses
+  it. A variant is a copy, such as <code>InterfaceFdia.with_overshoot(mw)</code>.</li>
+</ul>
+<p>Changing the package itself is covered in
+<a href="https://github.com/myersben9/fdia-graph/blob/main/CONTRIBUTING.md">Contributing</a>.</p>
 
 
 
@@ -1945,7 +2113,7 @@ elsewhere. Rewrite those with <code>FDIA_UPDATE_DIGESTS=1</code>, under the same
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../extending_new_york/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Extending the New York grid">
+          <a href="../state_estimation/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Estimate the state">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
@@ -1955,20 +2123,20 @@ elsewhere. Rewrite those with <code>FDIA_UPDATE_DIGESTS=1</code>, under the same
                 Previous
               </span>
               <div class="md-ellipsis">
-                Extending the New York grid
+                Estimate the state
               </div>
             </div>
           </a>
         
         
           
-          <a href="../../concepts/flow/" class="md-footer__link md-footer__link--next" aria-label="Next: How the package flows">
+          <a href="../troubleshooting/" class="md-footer__link md-footer__link--next" aria-label="Next: Troubleshooting">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                How the package flows
+                Troubleshooting
               </div>
             </div>
             <div class="md-footer__button md-icon">

@@ -252,7 +252,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../getting-started/new_york_walkthrough/" class="md-tabs__link">
+        <a href="../../getting-started/load/" class="md-tabs__link">
           
   
   
@@ -514,14 +514,70 @@
   
   
     <li class="md-nav__item">
-      <a href="../../getting-started/new_york_walkthrough/" class="md-nav__link">
+      <a href="../../getting-started/load/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    New York walkthrough
+    Load a dataset
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/generate/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Generate your first timeline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/analyse/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Analyse a timeline
   
 
     
@@ -634,7 +690,35 @@
   <span class="md-ellipsis">
     
   
-    Timeline generation
+    Generate a timeline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/operating_points/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Build the operating points
   
 
     
@@ -662,7 +746,7 @@
   <span class="md-ellipsis">
     
   
-    State estimation
+    Estimate the state
   
 
     
@@ -683,14 +767,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../guides/new_york/" class="md-nav__link">
+      <a href="../../guides/extending/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    New York grid
+    Add a design family, an alarm rule or a test system
   
 
     
@@ -711,42 +795,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../guides/extending_new_york/" class="md-nav__link">
+      <a href="../../guides/troubleshooting/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Extending the New York grid
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../guides/troubleshooting_new_york/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Troubleshooting the New York grid
+    Troubleshooting
   
 
     
@@ -962,6 +1018,28 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#what-the-reader-refuses" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What the reader refuses
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#areas-in-the-code" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Areas in the code
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#reading-the-file" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1043,14 +1121,70 @@
   
   
     <li class="md-nav__item">
-      <a href="../new_york_grid/" class="md-nav__link">
+      <a href="../meters/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    New York grid architecture
+    Meters and noise
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../attacks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    The attack families
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../layers/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Layers and labels
   
 
     
@@ -1761,6 +1895,28 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#what-the-reader-refuses" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What the reader refuses
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#areas-in-the-code" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Areas in the code
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#reading-the-file" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1994,7 +2150,64 @@ refused. The codes and their names are in <code>constants/newyork.py</code> (<co
 <p>Beyond MATPOWER's own fields the file has <code>mpc.bus_name</code>, <code>mpc.genfuel</code>, <code>mpc.bus_latlon</code>
 (degrees) and <code>mpc.gen_ramp</code> (MW per minute). It has no <code>mpc.gencost</code>.</p>
 <p><code>pipelines/newyork/make_case.py</code> is the recipe of the file: it makes the file again from
-NYgrid's <code>Data/</code> folder.</p>
+NYgrid's <code>Data/</code> folder. A test checks that the recipe still reproduces the shipped file
+exactly.</p>
+<p>A change to the grid is an edit to the file, one row per line. No code patches the case on the
+way in. A variant in code is a copy, never a change in place: <code>hvdc_links(case)</code> or
+<code>case.with_voltage_margin(0.02)</code>.</p>
+<h3 id="what-the-reader-refuses">What the reader refuses<a class="headerlink" href="#what-the-reader-refuses" title="Permanent link">&para;</a></h3>
+<p><code>Case.from_matpower</code> reads the file with matpowercaseframes, the reader pandapower uses for
+<code>.m</code> files. A branch with status 0 is left out, and a tap ratio of 0, MATPOWER's mark of a
+line, is read as 1. A file whose parts disagree is refused with a <code>DataConditionError</code> that
+names the file and what is wrong:</p>
+<ul>
+<li>a bus number that is not whole, or is on two rows;</li>
+<li>a unit or a branch on a bus the case does not have;</li>
+<li>a zone number outside 1 to 15, or an area other than 1;</li>
+<li>an indexed assignment such as <code>mpc.bus(1, 3) = 500;</code>;</li>
+<li>a field that is not one of the case's. The standard <code>mpc.gencost</code>, <code>mpc.gentype</code>,
+  <code>mpc.areas</code> and <code>mpc.dclinecost</code> are passed over.</li>
+</ul>
+<p><code>tests/nygrid/test_case_file.py</code> has one test per rule.</p>
+<h3 id="areas-in-the-code">Areas in the code<a class="headerlink" href="#areas-in-the-code" title="Permanent link">&para;</a></h3>
+<p>The file has one area, but <code>Case.area</code> is derived from the zone code on read: 2 for a New York
+bus (<code>NY_AREA</code>), and the source model's own area number for each neighbor.</p>
+<table>
+<thead>
+<tr>
+<th>Zone code</th>
+<th><code>Case.zone</code></th>
+<th><code>Case.area</code></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1 to 11</td>
+<td><code>A</code> to <code>K</code></td>
+<td>2</td>
+</tr>
+<tr>
+<td>12, New England</td>
+<td><code>""</code></td>
+<td>1</td>
+</tr>
+<tr>
+<td>13, Ontario</td>
+<td><code>""</code></td>
+<td>4</td>
+</tr>
+<tr>
+<td>14, MISO</td>
+<td><code>""</code></td>
+<td>5</td>
+</tr>
+<tr>
+<td>15, PJM</td>
+<td><code>""</code></td>
+<td>6</td>
+</tr>
+</tbody>
+</table>
 <h3 id="reading-the-file">Reading the file<a class="headerlink" href="#reading-the-file" title="Permanent link">&para;</a></h3>
 <p>In this package:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fdia_graph.systems.case</span><span class="w"> </span><span class="kn">import</span> <span class="n">CASE_FILE</span><span class="p">,</span> <span class="n">Case</span><span class="p">,</span> <span class="n">nygrid_case</span>
@@ -2067,12 +2280,12 @@ them. <code>PandapowerSolver</code> avoids it by giving every branch a placehold
 <tr>
 <td>New York</td>
 <td>nothing yet</td>
-<td>build it: <a href="../../guides/new_york/">the New York guide</a></td>
+<td>build the pool (<a href="../../guides/operating_points/">Build the operating points</a>), then the timeline (<a href="../../guides/generation/">Generate a timeline</a>)</td>
 </tr>
 </tbody>
 </table>
 <p>You can also generate your own timeline on any of the eight <code>ieee</code> systems with <code>fg.generate</code>
-(<a href="../../guides/generation/">the generation guide</a>).</p>
+(<a href="../../getting-started/generate/">the tutorial</a>).</p>
 
 
 

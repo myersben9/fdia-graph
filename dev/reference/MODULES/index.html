@@ -252,7 +252,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../getting-started/new_york_walkthrough/" class="md-tabs__link">
+        <a href="../../getting-started/load/" class="md-tabs__link">
           
   
   
@@ -514,14 +514,70 @@
   
   
     <li class="md-nav__item">
-      <a href="../../getting-started/new_york_walkthrough/" class="md-nav__link">
+      <a href="../../getting-started/load/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    New York walkthrough
+    Load a dataset
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/generate/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Generate your first timeline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/analyse/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Analyse a timeline
   
 
     
@@ -634,7 +690,35 @@
   <span class="md-ellipsis">
     
   
-    Timeline generation
+    Generate a timeline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/operating_points/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Build the operating points
   
 
     
@@ -662,7 +746,7 @@
   <span class="md-ellipsis">
     
   
-    State estimation
+    Estimate the state
   
 
     
@@ -683,14 +767,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../guides/new_york/" class="md-nav__link">
+      <a href="../../guides/extending/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    New York grid
+    Add a design family, an alarm rule or a test system
   
 
     
@@ -711,42 +795,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../guides/extending_new_york/" class="md-nav__link">
+      <a href="../../guides/troubleshooting/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Extending the New York grid
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../guides/troubleshooting_new_york/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Troubleshooting the New York grid
+    Troubleshooting
   
 
     
@@ -908,14 +964,70 @@
   
   
     <li class="md-nav__item">
-      <a href="../../concepts/new_york_grid/" class="md-nav__link">
+      <a href="../../concepts/meters/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    New York grid architecture
+    Meters and noise
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../concepts/attacks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    The attack families
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../concepts/layers/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Layers and labels
   
 
     
@@ -1918,7 +2030,7 @@
 </tr>
 <tr>
 <td><code>docs/getting-started/</code></td>
-<td>tutorials: a first run, start to finish</td>
+<td>tutorials: load a dataset, generate one, analyse one, each start to finish</td>
 </tr>
 <tr>
 <td><code>docs/guides/</code></td>
@@ -2654,7 +2766,7 @@
 </tr>
 <tr>
 <td><code>tests/nygrid/test_examples.py</code></td>
-<td>The extension examples of docs/guides/extending_new_york.md run as published, so the guide never shows code that broke (no data needed).</td>
+<td>The extension examples of docs/guides/extending.md run as published, so the guide never shows code that broke (no data needed).</td>
 </tr>
 <tr>
 <td><code>tests/nygrid/test_golden.py</code></td>
@@ -2869,7 +2981,7 @@
 <tbody>
 <tr>
 <td><code>analysis/tests/test_detect.py</code></td>
-<td>The detection building block: the persistence rule and its calibration, the package that exports no name, the rule's golden snapshot (<code>golden/persistence_rule.json</code>: a change of behavior fails here and has to say why), and the alarm-rule example of docs/guides/extending_new_york.md run as published (no data needed).</td>
+<td>The detection building block: the persistence rule and its calibration, the package that exports no name, the rule's golden snapshot (<code>golden/persistence_rule.json</code>: a change of behavior fails here and has to say why), and the alarm-rule example of docs/guides/extending.md run as published (no data needed).</td>
 </tr>
 <tr>
 <td><code>analysis/tests/test_edges.py</code></td>
