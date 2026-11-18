@@ -181,4 +181,6 @@ of the difference is not accounted for.
 
 pandapower's OPF is fragile on the New York case. At the case's base load, and at 80 %, 90 %
 and 105 % of it, it does not converge where Ipopt does. The comparison therefore uses 70 % of
-the base load.
+the base load. Even there it depends on the machine: it converges on Windows and not on the
+Linux test runner, where the test reports that it was skipped. The IEEE comparisons run
+everywhere Ipopt is installed.
