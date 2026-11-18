@@ -1870,7 +1870,7 @@ returned records and the settings; the one validation engine is <code>fdia_graph
 <code>formulas/</code> (the equations), and the generation toolkit's <code>constants/</code> (the facts, each with its unit
 and source), <code>schema.py</code> (the file protocol) and <code>errors.py</code> (the named errors). Each package's own <code>__init__.py</code> (for <code>fdia_graph</code>, the <code>fg.*</code>
 public API, which imports everything) is left out for the same reason.</p>
-<p><a href="../../figures/diagrams/modules.png"><img alt="Module diagram in two boxes. The analysis toolkit, fdia_analysis: federated over localization and se; localization over se; trust over se; results beside them. The generation toolkit, fdia_graph: generation over data, engine, sensing, systems, timeline, download and registry; engine over data, sensing, systems, ratings and registry; data over systems; sensing over systems; dataset over sensing and systems; timeline over generation; download over registry. Between the boxes every arrow points from analysis to generation: federated, localization, se and trust read dataset; trust reads generation and registry" src="../../figures/diagrams/modules.png" /></a></p>
+<p><a href="../../figures/diagrams/modules.png"><img alt="Module diagram in two boxes. The analysis toolkit, fdia_analysis: federated over localization and se; localization over se; trust over se; results beside them. The generation toolkit, fdia_graph: generation over data, engine, sensing, systems, timeline, download and registry; engine over data, sensing, systems and ratings; data over systems; sensing over systems; dataset over sensing and systems; timeline over generation; download over registry. Between the boxes every arrow points from analysis to generation: federated, localization, se and trust read dataset; trust reads generation and registry" src="../../figures/diagrams/modules.png" /></a></p>
 <h2 id="the-dataset">The dataset<a class="headerlink" href="#the-dataset" title="Permanent link">&para;</a></h2>
 <p><code>FdiaGraph</code> is the file. Five mixins over <code>DatasetBase</code> give it its faces: the static graph physics
 (<code>GraphMixin</code>), the admittance matrices (<code>AdmittanceMixin</code>), records and batches (<code>RecordsMixin</code>), the
@@ -1879,16 +1879,16 @@ produce records return <code>models</code> bundles (a record, a batch, an export
 summary); the graph properties are tensors or arrays, <code>loader()</code> is a DataLoader and <code>windows()</code> a tuple.</p>
 <p><a href="../../figures/diagrams/classes_dataset.png"><img alt="Class diagram of the dataset package: DatasetBase with GraphMixin, AdmittanceMixin, RecordsMixin, ExportMixin and SequenceMixin under it and FdiaGraph inheriting all five; the mixins use ArraysBundle, Summary, BatchBundle, RecordBundle, EpisodeTable, Admittances and BranchModel" src="../../figures/diagrams/classes_dataset.png" /></a></p>
 <h2 id="the-engine">The engine<a class="headerlink" href="#the-engine" title="Permanent link">&para;</a></h2>
-<p><code>FdiaGenerator</code> is the AC model of one IEEE system with its meter plan: a <code>Case</code> read from the pandapower
-net (<code>Case.from_pandapower</code>), its <code>Network</code>, a <code>MeterPlan</code> (<code>MeterPlan.from_coverage</code>), a <code>Measurement</code> and a
-<code>NoiseModel</code>, the classes of the New York grid. <code>GridBase</code> declares the state the mixins
+<p><code>FdiaGenerator</code> is the AC model of one test system with its meter plan: the <code>Network</code> of its <code>Case</code> (an IEEE
+case's is <code>Network.from_ieee</code>), a <code>MeterPlan</code>
+(<code>MeterPlan.from_coverage</code>, or a plan given), a <code>Measurement</code> and a <code>NoiseModel</code>. <code>GridBase</code> declares the state the mixins
 share. <code>PhysicsMixin</code> reads a scan's load and generation and <code>MeasurementMixin</code> emits scans; neither calls the
 other, so each has <code>GridBase</code> alone as its base. <code>AttackMixin</code> builds every attack (next section) and calls both.
 A mixin lists as bases the mixins whose methods it calls.
 <code>MeasurementMixin.benign_frame</code> emits a benign scan, and a designed episode (<code>engine/attacks/family.py</code>,
 <code>DesignedEpisode</code>) asks the mixin for each attacked one; <code>timeline.py</code> decides when and where each episode
 runs.</p>
-<p><a href="../../figures/diagrams/classes_engine.png"><img alt="Class diagram of the engine package: GridBase, PhysicsMixin and MeasurementMixin each under it, AttackMixin composed of EpisodeDesignMixin and StealthyMixin, and FdiaGenerator inheriting AttackMixin; the mixins use Scan, AttackDesign, Frame and FrameKnobs, and the generator holds a Case, a Network, a MeterPlan, a Measurement and a NoiseModel" src="../../figures/diagrams/classes_engine.png" /></a></p>
+<p><a href="../../figures/diagrams/classes_engine.png"><img alt="Class diagram of the engine package: GridBase, PhysicsMixin and MeasurementMixin each under it, AttackMixin composed of EpisodeDesignMixin and StealthyMixin, and FdiaGenerator inheriting AttackMixin; the mixins use Scan, AttackDesign, Frame and FrameKnobs, and the generator holds a Network, a MeterPlan, a Measurement and a NoiseModel" src="../../figures/diagrams/classes_engine.png" /></a></p>
 <h2 id="the-attacks">The attacks<a class="headerlink" href="#the-attacks" title="Permanent link">&para;</a></h2>
 <p>Every attack is built in <code>engine/attacks/</code>, one module per concern, composed into <code>AttackMixin</code>:
 <code>AreaMixin</code> finds the attacker's area, <code>FalseStateMixin</code> solves and checks its false state and the

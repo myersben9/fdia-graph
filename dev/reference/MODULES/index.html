@@ -2165,7 +2165,7 @@
 </tr>
 <tr>
 <td><code>engine.core</code></td>
-<td>The dataset generation engine: attack simulation and realistic meter readings on an IEEE case.</td>
+<td>The dataset generation engine: attack simulation and realistic meter readings on a test system.</td>
 </tr>
 <tr>
 <td><code>engine.measurement</code></td>
@@ -2217,7 +2217,7 @@
 </tr>
 <tr>
 <td><code>generation.ieee</code></td>
-<td>An IEEE case as the source of a timeline: its pool of operating points and what its files record.</td>
+<td>An IEEE case by its name as the source of a timeline: the original generator (<code>generation.search.SearchSource</code>) on the case's network and its pool of operating points.</td>
 </tr>
 <tr>
 <td><code>generation.newyork</code></td>
@@ -2226,6 +2226,10 @@
 <tr>
 <td><code>generation.plan</code></td>
 <td>The plan stage of a timeline: where its splits are cut and where each split's episodes go.</td>
+</tr>
+<tr>
+<td><code>generation.search</code></td>
+<td>A test system as the source of a timeline, the original generator: coverage meters and the search-based designs, on any grid.</td>
 </tr>
 <tr>
 <td><code>generation.source</code></td>
@@ -2707,6 +2711,10 @@
 <tr>
 <td><code>tests/nygrid/test_timeline_digests.py</code></td>
 <td>The New York timeline, whole: every dataset and attribute of the files the release's source writes on the checked-in days' pool, against stored digests (<code>tests/digests.py</code> says what is compared where).</td>
+</tr>
+<tr>
+<td><code>tests/test_any_case.py</code></td>
+<td>The per-case choices are settings of the one source: each works on any case whose data allows it, and is refused with the reason where the data is missing. The New York grid's side of these tests is in tests/nygrid/test_any_case.py.</td>
 </tr>
 <tr>
 <td><code>tests/test_attack_area.py</code></td>

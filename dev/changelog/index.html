@@ -1848,7 +1848,108 @@
 the public API, the generated files and the numbers are the same as the previous release.</p>
 <h2 id="unreleased">Unreleased<a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
 <ul>
-<li><strong>The pool-building step takes one solve setting, <code>SolveSettings(method, engine)</code>, for every test system
+<li><strong>The original generator is built on a <code>Network</code>, and <code>IeeeSource</code> builds it for an IEEE case (every IEEE
+  file is byte for byte the same, and so are the New York release's files).</strong>
+  <code>fdia_graph.generation.search.SearchSource(net, X, settings, seed, time)</code> is the source <code>IeeeSource</code> was, on a
+  <code>Network</code> and its pool; <code>IeeeSource(system, states, settings, seed, time)</code> is unchanged for callers.</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>Before</th>
+<th>Now</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>the generator of an IEEE case</td>
+<td><code>FdiaGenerator(system, seed, meters, max_load_mw, plan)</code></td>
+<td><code>FdiaGenerator(Network.from_ieee(n), seed, meters, max_load_mw, plan)</code></td>
+</tr>
+<tr>
+<td>the generator of the New York grid</td>
+<td><code>FdiaGenerator.from_network(net, plan, seed, spec)</code></td>
+<td><code>FdiaGenerator(net, seed, plan=plan, spec=spec)</code>: the one constructor</td>
+</tr>
+<tr>
+<td>a source with no default path</td>
+<td><code>NewYorkSource</code> refused <code>generate()</code></td>
+<td>every source but <code>IeeeSource</code> refuses it: "a timeline needs the path of its file"</td>
+</tr>
+<tr>
+<td>a family the generator does not make</td>
+<td>refused when the source is built</td>
+<td>refused when the <code>TimelineSettings</code> are built, with the same message</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong><code>FdiaGenerator.from_network</code> is removed, with no alias, and <code>FdiaGenerator(...)</code> takes a <code>Network</code>
+    where it took an IEEE system.</strong> <code>Network.from_ieee(n)</code> is the network of the IEEE case of <code>n</code> buses.
+    <code>GeneratorSpec.system</code> is <code>GeneratorSpec.net</code>.</li>
+<li>
+<p>The original designs are built for a pool that scales each bus's load and generation by one factor
+    (<code>generate_states</code>); they are not offered on the New York pool. The meter placement is not a setting: the
+    search-based designs run on coverage meters and the New York release's designs on owned meters
+    (<code>docs/guides/generation.md</code>).</p>
+</li>
+<li>
+<p><strong>How a timeline's splits are cut is a setting of every test system, <code>split_by</code> (the default of each is
+  what it did before: the IEEE and New York files made without the setting are byte for byte the same).</strong>
+  <code>"time"</code> cuts three blocks in time order, <code>"week"</code> draws whole weeks into the three splits.</p>
+</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>Before</th>
+<th>Now</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>an IEEE timeline</td>
+<td>three blocks in time order, always</td>
+<td><code>split_by="time"</code> by default; <code>fg.generate(..., split_by="week", time=times)</code> cuts whole weeks</td>
+</tr>
+<tr>
+<td>a New York timeline</td>
+<td><code>NewYorkSettings.split_by</code>, <code>"week"</code> by default</td>
+<td>the same setting, read by the shared step (<code>TimelineSource.split_codes</code>)</td>
+</tr>
+<tr>
+<td>a pool without time</td>
+<td>not asked</td>
+<td><code>split_by="week"</code> is refused with the reason (<code>ConfigError</code>, declared on the model <code>SplitRule</code>)</td>
+</tr>
+<tr>
+<td>each frame's time (<code>data/time</code>)</td>
+<td>written by a New York file</td>
+<td>written by any file whose source has the frames' time</td>
+</tr>
+<tr>
+<td>an episode and a gap in time</td>
+<td>not asked (no IEEE file had time; the New York pool has no gap)</td>
+<td>with the frames' time, no episode is placed across a step that differs from the median step</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><code>fg.generate</code>, <code>generate_timeline</code> and <code>IeeeSource</code> take <code>time</code>, each frame's time <code>[T]</code> (an IEEE pool
+    stores none, so the caller passes it): numpy datetime64 values, one per frame, strictly increasing.
+    Numbers, strings, Python datetime objects, timezone-aware times and NaT are refused when the source is built
+    (<code>SplitRule</code>).</li>
+<li><code>TimelineSettings.split_by</code> is recorded in a file only when it is not <code>"time"</code>, the value every file
+    made before the setting meant (the rule <code>WhenSet(legacy="time")</code> of <code>models.validation</code>), so the recorded
+    settings and their hash of those files are unchanged.</li>
+<li>
+<p>A split by weeks does not check that every split gets a week: a pool of fewer weeks than splits leaves a
+    split empty, as the New York days' pool of the tests does.</p>
+</li>
+<li>
+<p><strong>The pool-building step takes one solve setting, <code>SolveSettings(method, engine)</code>, for every test system
   (the default of each builder is what it did before: the IEEE and New York pools built without the setting
   are byte for byte the same).</strong> <code>method</code> is <code>"power_flow"</code> or <code>"opf"</code>, <code>engine</code> is <code>"pandapower"</code> or
   <code>"ipopt"</code>. <code>generate_states(..., solve=SolveSettings("opf", "ipopt"))</code> builds an IEEE pool by a
@@ -1857,7 +1958,8 @@ the public API, the generated files and the numbers are the same as the previous
   <code>DataConditionError</code>. <code>PoolBuilder.from_settings(case, loads, dispatch, renew, ramp, solve=None)</code> builds
   the New York pool; it refuses a power flow and pandapower's OPF with the reason (<code>ConfigError</code>, declared on
   the model <code>NewYorkSolve</code>), and <code>SolveSettings</code> refuses a power flow in Ipopt. <code>docs/concepts/solving.md</code>
-  has the table.</li>
+  has the table.</p>
+</li>
 <li>The two engines are classes of one interface, <code>fdia_graph.data.solver.Solver</code>:
     <code>fdia_graph.data.ipopt_solver.IpoptSolver</code> (the package's OPF, with <code>Compensation</code>) and
     <code>fdia_graph.data.pandapower_solver.PandapowerSolver</code> (the power flow, and pandapower's OPF). Both have

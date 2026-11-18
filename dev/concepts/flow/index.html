@@ -1911,7 +1911,7 @@ not solve.</p>
 <p>You now have: one benign scan per frame, the readings with no attack.</p>
 <h2 id="attacks">Attacks<a class="headerlink" href="#attacks" title="Permanent link">&para;</a></h2>
 <p>An attack is an episode: a run of consecutive frames under one design. <code>engine/</code> holds the
-generator of the IEEE cases (<code>core.py</code>) and, under <code>engine/attacks/</code>, the attack designs of
+generator (<code>core.py</code>) and, under <code>engine/attacks/</code>, the attack designs of
 every grid. There are two families.</p>
 <ul>
 <li><code>At</code>, the slow ramp: a false load that rises a little each frame.</li>
@@ -1953,9 +1953,12 @@ writer. <code>TimelineSource.generate</code> in <code>generation/source.py</code
 the file, cut the train, validation and test splits, place the episodes, design them, walk the
 frames in time order, and finish the file.</p>
 <ul>
-<li>The steps are written once. A grid is a subclass that builds the generator, the pool and the
-  designer of its families, and says what its files record: <code>IeeeSource</code> (<code>generation/ieee.py</code>)
-  and <code>NewYorkSource</code> (<code>generation/newyork.py</code>).</li>
+<li>The steps are written once. A source is a subclass that builds the generator, the pool and the
+  designer of its families, and says what its files record: <code>SearchSource</code> (<code>generation/search.py</code>),
+  the original generator, built on a <code>Network</code> (<code>IeeeSource</code> in <code>generation/ieee.py</code> builds it for an
+  IEEE case by name), and <code>NewYorkSource</code> (<code>generation/newyork.py</code>), the New York release. How the
+  splits are cut is a setting of every source, <code>split_by</code>: three blocks in time order, or whole
+  weeks, which need each frame's time (an IEEE pool stores none, so the caller passes <code>time=</code>).</li>
 <li><code>TimelineWriter</code> (<code>generation/write.py</code>) is the one writer of the HDF5 file.</li>
 <li><code>schema.py</code> defines every group, dataset and attribute name of the file, once.</li>
 <li>Settings arrive as models from <code>models/config.py</code>: <code>TimelineSettings</code> for an IEEE timeline,
