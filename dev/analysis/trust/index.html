@@ -1870,7 +1870,7 @@
 <a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>    <span class="n">train</span>
 <a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="p">)</span>  <span class="c1"># the same selection as an MDP with a DQN policy</span>
 </code></pre></div>
-<p><img alt="tm.fit: the WLS Jacobian at the benign mean, the attack subspace left open by the secured rows, the attack cost, then the greedy or the DQN selection; tm.score: secured meters read their benign value, the WLS residual test at the benign alarm level, detection per family before and after" src="../../figures/diagrams/trust_flow.png" /></p>
+<p><img alt="the trusted-meter flow, top to bottom: 1, tm.fit(train) takes the Jacobian at the benign mean from a WLS fit on measurements only; 2, the alarm level, the benign quantile of the largest normalized residual; 3, the attack cost, the fewest meters of the cheapest attack the secured rows leave open; 4, secure one more meter, TrustedMeters by the greedy rule or TrustedMetersDQN by a Q-network, and back to the attack cost, up to k meters; 5, tm.score(test) pins the secured meters, which read the benign layer; 6, the residual test, the largest normalized residual against the alarm level; detection per family, before and after securing" src="../../figures/diagrams/trust_flow.png" /></p>
 <h2 id="the-idea">The idea<a class="headerlink" href="#the-idea" title="Permanent link">&para;</a></h2>
 <p>A stealthy attack <code>a = H c</code> moves the meters the way a real state change <code>c</code> would, so the residual
 test does not see it. A meter the attacker cannot write pins its row: <code>a_S = 0</code>, so <code>H_S c = 0</code>

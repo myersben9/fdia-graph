@@ -1960,6 +1960,49 @@
 the public API, the generated files and the numbers are the same as the previous release.</p>
 <h2 id="unreleased">Unreleased<a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
 <ul>
+<li><strong>Docs: the six remaining wide diagrams are redrawn for a phone (no change to the packages).</strong>
+  <code>concepts_one_record</code>, <code>localization_flow</code>, <code>se_estimators</code>, <code>se_gated_prior</code>, <code>se_jacobian_weighting</code>
+  and <code>trust_flow</code> are now top to bottom, at most 8 nodes and 900 px wide, checked against the code, with
+  alt texts that describe them. <code>NOT_YET_REDRAWN</code> in <code>tools/prereview.py</code> and the stylesheet's exempt
+  list hold <code>pipeline</code> only. What changed in the pictures:</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>Diagram</th>
+<th>Change</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>concepts_one_record</code></td>
+<td>shows the three layers and the labels of one record, with the function that makes each; the list of attack families is gone</td>
+</tr>
+<tr>
+<td><code>se_estimators</code></td>
+<td>the steps of <code>SEBase</code> and the step each estimator changes; the page cites <code>ac_measurement</code> in <code>formulas/measurement.py</code>, where it is</td>
+</tr>
+<tr>
+<td><code>se_jacobian_weighting</code></td>
+<td>the change is taken against the previous frame's estimate, as the code does, not against its clean state</td>
+</tr>
+<tr>
+<td><code>se_gated_prior</code></td>
+<td>adds the secured meters, which keep their weight; the gate is any fitted localizer</td>
+</tr>
+<tr>
+<td><code>localization_flow</code></td>
+<td>one chain from <code>fit</code> to <code>score</code>, in the order of the code</td>
+</tr>
+<tr>
+<td><code>trust_flow</code></td>
+<td>adds the alarm level, which <code>fit</code> calibrates before the selection</td>
+</tr>
+</tbody>
+</table>
+<p><code>docs/concepts/solving.md</code> has a new section, "Repeating a solve": how closely a New York pool
+  repeats on the reference machine and on the Linux test runner, and what the test compares.</p>
+<ul>
 <li><strong>Docs: one guide for every test system, three tutorials and three new concept pages (no user-visible
   change to the packages).</strong> The New York grid no longer has pages of its own; it is a test system in the
   pages every system shares.</li>

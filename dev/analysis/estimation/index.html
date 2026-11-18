@@ -1910,7 +1910,7 @@ Every timeline ships a noiseless <code>clean</code> layer, so the estimate is sc
 <a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="n">xhat</span> <span class="o">=</span> <span class="n">est</span><span class="o">.</span><span class="n">estimate</span><span class="p">(</span><span class="n">test</span><span class="p">)</span>  <span class="c1"># [n, 2N-1] = [theta rad (non-slack) | V pu (all buses)]</span>
 <a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="n">rep</span> <span class="o">=</span> <span class="n">est</span><span class="o">.</span><span class="n">score</span><span class="p">(</span><span class="n">test</span><span class="p">)</span>  <span class="c1"># per-family angle/voltage MAE vs the clean truth</span>
 </code></pre></div>
-<p><img alt="SEBase shared by every estimator: the measurement function, the chord Jacobian, meter weights from benign residuals, the chord-Newton loop; each estimator changes one thing: WLS nothing, AdaptiveWeighting Huber weights, ResidualRemoval dropping large residuals, SubspacePrior a low-rank basis, JacobianWeighting weights from the unexplained residual, GatedPrior a localizer gating the weights" src="../../figures/diagrams/se_estimators.png" /></p>
+<p><img alt="the steps of SEBase and where each estimator changes one thing, top to bottom: 1, fit on benign records: the meter weights and the chord Jacobian, and for SubspacePrior a low-rank basis; 2, weights per record: JacobianWeighting and GatedPrior set them, the others keep the fitted ones; 3, the chord-Newton solve, where, with per-record weights, a worse step is rejected; 4, reweight or remove, then re-solve: Huber weights where set (AdaptiveWeighting always; SubspacePrior, GatedPrior and JacobianWeighting with reweight set to huber), ResidualRemoval taking the worst meter out; the estimate, angles and voltages; WLS is steps 1 and 3" src="../../figures/diagrams/se_estimators.png" /></p>
 <table>
 <thead>
 <tr>
@@ -1956,7 +1956,7 @@ Every timeline ships a noiseless <code>clean</code> layer, so the estimate is sc
 </tr>
 <tr>
 <td><code>SubspacePrior</code></td>
-<td>Restricts the solve to a low-rank benign operating subspace, optionally composed with Huber</td>
+<td>Restricts the solve to a low-rank benign operating subspace, optionally composed with Huber (<code>reweight="huber"</code>, which <code>GatedPrior</code> inherits)</td>
 <td><code>rank_frac</code>, <code>reweight</code></td>
 </tr>
 <tr>
@@ -1982,7 +1982,7 @@ Every timeline ships a noiseless <code>clean</code> layer, so the estimate is sc
 <tbody>
 <tr>
 <td><code>se/base.py</code></td>
-<td><code>SEBase</code>: the measurement function, the chord Jacobian, meter weights from benign residuals, the chord-Newton loop, calibration and scoring, shared by every estimator</td>
+<td><code>SEBase</code>: the measurement function and the chord Jacobian (<code>ac_measurement</code> and <code>ac_jacobian</code> of <code>formulas/measurement.py</code>), meter weights from benign residuals, the chord-Newton loop, calibration and scoring, shared by every estimator</td>
 </tr>
 <tr>
 <td><code>se/methods.py</code></td>
@@ -2364,7 +2364,12 @@ records and costs the clean ones a little, while the benign voltage error still 
 <!-- results: red se ieee14 benign voltage_mae_pu wls prior+huber -->
 <p>58%.</p>
 <h2 id="jacobian-informed-weighting">Jacobian-informed weighting<a class="headerlink" href="#jacobian-informed-weighting" title="Permanent link">&para;</a></h2>
-<p><img alt="the scan-to-scan change is split into the part a state change explains and the unexplained rest; Huber weights come from the unexplained part; one weighted solve" src="../../figures/diagrams/se_jacobian_weighting.png" /></p>
+<p><img alt="Jacobian weighting, top to bottom: 1, estimate the scan before with a plain solve of its readings (previous_estimate); 2, the unpredicted change, this scan minus the readings that estimate predicts (delta_z); 3, split it by the Jacobian into the part a state change explains and the unexplained rest; 4, meter weights, Huber's, from the unexplained rest (JacobianWeighting.weights); 5, one weighted solve (SEBase.estimate)" src="../../figures/diagrams/se_jacobian_weighting.png" /></p>
+<p>The change is <code>Δz = z_t − h(x̂_{t−1})</code>, this scan against the readings the previous frame's
+estimate predicts. The explained part is <code>r∥ = P_H Δz</code> with <code>P_H = H (HᵀWH)⁻¹ HᵀW</code>, and the
+unexplained rest is <code>r⊥ = (I − P_H) Δz</code>. The weight of meter <code>i</code> is its fitted weight times
+Huber's factor <code>min(1, c / (|r⊥_i| / σ_i))</code>; <code>H</code> and <code>W</code> are the fitted chord Jacobian and meter
+weights.</p>
 <table>
 <thead>
 <tr>
@@ -2406,7 +2411,7 @@ predicts. The temporal unexplained residual carries what Huber already recovers 
 own residual, so this route cannot move the proposed estimator. The routes that can are a localizer
 gate and, ahead of it, a trusted set of meters.</p>
 <h2 id="localization-gated-estimation">Localization-gated estimation<a class="headerlink" href="#localization-gated-estimation" title="Permanent link">&para;</a></h2>
-<p><img alt="a localizer flags buses; the weights of every meter of a flagged bus and its branches are scaled by a thousandth; the prior plus Huber solve fills the gap from the benign prior" src="../../figures/diagrams/se_gated_prior.png" /></p>
+<p><img alt="gated estimation, top to bottom: 1, a localizer flags buses, a fitted localizer or OracleGate, the labels; 2, down-weight their meters, the bus's own and its branch flows, times gate_factor (0.001); 3, secured meters keep their weight (the secured argument of GatedPrior); 4, solve inside the benign prior, SubspacePrior with Huber if set, so the prior fills the gap" src="../../figures/diagrams/se_gated_prior.png" /></p>
 <p>Angle mean absolute error in degrees, the proposed estimator alone, with the CNN localizer as the
 gate, and with the true labels as the gate (the ceiling for any gate):</p>
 <!-- results: se.gated -->

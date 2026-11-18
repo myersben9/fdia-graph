@@ -1083,6 +1083,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#repeating-a-solve" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Repeating a solve
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -1910,6 +1921,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#repeating-a-solve" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Repeating a solve
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -2170,6 +2192,11 @@ reference bus made up between 1,001 and 2,532 MW. No hour was within the voltage
 <h2 id="the-two-opf-engines-compared">The two OPF engines compared<a class="headerlink" href="#the-two-opf-engines-compared" title="Permanent link">&para;</a></h2>
 <p><code>tests/nygrid/test_solve_engines.py</code> solves the same case, loads and costs in both engines
 and checks that they agree.</p>
+<p>The cost is what the OPF makes as small as possible: each unit's cost curve at the output the
+solve gives it, summed over the units. It is a rate at one operating point, in dollars per
+hour. It is the generators' running cost, not a price anyone pays, and it holds no fixed or
+start-up cost. Two engines that report the same cost found dispatches that
+are equally cheap; where units tie on cost, the outputs can still differ.</p>
 <table>
 <thead>
 <tr>
@@ -2211,10 +2238,11 @@ and checks that they agree.</p>
 </tr>
 </tbody>
 </table>
-<p>The IEEE rows use the case's base loads and its linear and quadratic cost. The New York row
-uses a flat linear cost per fuel. On these four the cost agrees within 0.01 %, the losses
-within 0.01 MW and every unit's output within 0.1 MW. The times are one solve on one desktop
-machine, after the model is built.</p>
+<p>The IEEE rows use the case's base loads and its linear and quadratic cost, the curves
+pandapower ships with the case. The New York row uses a flat linear cost per fuel that the
+test sets (<code>FUEL_PRICE</code>): it is not the cost of running New York. On these four the cost
+agrees within 0.01 %, the losses within 0.01 MW and every unit's output within 0.1 MW. The
+times are one solve on one desktop machine, after the model is built.</p>
 <p>The engines agree on every unit's output only where the optimum is one point. IEEE-89 has
 linear costs and several units at the same cost: the two costs agree to 2 parts in 10 million,
 and single units differ by up to about 20 MW. Over a load profile on IEEE-14, a unit near its
@@ -2228,6 +2256,12 @@ and 105 % of it, it does not converge where Ipopt does. The comparison therefore
 the base load. Even there it depends on the machine: it converges on Windows and not on the
 Linux test runner, where the test reports that it was skipped. The IEEE comparisons run
 everywhere Ipopt is installed.</p>
+<h2 id="repeating-a-solve">Repeating a solve<a class="headerlink" href="#repeating-a-solve" title="Permanent link">&para;</a></h2>
+<p>On the machine that records the repository's reference digests, two builds of the same New York
+pool in one process are identical to the last bit. On the Linux test runner the Ipopt solve
+repeats a voltage to about 1e-6 p.u., and a reactive injection less closely, so two builds
+there are not the same bytes. <code>tests/nygrid/test_solve_engines.py</code> therefore compares the
+builders, the frames solved and the voltages to 1e-3 p.u., not bytes or injections.</p>
 
 
 

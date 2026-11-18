@@ -1923,7 +1923,17 @@
 Paths are under <code>src/fdia_graph/</code>; <code>se/</code> and <code>localization/</code> are under
 <code>analysis/src/fdia_analysis/</code>.</p>
 <h2 id="one-record-start-to-finish">One record, start to finish<a class="headerlink" href="#one-record-start-to-finish" title="Permanent link">&para;</a></h2>
-<p><img alt="one record: the operating state gives the clean layer and the benign scan; Aq, At, Al and Am re-solve a local false state whose attack vector is added to the benign scan; Ad, As and Ar corrupt readings in place; every path ends in the record" src="../../figures/diagrams/concepts_one_record.png" /></p>
+<p><img alt="one record of a timeline, top to bottom: the operating state, one frame of the pool; the clean layer, clean and edge_clean, Measurement.h with no noise; plus meter noise, the benign layer, benign and edge_benign, from emit_from_state; plus the attack, the observed layer, node_x and edge_x, from frame_from_state; the labels y, family, seq_id and the tamper masks; TimelineWriter.store writes the record" src="../../figures/diagrams/concepts_one_record.png" /></p>
+<p>Each frame of a timeline is one record. Its operating state is one frame of the pool. The clean
+layer is <code>Measurement.h</code> of that state with no noise (<code>MeasurementMixin.exact</code>); the node layer
+<code>clean</code> is the state itself. <code>MeasurementMixin.emit_from_state</code> adds each meter's bias and the
+scan's jitter (<code>NoiseModel</code>), which gives the benign layer. On an attacked frame
+<code>FalseStateMixin.frame_from_state</code> adds the attack vector on the meters it moves, which gives the
+observed layer; on a benign frame the observed layer is the benign one. <code>TimelineWriter.store</code>
+writes the three layers with the labels <code>y</code>, <code>family</code> and <code>seq_id</code> and the tamper masks.
+An episode designed as a vector over the meters (<code>VectorEpisode</code>) uses
+<code>FalseStateMixin.frame_from_vector</code> instead.
+<a href="../../concepts/layers/">Layers and labels</a> says what each layer and label is for.</p>
 <p>Every attack is built in <code>engine.attacks</code>, the generator's <code>AttackMixin</code>: a local false state
 (<code>engine.attacks.false_state</code>) designed per episode (<code>ramp_design</code> for At, <code>am_overload_design</code> for
 Am, <code>engine.attacks.episodes</code>) on a support the search or [WU26]'s row reduction chooses
@@ -1975,7 +1985,7 @@ and converts them on load.</p>
 <tbody>
 <tr>
 <td>WLS <code>x̂ = argmin (z−h(x))ᵀW(z−h(x))</code></td>
-<td><code>se/base.py</code> <code>SEBase._w_solve</code> (chord-Newton); <code>h(x)</code> is <code>sensing/measure.py</code> <code>Measurement.h</code></td>
+<td><code>se/base.py</code> <code>SEBase._w_solve</code> (chord-Newton); <code>h(x)</code> is <code>ac_measurement</code> (<code>analysis/src/fdia_analysis/formulas/measurement.py</code>)</td>
 </tr>
 <tr>
 <td>Robust reweighting (Huber), residual removal, subspace prior</td>
