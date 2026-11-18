@@ -151,6 +151,11 @@ package version. The
 registry maps the short name (`fg.load(..., release="v0.8.0")`) to the tag, and
 `tools/upload_assets.py v0.8.0 <files>` refuses to touch a package tag.
 
+The files of a data release are one `pool_ieee{N}.h5` and one `timeline_ieee{N}.h5` per system. `python tools/upload_assets.py vX.Y.Z notes.md <files>` creates the
+`data-vX.Y.Z` release and uploads them; it never replaces an asset already on the release. The sha256 of
+each file then goes in `SHA256` in `src/fdia_graph/constants/releases.py`, and `PINNED_RELEASE` in the same
+module is moved last.
+
 ## Test and release commands
 
 | command | what it runs |
@@ -162,6 +167,35 @@ registry maps the short name (`fg.load(..., release="v0.8.0")`) to the tag, and
 | `FDIA_SLOW=1 pytest` | adds the slow checks: the estimator test on the published IEEE-118 file and the longer attack searches |
 | CI (`.github/workflows/smoke.yml`) | the tests on Linux (3.12 and 3.9) and Windows, pyright, ruff format and check, the readability gate, the layout gate, the generated-docs checks, the install on 3.9 and 3.12 |
 | `python tools/release.py vX.Y.Z notes.md` | after the bump PR: the tag, the GitHub release and the upload to PyPI |
+
+## The New York tests and snapshots
+
+`tests/nygrid` holds the tests of the New York case. They need the `[ny]` extra and read their inputs
+under `NYGRID_ROOT`, the work folder of `docs/guides/operating_points.md` (its `data/` and `out/`). A
+test whose input is missing is skipped. `tests/nygrid/inputs.py` says which input each test needs.
+
+```bash
+NYGRID_ROOT=/path/to/nygrid pytest tests/nygrid
+```
+
+| input | where | which tests |
+|---|---|---|
+| the public inputs | `NYGRID_ROOT/data`, downloaded by `fetch_inputs` | most tests; CI runs the folder on these (`.github/workflows/nygrid.yml`) |
+| the pool's frames of two days | checked in, `tests/nygrid/data/days` | the timeline digests |
+| the whole 2019 pool | `NYGRID_ROOT/out`, built locally | the tests that rate lines or survey onsets over the year |
+
+The golden snapshots pin what the interface attack and the persistence rule return on fixed inputs.
+
+| snapshot | compared by | rewritten with |
+|---|---|---|
+| `tests/nygrid/golden/`, the interface attack's designs | `tests/nygrid/test_golden.py`; needs the whole 2019 pool and skips without it | `NYGRID_UPDATE_GOLDEN=1` |
+| `analysis/tests/golden/persistence_rule.json`, two numbers | `analysis/tests/test_detect.py`; needs no data | an edit to the file |
+| `tests/nygrid/golden/`, whole-file digests of a New York timeline and of two episodes | `tests/nygrid/test_timeline_digests.py`; bit for bit on the machine that recorded them, skipped elsewhere | `FDIA_UPDATE_DIGESTS=1` |
+
+A failure of `tests/nygrid/test_golden.py` names the first value that changed.
+`tests/nygrid/test_examples.py` runs the attack-family example of `docs/guides/extending.md` as
+published, and `analysis/tests/test_detect.py` the alarm-rule example. A change to the case file
+`src/fdia_graph/systems/case_nygrid.m` moves generated numbers, so it comes with the snapshots it moves.
 
 ## Where things live
 

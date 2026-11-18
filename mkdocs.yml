@@ -50,19 +50,23 @@ markdown_extensions:
 nav:
   - Home: index.md
   - Getting started:
-      - New York walkthrough: getting-started/new_york_walkthrough.md
+      - Load a dataset: getting-started/load.md
+      - Generate your first timeline: getting-started/generate.md
+      - Analyse a timeline: getting-started/analyse.md
   - How-to guides:
       - Install and data versions: guides/install.md
-      - Timeline generation: guides/generation.md
-      - State estimation: guides/state_estimation.md
-      - New York grid: guides/new_york.md
-      - Extending the New York grid: guides/extending_new_york.md
-      - Troubleshooting the New York grid: guides/troubleshooting_new_york.md
+      - Generate a timeline: guides/generation.md
+      - Build the operating points: guides/operating_points.md
+      - Estimate the state: guides/state_estimation.md
+      - Add a design family, an alarm rule or a test system: guides/extending.md
+      - Troubleshooting: guides/troubleshooting.md
   - Concepts:
       - How the package flows: concepts/flow.md
       - Test systems: concepts/test_systems.md
       - Solving: concepts/solving.md
-      - New York grid architecture: concepts/new_york_grid.md
+      - Meters and noise: concepts/meters.md
+      - The attack families: concepts/attacks.md
+      - Layers and labels: concepts/layers.md
   - Studies:
       - State estimation: analysis/estimation/README.md
       - Localization: analysis/localization/README.md

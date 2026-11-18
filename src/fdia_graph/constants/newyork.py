@@ -191,7 +191,7 @@ HYDRO_COST_USD_PER_MWH = (2.7850, 5.4688, 9.5751, 9.6489, 1.5761, 9.7059, 9.5717
 POWER_FACTOR = 0.98  # NYgrid's load power factor (allocateLoad.m), so P4 still compares with MATLAB
 POOL_COUNTIES = 5  # II-D: the five prototype locations nearest the bus
 SWAP_PAIRS = (100, 100, 50)  # II-D: hour pairs permuted per residential, commercial, industrial pick
-# The within-hour terms (the fit is in docs/guides/new_york.md). FLUCT_* were fitted on NYISO 2018,
+# The within-hour terms (the fit is in docs/guides/operating_points.md). FLUCT_* were fitted on NYISO 2018,
 # zone H left out, and SWITCH_* on NYISO 2019 zone D with the model's mean industrial load there (125.43 MW,
 # its one NYSEG load bus).
 # The residual's own spread is 0.2554 size^-0.516 (R^2 0.61 over the ten zones); FLUCT_C is the AR(1)'s.

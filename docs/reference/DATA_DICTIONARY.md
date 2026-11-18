@@ -32,7 +32,7 @@ layers (`edge_x`, `edge_m`, `edge_benign`, `edge_clean` and the tamper mask) are
 (`attrs["current_form"]` is `polar`); it has no `temporal_delta` and no `swing`. Only it carries `data/time`
 (int64 seconds, NYISO's local clock), `episodes/target_branch`, `graph/bus_client` with the attribute
 `client_names`, and `graph/edge_rating` (MVA).
-[The New York grid](../concepts/new_york_grid.md#the-timeline-file) lists the whole file.
+[Layers and labels](../concepts/layers.md#what-a-new-york-file-declares) lists what such a file declares.
 
 ## Labels: `y` says which buses, `family` says which attack
 
@@ -155,7 +155,8 @@ physics live on the dataset as `ds.edge_attr` `[E,8]` and one column each as `ds
 
 ## The three layers of a frame
 
-Every frame of a timeline carries three aligned layers, for node and for edge measurements:
+Every frame of a timeline carries three aligned layers, for node and for edge measurements
+([Layers and labels](../concepts/layers.md) explains what each is for and which a feature may read):
 
 ![three layers, top to bottom: clean and edge_clean, the noiseless true state; plus meter noise gives benign and edge_benign, the scan without the attack; plus the attack gives node_x and edge_x, the observed model input, so observed minus benign is the attack exactly](../figures/diagrams/data_dictionary_layers.png)
 

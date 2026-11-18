@@ -5,8 +5,8 @@ whole attack episodes at uniform random onsets, and every frame is emitted in ti
 frame's meter jitter comes from its own stream keyed by (seed, timestep), so two timelines on one
 seed and pool that place different attacks carry the same benign frames.
 `generate_timeline` builds the IEEE source (`generation.ieee.IeeeSource`) and runs the one path
-every timeline takes, `generation.source.TimelineSource.generate`. The file layout and every knob
-are in docs/guides/generation.md.
+every timeline takes, `generation.source.TimelineSource.generate`. Every knob is in
+docs/guides/generation.md and the file's layers in docs/concepts/layers.md.
 """
 
 from __future__ import annotations

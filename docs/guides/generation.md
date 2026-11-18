@@ -1,273 +1,311 @@
-# How a timeline is generated
+# Generate a timeline
 
-One timeline per system is the dataset. This page follows it from the load profile to the file,
-and states which layers a detector may read. Every value below is the code's default; the source of
-each is named beside it. Terms are defined in [`../reference/GLOSSARY.md`](../reference/GLOSSARY.md).
+A timeline is the meter readings of one test system, frame by frame, with attack episodes placed
+in it. This guide generates one. It is the same guide for every test system: one method makes
+every timeline, and what differs between systems is settings and data.
 
-| stage | code | output |
+Terms are in the [glossary](../reference/GLOSSARY.md). Paths are under `src/fdia_graph/`.
+
+## What you need
+
+- **A test system.** One of the eight IEEE cases, or the New York case
+  ([Test systems](../concepts/test_systems.md)).
+- **A pool of operating points.** One solved AC state per frame, in time order
+  ([Build the operating points](operating_points.md)).
+
+For an IEEE case `fg.generate` downloads the released pool, so you need nothing else. For the
+New York case you build the pool first.
+
+## The steps
+
+`TimelineSource.generate(out)` in `generation/source.py` makes every timeline. Its body is short,
+and it runs these steps in this order.
+
+![Eight boxes, top to bottom. A test system and its pool: one AC state per frame. 1. Open: the file, under a .part name. 2. Cut the splits: blocks in time order, or whole weeks. 3. Place: a split's episodes, whole, at random onsets. 4. Design: each episode. 5. Walk: the frames, in time order; an arrow labelled next split goes back to Place. 6. Finish: the episode table. Last, one timeline file: observed, benign, clean.](../figures/diagrams/generation_flow.png)
+
+A source is a subclass of `TimelineSource`. It builds the generator, the pool and the designer
+of its attack families, and it says what its files record. There are two.
+
+| Source | File | Built on |
 |---|---|---|
-| 1. operating-point pool | `data.profiles.fetch_profile`, `data.ieee_pool.generate_states`, the v0.7.1 pool build | `[T, N, 4]` AC states, one per minute |
-| 2. meter plan and noise | `sensing/meters.py` (`MeterPlan`), `sensing/noise.py` (`NoiseModel`) | which channels are metered, one noisy scan per state |
-| 3. attack families | `engine/attacks/` (the `AttackMixin`: the false states, the fewest-tamper search and each family's episode design are methods of the generator), `engine/attacks/family.py` and `engine/attacks/search.py` (a family gives the episode of a window, and the episode its scans) | the attacked scan of each family |
-| 4. plan: split and episode placement | `generation/plan.py` (`split_bounds`, `place_split`, `planned_until`) | the split, onsets, lengths |
-| 5. design: the episodes of each split designed before it is walked | `generation/design.py` (`SplitDesign`, the move rule; `Designer`, each family's designs in parallel over `workers` processes) | each design, or its move |
-| 6. emit and write: the per-frame layers | `generation/emit.py` (`Walk.run`), `generation/write.py` (`TimelineWriter`) | the HDF5 file |
+| `SearchSource` | `generation/search.py` | a `Network` and a pool array |
+| `NewYorkSource` | `generation/newyork.py` | the New York pool file |
 
-`TimelineSource.generate` (`generation/source.py`) runs stages 4 to 6, for the IEEE cases and for the New York
-grid alike; each stage hands the next a typed value (the splits, the slots, the designed episodes). The steps
-that depend on the grid are the methods of the source's subclasses, described next.
+`IeeeSource` (`generation/ieee.py`) is a `SearchSource` for an IEEE case by its name.
 
-## One path, two grids
+### 1. Open
 
-A timeline is generated in the same order on either grid, by one method: `TimelineSource.generate(out)`. Its
-body is short; read it there. In words:
+Owner: `TimelineSource.open`, with `TimelineWriter` (`generation/write.py`).
 
-1. **open**: the file is started beside `out` under a `.part` name. It takes the name `out` only when it is
-   whole, so a run that fails leaves no file, and a file already at `out` is left as it was.
-2. **prepare**: the source works out what it must know before the splits are cut. Nothing on an IEEE case;
-   on the New York grid, the onsets its families may take (their masks, and the onset survey).
-3. **cut_splits**: train, val and test.
-4. Then, split by split:
-   - **place**: the split's episodes at uniform random onsets (`generation/plan.py`, the same code for both
-     grids);
-   - **design**: what each episode attacks, kept on the source for the walk;
-   - **walk**: every frame not yet written whose split is planned by now, in time order.
-5. **finish**: what the file carries besides its frames. Then **close**, after a failed run too.
+The file is started beside `out` under a `.part` name. It takes the name `out` only when it is
+whole. A run that fails leaves no file, and a file already at `out` is left as it was.
+The writer stores the static graph first: the branches and what gives the admittance matrix.
 
-A `TimelineSource` is the grid a timeline is generated on. The steps are written once, in
-`generation/source.py`, on a generator over the grid (`g`) and the pool (`X`): the file is opened, the splits
-cut (`split_codes`, as the `split_by` setting says: three blocks in time order, or whole weeks on a pool whose frames carry their time), the episodes placed, designed
-and moved (the source's `Designer` asks each family for the episode of a window), the frames walked (`Walk.run`) and the file finished (`graph`, `columns`,
-`header`, `recorded` and `record` say what it carries). A subclass builds `g`, `X` and the designer and owns only what
-differs. `SearchSource` is the original generator, built on a `Network` and its pool; `IeeeSource`
-(`generation/ieee.py`) builds it for an IEEE case by name. `NewYorkSource` is the New York release:
+### 2. Cut the splits
 
-| step | `SearchSource` (`generation/search.py`) | `NewYorkSource` (`generation/newyork.py`) |
+Owner: `TimelineSource.cut_splits`, with `split_bounds` and `split_weeks` in
+`generation/plan.py`.
+
+The train, validation and test splits are cut before any episode is placed, so no episode is cut
+by a split. The setting `split_by` chooses how.
+
+- `"time"`: three blocks in time order.
+- `"week"`: whole weeks, drawn into the three splits. This needs each frame's time. The weeks
+  are ranked by how many allowed onsets they hold and drawn in strata of 20 weeks
+  (`split_weeks`). Where no family limits its onsets, as on a `SearchSource`, the order is
+  random.
+
+Just before the cut the source runs `prepare`. It does nothing on a `SearchSource`. A
+`NewYorkSource` finds there the onsets its families may take (see
+[the New York settings](#the-new-york-settings)).
+
+### 3. Place
+
+Owner: `TimelineSource.place`, with `place_split` in `generation/plan.py`.
+
+Each split gets whole episodes at random onsets.
+
+- **How many.** The whole number of episodes whose frames come closest to `attacked_frac` of the
+  split. The families share them so that each family gets about the same number of attacked
+  frames (`whole_episode_counts`, `largest_remainder`).
+- **Where.** Longest first, each at an onset drawn uniformly among the positions where it fits.
+  Episodes never overlap and none is cut (`uniform_onset`).
+- **When it jams.** A placement that cannot fit is retried whole 10 times (`PLACE_TRIES`). Then
+  one episode of the family that jammed is dropped, recorded, and reported with a
+  `RuntimeWarning`.
+
+Adjacent episodes and long quiet stretches are outcomes of the uniform draw, not of a rule.
+
+### 4. Design
+
+Owner: `TimelineSource.design`, with `SplitDesign` and the source's `Designer`
+(`generation/design.py`).
+
+The designer asks each family for the episode of a window: what the attacker changes on each
+frame ([The attack families](../concepts/attacks.md)). An episode with no design at its onset
+moves to another free onset of its split, up to 20 times (`REDRAWS`). After that it is given up,
+recorded, and reported with a `RuntimeWarning`.
+
+On a `SearchSource` the ramp `At` is the one family designed as the walk reaches it, because
+its design reads the frame before its onset. A ramp with no design therefore moves to a later
+onset only (`Walk.relocate_later`).
+
+The designs of a split can run in several processes (`workers`). The file does not depend on the
+number of workers. The processes are spawned, so a script that asks for more than one worker
+must start under `if __name__ == "__main__":`.
+
+### 5. Walk
+
+Owner: `TimelineSource.walk`, with `Walk.run` in `generation/emit.py`.
+
+Every frame is emitted in time order. A frame outside an episode is a benign scan: the readings
+of the pool state plus meter noise ([Meters and noise](../concepts/meters.md)). A frame inside
+an episode is that scan plus the attack. A frame of an episode whose own scan cannot be built is
+stored benign, and the file counts it in the attribute `fallback_benign`.
+
+The walk writes a frame only after its split is placed and designed (`planned_until` in
+`generation/plan.py`). With `split_by="time"` each split is one block, so the walk writes that
+block next. With `split_by="week"` the weeks of the three splits alternate, so the walk stops
+at the first frame whose split is not designed yet.
+
+### 6. Finish
+
+Owner: `TimelineSource.finish`, with `TimelineWriter.finish`.
+
+After the last frame the writer stores what the file carries besides its frames: the per-frame
+columns, the episode table, the attributes, and the temporal features where the file has them.
+The attributes record the settings as JSON (`settings`) with their hash (`settings_hash`), and
+per split and family the episodes requested, built, moved, dropped and short.
+[Layers and labels](../concepts/layers.md) says what each layer means, and
+[the data dictionary](../reference/DATA_DICTIONARY.md) lists every array.
+
+## The settings
+
+Settings arrive as models from `models/config.py`. Each model checks its values when it is
+built, and a value it does not allow raises `ConfigError`.
+
+### `TimelineSettings`
+
+The settings of a `SearchSource`, so of every IEEE timeline.
+
+| Field | Default | Meaning |
 |---|---|---|
-| the grid | a `Network`: an IEEE case's (`Network.from_ieee`) | the New York case with the utility that owns each bus |
-| the meters | random coverage (`MeterPlan.from_coverage`) | every bus and branch end a utility owns (`plan_meters`) |
-| the pool | `[T, N, 4]` AC states of a pool that scales each bus's load and generation by one factor (`generate_states`), injections positive for load | the year of five-minute AC states (`Pool`) |
-| `prepare` | nothing | each waiting family's onset mask; with `survey`, the onset survey (kept in a `Survey` record) |
-| `split_by`, the setting `cut_splits` reads | `"time"` by default: three blocks in time order (`split_bounds`) | `"week"` by default: whole weeks, stratified (`split_weeks`) |
-| `onset_masks` | none: any onset of the split | the masks, or the onsets the survey found an attack at |
-| `placement_rng` | the generator's one stream | the build's `place` stream |
-| the designer | `SearchDesigner`: the overload Am is designed before the split is walked, the ramp At as the walk reaches it (`RampEpisode.begin`) | `PoolDesigner`: every family, before the split is walked, on its window of pool states, the survey's designs reused |
-| an episode with no design | moved to another free onset of its split, up to `REDRAWS` times (`generation.design.SplitDesign`); a ramp At, designed by the walk, moves later | moved by the same rule (`SplitDesign`), only to an onset its family's mask allows |
-| `walk(until)` | the frames of the split just designed (its end is `until`), a scan per frame; a ramp At is designed as the walk reaches it, and each scan of an episode is re-solved (`RampEpisode`, `OverloadEpisode`) | the frames up to `until`, a scan per frame through the same walk (`generation/emit.py`, `Walk.episode`): the noisy benign scan, plus under an episode its row of the attack vector (`VectorEpisode`) |
-| `open`, `finish` | the file layout of this page, through `generation/write.py` | the same layout through the same writer, a value per meter laid out as layers (`MeterPlan.scatter`); what a New York file declares differently is in [`new_york_grid.md`](../concepts/new_york_grid.md#the-timeline-file) |
+| `attacked_frac` | 0.5 | share of each split's frames under an episode |
+| `families` | `("At", "Am")` | the families placed |
+| `am_len` | `None` | `Am` episode length in frames; `None` is the ramp's |
+| `max_load_mw` | 2000.0 | a larger load is never a target; `None` is off |
+| `workers` | 1 | processes that design the `Am` episodes |
+| `split_by` | `"time"` | how the splits are cut |
+| `am_attack` | `"overload"` | what an `Am` episode is; the one kind |
+| `ramp` | `RampSettings()` | the slow ramp `At` |
+| `search` | `SearchSettings()` | the attacker's area and the search |
+| `overload` | `OverloadSettings()` | the overload `Am` |
+| `meters` | `MeterSettings()` | the meter plan |
+| `split` | `SplitSettings()` | the three fractions |
 
-The walk writes *every frame whose split is planned by now* (`generation.plan.planned_until`), and that one
-rule serves both grids. An IEEE timeline's splits are blocks in time order, so it is the split just designed;
-and each split is placed only after the one before it is walked, because placements, ramp designs and the
-moves of an infeasible ramp draw from the generator's one random stream. The New York splits are whole
-weeks, which interleave in time, so the walk waits until every week before a frame is planned and the file
-is written in a few stretches. On both grids a frame's meter jitter comes from the frame's own stream,
-keyed by (seed, `JITTER_STREAM`, pool frame), so the benign scans depend neither on where a stretch ends nor on
-which attacks are placed (`tests/nygrid/test_stretches.py` pins that).
+The sections:
 
-`SingleEpisodeSource`, under `NewYorkSource`, is the New York grid with one episode placed by hand. The
-design processes of both grids are one class, `generation.design.DesignPool`; they are spawned, so a script
-that asks for more than one worker starts under `if __name__ == "__main__":`.
+| Model | Field | Default | Meaning |
+|---|---|---|---|
+| `RampSettings` | `rate` | 0.002 | `At` growth per frame |
+| `RampSettings` | `length` | 60 | `At` episode length in frames |
+| `RampSettings` | `stealth_scale` | 1.0 | multiplier on `At`'s stealth bound |
+| `SearchSettings` | `hops` | 2 | the attacker's reach in branches |
+| `SearchSettings` | `min_tamper` | `True` | hold each `At` episode on the fewest devices |
+| `SearchSettings` | `min_budget` | 256 | candidate supports solved per search |
+| `SearchSettings` | `area_rule` | `"hops"` | how the attacker's area is chosen |
+| `OverloadSettings` | `rating_source` | `"pool"` | `"pool"`, `"pglib"` or `"delta"` |
+| `OverloadSettings` | `rating_margin` | 1.25 | rating over the pool's peak flow |
+| `OverloadSettings` | `load_cap` | 0.5 | largest shown load change, as a share |
+| `OverloadSettings` | `n_lines` | 2 | lines one episode overloads |
+| `OverloadSettings` | `support_method` | `"search"` | `"search"` or `"rref"` |
+| `OverloadSettings` | `rating_delta` | 0.10 | with `"delta"`: p.u. added to the target's true flow |
+| `MeterSettings` | `vbus_frac` | 0.6 | share of buses with a voltmeter |
+| `MeterSettings` | `pmu_frac` | 0.2 | share of buses with a PMU |
+| `MeterSettings` | `flow_frac` | 0.9 | share of branches with a flow meter |
+| `MeterSettings` | `meter_model` | `"hybrid"` | what the meters read |
+| `SplitSettings` | `fractions` | `(0.6, 0.2, 0.2)` | train, validation, test |
 
-`generate_timeline("ieee14", ...)` is `IeeeSource(...).generate(out)`; the New York build is
-`NewYorkSource.production(pool_path).generate(path)`. To switch a grid's load profiles, attacks or solver,
-change what its source holds (the pool, the families); the path stays. The solver is chosen where the
-pool is built, by a `SolveSettings` ([Solving](../concepts/solving.md#the-solve-setting)).
+`fg.generate` and `generate_timeline` take a `TimelineSettings`, and also flat keywords that set
+one field each. A flat keyword is applied over the settings.
 
-The two kinds of design each run on their own meters. The search-based designs read a flow at a branch's from
-end and PMU currents as real and imaginary parts (coverage meters); the designs of the New York release
-read the owned meters, both branch ends and currents as magnitude and angle. So the meter placement is not
-a setting on its own yet: it follows the source. The search-based designs also read a scan's load and
-generation from its state by the rule of the IEEE pools (one scale factor per bus, `formulas/attacks.py`),
-which a dispatched pool such as New York's does not follow, so they are not offered on that pool.
+| Flat keyword | Sets |
+|---|---|
+| `attacked_frac`, `families`, `am_len`, `max_load_mw`, `workers`, `split_by` | the field of that name |
+| `ramp_rate`, `ramp_len`, `stealth_scale` | `ramp.rate`, `ramp.length`, `ramp.stealth_scale` |
+| `hops`, `min_tamper`, `min_budget` | the `search` field of that name |
+| `redundancy` | `meters` (a `MeterSettings`) |
+| `split` | `split` (three fractions, or a `SplitSettings`) |
+| `am_attack` | `"overload"` sets `am_attack`; an `OverloadSettings` sets `overload` |
 
-![Seven boxes, top to bottom. 1. Pool of operating points: one AC state per frame. 2. Cut the splits: blocks in time order for an IEEE case, whole weeks for New York. 3. Place a split's episodes: whole, at random onsets. 4. Design each episode: a local false state. 5. Walk the split's frames: a benign scan, or the scan under the attack; then the next split. 6. After the last split: the episode table. Last, one timeline file: observed, benign, true state](../figures/diagrams/generation_flow.png)
+`seed` (default 123) is an argument beside the settings. It fixes the meter plan, the meter
+biases and every attack draw.
 
-The published default release is v0.8.3 (`registry._RELEASE`). Its files hold seven families (the
-single-snapshot `Aq`, `Al`, `Ad`, `As`, `Ar` among them) on the v0.8.3 meters. The package reads every
-timeline release and generates the multi-snapshot families `At` and `Am` on the hybrid meters. Releases
-up to v0.8.1 hold `Aq` for 15 to 44 frames and `Al` for 10 to 29, and compute the swing scale from the
-noiseless pool.
+```python
+from fdia_graph.models.config import RampSettings, TimelineSettings
 
-## 1. Operating-point pools
+settings = TimelineSettings(
+    attacked_frac=0.3,
+    ramp=RampSettings(length=30),
+)
+print(settings.lengths_for(("At", "Am")))  # {'At': 30, 'Am': 30}
+```
 
-| item | value | source |
+### `split_by` and `time=`
+
+`split_by` is a setting of every source.
+
+| Value | The splits | Needs |
 |---|---|---|
-| load profile | NYISO system load, 11 zones summed, native 5-minute cadence | `data.profiles.NyisoArchive` (the NYISO entry of `data.profiles._FEEDS`) |
-| window | 2024-01-01 to 2024-03-16 | the v0.7.1 pool build (a release script kept outside the repository; `WINDOW`) |
-| resampling | time-interpolated to a 1-minute grid, then standardized to zero mean and unit variance | `data.profiles.fetch_profile(resample_min=1)` |
-| per-bus scale | `clip(1 + k * S_t + j_t, 0.7, 1.3)`, `k = 0.1` | `data.ieee_pool._ar1_scale`, `K_DEFAULT`, `CLIP_DEFAULT` |
-| jitter `j_t` | per-bus AR(1), `j_t = 0.98 j_{t-1} + sqrt(1 - 0.98^2) * 0.03 * eps`, stationary std 0.03 | `LOAD_JITTER_RHO` (`constants.time`), `SIGMA_DEFAULT` |
-| what is scaled | every load's P and Q and every generator's P at the bus, by the same factor | `data.ieee_pool._solve_states_chunk` |
-| solve | pandapower AC power flow, flat start, 50 iterations, 1e-6 MVA tolerance | `data.ieee_pool._solve_states_chunk` |
-| another solve | `generate_states(..., solve=SolveSettings(method="opf", engine="ipopt"))`: a least-cost AC OPF per step at the case's own cost curve, in Ipopt or in pandapower ([Solving](../concepts/solving.md#the-solve-setting)) | `data.ieee_pool._opf_states_chunk` |
-| states kept | 82,000 requested, the first 72,000 converged kept per system | the v0.7.1 pool build (`REQUEST`, `TARGET`) |
-| column order | <code>&#124;V&#124;</code> pu, `P_inj` MW, `Q_inj` MVAr, `theta` deg, voltage first | `generation.as_v_first`, pool attribute `columns` |
-| file | `pool_ieee{C}.h5`, dataset `X` | `registry.pool_spec` |
+| `"time"` | three blocks in time order | nothing |
+| `"week"` | whole weeks, drawn into the three splits | each frame's time |
 
-The AR(1) jitter makes each bus drift smoothly from minute to minute rather than jump. The clip holds
-every bus inside a plausible load band. Shunt draws are subtracted from the stored injections,
-because the estimator models a shunt in the admittance matrix, not as an injection
-(`data.ieee_pool._remove_shunt_injections`).
+The frames' times are the argument `time=`: numpy `datetime64` values, one per frame, strictly
+increasing. Anything else is refused when the source is built. An IEEE pool stores no time, so
+an IEEE timeline split by weeks needs `time=` passed in. A New York pool stores its times.
 
-Consecutive pool timesteps are one minute apart on the profile grid. A timestep whose power flow
-does not converge is skipped, not filled, and the pool stores no timestamps. Frame `t` of a
-timeline is pool timestep `t` (`data/timestep`).
+With times, the file stores `data/time`, and no episode is placed across a gap in time. Without
+them, `split_by="week"` is refused with a `ConfigError` that says the pool carries no time.
 
-## 2. Meter plan and noise
+### The New York settings
 
-The meter plan is drawn once per generator from the seed and is the same on every frame
-(`MeterPlan.from_coverage` in `sensing/meters.py`, the table of meters the New York grid
-also uses; `emit_from_state` lays a scan's readings out per bus and per branch).
+`NewYorkSettings` holds the settings of a `NewYorkSource`.
 
-| channel | metered at | default |
+| Field | Default | Meaning |
 |---|---|---|
-| <code>&#124;V&#124;</code> | the union of the voltage buses and the PMU buses | `vbus_frac = 0.6` (`int(0.6 N)` buses), `pmu_frac = 0.2` (`max(1, int(0.2 N))` buses) |
-| `theta` | the PMU buses (hybrid meters); every <code>&#124;V&#124;</code> bus (v0.8.3 meters) | as above |
-| branch current, `pmu_i` | both ends' real and imaginary part of every in-service branch with a PMU at that end (hybrid meters only) | as above |
-| `P_inj`, `Q_inj` | every injection bus and every zero-injection bus | always |
-| `P_from`, `Q_from` | each branch independently with probability `flow_frac` | `flow_frac = 0.9` |
+| `length` | 16 | frames per episode, or `{family: frames}` |
+| `attacked_frac` | 0.2 | share of each split's frames under an episode |
+| `split` | `SplitSettings((0.7, 0.15, 0.15))` | train, validation, test |
+| `split_by` | `"week"` | how the splits are cut |
+| `workers` | 1 | processes that design the episodes |
+| `verbose` | `False` | print progress |
+| `survey` | 0 | frames between surveyed onsets; 0 is off |
+| `survey_cache` | `None` | folder that keeps the survey by chunk |
 
-The meter model decides what a meter reads (`meter_model` in the meter plan). The
-default, `"hybrid"`, is a SCADA and PMU plan as in [WU26]: a SCADA voltmeter reads `|V|` only, a PMU
-reads `|V|`, the angle and the current phasor of every in-service branch at its bus [WU26, eqs.
-17-20]. The released files up to v0.8.3 hold an angle at every voltmeter bus and no
-currents; the loader reads them, and the generator does not write that plan (`models.config.MeterSettings`).
+The overload family of the New York case waits for a loaded grid: it may start only where an
+interface is near its limit. `prepare` asks each family for its `onset_mask`. With `survey` on,
+it also designs every allowed onset on that grid of frames first, and then places episodes only
+at onsets where an attack was found. A survey saved under `survey_cache` lets a stopped build
+resume.
 
-Injection buses are those with a generator, a load, the external grid, a shunt or a producing static
-generator; every other bus is zero-injection (`FdiaGenerator._load_tables`). The two sets cover every
-bus, so every bus carries P and Q injection meters. On IEEE-14 the plan meters `|V|` and `theta` at
-9 buses, P and Q at 14 buses, and 18 of 20 branch flows.
+`NewYorkRelease` holds what `NewYorkSource.production` builds its source from.
 
-Each reading is the true value (`Measurement.h`) plus a constant per-meter bias plus a fresh
-per-scan jitter (`NoiseModel.sample`). The accuracy-class standard deviations follow [ASP14]
-(`ACCURACY_CLASS` and, per meter kind, `KIND_ACCURACY` in `constants/meters.py`):
-
-| channel | total std | kind |
+| Field | Default | Meaning |
 |---|---|---|
-| `P_inj`, `Q_inj`, `P_from`, `Q_from` | 0.017 | relative to the reading |
-| <code>&#124;V&#124;</code> | 0.0012 pu | absolute |
-| `theta` | 0.00168 rad | absolute |
+| `families` | `("Am", "At")` | the families built |
+| `interfaces` | `("SPR/DUN-SOUTH",)` | the interfaces `Am` targets |
+| `workers` | 12 | processes that design the episodes |
+| `survey` | 12 | the survey's grid in frames; 0 is off |
+| `survey_cache` | `None` | folder that keeps the survey by chunk |
+| `root` | `"."` | folder whose `data/` holds the inputs |
+| `hold_external` | `False` | keep every bus outside New York true |
+| `v_margin` | 0.0 | widens the attacker's voltage limits (p.u.) |
+| `gen_v_tol` | `None` | holds generator voltages near schedule (p.u.) |
+| `load_cap` | `None` | cap on a shown load change; `None` keeps 0.1 |
+| `band` | `None` | basepoint band's share; `None` keeps 0.03 |
 
-A branch current (hybrid meters) carries the PMU class of IEEE C37.118.1, a total vector error of
-at most 1% taken as three standard deviations, relative to the current's magnitude on the real and
-the imaginary part alike, plus a `1e-5` pu floor (`formulas.noise.current_sigma`,
-`PMU_CURRENT_CLASS`) [C37118]; its bias is drawn once per channel after the other meters' biases.
-In the meter table the two parts of a phasor are the kinds `IR` and `II`.
+`production` sets the episode lengths itself: 32 frames for `Am` and 16 for `At`.
 
-Each total is split into jitter `0.25 SD` (`JITTER_FRAC`) and bias `sqrt(1 - 0.25^2) SD`, so the two
-add to the class total in quadrature. The bias is drawn once per meter, with the plan
-(`MeterPlan.from_placement`): one draw for every bus and branch, metered or not, in the order P, Q,
-<code>&#124;V&#124;</code>, angle, P flow, Q flow, then the currents. The jitter of frame `t` comes from the
-frame's own stream, one draw per meter in the table's row order: bus by bus
-(<code>&#124;V&#124;</code>, angle, P, Q), then the flows, then the currents, branch by branch. Power and
-flow jitter also carry an absolute floor of `1e-3` MW or MVAr, so a near-zero reading still has
-noise. Treating the whole class error as per-scan noise would over-jitter one-minute traces and
-hide the temporal signal.
+## What differs between the IEEE cases and the New York case today
 
-## 3. The attack families
+Every row is a difference in settings or in data. The steps above are the same.
 
-The two families are local false states: the attacker changes loads (and, for `Am`, generator
-outputs) inside a subnetwork, solves that subnetwork with the boundary voltages held true, and adds
-`a = h(x_false) - h(x_true)` to the true scan (`engine/attacks/stealthy._stealthy_frame`,
-`engine/attacks/overload.py`). Every meter keeps its own noise draw, so the residual test sees noise
-only. Every false state must also stay within the case's bus voltage limits and the generator P and
-Q limits widened to the range the pool used (`engine/attacks/false_state._within_limits`,
-`operating_limits`). They satisfy equations (13)-(25) of [WU26] (the SCADA measurements, the PMU
-voltage magnitudes, angles and branch currents, the operating limits and the line-overload goal) and
-its objective, eq. (12): each episode is held on the support that tampers the fewest devices.
-
-| family | code | construction | magnitude per bus | episode length | stealthy | target set |
-|---|---|---|---|---|---|---|
-| `At` | 5 | slow ramp: one load factor on a fixed bus set, rise, hold, return, each frame a local false state on the fewest-tamper support | 0.2% per frame (`ramp_rate`), peak 2.4% to 5.2% | 60 frames (`ramp_len`) | yes | 5 stealthy loads (`draw_ramp`) |
-| `Am` | 7 | the overload attack of [WU26]: one or two lines' reported flow driven to their ratings over the window, on the fewest-tamper support | the least-norm false state that meets the goal | 60 frames (`am_len` defaults to `ramp_len`) | yes | the rated, metered lines of the window (`eligible_lines`) |
-
-The codes of the single-snapshot families of older releases (1 `Aq`, 2 `Ad`, 3 `As`, 4 `Ar`, 6 `Al`)
-stay in the read-only label table `fg.FAMILIES`, and the files of data release v0.8.3 that carry them
-load, filter and score by name (`fg.load(..., release="v0.8.3", families=["Aq"])`). The generator does
-not make them. Those families, and the `Am` of that release, were drawn at random targets, on meters
-without branch currents, and drove no line to its limit.
-
-Both families run on the fewest-tamper search. `Am` is the overload attack of [WU26, eqs. 24-25]
-(`engine/attacks/overload.py`): at onset, the eligible branches (rated, flow metered, true flow
-below the rating at every snapshot of the window) are tried in a random order, and the first whose
-fewest-tamper support meets the goal at every snapshot is the episode's target. Snapshot t's goal is
-the true flow plus a linear share of what separates the window's last true flow from the rating,
-`S_true_t + (t - kappa)/T (S_max - S_true_{kappa+T})`, on the noiseless reading of
-the false state, reaching the rating `S_max` at the last snapshot; the attackable loads of the
-support are free, every other bus keeps its injection, and the false state is the least-norm voltage
-change that meets the flow. The ratings are by default 1.25 times each branch's peak true apparent flow
-over the operating pool (`am_attack=OverloadSettings(rating_margin=...)`), which works on every system; the
-PGLib-OPF ratings are the alternative, `am_attack=OverloadSettings(rating_source="pglib")` (IEEE-14, 118 and 300;
-other cases raise `NoLineRatings`). The generators of the support are free inside their limits, like its attackable loads, and the
-flow solve enforces the voltage and generator limits by an active set; the limits
-bind every generator the attack moves, on the support's edge too, and every load bus it moves shows
-at most `load_cap` (0.5, `OverloadSettings(load_cap=...)`) times its true load [YUA11]. Each
-episode overloads two lines at once, as [WU26]'s case studies do, drawn so one held support reaches
-both (`OverloadSettings(n_lines=1)` for one); `episodes/am_*` holds one row per target line. `OverloadSettings(support_method="rref")` picks the support by [WU26]'s own method instead of the search: row reduction of the transposed attack-area Jacobian with column exchanges (p. 655 and Sec. IV-D1, after [YAN17]; `engine/attacks/rref.py`), the sparsest attack that moves each target line at every snapshot joined over the window, grown by the next sparsest rows when the AC solve cannot reach the goal on it (ours). It is much faster on IEEE-14 and tampers more devices than the search. As in
-[WU26], nothing bounds how far `Am` moves a channel between snapshots: a
-device counts as tampered beyond [WU26]'s own case-study noise (0.03 pu SCADA, 0.01 pu PMU, the
-current channels included; `formulas.noise.paper_sigma`), and the attack is
-stealthy because every snapshot is one AC state. `At` keeps its bound, each step within the meters'
-rated accuracy. `Am` carries no such bound, because under one no overload window is
-stealthy: moving one line's flow moves the injections and flows around its ends by several times
-that change, beyond the rated accuracy of the small loads there. A window with no stealthy
-overload moves the episode to another free onset of its split, earlier or later, up to 20 times
-(`generation.design.SearchDesigner`: the Am of a split are designed before it is walked); past that it is
-given up and counted in `episode_shortfall`. With the hybrid meters the attacker also
-writes the PMU branch currents its false state moves, which counts in the PMU of the bus at that end.
-Only `At`'s channels are bounded between snapshots, the currents included (the PMU class); `Am`'s
-current channels are only counted when they move by more than 0.01 pu.
-
-The overload episodes these recipes build, measured on the hybrid meters with `families=("Am",)`,
-seed 1, the pool ratings computed over the frames walked (IEEE-14 and IEEE-118 timelines of 3,000
-and 2,000 frames; IEEE-30 a smoke run; experiment
-`generation.am_overload`; every line of every built episode reaches its rating):
-
-<!-- results: gen.am -->
-| system | recipe | frames | episodes | fallen back | devices (mean) | channels (mean) | largest change, pu (median / max episode) | s per episode |
-|---|---|---:|---:|---:|---:|---:|---:|---:|
-| IEEE-14 | one line, without the load and generator bounds | 3000 | 25 | 0 | 5.3 | 15.0 | 0.18 / 5.74 | 15 |
-| IEEE-14 | one line, with the load and generator bounds | 3000 | 25 | 0 | 3.9 | 9.9 | 0.14 / 0.82 | 30 |
-| IEEE-14 | two lines, with the load and generator bounds (default) | 3000 | 25 | 0 | 6.8 | 19.3 | 0.17 / 1.59 | 39 |
-| IEEE-30 | one line, without the load and generator bounds | 600 | 5 | 0 | 3.8 | 8.8 | 0.09 / 0.29 | 20 |
-| IEEE-118 | one line, without the load and generator bounds | 2000 | 17 | 0 | 6.8 | 21.4 | 1.05 / 44.94 | 43 |
-| IEEE-118 | one line, with the load and generator bounds | 2000 | 17 | 0 | 9.6 | 30.4 | 0.40 / 3.29 | 71 |
-| IEEE-118 | two lines, with the load and generator bounds (default) | 2000 | 17 | 0 | 17.8 | 72.0 | 1.33 / 3.39 | 78 |
-<!-- /results -->
-
-Notes on the table:
-
-- A stealthy target is an attackable load that is not on a generator bus, zero-MW condensers
-  included [BOY22] (`_load_tables`, `stealthy_pos`). An attackable load has nonzero active power,
-  is not on the slack bus and is at most `max_load_mw = 2000` MW (`attackable_pos`).
-- The `At` rise lasts 20% to 45% of the episode and the hold 0% to 25% (`draw_ramp`). Every frame
-  carries at least one `ramp_rate` of change, so every frame labelled `At` is attacked
-  (`EpisodeDesignMixin.ramp_step`).
-- A ramp step with no local solution is halved, up to 6 times (`STEP_HALVINGS`). `At` designs are
-  tested on every frame they will occupy before they are accepted, up to 40 draws (`ONSET_DRAWS`).
-- An overload `Am` window's snapshots are kappa+1 ... kappa+T after the untouched reference kappa
-  [WU26, eq. 25], so its first snapshot already carries 1/T of the way to the rating and every frame
-  labelled `Am` is attacked.
-
-## 4. Episode placement
-
-| step | rule | source |
+| Item | IEEE cases | New York case |
 |---|---|---|
-| split | chronological, cut before anything is placed: train `round(0.6 T)` frames, val `round(0.2 T)`, test the rest (`split=`, validated by `SplitSettings`) | `plan.split_bounds` |
-| count | per split, the whole number of episodes whose frames come closest to `attacked_frac` of its frames (whole episodes, so a short split can be off by one or two), shared between the families by largest remainder over the weights `1 / length`, so every family gets about the same share of attacked frames | `plan.whole_episode_counts`, `plan.largest_remainder` |
-| place | per split, longest first, each at an onset drawn uniformly among the positions where it fits inside the split, never overlapping and never cut; a placement that jams is retried whole 10 times, then one episode of the family that jammed is dropped and recorded (`RuntimeWarning`) | `plan.place_split`, `plan.uniform_onset` |
-| walk | every frame emitted in time order, its meter jitter from its own stream keyed by the seed and the timestep: benign runs between episodes, each episode where it was placed | `emit.Walk.run`, `MeasurementMixin._jitter_stream` |
-| move | an episode with no feasible design at its onset moves, up to 20 times, then is given up and recorded (`RuntimeWarning`): an overload Am to an onset drawn uniformly among every free one of its split, earlier or later, since the design stage designs a split's Am before any of its frames is written and an Am design reads no earlier frame (no stealth bound); a ramp At to a later free onset, since its design reads the frame before its onset and the walk has written the frames before the failed one. The moves draw from streams keyed by the seed, the split, the episode and the move, so they do not depend on the workers | `design.SplitDesign`, `emit.Walk.relocate_later` |
-| fallback | a frame inside a built episode whose own scan cannot be built is emitted benign; the count is the `fallback_benign` attribute | `TimelineWriter.finish` |
-| record | the split fractions and sizes, the attacked fraction each split reached, and per split and family the episodes requested, built, moved, dropped and short | `TimelineWriter.finish` |
+| Case | `Case.from_ieee(n)`, the case pandapower ships | `nygrid_case()`, a MATPOWER file in the package |
+| Load data | one system load profile scales every bus | a load per bus, from `LoadModel` |
+| Pool solve | one power flow per step, in pandapower | one OPF per frame in Ipopt, then one power flow |
+| A step that does not solve | dropped from the pool | kept in place, with an empty state |
+| Frame times | not stored in the pool | stored in the pool |
+| Meter placement | `MeterPlan.from_coverage`: random shares | `plan_meters`: every bus and branch end a utility owns |
+| Design family | `SearchRamp`, `SearchOverload` | `Ramp`, `InterfaceFdia` |
+| Episode lengths | 60 frames, both families | 16 frames; `NewYorkSource.production` uses 32 for `Am` |
+| Attacked share | 0.5 | 0.2 |
+| Split default | `"time"`, 0.6 / 0.2 / 0.2 | `"week"`, 0.7 / 0.15 / 0.15 |
+| Allowed onsets | any onset of the split | `Am` only where an interface is near its limit |
+| Temporal features | `temporal_delta` and `swing` are written | not written |
+| Entry point | `fg.generate` | `pipelines/newyork/build_timeline.py` |
+| Released data | a pool and a timeline per system | none; you build both |
 
-Adjacent episodes and long quiet stretches are outcomes of the uniform draw, not of a rule. Placing
-the longest episodes first keeps a long episode from being squeezed out by shorter ones. The
-default `attacked_frac = 0.5` gives a balanced file: on a 72,000-frame timeline with 60-frame
-episodes every split is half attacked, up to an overload window that stays infeasible after its 20
-moves. The full IEEE-14 builds of the three release datasets (seed 123, experiment
-`generation.split_first`; episodes and redraws per family, `At / Am`):
+Two of these rows are tied together today. The search-based designs read the meters that
+`MeterPlan.from_coverage` places, and the New York designs read the meters that `plan_meters`
+places. So the meter placement and the design family both follow the source. Neither is a
+setting of its own. [The attack families](../concepts/attacks.md) says what each design does.
+
+## Entry point: an IEEE case
+
+`fg.generate` loads the pool, generates the timeline and registers the file under a name.
+
+```python
+import fdia_graph as fg
+
+# needs fdia-graph[generate]
+# downloads the IEEE-14 pool (about 25 MB) once
+# about five minutes on a laptop
+fg.generate("ieee14", name="my_run", frames=2000)
+mine = fg.load("my_run", split="train")
+```
+
+| Argument | Default | Meaning |
+|---|---|---|
+| `system` | | `"ieee14"` to `"ieee300"`, or the bus count |
+| `name` | | the name `fg.load` finds the file under |
+| `frames` | `None` | walk only the first frames of the pool |
+| `states` | `None` | your own pool: an array or a path |
+| `out` | `None` | the file's path; `None` is `<name>.h5` in the cache |
+| `seed` | 123 | the seed |
+| `settings` | `None` | a `TimelineSettings` |
+| `time` | `None` | each frame's time |
+
+Without `states`, the pool is the path in `$FDIA_GRAPH_INIT` when that variable is set, else the
+released pool of the system, downloaded once.
+
+`fg.generate` calls `generate_timeline` in `timeline.py`, which builds an `IeeeSource` and calls
+its `generate`. To generate on a grid that is not an IEEE case, build a `SearchSource` on its
+`Network` ([Add a design family, an alarm rule or a test system](extending.md)).
+
+Two measured builds on IEEE-14 follow. The first is the three release recipes at 72,000 frames
+(seed 123, experiment `generation.split_first`; episodes and redraws per family, `At / Am`).
 
 <!-- results: gen.split_first -->
 | dataset | split | frames | attacked | episodes asked | built | redraws | shortfall |
@@ -286,20 +324,9 @@ moves. The full IEEE-14 builds of the three release datasets (seed 123, experime
 | At+Am | build |  |  |  |  |  | 234 min |
 <!-- /results -->
 
-Because
-the jitter of frame t depends only on the seed and t, the files of one seed and pool that place
-different families (`families=("Am",)`, `("At", "Am")`, `("At",)`) carry byte-identical benign
-frames; only the attacks differ.
-
-### Designing in parallel
-
-The overload Am dominates generation time: each episode runs the fewest-tamper search on up to
-`AM_LINE_TRIES` line pairs. A split's Am episodes are independent (a flow goal reads only its own
-window, and each design draws its line order from a stream keyed by the seed, the split, the episode
-and the move), so `workers=N` designs them in N processes and the file is byte-identical for any N.
-On Windows a script that passes `workers` above 1 must start under `if __name__ == "__main__":`, as
-any program using `multiprocessing` must. An Am-only IEEE-14 timeline (experiment
-`generation.parallel_design`):
+The overload `Am` takes most of the time. A split's `Am` episodes are independent, so
+`workers=N` designs them in N processes and the file is the same for any N. An `Am`-only IEEE-14
+timeline (experiment `generation.parallel_design`):
 
 <!-- results: gen.workers -->
 | workers (3000 frames) | seconds | speed-up | Am episodes | same file |
@@ -308,150 +335,138 @@ any program using `multiprocessing` must. An Am-only IEEE-14 timeline (experimen
 | 16 | 253 | 3.0x | 25 | yes |
 <!-- /results -->
 
-## 5. The per-frame layers
+## Entry point: the New York case
 
-| group | datasets | meaning | written by |
-|---|---|---|---|
-| `data/` | `node_x [T, N, 4]`, `edge_x [T, E, 2]` | observed readings: benign plus noise, plus the attack where attacked | `TimelineWriter.store` |
-| `data/` | `node_m`, `edge_m` | the meter plan per frame | `TimelineWriter._write_masks` |
-| `data/` | `y [T, N]` | 1 on each attacked bus | `store` |
-| `data/` | `family`, `stealthy`, `seq_id`, `timestep`, `split [T]` | family code, 1 for a stealthy family (`At`, `Am`; `Aq` and `Al` in older releases), episode index (-1 benign), pool timestep, 0/1/2 | `TimelineWriter.finish` |
-| `data/` | `temporal_delta`, `swing [T, N, 2]` | temporal features from the observed frames | `TimelineWriter.write_temporal_layers` |
-| `benign/` | `node_benign`, `edge_benign` | the same scan with the attack removed and the same noise draw | `store` |
-| `clean/` | `node_clean`, `edge_clean` | the noiseless pool state and the exact flows on metered branches | `TimelineSource._clean` |
-| `attack/` | `node_tamper`, `edge_tamper` | 1 where the attacker wrote the meter | `_store_attack` |
-| `data/`, `benign/`, `attack/` | `pmu_i`, `pmu_i_m`, `pmu_i_benign`, `pmu_i_tamper [T, E, 4]` | hybrid meters only: the PMU branch currents (Re and Im of `I_from`, then of `I_to`, per unit), their mask, the attack-removed twin, and 1 where the attacker wrote the channel | `_store_currents`, `_write_masks` |
-| `attack/` | `mag_ptr`, `mag_bus`, `mag` | designed change per attacked bus, ragged by frame | `TimelineWriter.finish` |
-| `episodes/` | `onset`, `length`, `family`, `bus_ptr`, `bus_idx` | one row per episode; the attacked buses are ragged (`bus_ptr [K+1]` points into `bus_idx`) | `TimelineWriter.finish` |
-| `episodes/` | `min_episode`, `min_devices`, `min_channels`, `min_evaluated`, `min_support_ptr`, `min_support_idx` | with `min_tamper` on: what the fewest-tamper search chose for each episode it ran on | `TimelineWriter.finish` |
-| `graph/` | `edge_index [2, E]`, the per-unit branch physics and the bus shunts | the static topology, the same for every frame; enough to rebuild Ybus | `TimelineWriter.write_graph` |
-| file attributes | `system`, `N`, `E`, `baseMVA`, `seed`, `T`, `families`, `kind` (`"timeline"`), `attacked_frac`, the knobs, `v_lo` and `v_hi` (the widest bus voltage limits of the case), `settings`, `settings_hash` | what identifies the file and how it was generated | `TimelineWriter.header`, `TimelineWriter.finish` |
+The build scripts are in the repository's `pipelines/newyork/`, not in the wheel, so work from a
+checkout. You need the `[ny]` extra, Ipopt, the inputs and the pool
+([Build the operating points](operating_points.md)).
 
-`node_x - node_benign` is the attack exactly, for every family. The loader derives
-`edge_clean_full`, the clean flow on every branch, at read time (`dataset/__init__.py`).
+Run from the work folder whose `data/` holds the inputs:
 
-The temporal features are written after the walk from `data/node_x` alone
-(`generation.write.TimelineWriter.write_temporal_layers`, `formulas.temporal`):
-
-| feature | definition |
-|---|---|
-| `temporal_delta` | `[P_inj, Q_inj](t) - [P_inj, Q_inj](t-1)` of the observed frames; zero on frame 0 |
-| `swing` | `temporal_delta` divided by the bus's recent-change scale |
-| scale | std of the observed scan-to-scan absolute change over the last `SWING_WINDOW_SCANS = 60` changes before `t`, plus `1e-3`; `1e-3` alone with fewer than three changes (`recent_change_scale`) |
-
-A spike reads as a large swing at its first frame. The slow ramp `At` changes by less than the typical
-recent change on every frame, so its swing stays near the benign level (`formulas/temporal.py`).
-
-## 6. The rule for features
-
-At test time a feature may use only measurements and quantities derived from them. The `clean` and
-`benign` layers exist for evaluation and for fitting, never as feature inputs. `y`, `family`,
-`stealthy`, `seq_id`, the tamper masks and the magnitudes are labels.
-
-| SDK path | reads | layer role |
-|---|---|---|
-| `SEBase.estimate` | `node_x`, `edge_x` | measurements |
-| `SEBase.fit(calibrate="truth")` | `node_x`, `edge_x`, `family`, `clean` | fitting for the estimation benchmark: meter sigmas, benign mean state, `theta_ref` |
-| `SEBase.fit(calibrate="measured")` | `node_x`, `edge_x`, `family` | fitting from the meters' accuracy classes and the estimated benign states |
-| `SEBase.score` | `node_x`, `edge_x` (through `estimate`), then `family`, `clean` | the estimate from measurements, then evaluation against the truth |
-| `JacobianFeatures`, `JacobianWeighting` | `node_x`, `edge_x`, `prev_node_x`, `prev_edge_x`, `prev_timestep` | measurements |
-| `GatedPrior(GateConfig(gate="oracle"))` | `y` | evaluation ceiling only |
-| `SwingThreshold`, `DeltaThreshold` | `swing`, `temporal_delta` | measurements |
-| `ResidualLocalizer` | `node_x`, `edge_x` | measurements |
-| `BusCNN`, `BusMLP`, `FedBusCNN`, `FedBusMLP` | `node_x`, `node_m`, `edge_x`, `temporal_delta`, `swing`, `prev_swing`, `prev_*`; `y` as the training label | measurements |
-| `TrustSelector.fit` | `node_x`, `edge_x`, `family` | measurements |
-| `TrustSelector.score` | `benign`, `edge_benign` | evaluation: what a secured meter reads |
-| `trust.secured.secured_copy` | `benign`, the tamper masks | builds a counterfactual file, then rewrites the temporal features from its observed frames |
-
-Sources: `se/base.py`, `se/jacobian.py`, `se/methods.py`, `localization/methods.py`,
-`localization/learned.py` (`_fields`), `trust/base.py`, `trust/secured.py`. Every path whose
-output feeds a detector (`ResidualLocalizer`, the Jacobian feature sets, `TrustSelector`) fits its
-estimator with `calibrate="measured"`, so no clean layer is read at fit or test time. The state
-estimators themselves default to `calibrate="truth"`, the estimation benchmark's calibration.
-
-## Where each piece lives
-
-The generator is `FdiaGenerator` in `engine/core.py`, composed of mixins over the shared state contract of
-`engine/base.py`. The grid it runs on is in `systems/` and its meters are in `sensing/`, the same for every
-grid; neither imports the engine or the generation stages:
-
-| file | holds |
-|---|---|
-| `engine/core.py` | `FdiaGenerator`: a grid as a `Network` over its `Case` (`systems/`; `Network.from_ieee` is an IEEE case's), its `MeterPlan`, `Measurement` and `NoiseModel` (`sensing/`), attack targeting, and the mixins below composed |
-| `engine/base.py` | `GridBase`: the attributes the mixins share |
-| `engine/measurement.py` | `MeasurementMixin`: a scan from a stored state, `Measurement.h` and `NoiseModel.sample` laid out as a file's layers |
-| `engine/physics.py` | a scan's load and generation, read from its stored state |
-| `data/ipopt.py` | the optimization solver the AC optimal power flows run on, found and checked in one place |
-| `systems/case.py` | `Case`: one grid as a frozen record of arrays, read from a MATPOWER case file (`Case.from_matpower`) or from a pandapower net (`Case.from_pandapower`); `Case.from_ieee` is the IEEE case pandapower ships for a bus count, with its base power flow solved, and `nygrid_case()` reads the New York case file `case_nygrid.m` beside the module |
-| `systems/network.py` | `Network`: a case's admittances, built once, and the AC quantities they give for a state |
-| `systems/fixes.py` | two variants of the New York case: the external areas held at the base load, and the HVDC links |
-| `systems/ownership.py` | `Ownership`: the utility that owns each New York bus, assigned from the service territories (`assign_clients`) |
-| `systems/states.py` | `PoolStates`: solved voltages read frame by frame as the states a timeline walks, in place of an array in memory (`States` is either) |
-| `systems/tables.py` | `read_rows`: a CSV table of the inputs, read whole and closed |
-| `systems/pandapower_types.py` | the pandapower objects `Case.from_pandapower` and the profile helpers read, as types |
-| `sensing/meters.py` | `MeterPlan`: every meter of a grid as one row of a table (`MeterPlan.from_coverage` places an IEEE case's, `plan_meters` the New York grid's) |
-| `sensing/measure.py` | `Measurement`: the measurement function h(x) of a meter plan, and its Jacobian |
-| `sensing/noise.py` | `NoiseModel`: each meter's accuracy class as a constant bias and a per-scan jitter |
-| `engine/attacks/area.py` | the attacker's area: the subnetwork a stealthy attack re-solves and the boundary it holds |
-| `engine/attacks/false_state.py` | the local false state: the area re-solved under false loads with the boundary held true |
-| `engine/attacks/stealthy.py` | `At` one scan at a time: a local false state added to the true scan |
-| `engine/attacks/overload.py` | `Am`, the multi-snapshot overload attack of [WU26] |
-| `engine/attacks/minimize.py` | the cheapest support of an attack window [WU26, eq. 12] |
-| `engine/attacks/rref.py` | the support by [WU26]'s row reduction |
-| `engine/attacks/search.py` | the search-based families `SearchRamp` and `SearchOverload` and their episodes as the walk emits them: `RampEpisode` (designed as the walk reaches it) and `OverloadEpisode`, each scan re-solved |
-| `engine/attacks/episodes.py` | each episode's design, drawn at onset: `ramp_design` and `am_overload_design`, methods of the generator |
-| `generation/plan.py`, `generation/design.py`, `generation/emit.py`, `generation/write.py` | the stages of a timeline: plan the splits and episodes, design the `Am` episodes, emit every frame, write the file |
-
-The New York grid's attacks are separate classes on the New York network: `engine/attacks/attacker.py`
-(`Attacker`), `engine/attacks/family.py` (the interface of an attack family; its design is an `Episode`, `models/plan.py`; and `DesignedEpisode`, what the walk emits of any design, a New York one as a `VectorEpisode`), `engine/attacks/ramp.py`
-(`Ramp`), `engine/attacks/opf.py` and `engine/attacks/interface.py`
-(the overload of an interface, with false states from a local optimal power flow); they are described in
-[`../concepts/new_york_grid.md`](../concepts/new_york_grid.md).
-
-## 7. Building your own
-
-```python
-import fdia_graph as fg
-
-fg.generate("ieee118", name="my_run", frames=10_000, attacked_frac=0.5)  # needs [generate]
-ds = fg.load("my_run", order="time")
+```bash
+python $FG/pipelines/newyork/build_timeline.py \
+    out/timeline_2019.h5 --pool out/pool_2019_v3.h5 --workers 4
 ```
 
-`generation.generate(system, name, frames=None, states=None, out=None, seed=123, settings=None, **knobs)` loads the
-pool, keeps the first `frames` timesteps, calls `timeline.generate_timeline` and registers the file
-under `name`. Without `states`, it reads `$FDIA_GRAPH_INIT` or downloads the system's pool.
-
-| knob | default | meaning |
+| Option | Default | Meaning |
 |---|---|---|
-| `attacked_frac` | 0.5 | fraction of frames under an episode |
-| `families` | ("At", "Am") | the families in rotation; the single-snapshot families of older releases are refused |
-| `min_tamper` | True | hold each episode on the support that tampers the fewest devices [WU26, eq. 12]; a change under a meter's noise is not counted. Off: the whole region within `hops` |
-| `min_budget` | 256 | candidate supports the search solves per episode before it settles on the best found (recorded as not proven) |
-| `am_attack` | "overload" | `Am` as the overload attack of [WU26], or an `OverloadSettings` |
-| `stealth_scale` | 1.0 | a multiplier on At's stealth bound, in units of the rated accuracy (Am has none) |
-| `redundancy` | `MeterSettings()` | the meter plan, a `MeterSettings`: coverage `vbus_frac` 0.6, `pmu_frac` 0.2, `flow_frac` 0.9, and `meter_model` `"hybrid"` |
-| `ramp_rate` | 0.002 | `At` growth per frame |
-| `ramp_len` | 60 | `At` episode length |
-| `am_len` | `ramp_len` | `Am` episode length |
-| `hops` | 2 | the attacker's subnetwork reach in branches |
-| `split` | (0.6, 0.2, 0.2) | train/val/test fractions |
-| `split_by` | `"time"` | how the splits are cut: `"time"`, three blocks in time order, or `"week"`, whole weeks drawn into the three splits. Weeks read each frame's time; a pool without it refuses `"week"` with the reason (`SplitRule`). A file records `split_by` only when it is not `"time"` |
-| `time` | None | each frame's time `[T]`, for a pool that has it: numpy datetime64 values, one per frame, strictly increasing (anything else is refused when the source is built). An IEEE pool stores none, so an IEEE case with week splits needs it passed in. With it the file stores `data/time`, and no episode is placed across a gap (a step that differs from the median step) |
-| `max_load_mw` | 2000.0 | a larger load (MW) is never a target: it is an area equivalent, not a substation (IEEE-145 lumps regions into loads of 4 to 58 GW); None disables |
-| `seed` | 123 | the meter plan, the biases and every attack draw |
-| `workers` | 1 | processes the overload Am designs run on; the file does not depend on it |
+| `--pool` | `out/pool_2019_v3.h5` | the pool file |
+| `--families` | `Am,At` | the families built |
+| `--interface` | `SPR/DUN-SOUTH` | the interfaces `Am` targets |
+| `--workers` | 12 | processes that design the episodes |
+| `--survey` | 12 | the survey's grid in frames; 0 is off |
+| `--survey-cache` | none | folder that keeps the survey by chunk |
+| `--fetch` | | download the inputs into the work folder and stop |
 
-Every knob is also a field of `TimelineSettings`, nested by subject (`ramp`, `search`, `overload`,
-`meters`, `split`): `generate(..., settings=TimelineSettings(ramp=RampSettings(length=30)))`, with any
-flat knob applied over it. The file records the settings it ran as JSON (attribute `settings`) with
-their hash (`settings_hash`).
+The script writes a summary beside the file, as JSON. In Python the same build is:
 
-A data release (the build scripts of v0.8.0 to v0.8.3 are in the git history at `aa77d0b`):
+```python
+from fdia_graph.generation.newyork import NewYorkSource
+from fdia_graph.models.config import NewYorkRelease
 
-1. Per system, copy the unchanged pool and run `fg.generate(C, ..., states=pool, seed=123, frames=72000)`
-   into `timeline_ieee{C}.h5`; each system writes a manifest fragment with sha256 and size.
-2. Run once more with `MERGE=1` to combine the fragments into `manifest.json`.
-3. Upload with `python tools/upload_assets.py vX.Y.Z notes.md <files>`; it creates the `data-vX.Y.Z`
-   tag and never replaces an asset already on the release.
-4. Add the release's sha256 values to `constants.releases.SHA256`, then bump
-   `constants.releases.PINNED_RELEASE` (the default of `registry._RELEASE`) last.
+if __name__ == "__main__":
+    release = NewYorkRelease(workers=4)
+    pool = "out/pool_2019_v3.h5"
+    source = NewYorkSource.production(pool, release)
+    source.generate("out/timeline_2019.h5")
+    print(source.summary()["built"])
+```
+
+`production` reads the case, assigns each New York bus to its utility, rates each unrated branch
+at its peak flow over the pool, places the meters and builds the two families. `summary()` then
+counts, per split and family, the slots placed, the moves, the episodes built and the slots given
+up. [Troubleshooting](troubleshooting.md#the-timeline) explains its miss reasons.
+
+### One episode alone
+
+`pipelines/newyork/build_single_episodes.py` writes the whole day of one onset with a single
+`Am` episode in it:
+
+```bash
+python $FG/pipelines/newyork/build_single_episodes.py OUT_DIR \
+    --pool out/pool_2019_v3.h5 --onset 2019-07-05T10:30:00
+```
+
+It uses `SingleEpisodeSource` (`generation/newyork.py`), a `NewYorkSource` with one episode
+placed by hand:
+
+```python
+import numpy as np
+
+from fdia_graph.generation.newyork import SingleEpisodeSource
+
+# source: the NewYorkSource built above, with workers=1
+when = np.datetime64("2019-07-05T10:30:00")
+times = source.pool.time.astype("datetime64[s]")
+onset = int(np.flatnonzero(times == when)[0])
+one = SingleEpisodeSource(source, onset, family="Am")
+one.generate("one.h5")
+```
+
+`onset` is a frame of the pool. The snippet finds the frame of the same time the command above
+names.
+
+`lo` and `hi` set the pool frames the file covers. `using=` designs the episode with a variant
+of the family, such as `InterfaceFdia.with_overshoot(mw)`. `lag=` designs it on the window that
+many frames earlier.
+
+### Reading the file by utility
+
+A New York timeline opens with `fg.FdiaGraph(path)` like any timeline. `Dataset`
+(`dataset/clients.py`) is a second view of it, by meter and by utility:
+
+```python
+from fdia_graph.dataset.clients import Dataset
+
+ds = Dataset("out/timeline_2019.h5")
+con_ed = ds.client("ConEd", split="train")
+x = con_ed.node_features()      # [T, N_c, 4]
+op = ds.operator(split="test")  # every meter
+```
+
+A client sees only its own meters and the labels of its own buses. The operator view is the full
+scan. `ds.clients` lists the utility names.
+
+| On a `ClientView` | Shape | Holds |
+|---|---|---|
+| `z` | `[T, M_c]` | its observed scans, one column per meter it owns |
+| `labels` | `[T, N_c]` | the attack labels of its buses |
+| `meters` | | its rows of the meter table |
+| `buses` | `[N_c]` | the positions of the buses it owns |
+| `frames` | `[T]` | the frames selected; a week split has gaps |
+| `node_features()` | `[T, N_c, 4]` | voltage, angle, P, Q per bus; NaN where not metered |
+| `temporal()` | `[T, M_c]` | the change from the frame before |
+
+| On the `Dataset` | Holds |
+|---|---|
+| `ds.plan` | the meter table |
+| `ds.z(frames)` | the flat reading vector of that table |
+| `ds.z(frames, benign=True)` | the same scans without the attack |
+| `ds.tampered(frames)` | the tampered meters |
+
+`Dataset` refuses a file that is not a New York timeline with `NotATimeline`.
+
+## Where the code is
+
+| File | Holds |
+|---|---|
+| `generation/source.py` | `TimelineSource`: the steps, written once |
+| `generation/search.py` | `SearchSource`: coverage meters, search-based designs |
+| `generation/ieee.py` | `IeeeSource`: a `SearchSource` for an IEEE case by name |
+| `generation/newyork.py` | `NewYorkSource`, `SingleEpisodeSource`, `Survey` |
+| `generation/plan.py` | the splits, the episode counts, the placement |
+| `generation/design.py` | `Designer`, `SplitDesign`, the design processes |
+| `generation/emit.py` | `Walk`: the frames, in time order |
+| `generation/write.py` | `TimelineWriter`: the one writer of the file |
+
+Every source emits its scans through one generator, `FdiaGenerator`, in `engine/`:
+
+| File | Holds |
+|---|---|
+| `engine/core.py` | `FdiaGenerator`: a `Network`, its meter plan and noise |
+| `engine/base.py` | `GridBase`: the attributes the generator's parts share |
+| `engine/measurement.py` | `MeasurementMixin`: a scan from a stored state |
+| `engine/physics.py` | a scan's load and generation, read from its state |
+
+The attack designs are under `engine/attacks/`
+([The attack families](../concepts/attacks.md#where-the-code-is)).

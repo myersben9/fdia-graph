@@ -41,7 +41,7 @@ rep = est.score(test)  # per-family angle/voltage MAE vs the clean truth
 | `se/base.py` | `SEBase`: the measurement function, the chord Jacobian, meter weights from benign residuals, the chord-Newton loop, calibration and scoring, shared by every estimator |
 | `se/methods.py` | the method classes above, each a subclass of `SEBase` that changes one thing |
 | `se/jacobian.py` | `JacobianFeatures`: the measurement Jacobian as a transform of the scan-to-scan measurement change, the features `JacobianWeighting` and the learned localizers read |
-| `se/detect/` | the alarm rules of the New York grid, described in [`../../concepts/new_york_grid.md`](../../concepts/new_york_grid.md) |
+| `se/detect/rules.py` | the alarm rules (`AlarmRule`, `PersistenceRule`): a statistic per scan turned into a first alarm, described in [the extending guide](../../guides/extending.md#an-alarm-rule) |
 
 ## Results
 

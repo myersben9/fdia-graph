@@ -354,11 +354,9 @@ _MERMAID = re.compile(r"^ {0,3}(?:`{3,}|~{3,})[ \t]*\{?\.?mermaid\b", re.M)  # t
 # own, or a range of them ("N27-N37"). A hyphen to anything else makes it part of another name
 # ("Sec. IV-D1" of a paper, "N-1"), which is not one.
 _DECISION_CODE = re.compile(r"(?<![\w-])[ND]\d{1,3}(?:-[ND]\d{1,3})*(?![\w-])")
-# Pages that still carry decision codes, each with its reason. Cleaning a page, or deleting it, takes it
-# off this list.
-NOT_YET_PLAIN = {
-    "docs/concepts/new_york_grid.md": "its codes go when the page is folded into the concept pages",
-}
+# Pages that still carry decision codes, each with its reason (`{path: reason}`). Cleaning a page, or
+# deleting it, takes it off this list; no page is on it.
+NOT_YET_PLAIN: dict[str, str] = {}
 
 
 def page_faults(text: str) -> list[str]:

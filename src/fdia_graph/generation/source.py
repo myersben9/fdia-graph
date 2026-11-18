@@ -7,7 +7,7 @@ designer of the attack families. A subclass builds them and says what its files 
 `generation.search.SearchSource` (any grid, random meters, the search-based families; an IEEE case
 by name is `generation.ieee.IeeeSource`) and `generation.newyork.NewYorkSource` (the New York
 release: owned meters, the families that design an attack vector, splits of whole weeks).
-docs/guides/generation.md has the step-by-step table.
+docs/guides/generation.md has the steps one by one.
 """
 
 from __future__ import annotations

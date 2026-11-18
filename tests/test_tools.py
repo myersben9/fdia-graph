@@ -62,7 +62,7 @@ def test_a_page_with_a_mermaid_block_or_a_decision_code_fails_and_plain_text_pas
     assert prereview.page_faults("```python\nflowchart = 'mermaid'\n```\n") == []
     # the list of pages not yet cleaned names only pages of the tree that still have a code
     assert prereview._plain_pages() == (prereview.PASS, "")
-    assert set(prereview.NOT_YET_PLAIN) <= {"docs/concepts/new_york_grid.md"}
+    assert prereview.NOT_YET_PLAIN == {}  # no page is waiting to be cleaned
 
 
 TREE = {
