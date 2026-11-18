@@ -113,18 +113,18 @@ In MATPOWER the file is an ordinary case function:
 mpc = loadcase('case_nygrid');
 ```
 
-In pandapower, build the net from the `Case`. `AcSolver` does it, and needs Ipopt
+In pandapower, build the net from the `Case`. `PandapowerSolver` does it
 ([Solving](solving.md)):
 
 ```python
-from fdia_graph.data.solver import AcSolver
+from fdia_graph.data.pandapower_solver import PandapowerSolver
 
-net = AcSolver(case).net    # 140 buses, 271 generators
+net = PandapowerSolver(case).net    # 140 buses, 271 generators
 ```
 
 pandapower's own converter, `from_mpc`, fails on this file in pandapower 3.4.0. The converter
 has a bug on a branch that joins two voltage levels and has no rating, and the file has 83 of
-them. `AcSolver` avoids it by giving every branch a placeholder rating.
+them. `PandapowerSolver` avoids it by giving every branch a placeholder rating.
 
 ## The other files of `systems/`
 

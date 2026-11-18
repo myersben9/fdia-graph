@@ -5,6 +5,33 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- **The pool-building step takes one solve setting, `SolveSettings(method, engine)`, for every test system
+  (the default of each builder is what it did before: the IEEE and New York pools built without the setting
+  are byte for byte the same).** `method` is `"power_flow"` or `"opf"`, `engine` is `"pandapower"` or
+  `"ipopt"`. `generate_states(..., solve=SolveSettings("opf", "ipopt"))` builds an IEEE pool by a
+  least-cost AC OPF per step (the case's limits and its own cost curve, linear and quadratic), in either
+  engine; the pool is the same for any number of `workers`, and a case with no optimum at any step raises
+  `DataConditionError`. `PoolBuilder.from_settings(case, loads, dispatch, renew, ramp, solve=None)` builds
+  the New York pool; it refuses a power flow and pandapower's OPF with the reason (`ConfigError`, declared on
+  the model `NewYorkSolve`), and `SolveSettings` refuses a power flow in Ipopt. `docs/concepts/solving.md`
+  has the table.
+  - The two engines are classes of one interface, `fdia_graph.data.solver.Solver`:
+    `fdia_graph.data.ipopt_solver.IpoptSolver` (the package's OPF, with `Compensation`) and
+    `fdia_graph.data.pandapower_solver.PandapowerSolver` (the power flow, and pandapower's OPF). Both have
+    `opf(pd, qd, costs)`, and a solve returns an `OperatingPoint` or, from an OPF, an `OpfPoint`
+    (`fdia_graph.models.grid`), read by attribute or as the dict it was.
+  - **`AcSolver` is removed, with no alias.** Its `project` and `dispatch` are `IpoptSolver`'s, its
+    `power_flow` and `net` are `PandapowerSolver`'s.
+  - `PandapowerSolver.net` carries the case's bus shunts and each branch's shunt conductance (as bus shunts),
+    where `AcSolver.net` carried neither. Both are zero on the New York case, so its net is the same.
+  - A power flow given no start now starts flat where it started from a DC solution; the pool build always
+    gives a start. `power_flow` and `opf` return None only when pandapower reports no convergence; any other
+    error is raised.
+  - `Case.pandapower_costs(net)` reads each unit's linear and quadratic cost from a pandapower net into a
+    `UnitCosts` (`fdia_graph.models.inputs`); the constant term is not read.
+  - `tests/nygrid/test_solve_engines.py` compares the two OPF engines on IEEE-14, 30 and 118 and on the
+    New York case: the cost agrees within 0.01 % and every unit within 0.1 MW.
+
 - **The load data and the operating points get their own package, `fdia_graph.data`; the folder
   `generation/nygrid/` and the module `profiles.py` are gone (a move: no function or class changes, and no
   file changes: thirty IEEE timelines are byte for byte the files the previous code writes, and the five

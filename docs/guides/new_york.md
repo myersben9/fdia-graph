@@ -44,6 +44,10 @@ python $FG/pipelines/newyork/run_pool.py 2019-01-01 2020-01-01 out/pool_2019_v3.
 The year is dispatched in weekly chunks in parallel, then each seam between chunks is solved again until
 the dispatch is continuous. The pool holds the true state and injections of every five-minute frame.
 
+The script builds each chunk with `PoolBuilder.from_settings`, which solves an OPF in Ipopt per frame.
+It takes a `SolveSettings` like the IEEE pool builder, and refuses the other choices with the reason
+([Solving](../concepts/solving.md#the-solve-setting)).
+
 ### How the within-hour load terms are fitted
 
 The load model (`data/loads.py`) gives each bus two five-minute terms of its own, so a

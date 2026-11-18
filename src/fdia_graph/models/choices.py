@@ -158,6 +158,23 @@ class RatingSource(Choice):
     DELTA = "delta"
 
 
+class SolveMethod(Choice):
+    """How one step of the pool is solved, in AC either way: a power flow (the generator outputs are
+    given, the voltages are solved) or an optimal power flow (the outputs are chosen at least cost
+    within the limits of the units and the voltages)."""
+
+    POWER_FLOW = "power_flow"
+    OPF = "opf"
+
+
+class SolveEngine(Choice):
+    """What runs the solve: pandapower (its Newton power flow, its interior-point OPF) or the
+    package's own OPF, a Pyomo model solved by Ipopt (`data.ipopt_solver.IpoptSolver`)."""
+
+    PANDAPOWER = "pandapower"
+    IPOPT = "ipopt"
+
+
 class MeterModel(Choice):
     """What the meters of a generated file measure. "hybrid": a SCADA voltmeter reads the voltage
     magnitude only, the voltage angle is a PMU channel, and every PMU also reads the current phasor

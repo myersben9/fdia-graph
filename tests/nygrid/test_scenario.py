@@ -55,11 +55,11 @@ def test_dispatch_matches_matlab(case, hours):
 
 @pytest.mark.skipif(not REF.exists(), reason="MATLAB reference dumps missing")
 def test_projection_matches_matlab(case, hours):
-    from fdia_graph.data.solver import AcSolver
+    from fdia_graph.data.ipopt_solver import IpoptSolver
 
     picked = [next(h for h in hours if str(h.time).startswith(t)) for t in TAGS.values()]
     d = hourly_dispatch(case, picked)
-    solver = AcSolver(case)
+    solver = IpoptSolver(case)
     for k, tag in enumerate(TAGS):
         r = solver.project(d.pd[k], d.qd[k], d.unit_p[k], d.unit_on[k], d.hvdc_p[k])
         ref = np.loadtxt(REF / f"acgen_{tag}.csv", delimiter=",")
@@ -77,7 +77,7 @@ YEAR = ROOT / "results" / "nygrid.ac_year.csv"  # the MATLAB recipe over 2019, o
 def test_projection_matches_matlab_year(case, hours):
     import pandas as pd
 
-    from fdia_graph.data.solver import AcSolver
+    from fdia_graph.data.ipopt_solver import IpoptSolver
 
     year = pd.read_csv(YEAR).set_index("ts")
     tags = [
@@ -88,7 +88,7 @@ def test_projection_matches_matlab_year(case, hours):
     ]  # one per season, all solved in MATLAB
     picked = [next(h for h in hours if str(h.time).replace("T", " ").startswith(t)) for t in tags]
     d = hourly_dispatch(case, picked)
-    solver = AcSolver(case)
+    solver = IpoptSolver(case)
     ny_unit = case.is_ny[case.unit_bus]
     for k, tag in enumerate(tags):
         r = solver.project(d.pd[k], d.qd[k], d.unit_p[k], d.unit_on[k], d.hvdc_p[k])
@@ -105,9 +105,9 @@ def test_projection_matches_matlab_year(case, hours):
 
 def test_pool(case, hours, tmp_path):
     from fdia_graph.constants.newyork import SolveKind
+    from fdia_graph.data.ipopt_solver import IpoptSolver
     from fdia_graph.data.loads import LoadSeries
     from fdia_graph.data.pool import PoolBuilder, read_pool, write_pool
-    from fdia_graph.data.solver import AcSolver
 
     d = hourly_dispatch(case, hours[:2])
     renew = np.array([h.renew_mw for h in hours[:2]])
@@ -118,7 +118,7 @@ def test_pool(case, hours, tmp_path):
     gross = d.pd + renew
     p = np.stack([gross[0], 0.5 * (gross[0] + gross[1]), gross[1], np.full(len(case.bus_id), np.nan)])
     q = np.stack([d.qd[0], 0.5 * (d.qd[0] + d.qd[1]), d.qd[1], d.qd[1]])
-    solver = AcSolver(case)
+    solver = IpoptSolver(case)
     ramp = np.where(case.fuel == "Nuclear", 0.0, np.nan_to_num(case.ramp, nan=np.inf)) * 5  # MW per frame
     b = PoolBuilder(solver, LoadSeries(time=time, p=p, q=q), d, renew, ramp)
     pool = b.build()
@@ -181,9 +181,9 @@ def test_pool_compensation(case, hours):
     generator buses regulated to 1.035 p.u., New York held in 0.95 to 1.05 p.u. by switched banks. The release's
     solver has no bank at all."""
     from fdia_graph.constants.newyork import SolveKind
+    from fdia_graph.data.ipopt_solver import Compensation, IpoptSolver
     from fdia_graph.data.loads import LoadSeries
     from fdia_graph.data.pool import PoolBuilder
-    from fdia_graph.data.solver import AcSolver, Compensation
 
     # the units NYgrid leaves at its placeholder of plus or minus 9999 MVAr get the power-factor limits on Pmax
     loose = (np.abs(case.qmax) >= 9999) | (np.abs(case.qmin) >= 9999)
@@ -205,7 +205,7 @@ def test_pool_compensation(case, hours):
         v_lo=np.where(ny, 0.95, np.nan),
         v_hi=np.where(ny, 1.05, np.nan),
     )
-    assert len(AcSolver(case)._opf.S) == 0  # the release's model
+    assert len(IpoptSolver(case)._opf.S) == 0  # the release's model
     d = hourly_dispatch(case, hours[:2])
     renew = np.array([h.renew_mw for h in hours[:2]])
     half = np.timedelta64(30, "m")
@@ -214,7 +214,7 @@ def test_pool_compensation(case, hours):
     p = np.stack([gross[0], 0.5 * (gross[0] + gross[1]), gross[1]])
     q = np.stack([d.qd[0], 0.5 * (d.qd[0] + d.qd[1]), d.qd[1]])
     ramp = np.where(case.fuel == "Nuclear", 0.0, np.nan_to_num(case.ramp, nan=np.inf)) * 5
-    solver = AcSolver(case, comp)
+    solver = IpoptSolver(case, comp)
     b = PoolBuilder(solver, LoadSeries(time=time, p=p, q=q), d, renew, ramp)
     pool = b.build()
     print(b.report(), np.round(b.shunt_q[:, np.abs(b.shunt_q).max(axis=0) > 1], 1))

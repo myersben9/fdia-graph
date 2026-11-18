@@ -29,6 +29,8 @@ from .choices import (
     Order,
     RatingSource,
     RecordFormat,
+    SolveEngine,
+    SolveMethod,
     Split,
     SplitBy,
     SupportMethod,
@@ -352,6 +354,48 @@ class IsoExport(Validated):
         yield (
             self.iso in EXPORT_COLUMNS,
             f"no CSV export format is known for {self.iso}; one of {sorted(EXPORT_COLUMNS)}",
+        )
+
+
+@dataclass(frozen=True)
+class SolveSettings(Validated):
+    """How the pool-building step solves each step, one setting for every test system: the `method`
+    (a power flow or an OPF) and the `engine` that runs it. A pool builder's own choice is its default
+    (`generate_states`: a power flow in pandapower; `PoolBuilder.from_settings`: an OPF in Ipopt), and
+    a builder refuses a choice its test system cannot be solved with."""
+
+    method: Annotated[str, OneOf(SolveMethod)]
+    engine: Annotated[str, OneOf(SolveEngine)]
+
+    def invariants(self) -> Iterable[tuple[bool, str]]:
+        yield (
+            not (self.method == SolveMethod.POWER_FLOW and self.engine == SolveEngine.IPOPT),
+            "a power flow runs in pandapower (engine='pandapower'); the Ipopt engine solves an OPF only",
+        )
+
+
+@dataclass(frozen=True)
+class NewYorkSolve(SolveSettings):
+    """The solve setting as `PoolBuilder` takes it: an OPF in Ipopt, the builder's own choice and the
+    only one it can build the New York pool with. The other choices are refused with the reason."""
+
+    method: Annotated[str, OneOf(SolveMethod)] = "opf"
+    engine: Annotated[str, OneOf(SolveEngine)] = "ipopt"
+
+    def invariants(self) -> Iterable[tuple[bool, str]]:
+        yield from super().invariants()
+        yield (
+            self.method == SolveMethod.OPF,
+            "method='power_flow' cannot build the New York pool. PoolBuilder builds by OPF only: the "
+            "source model gives hourly generator outputs, at which a power flow leaves voltages far below "
+            "the case's limits. A power flow at given outputs is PandapowerSolver(case).power_flow.",
+        )
+        yield (
+            self.engine == SolveEngine.IPOPT,
+            "method='opf' with engine='pandapower' cannot build the New York pool. The dispatch limits "
+            "each unit's change between frames by its ramp and holds the hydro and external units near "
+            "their schedule by a penalty, and pandapower's OPF solves plain least cost only: use "
+            "engine='ipopt'. One operating point at plain least cost is PandapowerSolver(case).opf.",
         )
 
 

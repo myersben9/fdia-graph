@@ -28,7 +28,7 @@ from fdia_graph.constants.grid import (
 )
 from fdia_graph.errors import DataConditionError
 from fdia_graph.formulas.network import series_admittance
-from fdia_graph.models.inputs import ModelledNet
+from fdia_graph.models.inputs import ModelledNet, UnitCosts
 from fdia_graph.schema import Static
 
 if TYPE_CHECKING:
@@ -303,6 +303,22 @@ class Case:
             "unit_vg": np.r_[gen["vm_pu"], np.full(len(static), np.nan), ext["vm_pu"]].astype(float),
             "unit_on": np.ones(units, bool),
         }
+
+    @staticmethod
+    def pandapower_costs(net: PandapowerNet) -> UnitCosts:
+        """Each unit's cost in the net's `poly_cost` table, in the unit order of `from_pandapower`: the
+        linear term ($/MWh) and the quadratic term ($/MW^2h). The constant term is not read. A static
+        generator without a cost costs 0 (its output is fixed); a generator or an external grid without
+        one is refused by `UnitCosts`."""
+        table = net.poly_cost.set_index(["et", "element"])
+        units = [(kind, int(i)) for kind in ("gen", "sgen", "ext_grid") for i in net[kind].index]
+        priced = table.reindex(units)
+        none = priced["cp1_eur_per_mw"].isna().to_numpy()
+        return UnitCosts(
+            linear=priced["cp1_eur_per_mw"].fillna(0.0).to_numpy(float),
+            quadratic=priced["cp2_eur_per_mw2"].fillna(0.0).to_numpy(float),
+            unpriced=tuple(f"{kind} {i}" for (kind, i), no in zip(units, none) if no and kind != "sgen"),
+        )
 
     def check(self, source: str) -> None:
         """Refuse a case whose parts disagree, naming `source` (its file): one name and one place per bus,

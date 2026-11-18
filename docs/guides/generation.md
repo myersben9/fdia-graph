@@ -68,7 +68,8 @@ that asks for more than one worker starts under `if __name__ == "__main__":`.
 
 `generate_timeline("ieee14", ...)` is `IeeeSource(...).generate(out)`; the New York build is
 `NewYorkSource.production(pool_path).generate(path)`. To switch a grid's load profiles, attacks or solver,
-change what its source holds (the pool, the families); the path stays.
+change what its source holds (the pool, the families); the path stays. The solver is chosen where the
+pool is built, by a `SolveSettings` ([Solving](../concepts/solving.md#the-solve-setting)).
 
 ![Seven boxes, top to bottom. 1. Pool of operating points: one AC state per frame. 2. Cut the splits: blocks in time order for an IEEE case, whole weeks for New York. 3. Place a split's episodes: whole, at random onsets. 4. Design each episode: a local false state. 5. Walk the split's frames: a benign scan, or the scan under the attack; then the next split. 6. After the last split: the episode table. Last, one timeline file: observed, benign, true state](../figures/diagrams/generation_flow.png)
 
@@ -89,6 +90,7 @@ noiseless pool.
 | jitter `j_t` | per-bus AR(1), `j_t = 0.98 j_{t-1} + sqrt(1 - 0.98^2) * 0.03 * eps`, stationary std 0.03 | `LOAD_JITTER_RHO` (`constants.time`), `SIGMA_DEFAULT` |
 | what is scaled | every load's P and Q and every generator's P at the bus, by the same factor | `data.ieee_pool._solve_states_chunk` |
 | solve | pandapower AC power flow, flat start, 50 iterations, 1e-6 MVA tolerance | `data.ieee_pool._solve_states_chunk` |
+| another solve | `generate_states(..., solve=SolveSettings(method="opf", engine="ipopt"))`: a least-cost AC OPF per step at the case's own cost curve, in Ipopt or in pandapower ([Solving](../concepts/solving.md#the-solve-setting)) | `data.ieee_pool._opf_states_chunk` |
 | states kept | 82,000 requested, the first 72,000 converged kept per system | the v0.7.1 pool build (`REQUEST`, `TARGET`) |
 | column order | <code>&#124;V&#124;</code> pu, `P_inj` MW, `Q_inj` MVAr, `theta` deg, voltage first | `generation.as_v_first`, pool attribute `columns` |
 | file | `pool_ieee{C}.h5`, dataset `X` | `registry.pool_spec` |
