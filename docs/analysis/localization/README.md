@@ -18,7 +18,12 @@ flag = loc.localize(test)  # [n, N] bool: which buses are called attacked
 rep = loc.score(test)  # per-family metrics + benign false alarms
 ```
 
-![loc.fit calibrates threshold arms on benign records and trains the learned arms on every record; loc.localize flags buses above the per-bus threshold; loc.score reports per-family metrics](../../figures/diagrams/localization_flow.png)
+![the localization flow, top to bottom: 1, loc.fit(train) fits the method's parts, and a learned arm trains on every record; 2, LocalizerBase.fit sets a threshold per bus, the (1 − fa_target) benign quantile; 3, with val, a learned arm takes one validation-best threshold (tune_threshold); 4, loc.scores(test) scores every bus of a scan, the one thing a method changes; 5, loc.localize(test) flags a score above the threshold; 6, loc.score(test) reports per family, the flags against y next to the benign false alarms](../../figures/diagrams/localization_flow.png)
+
+For each attacked family `loc.score` reports the strict localization accuracy, the node
+precision, recall and F1, the per-bus macro F1, the per-sample F1 and the detection rate. For
+the benign records it reports the record-level false-alarm rate and the mean per-bus alarm rate,
+and an `all` entry pools every record.
 
 | | |
 |---|---|

@@ -158,6 +158,12 @@ One New York operating point at plain least cost can be solved in either engine,
 `tests/nygrid/test_solve_engines.py` solves the same case, loads and costs in both engines
 and checks that they agree.
 
+The cost is what the OPF makes as small as possible: each unit's cost curve at the output the
+solve gives it, summed over the units. It is a rate at one operating point, in dollars per
+hour. It is the generators' running cost, not a price anyone pays, and it holds no fixed or
+start-up cost. Two engines that report the same cost found dispatches that
+are equally cheap; where units tie on cost, the outputs can still differ.
+
 | Case | Cost, Ipopt ($/h) | Cost, pandapower ($/h) | Time, Ipopt | Time, pandapower |
 |---|---|---|---|---|
 | IEEE-14 | 8,081.526 | 8,081.527 | 0.09 s | 0.40 s |
@@ -165,10 +171,11 @@ and checks that they agree.
 | IEEE-118 | 129,668.852 | 129,668.854 | 0.18 s | 0.71 s |
 | New York, 70 % load | 417,428.790 | 417,428.797 | 0.22 s | 3.69 s |
 
-The IEEE rows use the case's base loads and its linear and quadratic cost. The New York row
-uses a flat linear cost per fuel. On these four the cost agrees within 0.01 %, the losses
-within 0.01 MW and every unit's output within 0.1 MW. The times are one solve on one desktop
-machine, after the model is built.
+The IEEE rows use the case's base loads and its linear and quadratic cost, the curves
+pandapower ships with the case. The New York row uses a flat linear cost per fuel that the
+test sets (`FUEL_PRICE`): it is not the cost of running New York. On these four the cost
+agrees within 0.01 %, the losses within 0.01 MW and every unit's output within 0.1 MW. The
+times are one solve on one desktop machine, after the model is built.
 
 The engines agree on every unit's output only where the optimum is one point. IEEE-89 has
 linear costs and several units at the same cost: the two costs agree to 2 parts in 10 million,
@@ -185,3 +192,11 @@ and 105 % of it, it does not converge where Ipopt does. The comparison therefore
 the base load. Even there it depends on the machine: it converges on Windows and not on the
 Linux test runner, where the test reports that it was skipped. The IEEE comparisons run
 everywhere Ipopt is installed.
+
+## Repeating a solve
+
+On the machine that records the repository's reference digests, two builds of the same New York
+pool in one process are identical to the last bit. On the Linux test runner the Ipopt solve
+repeats a voltage to about 1e-6 p.u., and a reactive injection less closely, so two builds
+there are not the same bytes. `tests/nygrid/test_solve_engines.py` therefore compares the
+builders, the frames solved and the voltages to 1e-3 p.u., not bytes or injections.

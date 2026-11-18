@@ -1,11 +1,17 @@
 flowchart TB
-    subgraph shared["SEBase, shared by every estimator"]
-        h["h(x): ac_measurement<br/>in formulas.network"] ~~~ w["meter weights from benign residuals"]
-        H["chord Jacobian: ac_jacobian"] ~~~ it["chord-Newton loop, divergence guard"]
-    end
-    subgraph one["each estimator changes one thing"]
-        WLS["WLS: nothing"] ~~~ SP["SubspacePrior: low-rank basis"]
-        AW["AdaptiveWeighting: Huber weights"] ~~~ JW["JacobianWeighting: weights from r⊥"]
-        RR["ResidualRemoval: drop large residuals"] ~~~ GP["GatedPrior: localizer gates the weights"]
-    end
-    shared --> one
+    fit["`**1. Fit on benign records**
+    meter weights, chord Jacobian
+    SubspacePrior: a low-rank basis`"]
+    weights["`**2. Weights per record**
+    JacobianWeighting, GatedPrior
+    the others keep the fitted ones`"]
+    solve["`**3. Solve: chord-Newton**
+    with per-record weights,
+    a worse step is rejected`"]
+    rework["`**4. Reweight or remove, re-solve**
+    Huber weights, where set
+    ResidualRemoval: worst meter out`"]
+    out["`**The estimate**
+    angles and voltages
+    WLS: steps 1 and 3`"]
+    fit --> weights --> solve --> rework --> out
