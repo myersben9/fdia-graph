@@ -75,7 +75,7 @@ You now have: one benign scan per frame, the readings with no attack.
 ## Attacks
 
 An attack is an episode: a run of consecutive frames under one design. `engine/` holds the
-generator of the IEEE cases (`core.py`) and, under `engine/attacks/`, the attack designs of
+generator (`core.py`) and, under `engine/attacks/`, the attack designs of
 every grid. There are two families.
 
 - `At`, the slow ramp: a false load that rises a little each frame.
@@ -105,9 +105,12 @@ writer. `TimelineSource.generate` in `generation/source.py` is the one path ever
 the file, cut the train, validation and test splits, place the episodes, design them, walk the
 frames in time order, and finish the file.
 
-- The steps are written once. A grid is a subclass that builds the generator, the pool and the
-  designer of its families, and says what its files record: `IeeeSource` (`generation/ieee.py`)
-  and `NewYorkSource` (`generation/newyork.py`).
+- The steps are written once. A source is a subclass that builds the generator, the pool and the
+  designer of its families, and says what its files record: `SearchSource` (`generation/search.py`),
+  the original generator, built on a `Network` (`IeeeSource` in `generation/ieee.py` builds it for an
+  IEEE case by name), and `NewYorkSource` (`generation/newyork.py`), the New York release. How the
+  splits are cut is a setting of every source, `split_by`: three blocks in time order, or whole
+  weeks, which need each frame's time (an IEEE pool stores none, so the caller passes `time=`).
 - `TimelineWriter` (`generation/write.py`) is the one writer of the HDF5 file.
 - `schema.py` defines every group, dataset and attribute name of the file, once.
 - Settings arrive as models from `models/config.py`: `TimelineSettings` for an IEEE timeline,

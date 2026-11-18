@@ -24,7 +24,7 @@ returned records and the settings; the one validation engine is `fdia_graph.mode
 and source), `schema.py` (the file protocol) and `errors.py` (the named errors). Each package's own `__init__.py` (for `fdia_graph`, the `fg.*`
 public API, which imports everything) is left out for the same reason.
 
-[![Module diagram in two boxes. The analysis toolkit, fdia_analysis: federated over localization and se; localization over se; trust over se; results beside them. The generation toolkit, fdia_graph: generation over data, engine, sensing, systems, timeline, download and registry; engine over data, sensing, systems, ratings and registry; data over systems; sensing over systems; dataset over sensing and systems; timeline over generation; download over registry. Between the boxes every arrow points from analysis to generation: federated, localization, se and trust read dataset; trust reads generation and registry](../figures/diagrams/modules.png)](../figures/diagrams/modules.png)
+[![Module diagram in two boxes. The analysis toolkit, fdia_analysis: federated over localization and se; localization over se; trust over se; results beside them. The generation toolkit, fdia_graph: generation over data, engine, sensing, systems, timeline, download and registry; engine over data, sensing, systems and ratings; data over systems; sensing over systems; dataset over sensing and systems; timeline over generation; download over registry. Between the boxes every arrow points from analysis to generation: federated, localization, se and trust read dataset; trust reads generation and registry](../figures/diagrams/modules.png)](../figures/diagrams/modules.png)
 
 ## The dataset
 
@@ -38,9 +38,9 @@ summary); the graph properties are tensors or arrays, `loader()` is a DataLoader
 
 ## The engine
 
-`FdiaGenerator` is the AC model of one IEEE system with its meter plan: a `Case` read from the pandapower
-net (`Case.from_pandapower`), its `Network`, a `MeterPlan` (`MeterPlan.from_coverage`), a `Measurement` and a
-`NoiseModel`, the classes of the New York grid. `GridBase` declares the state the mixins
+`FdiaGenerator` is the AC model of one test system with its meter plan: the `Network` of its `Case` (an IEEE
+case's is `Network.from_ieee`), a `MeterPlan`
+(`MeterPlan.from_coverage`, or a plan given), a `Measurement` and a `NoiseModel`. `GridBase` declares the state the mixins
 share. `PhysicsMixin` reads a scan's load and generation and `MeasurementMixin` emits scans; neither calls the
 other, so each has `GridBase` alone as its base. `AttackMixin` builds every attack (next section) and calls both.
 A mixin lists as bases the mixins whose methods it calls.
@@ -48,7 +48,7 @@ A mixin lists as bases the mixins whose methods it calls.
 `DesignedEpisode`) asks the mixin for each attacked one; `timeline.py` decides when and where each episode
 runs.
 
-[![Class diagram of the engine package: GridBase, PhysicsMixin and MeasurementMixin each under it, AttackMixin composed of EpisodeDesignMixin and StealthyMixin, and FdiaGenerator inheriting AttackMixin; the mixins use Scan, AttackDesign, Frame and FrameKnobs, and the generator holds a Case, a Network, a MeterPlan, a Measurement and a NoiseModel](../figures/diagrams/classes_engine.png)](../figures/diagrams/classes_engine.png)
+[![Class diagram of the engine package: GridBase, PhysicsMixin and MeasurementMixin each under it, AttackMixin composed of EpisodeDesignMixin and StealthyMixin, and FdiaGenerator inheriting AttackMixin; the mixins use Scan, AttackDesign, Frame and FrameKnobs, and the generator holds a Network, a MeterPlan, a Measurement and a NoiseModel](../figures/diagrams/classes_engine.png)](../figures/diagrams/classes_engine.png)
 
 ## The attacks
 

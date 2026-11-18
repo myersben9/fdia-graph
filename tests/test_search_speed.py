@@ -22,6 +22,7 @@ from fdia_graph.formulas.network import (  # noqa: E402
 from fdia_graph.generation import _load_states  # noqa: E402
 from fdia_graph.models.config import MeterSettings, OverloadSettings  # noqa: E402
 from fdia_graph.models.frames import FrameKnobs, LoadGoal  # noqa: E402
+from fdia_graph.systems.network import Network
 
 WINDOW = 8
 MARGIN = 1.2  # S_max = MARGIN x each branch's peak true flow over the window
@@ -57,7 +58,7 @@ def model(request):
 
 @pytest.fixture(scope="module")
 def gen(model):
-    return FdiaGenerator(14, seed=123, meters=MeterSettings(meter_model=model))
+    return FdiaGenerator(Network.from_ieee(14), seed=123, meters=MeterSettings(meter_model=model))
 
 
 def _knobs(g, pool, load_cap=0.5, budget=100000):

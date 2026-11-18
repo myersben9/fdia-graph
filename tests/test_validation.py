@@ -170,17 +170,18 @@ def test_a_requirement_names_who_asks(timeline):
         fg.load(timeline, split="test").require("time_order", by=None)  # type: ignore[arg-type]
 
 
-def test_the_generator_refuses_a_bad_option_before_building_the_case(monkeypatch):
-    import pandapower.networks
-
+def test_the_generator_refuses_a_bad_option():
+    """The generator is built on a network the caller made, so its own options are what it checks; a
+    timeline's knobs are refused before the case is built (test_malformed_inputs)."""
+    pytest.importorskip("pandapower")
     from fdia_graph.engine.core import FdiaGenerator
     from fdia_graph.models.config import MeterSettings
+    from fdia_graph.systems.network import Network
 
-    monkeypatch.setattr(pandapower.networks, "case14", lambda: pytest.fail("the case was built"))
     with pytest.raises(ConfigError, match=r"^MeterSettings\.meter_model must be one of \['hybrid'\]"):
-        FdiaGenerator(14, meters=MeterSettings(meter_model="scada"))
+        MeterSettings(meter_model="scada")
     with pytest.raises(ConfigError, match=r"^GeneratorOptions\.max_load_mw must be > 0, got -1\.0$"):
-        FdiaGenerator(14, max_load_mw=-1.0)
+        FdiaGenerator(Network.from_ieee(14), max_load_mw=-1.0)
 
 
 def test_generate_states_refuses_a_system_it_has_no_case_for():

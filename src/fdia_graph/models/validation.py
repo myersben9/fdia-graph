@@ -194,6 +194,18 @@ class Parses(Rule):
             raise ConfigError(f"{where} {self.says}, got {value!r}") from None
 
 
+class WhenSet(Rule):
+    """For a setting added after files exist: a record leaves the field out when its value is
+    `legacy`, what those files meant without the field, so their record and hash stand. `legacy` is
+    frozen: it must never change, whatever the field's default becomes."""
+
+    def __init__(self, legacy: object) -> None:
+        self.legacy = legacy
+
+    def apply(self, value: object, where: str) -> object:
+        return value
+
+
 # ---- the engine -------------------------------------------------------------------------------------
 class Validated:
     """Base of every model whose fields are checked on construction (a frozen dataclass)."""

@@ -16,9 +16,10 @@ def test_jitter_draws_in_the_per_channel_order():
     from fdia_graph.constants.channels import TO_END_OFFSET, CurrentChannel
     from fdia_graph.constants.meters import BUS_KINDS, FLOW_KINDS, METER_SLOT, PHASOR_KINDS
     from fdia_graph.engine.core import FdiaGenerator
+    from fdia_graph.systems.network import Network
     from tests.helpers import FixedDraws
 
-    g = FdiaGenerator(14, seed=7)
+    g = FdiaGenerator(Network.from_ieee(14), seed=7)
     plan, masks = g.plan, g.masks
     volt = masks.node[:, METER_SLOT[BUS_KINDS[0]][1]] > 0
     assert volt.any() and not volt.all() and len(g.pmu_buses) < volt.sum()  # a mixed plan

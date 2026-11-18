@@ -74,10 +74,11 @@ def test_ybus_matches_engine_and_clean_injections(timeline):
     shunt-free buses, so bus order and the branch model are both right."""
     pytest.importorskip("pandapower")
     from fdia_graph.engine.core import FdiaGenerator
+    from fdia_graph.systems.network import Network
 
     ds = fg.load(timeline)
     Y = ds.ybus_np
-    g = FdiaGenerator(14, seed=1)
+    g = FdiaGenerator(Network.from_ieee(14), seed=1)
     ref = g.net.ybus.toarray()  # in the timeline's bus order
     assert Y.shape == (ds.N, ds.N) and np.allclose(Y, ref, atol=1e-9)
     # S = V conj(Y V) is the net injection (generation positive); the clean layer stores P/Q with

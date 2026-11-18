@@ -16,12 +16,13 @@ from fdia_graph.formulas.attacks import branch_ratings  # noqa: E402
 from fdia_graph.formulas.network import bus_injections, complex_voltages, local_flow_solve  # noqa: E402
 from fdia_graph.generation import _load_states  # noqa: E402
 from fdia_graph.models.frames import FrameKnobs  # noqa: E402
+from fdia_graph.systems.network import Network
 from fdia_graph.timeline import generate_timeline  # noqa: E402
 
 
 @pytest.fixture(scope="module")
 def g():
-    return FdiaGenerator(14, seed=123)
+    return FdiaGenerator(Network.from_ieee(14), seed=123)
 
 
 @pytest.fixture(scope="module")
@@ -47,7 +48,7 @@ def test_every_ieee14_branch_has_a_pglib_rating_and_other_cases_refuse(g):
     assert len(rating) == g.E and np.isfinite(rating).all()
     assert 50 < np.nanmin(rating) and np.nanmax(rating) < 700  # PGLib-OPF v23.07: 53 to 664 MVA
     with pytest.raises(NoLineRatings):
-        FdiaGenerator(30, seed=1).line_ratings()
+        FdiaGenerator(Network.from_ieee(30), seed=1).line_ratings()
 
 
 def test_the_flow_solve_reaches_its_target_and_holds_the_fixed_buses(g, pool):
@@ -262,7 +263,7 @@ def test_pool_ratings_are_the_margin_times_the_pool_peak_flow(g, pool):
     from fdia_graph.models.config import OverloadSettings
     from fdia_graph.ratings import pglib_branches
 
-    fresh = FdiaGenerator(14, seed=123)
+    fresh = FdiaGenerator(Network.from_ieee(14), seed=123)
     fresh.use_line_ratings(OverloadSettings(rating_margin=1.3), pool)
     peak = np.abs(fresh.all_flows_from_states(pool)).max(axis=0)
     assert np.allclose(fresh.line_ratings(), 1.3 * peak) and (peak > 0).all()

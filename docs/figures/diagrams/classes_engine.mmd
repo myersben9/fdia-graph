@@ -20,7 +20,6 @@ classDiagram
         +attack_frame()
     }
     class FdiaGenerator {
-        +from_network()
         +from_spec()
     }
     class AttackDesign {
@@ -90,7 +89,6 @@ classDiagram
     AttackMixin ..> Frame : uses
     AttackMixin ..> FrameKnobs : uses
     FdiaGenerator ..> BusType : uses
-    FdiaGenerator ..> Case : uses
     FdiaGenerator ..> GeneratorOptions : uses
     FdiaGenerator ..> GeneratorSpec : uses
     FdiaGenerator ..> LayerSet : uses

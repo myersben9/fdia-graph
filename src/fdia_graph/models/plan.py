@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass, field, replace
-from typing import TYPE_CHECKING, Generic, Optional, TypeVar, Union
+from typing import TYPE_CHECKING, Generic, Optional, TypeVar
 
 import numpy as np
 
@@ -15,8 +15,9 @@ from .choices import Split
 from .config import MeterSettings
 from .frames import MinimizerResult
 
-if TYPE_CHECKING:  # a designed episode is a producer's: named for the type checker only
+if TYPE_CHECKING:  # a designed episode and a network are a producer's: named for the type checker only
     from ..engine.attacks.family import DesignedEpisode
+    from ..systems.network import Network
 
 Design = TypeVar("Design")  # what a design stage finds for one episode
 
@@ -40,12 +41,15 @@ class SplitSpan:
     """One split of the timeline: its code (0 train, 1 val, 2 test, the row of `Split`) and its
     frames. A split cut as one block in time order is every frame of [start, stop). A split made of
     whole weeks lists its frames in `frames` (in time order), and [start, stop) is then only the stretch
-    of the timeline they lie in. Two spans are equal when their code and stretch are."""
+    of the timeline they lie in. `runs` [T], when the frames have a time, is the run of regularly
+    spaced frames each timeline frame lies in (`generation.plan.time_runs`). Two spans are equal
+    when their code and stretch are."""
 
     code: int
     start: int
     stop: int
     frames: Optional[np.ndarray] = field(default=None, compare=False)
+    runs: Optional[np.ndarray] = field(default=None, compare=False)
 
     def index(self) -> np.ndarray:
         """The split's frames on the timeline, in time order."""
@@ -59,12 +63,15 @@ class SplitSpan:
     def onsets_fit(self, length: int) -> np.ndarray:
         """[size] bool: the positions in the split where an episode of `length` frames may start, its
         frames being consecutive on the timeline (so it never crosses from one week block into the
-        next, and never runs past the split's end)."""
+        next, and never runs past the split's end) and, with `runs`, in one run of regularly spaced
+        frames (so it never crosses a gap in time)."""
         index = self.index()
         fits = np.zeros(len(index), bool)
         n = len(index) - length + 1
         if n > 0:
             fits[:n] = index[length - 1 :] - index[:n] == length - 1
+        if n > 0 and self.runs is not None:
+            fits[:n] &= self.runs[index[length - 1 :]] == self.runs[index[:n]]
         return fits
 
 
@@ -163,11 +170,11 @@ class Placement:
 
 @dataclass(frozen=True)
 class GeneratorSpec:
-    """What a worker process needs to rebuild the walk's generator (`generation.design`): the case and
-    its meter plan (both fixed by the seed) and the line ratings the parent set over the whole pool,
-    or the step of the per-window "delta" ratings (MVA)."""
+    """What a worker process needs to rebuild the walk's generator (`generation.design`): the grid,
+    its meter plan (fixed by the seed) and the line ratings the parent set over the whole pool, or
+    the step of the per-window "delta" ratings (MVA)."""
 
-    system: Union[int, str]
+    net: Network
     seed: int
     max_load_mw: Optional[float]
     meters: MeterSettings

@@ -30,6 +30,7 @@ from fdia_graph.models.config import (
     TrustSchedule,  # noqa: E402
 )
 from fdia_graph.models.frames import FrameKnobs  # noqa: E402
+from fdia_graph.systems.network import Network
 
 from . import case_studies  # noqa: E402
 
@@ -43,7 +44,7 @@ SLOW = pytest.mark.skipif(
 
 def _setup(scenario: int, margin: float) -> tuple:
     """The generator on the paper's metering, the window, the knobs and the two-line goal (no search)."""
-    g = FdiaGenerator(14, seed=1)
+    g = FdiaGenerator(Network.from_ieee(14), seed=1)
     X = _load_states(14, None)
     lines = [case_studies.branch(g, *pair) for pair in case_studies.SCENARIOS[14][scenario]]
     flow = g.flow_metered.copy()

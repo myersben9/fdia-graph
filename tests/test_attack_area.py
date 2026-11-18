@@ -20,13 +20,14 @@ from fdia_graph.models.config import (  # noqa: E402
     TrustSchedule,
 )
 from fdia_graph.models.frames import FrameKnobs  # noqa: E402
+from fdia_graph.systems.network import Network
 
 from . import case_studies  # noqa: E402
 
 
 @pytest.fixture(scope="module")
 def g118():
-    return FdiaGenerator(118, seed=1)
+    return FdiaGenerator(Network.from_ieee(118), seed=1)
 
 
 def _lines(g, system: int) -> list[int]:
@@ -67,7 +68,7 @@ def test_area_rule_is_a_validated_choice():
 
 def test_delta_ratings_end_each_goal_at_its_flow_plus_the_step():
     # [WU26 eqs. 24-25]
-    g = FdiaGenerator(14, seed=1)
+    g = FdiaGenerator(Network.from_ieee(14), seed=1)
     window = list(_load_states(14, None)[:6])
     g.use_line_ratings(OverloadSettings(rating_source="delta", rating_delta=0.1), np.stack(window))
     lines = _lines(g, 14)
@@ -83,7 +84,7 @@ def test_every_attack_the_search_returns_is_valid():
     # [WU26 eqs. 12, 24-25, 29]
     """Scenario 2 at k = 1.1 with the paper's trust schedule: the goal is met at every snapshot (the last
     at both ratings), no untampered channel moves beyond its noise, and a trusted bus is exactly true."""
-    g = FdiaGenerator(14, seed=1)
+    g = FdiaGenerator(Network.from_ieee(14), seed=1)
     X = _load_states(14, None)
     lines = [case_studies.branch(g, *pair) for pair in case_studies.SCENARIOS[14][1]]
     flow = g.flow_metered.copy()
@@ -128,11 +129,12 @@ def test_delta_ratings_generate_am_episodes(tmp_path):
     from fdia_graph.engine.core import FdiaGenerator
     from fdia_graph.models.config import MeterSettings
     from fdia_graph.models.plan import GeneratorSpec
+    from fdia_graph.systems.network import Network
 
     out = tmp_path / "delta.h5"
     am = OverloadSettings(rating_source="delta", rating_delta=0.1)
     fg.generate("ieee14", "delta", out=str(out), frames=300, families=["Am"], seed=3, am_attack=am)
     with h5py.File(out, "r") as f:
         assert len(f[schema.Group.EPISODES][schema.EPISODE_AM_EPISODE]) >= 1
-    g = FdiaGenerator.from_spec(GeneratorSpec(14, 3, None, MeterSettings(), None, 10.0))
+    g = FdiaGenerator.from_spec(GeneratorSpec(Network.from_ieee(14), 3, None, MeterSettings(), None, 10.0))
     assert g._rating_delta == 10.0

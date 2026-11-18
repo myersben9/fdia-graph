@@ -86,8 +86,9 @@ def test_flow_sensitivities_match_a_resolved_power_flow():
     from fdia_graph.engine.core import FdiaGenerator
     from fdia_graph.formulas.network import _dense, flow_sensitivities
     from fdia_graph.generation import _load_states
+    from fdia_graph.systems.network import Network
 
-    g = FdiaGenerator(14, seed=1)
+    g = FdiaGenerator(Network.from_ieee(14), seed=1)
     X = _load_states(14, None)[0]
     V0 = complex_voltages(X[:, NodeChannel.V], X[:, NodeChannel.THETA])
     Y, F = _dense(g.net.ybus), _dense(g.net.yf)
@@ -125,9 +126,10 @@ def test_bias_and_jitter_keep_the_class_total():
     from fdia_graph.sensing.measure import Measurement
     from fdia_graph.sensing.meters import MeterPlan
     from fdia_graph.sensing.noise import NoiseModel
+    from fdia_graph.systems.network import Network
     from tests.helpers import FixedDraws
 
-    g = FdiaGenerator(14, seed=1)
+    g = FdiaGenerator(Network.from_ieee(14), seed=1)
     everywhere = (np.ones(g.C, bool), np.ones(g.C, bool), np.ones(g.E, bool))
     # every bias one standard deviation of its draw, so `plan.bias` is each meter's bias std
     plan = MeterPlan.from_placement(g.case, *everywhere, FixedDraws(1.0))  # type: ignore[arg-type]

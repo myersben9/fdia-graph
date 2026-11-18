@@ -5,6 +5,48 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- **The original generator is built on a `Network`, and `IeeeSource` builds it for an IEEE case (every IEEE
+  file is byte for byte the same, and so are the New York release's files).**
+  `fdia_graph.generation.search.SearchSource(net, X, settings, seed, time)` is the source `IeeeSource` was, on a
+  `Network` and its pool; `IeeeSource(system, states, settings, seed, time)` is unchanged for callers.
+
+  | | Before | Now |
+  |---|---|---|
+  | the generator of an IEEE case | `FdiaGenerator(system, seed, meters, max_load_mw, plan)` | `FdiaGenerator(Network.from_ieee(n), seed, meters, max_load_mw, plan)` |
+  | the generator of the New York grid | `FdiaGenerator.from_network(net, plan, seed, spec)` | `FdiaGenerator(net, seed, plan=plan, spec=spec)`: the one constructor |
+  | a source with no default path | `NewYorkSource` refused `generate()` | every source but `IeeeSource` refuses it: "a timeline needs the path of its file" |
+  | a family the generator does not make | refused when the source is built | refused when the `TimelineSettings` are built, with the same message |
+
+  - **`FdiaGenerator.from_network` is removed, with no alias, and `FdiaGenerator(...)` takes a `Network`
+    where it took an IEEE system.** `Network.from_ieee(n)` is the network of the IEEE case of `n` buses.
+    `GeneratorSpec.system` is `GeneratorSpec.net`.
+  - The original designs are built for a pool that scales each bus's load and generation by one factor
+    (`generate_states`); they are not offered on the New York pool. The meter placement is not a setting: the
+    search-based designs run on coverage meters and the New York release's designs on owned meters
+    (`docs/guides/generation.md`).
+
+- **How a timeline's splits are cut is a setting of every test system, `split_by` (the default of each is
+  what it did before: the IEEE and New York files made without the setting are byte for byte the same).**
+  `"time"` cuts three blocks in time order, `"week"` draws whole weeks into the three splits.
+
+  | | Before | Now |
+  |---|---|---|
+  | an IEEE timeline | three blocks in time order, always | `split_by="time"` by default; `fg.generate(..., split_by="week", time=times)` cuts whole weeks |
+  | a New York timeline | `NewYorkSettings.split_by`, `"week"` by default | the same setting, read by the shared step (`TimelineSource.split_codes`) |
+  | a pool without time | not asked | `split_by="week"` is refused with the reason (`ConfigError`, declared on the model `SplitRule`) |
+  | each frame's time (`data/time`) | written by a New York file | written by any file whose source has the frames' time |
+  | an episode and a gap in time | not asked (no IEEE file had time; the New York pool has no gap) | with the frames' time, no episode is placed across a step that differs from the median step |
+
+  - `fg.generate`, `generate_timeline` and `IeeeSource` take `time`, each frame's time `[T]` (an IEEE pool
+    stores none, so the caller passes it): numpy datetime64 values, one per frame, strictly increasing.
+    Numbers, strings, Python datetime objects, timezone-aware times and NaT are refused when the source is built
+    (`SplitRule`).
+  - `TimelineSettings.split_by` is recorded in a file only when it is not `"time"`, the value every file
+    made before the setting meant (the rule `WhenSet(legacy="time")` of `models.validation`), so the recorded
+    settings and their hash of those files are unchanged.
+  - A split by weeks does not check that every split gets a week: a pool of fewer weeks than splits leaves a
+    split empty, as the New York days' pool of the tests does.
+
 - **The pool-building step takes one solve setting, `SolveSettings(method, engine)`, for every test system
   (the default of each builder is what it did before: the IEEE and New York pools built without the setting
   are byte for byte the same).** `method` is `"power_flow"` or `"opf"`, `engine` is `"pandapower"` or
