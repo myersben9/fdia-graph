@@ -5,6 +5,24 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- **Docs: the six remaining wide diagrams are redrawn for a phone (no change to the packages).**
+  `concepts_one_record`, `localization_flow`, `se_estimators`, `se_gated_prior`, `se_jacobian_weighting`
+  and `trust_flow` are now top to bottom, at most 8 nodes and 900 px wide, checked against the code, with
+  alt texts that describe them. `NOT_YET_REDRAWN` in `tools/prereview.py` and the stylesheet's exempt
+  list hold `pipeline` only. What changed in the pictures:
+
+  | Diagram | Change |
+  |---|---|
+  | `concepts_one_record` | shows the three layers and the labels of one record, with the function that makes each; the list of attack families is gone |
+  | `se_estimators` | the steps of `SEBase` and the step each estimator changes; the page cites `ac_measurement` in `formulas/measurement.py`, where it is |
+  | `se_jacobian_weighting` | the change is taken against the previous frame's estimate, as the code does, not against its clean state |
+  | `se_gated_prior` | adds the secured meters, which keep their weight; the gate is any fitted localizer |
+  | `localization_flow` | one chain from `fit` to `score`, in the order of the code |
+  | `trust_flow` | adds the alarm level, which `fit` calibrates before the selection |
+
+  `docs/concepts/solving.md` has a new section, "Repeating a solve": how closely a New York pool
+  repeats on the reference machine and on the Linux test runner, and what the test compares.
+
 - **Docs: one guide for every test system, three tutorials and three new concept pages (no user-visible
   change to the packages).** The New York grid no longer has pages of its own; it is a test system in the
   pages every system shares.

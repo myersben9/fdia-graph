@@ -6,7 +6,18 @@ Paths are under `src/fdia_graph/`; `se/` and `localization/` are under
 
 ## One record, start to finish
 
-![one record: the operating state gives the clean layer and the benign scan; Aq, At, Al and Am re-solve a local false state whose attack vector is added to the benign scan; Ad, As and Ar corrupt readings in place; every path ends in the record](../figures/diagrams/concepts_one_record.png)
+![one record of a timeline, top to bottom: the operating state, one frame of the pool; the clean layer, clean and edge_clean, Measurement.h with no noise; plus meter noise, the benign layer, benign and edge_benign, from emit_from_state; plus the attack, the observed layer, node_x and edge_x, from frame_from_state; the labels y, family, seq_id and the tamper masks; TimelineWriter.store writes the record](../figures/diagrams/concepts_one_record.png)
+
+Each frame of a timeline is one record. Its operating state is one frame of the pool. The clean
+layer is `Measurement.h` of that state with no noise (`MeasurementMixin.exact`); the node layer
+`clean` is the state itself. `MeasurementMixin.emit_from_state` adds each meter's bias and the
+scan's jitter (`NoiseModel`), which gives the benign layer. On an attacked frame
+`FalseStateMixin.frame_from_state` adds the attack vector on the meters it moves, which gives the
+observed layer; on a benign frame the observed layer is the benign one. `TimelineWriter.store`
+writes the three layers with the labels `y`, `family` and `seq_id` and the tamper masks.
+An episode designed as a vector over the meters (`VectorEpisode`) uses
+`FalseStateMixin.frame_from_vector` instead.
+[Layers and labels](../concepts/layers.md) says what each layer and label is for.
 
 Every attack is built in `engine.attacks`, the generator's `AttackMixin`: a local false state
 (`engine.attacks.false_state`) designed per episode (`ramp_design` for At, `am_overload_design` for
@@ -38,7 +49,7 @@ and converts them on load.
 
 | concept | code |
 |---|---|
-| WLS `x̂ = argmin (z−h(x))ᵀW(z−h(x))` | `se/base.py` `SEBase._w_solve` (chord-Newton); `h(x)` is `sensing/measure.py` `Measurement.h` |
+| WLS `x̂ = argmin (z−h(x))ᵀW(z−h(x))` | `se/base.py` `SEBase._w_solve` (chord-Newton); `h(x)` is `ac_measurement` (`analysis/src/fdia_analysis/formulas/measurement.py`) |
 | Robust reweighting (Huber), residual removal, subspace prior | `se/methods.py`: one class per arm, each overrides one hook |
 | Bad-data test `r_i=(z_i−h_i)/σ_i`, `J=Σr_i²` | `σ_i` is the RMS of the benign residuals at the training truth (`se/base.py` `SEBase.fit`); residuals in `se/base.py` `SEBase._nres`. The `stealthy` flag marks the families that evade it by construction (`Aq`/`At`/`Al`/`Am`, `constants.families.STEALTHY_FAMILIES`) |
 | Noise model | `FdiaGenerator.SD` (accuracy class): reading = true + per-meter bias + per-scan jitter. The estimator does not read it; it calibrates `σ_i` from data |

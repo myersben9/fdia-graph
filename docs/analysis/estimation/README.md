@@ -16,7 +16,7 @@ xhat = est.estimate(test)  # [n, 2N-1] = [theta rad (non-slack) | V pu (all buse
 rep = est.score(test)  # per-family angle/voltage MAE vs the clean truth
 ```
 
-![SEBase shared by every estimator: the measurement function, the chord Jacobian, meter weights from benign residuals, the chord-Newton loop; each estimator changes one thing: WLS nothing, AdaptiveWeighting Huber weights, ResidualRemoval dropping large residuals, SubspacePrior a low-rank basis, JacobianWeighting weights from the unexplained residual, GatedPrior a localizer gating the weights](../../figures/diagrams/se_estimators.png)
+![the steps of SEBase and where each estimator changes one thing, top to bottom: 1, fit on benign records: the meter weights and the chord Jacobian, and for SubspacePrior a low-rank basis; 2, weights per record: JacobianWeighting and GatedPrior set them, the others keep the fitted ones; 3, the chord-Newton solve, where, with per-record weights, a worse step is rejected; 4, reweight or remove, then re-solve: Huber weights where set (AdaptiveWeighting always; SubspacePrior, GatedPrior and JacobianWeighting with reweight set to huber), ResidualRemoval taking the worst meter out; the estimate, angles and voltages; WLS is steps 1 and 3](../../figures/diagrams/se_estimators.png)
 
 | needs | `pip install "fdia-analysis[se]"`, a timeline (data release v0.8.3), `units="physical"` |
 |---|---|
@@ -30,7 +30,7 @@ rep = est.score(test)  # per-family angle/voltage MAE vs the clean truth
 | `WLS` | Nothing. The audited baseline: least squares weighted by accuracy-class meter error | |
 | `ResidualRemoval` | Classical largest-normalized-residual removal: the one largest residual above the threshold per pass, re-solved, with an observability guard | `threshold` |
 | `AdaptiveWeighting` | Iteratively reweighted least squares (the Huber M-estimator) | `c` |
-| `SubspacePrior` | Restricts the solve to a low-rank benign operating subspace, optionally composed with Huber | `rank_frac`, `reweight` |
+| `SubspacePrior` | Restricts the solve to a low-rank benign operating subspace, optionally composed with Huber (`reweight="huber"`, which `GatedPrior` inherits) | `rank_frac`, `reweight` |
 | `JacobianWeighting` | Huber weights from the physically unexplained part of the scan-to-scan measurement change (the Jacobian-informed digest), one solve; `reweight="huber"` adds the classical passes on top | `c`, `reweight`, `huber_c` |
 | `GatedPrior` | The proposed estimator with a localizer gating the weights: meters on flagged buses and their incident flows are down-weighted so the prior fills in the state there; `secured` meters are never down-weighted | `gate`, `gate_factor`, `secured` |
 
@@ -38,7 +38,7 @@ rep = est.score(test)  # per-family angle/voltage MAE vs the clean truth
 
 | file | holds |
 |---|---|
-| `se/base.py` | `SEBase`: the measurement function, the chord Jacobian, meter weights from benign residuals, the chord-Newton loop, calibration and scoring, shared by every estimator |
+| `se/base.py` | `SEBase`: the measurement function and the chord Jacobian (`ac_measurement` and `ac_jacobian` of `formulas/measurement.py`), meter weights from benign residuals, the chord-Newton loop, calibration and scoring, shared by every estimator |
 | `se/methods.py` | the method classes above, each a subclass of `SEBase` that changes one thing |
 | `se/jacobian.py` | `JacobianFeatures`: the measurement Jacobian as a transform of the scan-to-scan measurement change, the features `JacobianWeighting` and the learned localizers read |
 | `se/detect/rules.py` | the alarm rules (`AlarmRule`, `PersistenceRule`): a statistic per scan turned into a first alarm, described in [the extending guide](../../guides/extending.md#an-alarm-rule) |
@@ -123,7 +123,13 @@ records and costs the clean ones a little, while the benign voltage error still 
 
 ## Jacobian-informed weighting
 
-![the scan-to-scan change is split into the part a state change explains and the unexplained rest; Huber weights come from the unexplained part; one weighted solve](../../figures/diagrams/se_jacobian_weighting.png)
+![Jacobian weighting, top to bottom: 1, estimate the scan before with a plain solve of its readings (previous_estimate); 2, the unpredicted change, this scan minus the readings that estimate predicts (delta_z); 3, split it by the Jacobian into the part a state change explains and the unexplained rest; 4, meter weights, Huber's, from the unexplained rest (JacobianWeighting.weights); 5, one weighted solve (SEBase.estimate)](../../figures/diagrams/se_jacobian_weighting.png)
+
+The change is `Δz = z_t − h(x̂_{t−1})`, this scan against the readings the previous frame's
+estimate predicts. The explained part is `r∥ = P_H Δz` with `P_H = H (HᵀWH)⁻¹ HᵀW`, and the
+unexplained rest is `r⊥ = (I − P_H) Δz`. The weight of meter `i` is its fitted weight times
+Huber's factor `min(1, c / (|r⊥_i| / σ_i))`; `H` and `W` are the fitted chord Jacobian and meter
+weights.
 
 | result | 14 | 118 | 300 |
 |---|---:|---:|---:|
@@ -139,7 +145,7 @@ gate and, ahead of it, a trusted set of meters.
 
 ## Localization-gated estimation
 
-![a localizer flags buses; the weights of every meter of a flagged bus and its branches are scaled by a thousandth; the prior plus Huber solve fills the gap from the benign prior](../../figures/diagrams/se_gated_prior.png)
+![gated estimation, top to bottom: 1, a localizer flags buses, a fitted localizer or OracleGate, the labels; 2, down-weight their meters, the bus's own and its branch flows, times gate_factor (0.001); 3, secured meters keep their weight (the secured argument of GatedPrior); 4, solve inside the benign prior, SubspacePrior with Huber if set, so the prior fills the gap](../../figures/diagrams/se_gated_prior.png)
 
 Angle mean absolute error in degrees, the proposed estimator alone, with the CNN localizer as the
 gate, and with the true labels as the gate (the ceiling for any gate):

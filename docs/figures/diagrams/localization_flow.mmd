@@ -1,14 +1,20 @@
-flowchart LR
-    subgraph fit["loc.fit(train, val=None)"]
-        b[threshold arms: benign records only] --> s1["per-bus score<br/>hook: each method"]
-        s1 --> t["threshold per bus at the<br/>(1 − fa_target) benign quantile"]
-        l[learned arms: every record given,<br/>attacks included] --> tr[train the CNN / MLP]
-        tr --> t2["val given: one global<br/>validation-best threshold<br/>else: the benign quantile"]
-    end
-    subgraph localize["loc.localize(test)"]
-        s2[per-bus score] --> f["flag = score > threshold<br/>[n, N] bool"]
-    end
-    subgraph score["loc.score(test)"]
-        f2[flags vs y] --> m["per family: strict accuracy, node P/R/F1,<br/>macro-F1, DR next to the benign FA"]
-    end
-    fit --> localize --> score
+flowchart TB
+    learn["`**1. Fit the method's parts**
+    a learned arm trains on every record
+    loc.fit(train)`"]
+    thr["`**2. Set a threshold per bus**
+    the (1 − fa_target) benign quantile
+    LocalizerBase.fit`"]
+    val["`**3. With val, a learned arm**
+    takes one validation-best threshold
+    tune_threshold`"]
+    score["`**4. Score every bus of a scan**
+    the one thing a method changes
+    loc.scores(test)`"]
+    flag["`**5. Flag**
+    score above the threshold
+    loc.localize(test)`"]
+    report["`**6. Report per family**
+    flags against y, next to the
+    benign false alarms: loc.score(test)`"]
+    learn --> thr --> val --> score --> flag --> report

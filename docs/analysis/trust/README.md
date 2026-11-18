@@ -20,7 +20,7 @@ rl = TrustedMetersDQN(TrustConfig(k=20), dqn=DqnConfig(episodes=200)).fit(
 )  # the same selection as an MDP with a DQN policy
 ```
 
-![tm.fit: the WLS Jacobian at the benign mean, the attack subspace left open by the secured rows, the attack cost, then the greedy or the DQN selection; tm.score: secured meters read their benign value, the WLS residual test at the benign alarm level, detection per family before and after](../../figures/diagrams/trust_flow.png)
+![the trusted-meter flow, top to bottom: 1, tm.fit(train) takes the Jacobian at the benign mean from a WLS fit on measurements only; 2, the alarm level, the benign quantile of the largest normalized residual; 3, the attack cost, the fewest meters of the cheapest attack the secured rows leave open; 4, secure one more meter, TrustedMeters by the greedy rule or TrustedMetersDQN by a Q-network, and back to the attack cost, up to k meters; 5, tm.score(test) pins the secured meters, which read the benign layer; 6, the residual test, the largest normalized residual against the alarm level; detection per family, before and after securing](../../figures/diagrams/trust_flow.png)
 
 ## The idea
 

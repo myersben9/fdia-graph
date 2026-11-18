@@ -306,12 +306,6 @@ STYLESHEET = "docs/stylesheets/extra.css"  # limits the display width of the pho
 # renderer, left as they are. Redrawing one top to bottom and re-rendering it, or deleting it, takes
 # its name off this list (and off the stylesheet's).
 NOT_YET_REDRAWN = {
-    "concepts_one_record": "not yet redrawn",
-    "localization_flow": "not yet redrawn",
-    "se_estimators": "not yet redrawn",
-    "se_gated_prior": "not yet redrawn",
-    "se_jacobian_weighting": "not yet redrawn",
-    "trust_flow": "not yet redrawn",
     "pipeline": "kept until the next release: the published PyPI page loads it",
 }
 
