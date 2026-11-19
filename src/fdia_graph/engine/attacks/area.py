@@ -15,7 +15,6 @@ from typing import Optional
 import numpy as np
 
 from ...constants.channels import NodeChannel
-from ...formulas.attacks import bus_load
 from ...formulas.network import complex_voltages, flow_sensitivities, subnetwork
 from ...models.frames import AreaScore
 from ..measurement import MeasurementMixin
@@ -120,7 +119,7 @@ class AreaMixin(MeasurementMixin):
         if lines and spread is None:
             spread = self._spread(states)
         node_m = self.masks.node
-        loads = np.abs(bus_load(np.asarray(states, float), self.load_base, self.gen_base))  # [T, N] MW
+        loads = np.abs(self.split.load(np.asarray(states, float)))  # [T, N] MW
         mean, sd = loads.mean(0), loads.std(0)
         total = float(mean.sum())
         loaded = mean[buses] > 1e-6

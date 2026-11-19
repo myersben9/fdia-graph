@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from fdia_graph.constants.grid import BusType
+from fdia_graph.constants.grid import LOAD_FLOOR_MW, BusType
 from fdia_graph.constants.newyork import BASEPOINT_BAND, HYDRO_RAMP_PER_MIN, IMPORT_RAMP_MW_PER_MIN, Q_SHARE
 from fdia_graph.formulas.network import local_flow_solve
 from fdia_graph.sensing.measure import Measurement
@@ -81,8 +81,8 @@ def generator_q_capability(case: Case) -> tuple[np.ndarray, np.ndarray]:
 class Attacker:
     """Holds a `Network` and a `Measurement`. Finds the local subnetwork of a target (`area`, the
     connected region of [WU26]), re-solves it under a pretended load change (`false_state`), and writes the
-    attack vector a false state moves (`attack_vector`). A bus's client is the owner of its meters (a
-    bus with no meters is outside New York); it only labels an episode's owners."""
+    attack vector a false state moves (`attack_vector`). Which buses are the grid's own is the case's
+    (`Case.own_bus`), whatever the meter plan."""
 
     def __init__(
         self, net: Network, meas: Measurement, gen_q_share: float = 0.2, hold_external: bool = False
@@ -101,10 +101,7 @@ class Attacker:
         self.yf = net.yf.toarray()
         self.from_bus = case.f
         n = len(case.bus_id)
-        # a bus's client from its meters (-1 outside New York)
-        owner = np.full(n, -1)
-        owner[plan.bus] = plan.owner
-        self.owner = owner
+        self.own = case.own_bus  # [N] the grid's own buses; the others are its neighbours' equivalents
         self.slack = int(np.flatnonzero(case.bus_type == BusType.REF)[0])
         self.gen_bus = np.zeros(n, bool)
         self.gen_bus[case.unit_bus] = True
@@ -134,21 +131,21 @@ class Attacker:
         Dunkirk), where nothing could take up a change. Other outside buses absorb, unless `hold_external`."""
         v = vm * np.exp(1j * np.deg2rad(va))
         dead = ~self.gen_bus & (np.abs(v * np.conj(self.ybus @ v)) < 1e-6)  # pu, the solver's zero
-        return (self.owner >= 0) | dead | (self.hold_external & (self.owner < 0))
+        return self.own | dead | (self.hold_external & ~self.own)
 
     def absorb(self, vm: np.ndarray, va: np.ndarray, interior: np.ndarray) -> np.ndarray:
         """The interior grown over the edge buses whose injection the attack may not change (zero-injection
         buses, loads under the floor): such a bus moves inside, its voltage free and its injection held,
         until every edge bus is a free injection, the slack, or a bus outside New York that absorbs."""
         s = np.asarray(interior, int)
-        free = np.zeros(len(self.owner), bool)
-        free[self.free_injection_buses(vm, va, np.arange(len(self.owner)))] = True
+        free = np.zeros(len(self.own), bool)
+        free[self.free_injection_buses(vm, va, np.arange(len(self.own)))] = True
         held = self._held_bus(vm, va)
         while True:
             edge = self.boundary(s)
             move = edge[held[edge] & ~free[edge] & (edge != self.slack)]
             if self.hold_external:  # a bus outside New York stays on the edge, its injection held by the
-                move = move[self.owner[move] >= 0]  # solve, so every tie keeps its true flow
+                move = move[self.own[move]]  # solve, so every tie keeps its true flow
             if not len(move):
                 return s
             s = np.union1d(s, move)
@@ -159,13 +156,13 @@ class Attacker:
         return np.setdiff1d(self.net.neighbors(interior, 1), interior)
 
     def load_buses(
-        self, vm: np.ndarray, va: np.ndarray, buses: np.ndarray | None = None, floor: float = 1.0
+        self, vm: np.ndarray, va: np.ndarray, buses: np.ndarray | None = None, floor: float = LOAD_FLOOR_MW
     ) -> np.ndarray:
         """The New York buses carrying load above `floor` MW at a state, the slack and generator buses
         out (both trivially detectable to attack [WU26]); restricted to `buses` when given. Load is read
         from the state, not the case, whose base carries none."""
         load = self.bus_load(vm, va)
-        ok = (self.owner >= 0) & ~self.gen_bus & (load > floor)
+        ok = self.own & ~self.gen_bus & (load > floor)
         ok[self.slack] = False
         if buses is not None:
             keep = np.zeros_like(ok)
@@ -179,7 +176,7 @@ class Attacker:
         gens = np.asarray(buses, int)[self.gen_bus[np.asarray(buses, int)]]
         gens = gens[gens != self.slack]
         if self.hold_external:  # no unit outside New York takes up the change
-            gens = gens[self.owner[gens] >= 0]
+            gens = gens[self.own[gens]]
         return np.union1d(self.load_buses(vm, va, buses), gens)
 
     def area(self, center: int, hops: int) -> np.ndarray | None:
@@ -192,7 +189,7 @@ class Attacker:
             interior = self.net.neighbors([center], h)
             interior = interior[interior != self.slack]
             if self.hold_external:  # no bus outside New York in the area
-                interior = interior[self.owner[interior] >= 0]
+                interior = interior[self.own[interior]]
             if len(interior) and len(self.boundary(interior)):
                 return interior
         return None

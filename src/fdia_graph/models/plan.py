@@ -17,6 +17,7 @@ from .frames import MinimizerResult
 
 if TYPE_CHECKING:  # a designed episode and a network are a producer's: named for the type checker only
     from ..engine.attacks.family import DesignedEpisode
+    from ..engine.physics import LoadSplit
     from ..systems.network import Network
 
 Design = TypeVar("Design")  # what a design stage finds for one episode
@@ -180,3 +181,4 @@ class GeneratorSpec:
     meters: MeterSettings
     ratings: Optional[np.ndarray]
     rating_delta: Optional[float] = None
+    split: Optional[LoadSplit] = None  # how the pool's injections divide (None: a scaled pool)

@@ -16,13 +16,11 @@ def operating_limits(
     v_case: np.ndarray,
     p_lim: np.ndarray,
     q_lim: np.ndarray,
-    X: np.ndarray,
-    base: tuple[np.ndarray, np.ndarray],
+    gen: np.ndarray,
 ) -> OperatingLimits:
     """The limits of [WU26 eqs. 21-23]: the case's voltage limits `v_case` [N, 2] as given, and the
-    generator limits widened to the range the benign pool X [T, N, 4] spans (the pool never enforces
-    nameplate): p_lo_i = min(P_i^min, min_t P_gen,i,t), p_hi_i = max(P_i^max, max_t P_gen,i,t), likewise Q."""
-    gen = generator_output(X, *base)  # [T, N, 2]
+    generator limits widened to the range the benign pool's generator output `gen` [T, N, 2] spans (the
+    pool never enforces nameplate): p_lo_i = min(P_i^min, min_t P_gen,i,t), p_hi_i = max(P_i^max, max_t P_gen,i,t), likewise Q."""
     return OperatingLimits(
         v_case[:, 0],
         v_case[:, 1],
@@ -44,17 +42,8 @@ def generator_output(X: np.ndarray, load_base: np.ndarray, gen_base: np.ndarray)
     return np.stack([s * gen_base[:, 0], s * load_base[:, 1] - X[..., NodeChannel.Q_INJ]], axis=-1)
 
 
-def bus_load(X: np.ndarray, load_base: np.ndarray, gen_base: np.ndarray) -> np.ndarray:
-    """The active load [..., N] (MW) behind pool states X [..., N, 4] [DAT26]: the load-positive
-    injection plus the bus's generation at the same scale factor, P_load = P_inj + s P_gen_base =
-    s P_load_base. Not the load at the slack bus, whose injection also nets the external grid's output.
-    Do not add the base generation instead: at a generator bus that gives s P_load_base + (1 - s)
-    P_gen_base. Assumes no static generator on a load bus (the pool does not scale them)."""
-    return X[..., NodeChannel.P_INJ] + generator_output(X, load_base, gen_base)[..., 0]
-
-
 def element_loads(bus_p: np.ndarray, load_bus: np.ndarray, p0: np.ndarray) -> np.ndarray:
-    """A bus's scan load (MW, from `bus_load`) split over its load elements by their base shares
+    """A bus's scan load (MW, from `engine.physics.LoadSplit.load`) split over its load elements by their base shares
     [DAT26]: P_e = P_bus(e) · P0_e / Σ_{e' at bus(e)} P0_e'. Returns [n_loads] MW; an element on a
     bus whose base loads sum to zero gets zero."""
     tot = np.zeros(len(bus_p))

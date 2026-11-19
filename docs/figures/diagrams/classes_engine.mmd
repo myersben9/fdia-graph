@@ -10,6 +10,22 @@ classDiagram
         +all_flows_from_states()
         +currents_from_states()
     }
+    class LoadSplit {
+        +generation()
+        +load()
+        +idle_units()
+        +of()
+    }
+    class ScaledSplit {
+        +of_case()
+        +generation()
+        +idle_units()
+    }
+    class NetSplit {
+        +of_pool()
+        +idle_units()
+        +generation()
+    }
     class PhysicsMixin {
         +true_load()
         +true_reactive_load()
@@ -49,6 +65,9 @@ classDiagram
     class LayerSet {
         <<models>>
     }
+    class LoadRule {
+        <<models>>
+    }
     class Measurement {
         <<sensing>>
     }
@@ -83,6 +102,8 @@ classDiagram
     EpisodeDesignMixin <|-- AttackMixin
     GridBase <|-- MeasurementMixin
     GridBase <|-- PhysicsMixin
+    LoadSplit <|-- NetSplit
+    LoadSplit <|-- ScaledSplit
     OverloadMixin <|-- AttackMixin
     StealthyMixin <|-- AttackMixin
     AttackMixin ..> AttackDesign : uses
@@ -92,19 +113,27 @@ classDiagram
     FdiaGenerator ..> GeneratorOptions : uses
     FdiaGenerator ..> GeneratorSpec : uses
     FdiaGenerator ..> LayerSet : uses
+    FdiaGenerator ..> LoadSplit : uses
     FdiaGenerator ..> Measurement : uses
     FdiaGenerator ..> MeterKind : uses
     FdiaGenerator ..> MeterPlan : uses
     FdiaGenerator ..> MeterSettings : uses
     FdiaGenerator ..> Network : uses
     FdiaGenerator ..> NoiseModel : uses
+    FdiaGenerator ..> ScaledSplit : uses
     GridBase ..> Case : uses
     GridBase ..> LayerSet : uses
+    GridBase ..> LoadSplit : uses
     GridBase ..> Measurement : uses
     GridBase ..> MeterLayers : uses
     GridBase ..> MeterPlan : uses
     GridBase ..> Network : uses
     GridBase ..> NoiseModel : uses
+    LoadSplit ..> Case : uses
+    LoadSplit ..> LoadRule : uses
     MeasurementMixin ..> Frame : uses
     MeasurementMixin ..> MeterLayers : uses
     MeasurementMixin ..> Scan : uses
+    NetSplit ..> Case : uses
+    ScaledSplit ..> BusType : uses
+    ScaledSplit ..> Case : uses

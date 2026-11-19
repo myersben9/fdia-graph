@@ -19,7 +19,7 @@ import numpy as np
 
 from ...constants.channels import EdgeChannel, NodeChannel
 from ...errors import NoLineRatings
-from ...formulas.attacks import branch_ratings, generator_output
+from ...formulas.attacks import branch_ratings
 from ...models.config import OverloadSettings
 from ...models.frames import AmOverloadDesign, FlowGoal, Frame, FrameKnobs
 from ...ratings import pglib_branches
@@ -83,14 +83,15 @@ class OverloadMixin(MinimizeMixin):
         return self._line_ratings
 
     def eligible_lines(self, window: list[np.ndarray], hops: int) -> np.ndarray:
-        """The branches an overload attack may target over the snapshots `window`: rated, flow
-        metered (the goal is what the operator sees), true apparent flow below the rating at every
+        """The branches an overload attack may target over the snapshots `window`: the grid's own, rated,
+        flow metered (the goal is what the operator sees), true apparent flow below the rating at every
         snapshot, and a free injection (an attackable load or a generator) in the area around its ends."""
         flows = self.clean_flows_from_states(np.stack(window))  # [T, E, 2], unmetered zeroed
         rating = self.window_ratings(flows)  # finite per window under "delta"
         # [E] the window's largest true flow
         S = np.hypot(flows[..., EdgeChannel.P_FROM], flows[..., EdgeChannel.Q_FROM]).max(axis=0)
         ok = np.isfinite(rating) & self.flow_metered & (S < np.nan_to_num(rating, nan=-np.inf))
+        ok &= self.case.own_bus[self.ei].all(axis=0)  # both ends in the grid itself
         free = set(self.free_injection_buses().tolist())
         lines = [int(b) for b in np.flatnonzero(ok) if self._acts_on(int(b), free, hops)]
         return np.array(lines, dtype=np.int64)
@@ -162,7 +163,7 @@ class OverloadMixin(MinimizeMixin):
     def pretended_change(self, Xt: np.ndarray, Xa: np.ndarray, buses: np.ndarray) -> np.ndarray:
         """The relative change the false state pretends at each bus of `buses`: at a generator bus (with
         or without a load) |dP + j dQ| / |P_gen + j Q_gen|; at a load bus |dP| / |P_load|."""
-        gen = generator_output(Xt, self.load_base, self.gen_base)  # [N, 2] MW, MVAr
+        gen = self.split.generation(Xt)  # [N, 2] MW, MVAr
         load = self.true_load_by_bus(Xt)
         dP = Xa[:, NodeChannel.P_INJ] - Xt[:, NodeChannel.P_INJ]
         dQ = Xa[:, NodeChannel.Q_INJ] - Xt[:, NodeChannel.Q_INJ]

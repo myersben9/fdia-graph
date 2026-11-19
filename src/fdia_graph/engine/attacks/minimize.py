@@ -21,7 +21,7 @@ from typing import TYPE_CHECKING, NamedTuple, Optional, Union, cast
 import numpy as np
 
 from ...constants.channels import NodeChannel
-from ...formulas.attacks import generator_output, tampered_channels, tampered_devices, within_limits
+from ...formulas.attacks import tampered_channels, tampered_devices, within_limits
 from ...formulas.network import _row_block, complex_voltages
 from ...formulas.noise import paper_current_sigma, paper_sigma
 from ...models.choices import CostUnit, SupportMethod
@@ -163,7 +163,7 @@ class MinimizeMixin(FalseStateMixin):
         if Xa is None:
             return None
         if k.limits is not None:  # every generator the attack moves, on S's edge too
-            gen = generator_output(Xt, self.load_base, self.gen_base)
+            gen = self.split.generation(Xt)
             if not within_limits(Xa, Xt, gen, dload, k.limits, self.touched_buses(S)):
                 return None
         return Xa

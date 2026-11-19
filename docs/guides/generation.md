@@ -32,6 +32,8 @@ of its attack families, and it says what its files record. There are two.
 | `NewYorkSource` | `generation/newyork.py` | the New York pool file |
 
 `IeeeSource` (`generation/ieee.py`) is a `SearchSource` for an IEEE case by its name.
+`SearchSource.for_pool` is a `SearchSource` on a New York pool file
+([The original generator on the New York case](#the-original-generator-on-the-new-york-case)).
 
 ### 1. Open
 
@@ -207,6 +209,25 @@ an IEEE timeline split by weeks needs `time=` passed in. A New York pool stores 
 With times, the file stores `data/time`, and no episode is placed across a gap in time. Without
 them, `split_by="week"` is refused with a `ConfigError` that says the pool carries no time.
 
+### How a pool's load is read
+
+A pool stores one net injection per bus. The search-based designs need the load and the
+generation behind it, and `loads` says how to divide it.
+
+| Value | A bus's injection is read as | For a pool made by |
+|---|---|---|
+| `"scaled"` (default) | the case's load and generation, both times one factor | a power flow on a scaled case (the released IEEE pools) |
+| `"net"` | all generation at a bus with a unit, all load at any other bus | an OPF, which sets each unit's output on its own |
+
+Under `"net"` the load at a unit's own bus is not seen, so the designs never pick it, and a bus
+counts as a load only when its mean load over the pool is above 1 MW (`LOAD_FLOOR_MW`). The
+classes are `ScaledSplit` and `NetSplit` in `engine/physics.py`. A file records `loads` in its
+settings when it is not the default.
+
+A design picks its targets among the grid's own buses (`Case.own_bus`). On an IEEE case that is
+every bus. On the New York case it is the 46 New York buses; the other 94 stand for the
+neighbouring grids.
+
 ### The New York settings
 
 `NewYorkSettings` holds the settings of a `NewYorkSource`.
@@ -267,10 +288,45 @@ Every row is a difference in settings or in data. The steps above are the same.
 | Entry point | `fg.generate` | `pipelines/newyork/build_timeline.py` |
 | Released data | a pool and a timeline per system | none; you build both |
 
-Two of these rows are tied together today. The search-based designs read the meters that
+The design family row is the default of each entry point, not a limit: the search-based designs
+run on the New York case too (next section). Two of these rows are still tied together. The search-based designs read the meters that
 `MeterPlan.from_coverage` places, and the New York designs read the meters that `plan_meters`
 places. So the meter placement and the design family both follow the source. Neither is a
 setting of its own. [The attack families](../concepts/attacks.md) says what each design does.
+
+## The original generator on the New York case
+
+The New York case is a test case of `SearchSource` like an IEEE case: coverage meters, the
+search-based ramp and overload, and the settings of `TimelineSettings`.
+
+```python
+from fdia_graph.data.pool import read_pool
+from fdia_graph.generation.search import SearchSource
+from fdia_graph.models.config import OverloadSettings, TimelineSettings
+from fdia_graph.systems.case import nygrid_case
+from fdia_graph.systems.network import Network
+
+net = Network(nygrid_case())
+pool = read_pool("tests/nygrid/data/days/pool_2019_v3_days.h5")
+am = OverloadSettings(rating_source="delta", load_cap=0.1)
+settings = TimelineSettings.of(split_by="week", ramp_len=12, attacked_frac=0.3, am_attack=am)
+SearchSource.for_pool(net, pool, settings, seed=5).generate("out/ny_search.h5")
+```
+
+`for_pool` hands the generator the pool as it reads one: the solved frames only, with their
+times, injections positive for load, and `loads="net"`. The file has the layout of an IEEE file:
+a flow at the from end, currents as real and imaginary parts, one client.
+
+| | On this case |
+|---|---|
+| Meters | `MeterPlan.from_coverage` draws them over all 140 buses, the neighbours' included |
+| Ramp targets | New York buses with no unit whose mean load in the pool is above 1 MW |
+| Overload targets | branches with both ends in New York; the units it may move are New York's |
+| A design's area | the buses within `hops` of its targets, a neighbour's included: such a bus is never a target or a label, but its readings move with the false state |
+| Ratings | `rating_source="delta"` rates a line from its own window; the default rates it at 1.25 times its peak flow in the pool |
+
+`tests/nygrid/test_any_case.py` runs this on the two checked-in days and checks that every
+labelled bus is New York's.
 
 ## Entry point: an IEEE case
 
