@@ -20,7 +20,6 @@ from typing import TYPE_CHECKING, Optional, cast
 
 import numpy as np
 
-from ...formulas.attacks import within_limits
 from ...models.choices import SupportMethod
 from ...models.config import TrustSchedule
 from ...models.frames import AttackVector, FlowGoal, FrameKnobs, Goal, LoadGoal, MinimizerResult
@@ -140,52 +139,6 @@ class Minimizer(Part):
         choices = [frozenset(int(b) for b in combo) for combo in itertools.product(*ends_of)]
         starts = list(dict.fromkeys(choices))  # each set once, in a fixed order
         return ends, starts, frozenset(int(b) for b in self.g.false_state.free_injection_buses())
-
-    def goal_state(
-        self, goal: Goal, t: int, x_true: np.ndarray, support: np.ndarray, knobs: FrameKnobs
-    ) -> Optional[np.ndarray]:
-        """The false state of snapshot t on the support that meets the goal inside the operating limits, or
-        None. Unknowns: |V| and theta of the support, every other voltage held true. A load goal is the square
-        local power flow; a flow goal frees the support's loads and generators (`solve_flow_local`, [WU26 eqs.
-        13-25])."""
-        if goal.kind == "flow":
-            return self._flow_goal_state(cast(FlowGoal, goal), t, x_true, support, knobs)
-        return self._load_goal_state(cast(LoadGoal, goal), t, x_true, support, knobs)
-
-    def _flow_goal_state(
-        self, goal: FlowGoal, t: int, x_true: np.ndarray, support: np.ndarray, knobs: FrameKnobs
-    ) -> Optional[np.ndarray]:
-        x_false, _, dload = self.g.false_state.solve_flow_local(
-            x_true, support, goal.lines, goal.targets_at(t), knobs.limits, knobs.load_cap
-        )
-        if x_false is None:
-            return None
-        if knobs.limits is not None:  # every generator the attack moves, on the support's boundary too
-            gen = self.g.split.generation(x_true)
-            if not within_limits(
-                x_false, x_true, gen, dload, knobs.limits, self.g.false_state.reach(support)
-            ):
-                return None
-        return x_false
-
-    def _load_goal_state(
-        self, goal: LoadGoal, t: int, x_true: np.ndarray, support: np.ndarray, knobs: FrameKnobs
-    ) -> Optional[np.ndarray]:
-        design = goal.designs[t]
-        p_load_true, q_load = (
-            self.g.scan_loads.true_load(x_true),
-            self.g.scan_loads.true_reactive_load(x_true),
-        )
-        p_load = p_load_true.copy()
-        p_load[design.targets] *= design.mult
-        x_false = self.g.false_state.solve_local(x_true, support, p_load, q_load)
-        if x_false is None:
-            return None
-        if knobs.limits is not None and not self.g.false_state.state_within_limits(
-            x_false, x_true, p_load - p_load_true, knobs.limits, support
-        ):
-            return None
-        return x_false
 
     def _supports(
         self, starts: list[frozenset[int]], area: np.ndarray, must_hold: Optional[frozenset[int]] = None

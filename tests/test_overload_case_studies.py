@@ -88,7 +88,7 @@ def _devices(g, window, k, goal, support) -> tuple[set[str], float]:
 
 
 def _reaches_both_ratings(g, window, k, goal, support) -> None:
-    x_false = g.minimizer.goal_state(goal, len(window) - 1, window[-1], support, k)
+    x_false = g.false_state.goal_state(goal, len(window) - 1, window[-1], support, k)
     assert x_false is not None
     flows = g.emitter.clean_flows_from_states(x_false[None])[0, list(goal.lines)]
     ratings = g.overload.line_ratings()[list(goal.lines)]

@@ -145,7 +145,7 @@ def test_the_support_attack_vector_equals_the_full_one(gen, pool):
     window, goal = _goal(gen, pool, "Am", 150, (1,))
     win = AttackWindow(gen, window, goal, k)
     S = np.array([4, 5])
-    x_false = gen.minimizer.goal_state(goal, 0, window[0], S, k)
+    x_false = gen.false_state.goal_state(goal, 0, window[0], S, k)
     assert x_false is not None
     near = win.near(S)
     a_edge, a_cur = win._branch_attack(0, x_false, near)

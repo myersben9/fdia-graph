@@ -97,13 +97,13 @@ class EpisodeDesigns(Part):
         return design._replace(support=held, tamper=result)
 
     def am_overload_design(
-        self, X: np.ndarray, t: int, length: int, knobs: FrameKnobs, rng: Optional[np.random.Generator] = None
+        self, states: np.ndarray, knobs: FrameKnobs, rng: Optional[np.random.Generator] = None
     ) -> Optional[AmOverloadDesign]:
-        """One Am episode starting at t: the first target set, in a random order of the eligible branches,
-        whose support meets the goal at every snapshot [WU26 eqs. 24-25] inside the limits [WU26 eqs. 21-23]
-        and moves a device beyond noise; None when no set does. One draw from `rng` (None: the generator's
-        own stream), if a branch exists."""
-        window = [X[u] for u in range(t, min(t + length, len(X)))]
+        """One Am episode over the window `states` [L, N, 4]: the first target set, in a random order of the
+        eligible branches, whose support meets the goal at every snapshot [WU26 eqs. 24-25] inside the limits
+        [WU26 eqs. 21-23] and moves a device beyond noise; None when no set does. One draw from `rng` (None:
+        the generator's own stream), if a branch exists."""
+        window = [states[u] for u in range(len(states))]
         lines = self.g.overload.eligible_lines(window, knobs.hops)
         if len(lines) == 0:
             return None

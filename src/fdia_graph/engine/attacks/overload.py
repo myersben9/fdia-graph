@@ -150,7 +150,7 @@ class Overload(Part):
         """Frame i of the episode on its state `x_true`: the false state on the held support that reaches the
         goal's flow, emitted on the true scan; and the noiseless apparent flow it reaches on each target
         branch (MVA, `goal.lines` order). (None, NaN) when the frame cannot be built."""
-        x_false = self.g.minimizer.goal_state(design.goal, i, x_true, design.support, knobs)
+        x_false = self.g.false_state.goal_state(design.goal, i, x_true, design.support, knobs)
         if x_false is None:
             return None, np.full(len(design.goal.lines), np.nan)
         # the labels: the free injections of the support, the loads and generator outputs it pretends

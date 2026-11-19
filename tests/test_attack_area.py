@@ -102,7 +102,7 @@ def test_every_attack_the_search_returns_is_valid():
     prev = w.prev
     for t in range(len(window)):
         free = w.support_at(t, r.support)
-        x_false = g.minimizer.goal_state(goal, t, window[t], free, k)
+        x_false = g.false_state.goal_state(goal, t, window[t], free, k)
         assert x_false is not None
         reached = g.emitter.clean_flows_from_states(x_false[None])[0, lines]
         assert np.allclose(np.hypot(reached[:, 0], reached[:, 1]), goal.targets_at(t), atol=1e-6)

@@ -66,7 +66,7 @@ def _reaches_the_goal(g, window, k, goal, result, trust=None) -> None:
     w = AttackWindow(g, window, goal, k, trust=trust)
     for t in range(len(window)):
         S = w.support_at(t, result.support)
-        x_false = g.minimizer.goal_state(goal, t, window[t], S, k)
+        x_false = g.false_state.goal_state(goal, t, window[t], S, k)
         assert x_false is not None, f"no false state at snapshot {t}"
         for b in w.pinned[t]:
             assert np.array_equal(
