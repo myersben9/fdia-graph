@@ -194,6 +194,22 @@ class AmOverloadDesign(NamedTuple):
     tamper: MinimizerResult  # the search's result for the window
 
 
+class SupportCost(NamedTuple):
+    """What a support costs over an attack window [WU26 eq. 12]: the devices and the channels its
+    false states move beyond noise at some snapshot, and its size in buses."""
+
+    devices: int  # devices with a channel moved beyond noise at some snapshot
+    channels: int  # channels moved beyond noise at some snapshot
+    size: int  # buses in the support
+
+    def key(self, channels_first: bool) -> tuple[int, int, int]:
+        """The cost in the order the search compares it: the objective first (devices, or channels
+        with `FrameKnobs.objective` "channels"), the other count next, the size last."""
+        if channels_first:
+            return self.channels, self.devices, self.size
+        return self.devices, self.channels, self.size
+
+
 class MinimizerResult(NamedTuple):
     """The cheapest support found for one attack window [WU26 eq. 12] (the search holds no claim of
     optimality: [WU26] does not prove its minimum either)."""

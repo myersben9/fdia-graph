@@ -111,7 +111,7 @@ def test_every_attack_the_search_returns_is_valid():
                 x_false[b, [NodeChannel.V, NodeChannel.THETA]],
                 window[t][b, [NodeChannel.V, NodeChannel.THETA]],
             )
-        node, edge, _, now = w._snapshot(t, free, prev)
+        (node, edge, _), now = w._snapshot(t, free, prev)
         sig_node, sig_edge = w.sigma[t]
         quiet = (~node) & (w.node_m > 0)
         assert (np.abs(now.node)[quiet] <= sig_node[quiet] + 1e-12).all()

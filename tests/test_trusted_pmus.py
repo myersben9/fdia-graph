@@ -127,7 +127,7 @@ def _named(g, window, k, goal, trust, result) -> set[str]:
     for t in range(len(window)):
         snap = w._snapshot(t, w.support_at(t, result.support), prev)
         assert snap is not None
-        node, edge, cur, prev = snap
+        (node, edge, cur), prev = snap
         for b, c in zip(*np.nonzero(node)):
             names.add(
                 ("PMU " if c in (NodeChannel.V, NodeChannel.THETA) and w.pmu[b] else "SCADA ")
