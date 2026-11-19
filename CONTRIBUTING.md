@@ -70,7 +70,7 @@ listed in `NOT_YET_PLAIN` in `tools/prereview.py`, each with its reason. `CHANGE
 | rule | means | command |
 |---|---|---|
 | nothing a user sees changes without a changelog entry | public API, file formats, the numbers a timeline, estimator or localizer produces; a private name (a leading underscore) carries no promise and gets no alias when it moves | `CHANGELOG.md`, `## Unreleased` |
-| every change is proven behaviour-free, or its effect is measured | the tests pin the fewest-tamper search's answers (`tests/test_search_speed.py`), [WU26]'s scenarios (`tests/test_overload_case_studies.py`), the formulas and models, and whole generated files: every dataset and attribute of an IEEE timeline and of a New York build against stored digests (`tests/test_timeline_digests.py`, `tests/nygrid/test_timeline_digests.py`; bit for bit on the machine that recorded them, skipped elsewhere, `tests/digests.py`); a change that moves a generated number states the delta and rewrites the snapshot with `FDIA_UPDATE_DIGESTS=1` | `pytest -W "error::DeprecationWarning:fdia_graph" tests` |
+| every change is proven behaviour-free, or its effect is measured | the tests pin the fewest-tamper search's answers (`tests/test_search_speed.py`), [WU26]'s scenarios (`tests/test_overload_case_studies.py`), the formulas and models, and whole generated files: every dataset and attribute of an IEEE timeline against stored digests (`tests/test_timeline_digests.py`; bit for bit on the machine that recorded them, skipped elsewhere, `tests/digests.py`); a change that moves a generated number states the delta and rewrites the snapshot with `FDIA_UPDATE_DIGESTS=1` | `pytest -W "error::DeprecationWarning:fdia_graph" tests` |
 | code reads as its subject | complexity 10, nesting 3, no closure captures, at most 7 parameters, no positional record indexing; every equation a named function in `formulas/` with a source key; every returned bundle a model in `models/` | `python tools/readability.py --report`, `--check --base origin/main` |
 | an input is checked in one place | a new argument is a field on its consumer's model in `models/config.py`, with its rules in the annotation (`Annotated[float, Positive()]`, `OneOf(<Choice>)`) and cross-field rules in `invariants()`; a dataset precondition is a `ds.require(...)` capability; a condition only the data reveals raises a named error from `errors.py`; never a `raise ValueError` in a function body | `python tools/readability.py --check` (refuses a new one) |
 | everything is typed | every parameter, return and field carries its real type; an optional dependency's type (pandapower, torch, h5py, scipy, pandas) is imported under `if TYPE_CHECKING:` so the import stays lazy; `Any` only where the value can be anything, listed in `ANY_ALLOWED` in `tools/readability.py` with the reason | `python tools/readability.py --check` (refuses an unlisted `Any` and a stale entry), pyright in CI |
@@ -181,18 +181,14 @@ NYGRID_ROOT=/path/to/nygrid pytest tests/nygrid
 | input | where | which tests |
 |---|---|---|
 | the public inputs | `NYGRID_ROOT/data`, downloaded by `fetch_inputs` | most tests; CI runs the folder on these (`.github/workflows/nygrid.yml`) |
-| the pool's frames of two days | checked in, `tests/nygrid/data/days` | the timeline digests |
-| the whole 2019 pool | `NYGRID_ROOT/out`, built locally | the tests that rate lines or survey onsets over the year |
+| the pool's frames of two days | checked in, `tests/nygrid/data/days` | the timeline and client tests on the New York case |
 
-The golden snapshots pin what the interface attack and the persistence rule return on fixed inputs.
+The golden snapshot pins what the persistence rule returns on fixed inputs.
 
 | snapshot | compared by | rewritten with |
 |---|---|---|
-| `tests/nygrid/golden/`, the interface attack's designs | `tests/nygrid/test_golden.py`; needs the whole 2019 pool and skips without it | `NYGRID_UPDATE_GOLDEN=1` |
 | `analysis/tests/golden/persistence_rule.json`, two numbers | `analysis/tests/test_detect.py`; needs no data | an edit to the file |
-| `tests/nygrid/golden/`, whole-file digests of a New York timeline and of two episodes | `tests/nygrid/test_timeline_digests.py`; bit for bit on the machine that recorded them, skipped elsewhere | `FDIA_UPDATE_DIGESTS=1` |
 
-A failure of `tests/nygrid/test_golden.py` names the first value that changed.
 `tests/nygrid/test_examples.py` runs the attack-family example of `docs/guides/extending.md` as
 published, and `analysis/tests/test_detect.py` the alarm-rule example. A change to the case file
 `src/fdia_graph/systems/case_nygrid.m` moves generated numbers, so it comes with the snapshots it moves.

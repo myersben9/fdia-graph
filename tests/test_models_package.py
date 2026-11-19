@@ -38,8 +38,6 @@ NEW_YORK = (
     "fdia_graph.data.loads",
     "fdia_graph.data.pool",
     "fdia_graph.data.ipopt_solver",
-    "fdia_graph.generation.newyork",
-    "fdia_graph.systems.interfaces",
     "fdia_graph.engine.attacks.family",
     "fdia_graph.sensing",
     "fdia_graph.systems.case",

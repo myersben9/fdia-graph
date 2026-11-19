@@ -50,8 +50,12 @@ FLOW_KINDS = (MeterKind.PF, MeterKind.QF)  # the kinds of a flow meter, in a flo
 # The two parts of a current phasor stored as real and imaginary part. Their error is relative to
 # the phasor's magnitude |I|, not to the part's own size [C37118].
 PHASOR_KINDS = (MeterKind.IR, MeterKind.II)
-# The kinds of a file that stores its currents as magnitude and angle (New York's).
-POLAR_FILE_KINDS = tuple(k for k in MeterKind if k not in PHASOR_KINDS)
+# The kinds of a file, by how it stores its currents (`schema.Attr.CURRENT_FORM`): as magnitude and
+# angle, or as real and imaginary part.
+FILE_KINDS = {
+    "polar": tuple(k for k in MeterKind if k not in PHASOR_KINDS),
+    "rectangular": tuple(k for k in MeterKind if k not in (MeterKind.I, MeterKind.IA)),
+}
 
 # The accuracy of each kind as (relative, absolute) standard deviations, sigma = rel |z| + abs: the
 # classes of `ACCURACY_CLASS` per meter kind, with the angles in degrees like the state. A PMU current

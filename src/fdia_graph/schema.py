@@ -250,26 +250,21 @@ CURRENT_UNITS_LEGEND = {
     CURRENT_RECTANGULAR: "pu on the base current",
     CURRENT_POLAR: "I:pu on the base current,angle:deg",
 }
-# What a 1 in the tamper masks means (`Attr.TAMPER` of attack/): in an IEEE file, and in a New York
-# file (where a bus is labelled attacked where a meter at it is 1).
+# What a 1 in the tamper masks means (`Attr.TAMPER` of attack/): for the package's own families, and
+# for a family that designs an attack vector (a bus is then labelled where a meter at it is 1).
 IEEE_TAMPER_RULE = (
     "1 where the attacker wrote the meter: the meters the local false state moves for the "
     "stealthy families, the changed channels for Ad/As/Ar"
 )
-NEW_YORK_TAMPER_RULE = (
-    "1 where the attack moves the meter's reading by more than its accuracy-class standard deviation"
+VECTOR_TAMPER_RULE = (
+    "for a family that designs an attack vector, 1 where the attack moves the meter's reading by "
+    "more than its accuracy-class standard deviation"
 )
-# The legends of graph/: what its datasets are and the order of their rows, in an IEEE file and in a
-# New York file (whose rows are in the case file's order).
+# The legends of graph/: what its datasets are and the order of their rows.
 GRAPH_LEGEND = {
     Attr.EDGE_FEAT_STATIC: "r,x,b,g,tap,shift,status,is_trafo (per unit, ppc order = lines then trafos)",
     Attr.BUS_FEAT_STATIC: "shunt_g,shunt_b (MW/MVAr at 1.0 pu, ppc bus order)",
     Attr.YBUS_RECONSTRUCTIBLE: "yes, see fdia_graph tests: Y = f(edge_r,x,b,g,tap,shift,status)+bus shunts",
-}
-NEW_YORK_GRAPH_LEGEND = {
-    **GRAPH_LEGEND,
-    Attr.EDGE_FEAT_STATIC: "r,x,b,g,tap,shift,status,is_trafo (per unit, the case file's branch order)",
-    Attr.BUS_FEAT_STATIC: "shunt_g,shunt_b (MW/MVAr at 1.0 pu, the case file's bus order)",
 }
 
 

@@ -80,23 +80,24 @@ generator (`core.py`) and, under `engine/attacks/`, the attack designs of
 every grid. There are two families.
 
 - `At`, the slow ramp: a false load that rises a little each frame.
-- `Am`, the overload: the reported flow of a line or an interface rises to its limit.
+- `Am`, the overload: the reported flow of a line rises to its rating.
 
 Each attacked frame is the reading of one false AC state. The attacker re-solves a small area of
 the grid and holds every voltage outside it true. The attack vector is h(x_false) - h(x_true),
 added to the benign scan.
 
-| Grid | `At` | `Am` |
+| Family | Design | Family class |
 |---|---|---|
-| IEEE cases | `ramp_design` | `am_overload_design` |
-| New York | `Ramp` | `InterfaceFdia` |
+| `At` | `ramp_design` | `SearchRamp` |
+| `Am` | `am_overload_design` | `SearchOverload` |
 
-The IEEE designs are methods of `FdiaGenerator` (`engine/core.py`), which gets them from
-`AttackMixin`. The New York designs are classes on one `Attacker` (`engine/attacks/attacker.py`).
+The designs are methods of `FdiaGenerator` (`engine/core.py`), which gets them from
+`AttackMixin`. They run on every test system.
 A timeline asks every family the same thing, the episode of a window (`EpisodeFamily.designed`,
-`engine/attacks/family.py`); the IEEE designs answer as the families `SearchRamp` and
-`SearchOverload` (`engine/attacks/search.py`). [The attack families](attacks.md) describes
-both families and both kinds of design.
+`engine/attacks/family.py`); the designs answer as the families `SearchRamp` and
+`SearchOverload` (`engine/attacks/search.py`). A source also takes a family of your own in
+place of one of them. [The attack families](attacks.md) describes both families and their
+designs.
 
 You now have: the episodes, each with its frames, its buses and its attack vectors.
 
@@ -108,19 +109,18 @@ the file, cut the train, validation and test splits, place the episodes, design 
 frames in time order, and finish the file.
 
 - The steps are written once. A source is a subclass that builds the generator, the pool and the
-  designer of its families, and says what its files record: `SearchSource` (`generation/search.py`),
-  the original generator, built on a `Network` (`IeeeSource` in `generation/ieee.py` builds it for an
-  IEEE case by name), and `NewYorkSource` (`generation/newyork.py`), the New York release. How the
-  splits are cut is a setting of every source, `split_by`: three blocks in time order, or whole
+  designer of its families, and says what its files record. The package has one: `SearchSource`
+  (`generation/search.py`), the original generator, built on a `Network`. `IeeeSource` in
+  `generation/ieee.py` builds it for an IEEE case by name, and `SearchSource.for_pool` builds it
+  on a pool file, as the New York case has. How the
+  splits are cut is a setting of the source, `split_by`: three blocks in time order, or whole
   weeks, which need each frame's time (an IEEE pool stores none, so the caller passes `time=`).
 - `TimelineWriter` (`generation/write.py`) is the one writer of the HDF5 file.
 - `schema.py` defines every group, dataset and attribute name of the file, once.
-- Settings arrive as models from `models/config.py`: `TimelineSettings` for an IEEE timeline,
-  `NewYorkSettings` for a New York one. `NewYorkRelease` holds what the released New York
-  timeline is built from.
+- Settings arrive as one model from `models/config.py`, `TimelineSettings`.
 
-`fg.generate` starts an IEEE timeline through `generate_timeline` in `timeline.py`. The script
-`pipelines/newyork/build_timeline.py` starts the New York one.
+`fg.generate` starts an IEEE timeline through `generate_timeline` in `timeline.py`. On the New
+York case you build the source yourself, with `SearchSource.for_pool`.
 [Generate a timeline](../guides/generation.md) has every step and every setting, and
 [Layers and labels](layers.md) what the file stores per frame.
 
@@ -136,7 +136,7 @@ the static graph once and slices records on request, so the whole file is never 
 - `dataset/` has one concern per file: `base.py` (shared state), `graph.py` (the static graph),
   `physics.py` (admittances and clean flows), `records.py` (one record, batches), `export.py`
   (whole-split arrays) and `sequence.py` (windows and episodes).
-- `clients.py` reads a New York timeline as federated clients, one per utility.
+- `clients.py` reads a timeline that records the owners of its buses as federated clients.
 - `errors.py` defines every error the package raises on purpose.
 
 The package's `__init__.py` imports the heavy helpers only when they are called, so `fg.load`

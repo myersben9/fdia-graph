@@ -46,12 +46,12 @@ class FdiaGenerator(AttackMixin):
         """The generator of any grid: its `Network`, and the meter plan of `meters` drawn from `seed`
         (`MeterPlan.from_coverage`: the meters, then their biases). Only PMUs read angles, and they
         read branch currents [WU26 eqs. 17-20]. A `plan` is used as given and nothing is drawn. A
-        scan is laid out in the layers of `spec` (the New York release meters both ends of a branch).
+        scan is laid out in the layers of `spec` (a plan that meters both ends of a branch needs `LayerSet(both_ends=True)`).
         `split` says how the pool's injections divide into load and generation (None: a scaled pool)."""
         options = GeneratorOptions(max_load_mw)
         self.split = ScaledSplit.of_case(net.case) if split is None else split
         self._open(net, seed, spec, options.max_load_mw)
-        self._meter(MeterPlan.from_coverage(self.case, meters, self.rng) if plan is None else plan)
+        self.use_plan(MeterPlan.from_coverage(self.case, meters, self.rng) if plan is None else plan)
 
     def _open(self, net: Network, seed: int, spec: LayerSet, max_load_mw: Optional[float]) -> None:
         """The grid, the generator's random stream and the tables of the case."""
@@ -69,7 +69,7 @@ class FdiaGenerator(AttackMixin):
         self._load_tables()
         self._case_limits()
 
-    def _meter(self, plan: MeterPlan) -> None:
+    def use_plan(self, plan: MeterPlan) -> None:
         """The meter plan with its measurement function, its noise and the masks of its meters."""
         self.plan, self.meas, self.noise = plan, Measurement(self.net, plan), NoiseModel(plan)
         self.masks = self.layers(np.ones(len(plan.kind), np.uint8))

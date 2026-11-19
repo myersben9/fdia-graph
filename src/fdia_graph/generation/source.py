@@ -3,10 +3,9 @@
 `TimelineSource.generate` makes every timeline in the same order: open the file, prepare, cut the
 splits, then split by split place the episodes, design them and walk the frames in time order, and
 finish the file. Those steps are written here once, on a generator over the grid, the pool and the
-designer of the attack families. A subclass builds them and says what its files record:
-`generation.search.SearchSource` (any grid, random meters, the search-based families; an IEEE case
-by name is `generation.ieee.IeeeSource`) and `generation.newyork.NewYorkSource` (the New York
-release: owned meters, the families that design an attack vector, splits of whole weeks).
+designer of the attack families. A subclass builds them and says what its files record. The
+package's one subclass is `generation.search.SearchSource` (any grid, coverage meters, the
+search-based families or families of your own; an IEEE case by name is `generation.ieee.IeeeSource`).
 docs/guides/generation.md has the steps one by one.
 """
 
@@ -27,7 +26,7 @@ from ..engine.attacks.family import DesignedEpisode
 from ..engine.core import FdiaGenerator
 from ..errors import ConfigError
 from ..models.choices import Split, SplitBy
-from ..models.config import NewYorkSettings, TimelineSettings
+from ..models.config import TimelineSettings
 from ..models.inputs import SplitRule
 from ..models.plan import Episode, Placement, Planned, Slot, SplitSpan
 from ..systems.states import States
@@ -45,8 +44,6 @@ from .plan import (
 from .write import TimelineWriter
 
 OutPath = Union[str, "os.PathLike[str]"]  # where a timeline file is written
-# a timeline's settings: the share attacked, the splits, the episode lengths
-SourceSettings = Union[TimelineSettings, NewYorkSettings]
 
 
 class TimelineSource(ABC):
@@ -70,7 +67,7 @@ class TimelineSource(ABC):
         g: FdiaGenerator,
         X: States,
         designer: Designer,
-        settings: SourceSettings,
+        settings: TimelineSettings,
         placed: Sequence[str],
         seed: int,
         time: Optional[np.ndarray] = None,
@@ -156,8 +153,8 @@ class TimelineSource(ABC):
     # ---- prepare, cut, place -----------------------------------------------------------------------
 
     def prepare(self) -> None:
-        """What the source must work out before the splits are cut. Nothing by default; the New York
-        grid finds here the onsets its families may take."""
+        """What the source must work out before the splits are cut. Nothing by default; a subclass
+        whose families may start only at some onsets finds them here (`onset_masks`)."""
 
     def cut_splits(self) -> list[SplitSpan]:
         """The train, val and test splits of the timeline, cut before any episode is placed: each

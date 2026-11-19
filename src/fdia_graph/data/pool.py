@@ -5,7 +5,7 @@ the pool file of the build, HDF5. A timeline is written by the writer every grid
 from __future__ import annotations
 
 import time
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -18,7 +18,6 @@ from fdia_graph.errors import DataConditionError, NotFitted
 from fdia_graph.models.config import NewYorkSolve, SolveSettings
 from fdia_graph.models.grid import OperatingPoint
 from fdia_graph.systems.case import Case
-from fdia_graph.systems.network import Network
 
 if TYPE_CHECKING:  # the pool record is read without pandapower or Pyomo, so the solvers are only types here
     from fdia_graph.data.dispatch import Dispatch
@@ -272,21 +271,6 @@ class PoolBuilder:
             "seconds": round(self.seconds, 1),
             "ms_per_frame": round(1000 * self.seconds / max(len(pool.time), 1), 2),
         }
-
-
-def peak_ratings(case: Case, pool: Pool, factor: float = 1.0, chunk: int = 8760) -> Case:
-    """`case` with every unrated branch (rating 0) rated at `factor` times its peak apparent flow (MVA, the
-    larger end) over the pool's solved frames; at 1.0 a line's busiest scan of the year sits at its rating.
-    A public rating is kept. Frames go in chunks so a year of flows is never in memory at once."""
-    net = Network(case)
-    solved = np.flatnonzero(pool.solve_kind == SolveKind.SOLVED)
-    peak = np.zeros(len(case.f))
-    for i in range(0, len(solved), chunk):
-        k = solved[i : i + chunk]
-        pf, qf, pt, qt = net.flows(pool.vm[k], pool.va[k])
-        peak = np.maximum(peak, np.maximum(np.hypot(pf, qf), np.hypot(pt, qt)).max(axis=0))
-    rating = np.where(case.rating > 0, case.rating, factor * peak)
-    return replace(case, rating=rating)
 
 
 def write_pool(path: str | Path, pool: Pool) -> None:

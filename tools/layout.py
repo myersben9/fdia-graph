@@ -17,7 +17,7 @@ Each rule is a kind of drift that once made the tree hard to read (CONTRIBUTING.
   where it fits. Where both toolkits have a module of one name (`models/config.py`), the analysis one is
   named with its package (`fdia_analysis.models.config`).
 - **cited names**: a code span in a Markdown file or a Python file that names a module, or a name in one
-  (`fdia_analysis.trust.base`, `trust.base.TrustSelector`, `ramp.py`), names something that exists, in the
+  (`fdia_analysis.trust.base`, `trust.base.TrustSelector`, `search.py`), names something that exists, in the
   package it says or, with no package said, in either; a span that is an experiment of the results store
   (`se.estimators`, from results/<experiment>.csv) is one too. The CHANGELOG (whose entries name what a
   change removed) is not read.
@@ -132,20 +132,10 @@ EXEMPT: dict[str, dict[str, str]] = {
     "data/profiles.py": {"_FEEDS": "instances"},
     "dataset/base.py": {"CAPABILITIES": "functions"},
     "engine/attacks/area.py": {"AREA_HOPS": "knob", "AREA_SIZE_PENALTY": "knob"},
-    "engine/attacks/attacker.py": {"ABSORB_CAP": "knob"},
     "engine/attacks/episodes.py": {"ONSET_DRAWS": "knob"},
-    "engine/attacks/opf.py": {"SUPPORT_BUDGET": "knob"},
     "engine/attacks/overload.py": {"AM_LINE_TRIES": "knob"},
     "engine/attacks/stealthy.py": {"STEP_HALVINGS": "knob"},
     "systems/case.py": {"CASE_FILE": "path", "STATEMENT": "private", "QUOTED": "private"},
-    "generation/newyork.py": {
-        "HIT_STRATUM": "knob",
-        "SURVEY_CHUNK": "private",
-        "AM_RISE": "knob",
-        "AT_LENGTH": "knob",
-        "RELEASE_LENGTH": "knob",
-        "LAYERS": "model",
-    },
     "generation/plan.py": {"PLACE_TRIES": "knob", "STRATUM": "knob", "REDRAWS": "knob"},
     "generation/write.py": {"_BATCH": "private"},
     "models/config.py": {"_FLAT": "private", "_TOP": "private"},

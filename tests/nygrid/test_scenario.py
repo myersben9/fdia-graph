@@ -165,16 +165,6 @@ def test_pool(case, hours, tmp_path):
     assert np.array_equal(back.vm, pool.vm, equal_nan=True) and np.array_equal(back.p, pool.p, equal_nan=True)
     assert np.array_equal(back.unit_p, pool.unit_p, equal_nan=True)
 
-    # N8: the case file's ratings stay, every other branch gets its peak flow over the solved frames (N47).
-    from fdia_graph.data.pool import peak_ratings
-
-    filled = peak_ratings(case, pool)
-    pf, qf, pt, qt = solver.network.flows(pool.vm[:3], pool.va[:3])
-    peak = np.maximum(np.hypot(pf, qf), np.hypot(pt, qt)).max(axis=0)
-    public = case.rating > 0
-    assert public.any() and np.array_equal(filled.rating[public], case.rating[public])
-    assert np.allclose(filled.rating[~public], peak[~public])
-
 
 def test_pool_compensation(case, hours):
     """The shunt and reactive-limit sensitivity: units within 0.85 lagging and 0.95 leading power factor, New York's

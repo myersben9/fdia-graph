@@ -6,8 +6,8 @@ table (`order="random"`) or as the timeline (`order="time"`). This module also r
 (`_load_states`): a .npz or .h5 file with key 'X' [T, N, 4], or a directory of X_*.npy files.
 
 The one path that generates a timeline is `TimelineSource.generate` (`generation/source.py`). Its
-subclasses are `SearchSource` (`generation/search.py`; `IeeeSource` in `generation/ieee.py`) and
-`NewYorkSource` (`generation/newyork.py`).
+subclass is `SearchSource` (`generation/search.py`; `IeeeSource` in `generation/ieee.py` is it for
+an IEEE case by name).
 """
 
 from __future__ import annotations

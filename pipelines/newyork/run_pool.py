@@ -61,9 +61,9 @@ def _case():
 
 
 def unit_ramps(case) -> np.ndarray:
-    """[G] MW per frame: the per-unit rules of attacks.generator_ramps (N34), unit by unit as the OPF
-    constrains each unit: maxRampAgc, hydro without data 10% of nameplate per minute, imports 20 MW/min,
-    nuclear 0, other units without data unbounded. Under N39 only the thermal units' ramps bind."""
+    """[G] MW per frame, unit by unit as the OPF constrains each unit: maxRampAgc, hydro without data 10% of
+    nameplate per minute, imports 20 MW/min, nuclear 0, other units without data unbounded. The nuclear,
+    hydro and import units follow NYgrid's hourly output (`HELD`), so only the thermal units' ramps bind."""
     r = np.asarray(case.ramp, float).copy()
     r = np.where((case.fuel == "Hydro") & np.isnan(r), HYDRO_RAMP_PER_MIN * case.pmax, r)
     r = np.where((case.fuel == "Import") & np.isnan(r), IMPORT_RAMP_MW_PER_MIN, r)

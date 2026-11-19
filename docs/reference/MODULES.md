@@ -66,15 +66,11 @@ What every folder of the repository holds, then what every Python file does, in 
 | `engine` | The generation engine — the math/physics/theory half of the SDK, behind fg.generate(). |
 | `engine.attacks` | Every attack the generator builds, behind one mixin: `AttackMixin`, mixed into FdiaGenerator. |
 | `engine.attacks.area` | The attacker's area: the subnetwork a stealthy attack re-solves, and the boundary it holds true. |
-| `engine.attacks.attacker` | The attacker: the local subnetwork it re-solves, the false state a pretended load implies, and the bounds the grid's own behaviour puts on a pretended change (`natural_steps`, `generator_ramps`, `generator_band`, `generator_q_capability`). |
 | `engine.attacks.episodes` | What one episode attacks: its design, drawn at onset (`EpisodeDesignMixin`). |
 | `engine.attacks.false_state` | The local false state of a stealthy attack: the attacker's area re-solved under false loads with the boundary held true, checked against the operating limits, and the attack vector it writes. |
-| `engine.attacks.family` | The interface the attack families share. The design stage asks a family one thing, the episode of a window (`EpisodeFamily.designed`), and the walk emits what it gets (`DesignedEpisode`), whichever family made it. A New York family (`AttackFamily`) designs one `Episode` (`models.plan`) or a miss. |
-| `engine.attacks.interface` | Am, the overload attack on a NYISO interface (ours): over a window of scans the reported flow across an interface rises to its limit, each scan the reading of one AC false state from `OpfFdia`'s local OPF. |
+| `engine.attacks.family` | The interface the attack families share. The design stage asks a family one thing, the episode of a window (`EpisodeFamily.designed`), and the walk emits what it gets (`DesignedEpisode`), whichever family made it. A family of your own (`AttackFamily`) designs one `Episode` (`models.plan`), an attack vector over its window, or a miss. |
 | `engine.attacks.minimize` | The cheapest support of an attack window [WU26 eq. 12]. |
-| `engine.attacks.opf` | The attacker's false states from a local AC optimal power flow: the support search and the per-scan OPF every OPF attack shares. `OpfFdia` is the base class; a subclass adds the goal and `design` (`interface.InterfaceFdia`, the one the release builds). |
 | `engine.attacks.overload` | `Am`, the multi-snapshot overload attack of [WU26]: the reported flows of its target branches (one or two, `OverloadSettings.n_lines`) driven to their ratings S_max (`use_line_ratings`) over the window, with the fewest devices tampered. |
-| `engine.attacks.ramp` | At, the slow ramp: a false load that rises a little each frame, every step below the natural five-minute load swing, so no single snapshot looks anomalous while the total drifts the state away. |
 | `engine.attacks.rref` | [WU26]'s construction of the attack's support: row reduction of the transposed area Jacobian. |
 | `engine.attacks.search` | The search-based families: the slow ramp At and the overload Am [WU26]. |
 | `engine.attacks.stealthy` | The stealthy ramp At: one scan at a time, a local false state added to the true scan. |
@@ -93,7 +89,6 @@ What every folder of the repository holds, then what every Python file does, in 
 | `generation.design` | The design stage of a timeline: every placed episode of a split gets its design before the split is walked, from its family (`engine.attacks.family.EpisodeFamily.designed`). |
 | `generation.emit` | The emit stage of a timeline: every frame in time order, benign or under its episode's design. |
 | `generation.ieee` | An IEEE case by its name as the source of a timeline: the original generator (`generation.search.SearchSource`) on the case's network and its pool of operating points. |
-| `generation.newyork` | The New York grid as the source of a timeline: the year of pool states and its steps of the one path. |
 | `generation.plan` | The plan stage of a timeline: where its splits are cut and where each split's episodes go. |
 | `generation.search` | A test system as the source of a timeline, the original generator: coverage meters and the search-based designs, on any grid. |
 | `generation.source` | The one source of a timeline: a grid, its pool of operating points, and the path that generates it. |
@@ -120,7 +115,6 @@ What every folder of the repository holds, then what every Python file does, in 
 | `systems` | The test systems: a grid as a `Case` with its `Network`, whichever grid it is. |
 | `systems.case` | The grid as one frozen record of arrays, read from a MATPOWER case file or from a pandapower net. |
 | `systems.fixes` | Two variants of a case, applied when one is asked for: the external areas held at the base load, and NYgrid's HVDC links in place of the AC branch 81-125. The changes every build has (zone J's split, the 765 kV line) are in the case file itself (`case.py` reads it). |
-| `systems.interfaces` | NYISO's internal transmission interfaces on the reduced case, with their real 2019 hourly limits and flows. |
 | `systems.network` | Admittances of a Case, built once, and the AC quantities they give for any state, from the SDK's network formulas (`formulas.network`). |
 | `systems.ownership` | Federated clients: each NY bus belongs to the electric utility whose service territory holds it. |
 | `systems.pandapower_types` | The pandapower objects the package reads, as types. |
@@ -202,28 +196,18 @@ What every folder of the repository holds, then what every Python file does, in 
 | `tests/case_studies.py` | [WU26]'s case studies as test inputs: the lines each scenario overloads, its PMU buses and the attacker's area, in MATPOWER bus numbers, and their positions in a generator's grid. |
 | `tests/digests.py` | Whole-file digests of a generated HDF5 file: the proof that a refactor did not move a number. |
 | `tests/helpers.py` | The plain helpers the two test trees share (`tests/` and `analysis/tests/`): where the checkout's parts are, the tiny timeline's recipe, the old releases' files, and the checks both toolkits hold their own package to. The fixtures are in the repository root's `conftest.py`. |
-| `tests/nygrid/conftest.py` | The synthetic New York grid the timeline tests share: the packaged case file with made-up clients, eight weeks of hourly made-up states and two families that write a bias on one meter, so a timeline is generated with no NYgrid data and no solver. |
 | `tests/nygrid/inputs.py` | The inputs of the nygrid tests in one place, and which tests each one lets run. |
 | `tests/nygrid/test_any_case.py` | The New York grid is a test case of the original generator like any IEEE case: coverage meters and the search-based designs on the packaged case file and the checked-in days' pool (no solver, no NYgrid data), through `SearchSource.for_pool`. `tests/test_any_case.py` has the IEEE side. |
-| `tests/nygrid/test_attacks.py` | The New York attacker on the real grid: its area and edge rules, the false state of a pretended load, the ramp built on it (within the natural load swing, quiet to the residual test), and the bounds it reads from the pool. |
 | `tests/nygrid/test_case_file.py` | `Case.from_matpower` on a three-bus case file written here: what it reads and what it refuses. Needs no input data. |
-| `tests/nygrid/test_configs.py` | Settings are passed in, never patched onto shared objects: a widened case and an overshoot variant are copies, and the originals stay as they were (no data needed). |
-| `tests/nygrid/test_dataset.py` | A New York timeline read back (`dataset.clients`): the file holds what the source stored, in the layout of `fdia_graph.schema`; the meter table and the flat reading vector come back from its layers exactly; each client sees only its own meters, buses and labels; the operator and split views select the right frames; and the static graph gives the case's admittance matrix. On the synthetic grid of `conftest.py`: no data, no solver. |
+| `tests/nygrid/test_dataset.py` | A timeline read back as clients (`dataset.clients`): with the `Ownership` of the buses the source gives each meter to the client of its bus, and the file reads as one view per client and one for the operator. On the packaged New York case with made-up clients and the checked-in days' pool: no NYgrid data, no solver. |
 | `tests/nygrid/test_examples.py` | The extension examples of docs/guides/extending.md run as published, so the guide never shows code that broke (no data needed). |
-| `tests/nygrid/test_golden.py` | Golden snapshots of nygrid's outputs on fixed inputs, the safety net of the readability refactor. |
 | `tests/nygrid/test_grid.py` | The New York grid's case file: what it holds, its exact round trip through the MATPOWER reader and writer, the recipe that made it from NYgrid, the two case variants and the utility of each bus. |
-| `tests/nygrid/test_misses.py` | Every design that finds no attack says why (a miss reason), so a timeline with few attacks can be read: nothing to attack, nothing feasible, or a solver that failed (no data needed). |
-| `tests/nygrid/test_moves.py` | The move rule on the New York grid, and the noise of a pool frame, on the synthetic grid of `conftest.py` (no NYgrid data, no solver): a placed episode with no design moves inside its split and only where its family's mask allows, is given up after the redraw limit, never moves when the survey already holds its design; and one pool frame reads the same in a timeline and in a single-episode file. |
 | `tests/nygrid/test_public.py` | The public surface of the New York code: every module of its packages imports, a package exports no name of its own, and reading a dataset stays light (no data needed). |
-| `tests/nygrid/test_release_source.py` | The release source's attacker sensitivities stay with the attacker: a timeline built with `v_margin` records the case's true voltage limits, while the attacker designs against the widened ones. Needs the public inputs and the whole 2019 pool (inputs.py). |
 | `tests/nygrid/test_scenario.py` | The hourly operating points against NYgrid's own MATLAB output: the inputs, the dispatch, the AC projection and the pool, and the bottom-up load profiles with their within-hour calibration. |
-| `tests/nygrid/test_sensing.py` | The New York meter plan and its readings: the fewest PMUs on small graphs, the plan, the measurement Jacobian against finite differences, observability and the meter noise. |
+| `tests/nygrid/test_sensing.py` | The meter plan on the New York case and its readings: each meter owned by the client of its bus, the measurement Jacobian against finite differences, observability and the meter noise. On the packaged case file with made-up clients: no NYgrid data. |
 | `tests/nygrid/test_solve_engines.py` | The two OPF engines against each other: the package's (Pyomo and Ipopt) and pandapower's, on the same case, loads and costs. Also the choices the New York pool refuses. The comparisons read no NYgrid data and are skipped where Ipopt cannot start. |
 | `tests/nygrid/test_solvers.py` | The checked Ipopt every OPF of the New York grid runs on: a solver that is missing, or found but unable to start, raises `SolverUnavailable` with the fix, instead of reading as an infeasible model downstream. |
-| `tests/nygrid/test_stretches.py` | The New York source on a synthetic pool, with no NYgrid data and no solver: the frames written in stretches as the weekly splits are planned are the frames written in one pass, one source generates the same file twice, a single episode is the design of its (lagged) window on the true scans, and a failed run leaves no file. |
 | `tests/nygrid/test_tables.py` | The input tables are read whole and closed: no ResourceWarning, a byte-order mark dropped (no data needed). |
-| `tests/nygrid/test_timeline.py` | The New York timeline: splits cut whole and disjoint, episodes placed at random within their split and only at allowed onsets, and every frame a noisy benign scan plus its attack with labels that match the meters tampered. |
-| `tests/nygrid/test_timeline_digests.py` | The New York timeline, whole: every dataset and attribute of the files the release's source writes on the checked-in days' pool, against stored digests (`tests/digests.py` says what is compared where). |
 | `tests/test_any_case.py` | The per-case choices are settings of the one source: each works on any case whose data allows it, and is refused with the reason where the data is missing. The New York grid's side of these tests is in tests/nygrid/test_any_case.py. |
 | `tests/test_attack_area.py` | The attacker's area [WU26] Sec. III-A and the window ratings of the overload attack: the paper's own area where it states one, the region its four principles pick otherwise (rules 1 and 2 as checks, 3 and 4 as a score of ours), the "delta" ratings matched to its Fig. 4 magnitudes, and the validity of every attack the search returns (the goal met, every untampered channel within its noise, trusted buses true). |
 | `tests/test_edges.py` | The public edges: wrong arguments fail early with a message naming what is allowed, and the filters mean what the docs say. The other test files prove the happy path; this file is the rest. |
@@ -303,8 +287,6 @@ What every folder of the repository holds, then what every Python file does, in 
 
 | file | what it does |
 |---|---|
-| `pipelines/newyork/build_single_episodes.py` | The single-episode files for studying one attack by hand: one Am on an interface per file, over the whole day it falls in (288 five-minute scans), nothing else attacked. Each file is a normal timeline (`fdia_graph.dataset.clients.Dataset` reads it): the scans with the attack, the same noisy scans without it, the true states and the labels. Each is generated by the path every timeline takes (`TimelineSource.generate`), over the release's grid with that one episode (`SingleEpisodeSource`). |
-| `pipelines/newyork/build_timeline.py` | Build the release timeline from a pool: the release's source (`NewYorkSource.production` in `fdia_graph.generation.newyork`), generated by the path every timeline takes (`TimelineSource.generate`). |
 | `pipelines/newyork/make_case.py` | The recipe of the New York case file: `case_nygrid.m` made again from NYgrid's `Data/` folder. |
 | `pipelines/newyork/run_pool.py` | Build the pool of operating points for a time window as NYISO's real-time dispatch, in chunks run in parallel. |
 

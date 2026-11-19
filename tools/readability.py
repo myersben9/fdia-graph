@@ -54,7 +54,7 @@ EXCEPTIONS: dict[str, str] = {}
 # Modules these rules do not reach yet, with the reason. The New York grid's code came in from its own
 # repository as written (2026-11-02) and is brought under the rules one module at a time, each change
 # checked to reproduce the same output; until then its rules are src/fdia_graph/CLAUDE.md.
-_DATA_AS_WRITTEN = (  # the New York modules of data/; generation/newyork.py is conformed and measured
+_DATA_AS_WRITTEN = (  # the New York modules of data/
     "config.py",
     "dispatch.py",
     "inputs.py",
@@ -67,16 +67,10 @@ _DATA_AS_WRITTEN = (  # the New York modules of data/; generation/newyork.py is 
 _AS_WRITTEN = "the New York code, moved in as written; conformed module by module"
 DEFERRED: dict[str, str] = {
     **{f"{GENERATION}/data/{module}": _AS_WRITTEN for module in _DATA_AS_WRITTEN},
-    f"{GENERATION}/systems/interfaces.py": _AS_WRITTEN,
     f"{GENERATION}/systems/fixes.py": _AS_WRITTEN,
     f"{GENERATION}/systems/ownership.py": _AS_WRITTEN,
     f"{GENERATION}/systems/tables.py": _AS_WRITTEN,
-    f"{GENERATION}/engine/attacks/attacker.py": _AS_WRITTEN,
     f"{GENERATION}/engine/attacks/family.py": _AS_WRITTEN,
-    f"{GENERATION}/engine/attacks/opf.py": _AS_WRITTEN,
-    f"{GENERATION}/engine/attacks/interface.py": _AS_WRITTEN,
-    f"{GENERATION}/engine/attacks/perturbation.py": _AS_WRITTEN,
-    f"{GENERATION}/engine/attacks/ramp.py": _AS_WRITTEN,
     f"{GENERATION}/dataset/clients.py": _AS_WRITTEN,
     f"{ANALYSIS}/se/detect": _AS_WRITTEN,
 }

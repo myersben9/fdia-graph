@@ -1,12 +1,12 @@
 """The meter plan: every meter of a grid as one row of a table, with its owner and accuracy class.
 
-`plan_meters` places the meters of the New York buses, `MeterPlan.from_coverage` those of an IEEE
-case (`from_placement` at given places), and `MeterPlan.from_masks` reads the plan back from a New York file."""
+`MeterPlan.from_coverage` places the meters of a case at random (`from_placement` at given places),
+and `MeterPlan.from_masks` reads the plan back from a file."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field, fields
-from typing import TYPE_CHECKING, Optional
+from typing import Optional
 
 import numpy as np
 
@@ -14,23 +14,18 @@ from fdia_graph.constants.channels import TO_END_OFFSET
 from fdia_graph.constants.meters import (
     ACCURACY_CLASS,
     BUS_KINDS,
+    FILE_KINDS,
     FLOW_KINDS,
     JITTER_FRAC,
     KIND_ACCURACY,
     METER_SLOT,
     PHASOR_KINDS,
     PMU_CURRENT_CLASS,
-    POLAR_FILE_KINDS,
     MeterKind,
 )
 from fdia_graph.models.config import MeterSettings
 from fdia_graph.models.frames import MeterLayers
 from fdia_graph.systems.case import Case
-from fdia_graph.systems.network import Network
-from fdia_graph.systems.ownership import Ownership
-
-if TYPE_CHECKING:
-    from scipy.sparse import spmatrix
 
 
 @dataclass(frozen=True)
@@ -161,12 +156,16 @@ class MeterPlan:
         return z
 
     @classmethod
-    def from_masks(cls, masks: MeterLayers, edges: np.ndarray, bus_client: np.ndarray) -> MeterPlan:
-        """The plan a file's meter masks describe, in the row order of `plan_meters` (kind by kind, bus
-        meters by bus, branch meters by branch then end), so `gather` on the file's layers gives the vector
-        it was written from. `edges` is [2, E]. A file does not store `bias`: it reads NaN."""
+    def from_masks(
+        cls, masks: MeterLayers, edges: np.ndarray, bus_client: np.ndarray, current_form: str
+    ) -> MeterPlan:
+        """The plan a file's meter masks describe, kind by kind (bus meters by bus, branch meters by
+        branch then end), for a file that stores its currents in `current_form` ("rectangular" or
+        "polar"). `gather` on the file's layers gives that plan's flat vector. `edges` is [2, E], and
+        each meter's owner is the client of its bus (`bus_client` [N]). A file does not store `bias`:
+        it reads NaN."""
         kind, bus, branch, end = [], [], [], []
-        for k in POLAR_FILE_KINDS:
+        for k in FILE_KINDS[current_form]:
             layer, column = METER_SLOT[k]
             at_bus = layer == 0
             # row-major, so the meters come by bus, or by branch and then end
@@ -188,83 +187,3 @@ class MeterPlan:
             sigma_abs=np.array([KIND_ACCURACY[k][1] for k in kinds]),
             bias=np.full(len(kinds), np.nan),
         )
-
-
-class _PmuSearch:
-    """The branch and bound of `_min_pmus` over bitsets: `near` [N, N] bool says which buses a PMU at
-    each bus sees (itself and its neighbours), `best` is the smallest covering set found so far."""
-
-    def __init__(self, near: np.ndarray) -> None:
-        self.near, self.n = near, len(near)
-        self.cover = [sum(1 << j for j in np.flatnonzero(row)) for row in near]
-        self.full = (1 << self.n) - 1
-        self.best = list(range(self.n))
-
-    def search(self, chosen: list[int], covered: int) -> None:
-        """Extend `chosen` (which sees the buses of the bitset `covered`) to every cover that can beat `best`."""
-        if covered == self.full:
-            if len(chosen) < len(self.best):
-                self.best = chosen
-            return
-        gains = [(self.cover[c] & ~covered).bit_count() for c in range(self.n)]
-        left = (self.full & ~covered).bit_count()
-        if len(chosen) + -(-left // max(gains)) >= len(self.best):
-            return
-        uncovered = [b for b in range(self.n) if not covered >> b & 1]
-        b = min(uncovered, key=lambda u: self.near[u].sum())
-        for c in sorted(np.flatnonzero(self.near[b]).tolist(), key=lambda c: -gains[c]):
-            self.search(chosen + [c], covered | self.cover[c])
-
-
-def _min_pmus(adjacency: spmatrix) -> np.ndarray:
-    """The smallest bus set whose PMUs see every bus, sorted: each bus has a PMU or a neighbour with one,
-    since a PMU's branch current fixes the voltage at the far end of the branch [WU26]. Exact, by branch
-    and bound over bitsets. Ties go to the lower bus position, so the set is deterministic."""
-    found = _PmuSearch(adjacency.toarray().astype(bool) | np.eye(adjacency.shape[0], dtype=bool))
-    found.search([], 0)
-    return np.array(sorted(found.best), dtype=int)
-
-
-def plan_meters(net: Network, own: Ownership, rng: np.random.Generator, vbus_frac: float = 0.6) -> MeterPlan:
-    """The meters of the New York buses (external buses carry none), each owned by the client of its bus.
-    SCADA reads P and Q injection at every NY bus, P and Q flow at every branch end on a NY bus (each side of
-    a tie meters its own end), and |V| at a random `vbus_frac` of the NY buses. PMUs sit at the smallest set
-    that sees every NY bus and read voltage and current phasors [WU26] eqs. 19, 20."""
-    # draws from `rng`, in this order: the voltmeter buses, then the biases
-    case = net.case
-    ny = np.flatnonzero(own.bus_client >= 0)
-    pmu = ny[_min_pmus(net.adjacency[ny][:, ny])]
-    volt = np.union1d(rng.choice(ny, int(vbus_frac * len(ny)), replace=False), pmu)
-
-    # branch ends on NY buses, in branch order, from end first
-    ends = np.r_[
-        np.c_[np.arange(len(case.f)), np.zeros(len(case.f), int), case.f],
-        np.c_[np.arange(len(case.t)), np.ones(len(case.t), int), case.t],
-    ]
-    ends = ends[own.bus_client[ends[:, 2]] >= 0]
-    ends = ends[np.lexsort((ends[:, 1], ends[:, 0]))]
-    pmu_ends = ends[np.isin(ends[:, 2], pmu)]
-
-    # (kind, bus, branch, end) of each group of meters; a bus meter has no branch and no end (-1)
-    at_buses = ((MeterKind.V, volt), (MeterKind.VA, pmu), (MeterKind.P, ny), (MeterKind.Q, ny))
-    groups = [(k, b, np.full(len(b), -1), np.full(len(b), -1)) for k, b in at_buses]
-    groups += [(k, ends[:, 2], ends[:, 0], ends[:, 1]) for k in (MeterKind.PF, MeterKind.QF)]
-    groups += [(k, pmu_ends[:, 2], pmu_ends[:, 0], pmu_ends[:, 1]) for k in (MeterKind.I, MeterKind.IA)]
-    kind = np.concatenate([np.full(len(b), k) for k, b, _, _ in groups])
-    bus = np.concatenate([b for _, b, _, _ in groups])
-    branch = np.concatenate([br for _, _, br, _ in groups])
-    end = np.concatenate([e for _, _, _, e in groups])
-
-    sigma_rel = np.array([KIND_ACCURACY[k][0] for k in kind])
-    sigma_abs = np.array([KIND_ACCURACY[k][1] for k in kind])
-    scale = np.sqrt(1.0 - JITTER_FRAC**2) * np.where(sigma_rel > 0, sigma_rel, sigma_abs)
-    return MeterPlan(
-        kind=kind,
-        bus=bus,
-        branch=branch,
-        end=end,
-        owner=own.bus_client[bus],
-        sigma_rel=sigma_rel,
-        sigma_abs=sigma_abs,
-        bias=rng.normal(0.0, scale),
-    )

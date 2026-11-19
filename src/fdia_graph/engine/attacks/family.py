@@ -1,12 +1,13 @@
 """The interface the attack families share. The design stage asks a family one thing, the episode of
 a window (`EpisodeFamily.designed`), and the walk emits what it gets (`DesignedEpisode`), whichever
-family made it. A New York family (`AttackFamily`) designs one `Episode` (`models.plan`) or a miss.
+family made it. A family of your own (`AttackFamily`) designs one `Episode` (`models.plan`), an
+attack vector over its window, or a miss.
 
-Why a design found no attack is a miss reason, kept in `last_miss` and counted by the timeline's source as
-`missed`:
-"no_target"    nothing to attack in the window (no interface near its limit, no load bus for a ramp);
-"infeasible"   targets existed but no support met every bound;
-"solver_error" the OPF solver stopped abnormally on a support it tried, so "infeasible" may be wrong.
+Why a design found no attack is a miss reason, kept in `last_miss` and in the design stage's log
+(`Designer.log`):
+"no_target"    nothing to attack in the window;
+"infeasible"   targets existed but no design met every bound;
+"solver_error" a solver the family runs stopped abnormally, so "infeasible" may be wrong.
 """
 
 from __future__ import annotations
@@ -103,12 +104,6 @@ class AttackFamily(EpisodeFamily):
     @abstractmethod
     def design(self, window: Window, rng: np.random.Generator) -> Episode | None:
         """One episode over `window = (onset, vm, va)`, or None."""
-
-    def onset_mask(self, vm: np.ndarray, va: np.ndarray, length: int) -> np.ndarray | None:
-        """[T] bool, the frames an episode of `length` frames may start at over the pool states `vm`, `va`
-        [T, N]; None when the family may start anywhere (the default). A family that waits for a loaded
-        grid, such as the interface attack, gives its mask here."""
-        return None
 
     def design_explained(self, window: Window, rng: np.random.Generator) -> tuple[Episode | None, str | None]:
         """`design`, and why it found no attack: (the episode, None) or (None, a miss reason), the reason

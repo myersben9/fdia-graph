@@ -10,7 +10,7 @@ count.
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -104,11 +104,6 @@ class Case:
         """[N] bool: the buses of the grid itself. On a case that marks them (New York's, among its
         neighbours' equivalent buses) those; on any other case every bus."""
         return self.is_ny if self.is_ny.any() else np.ones(len(self.bus_id), bool)
-
-    def with_voltage_margin(self, margin: float) -> Case:
-        """A copy with every bus's voltage limits widened by `margin` (p.u.). It is the attacker's sensitivity
-        case: the reduced network pins New York City buses at their upper limit."""
-        return replace(self, vmin=self.vmin - margin, vmax=self.vmax + margin)
 
     def static_graph(self) -> dict[str, np.ndarray]:
         """The static graph every timeline file carries, by `Static` name: the per-unit branch model

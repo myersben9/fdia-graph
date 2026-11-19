@@ -156,10 +156,10 @@ export FG=$PWD/fdia-graph
 
 ```bash
 mkdir nygrid && cd nygrid
-python $FG/pipelines/newyork/build_timeline.py --fetch
+python -c "from fdia_graph.data.inputs import fetch_inputs; fetch_inputs('.')"
 ```
 
-This calls `fetch_inputs` in `data/inputs.py`, which writes `data/`:
+`fetch_inputs` in `data/inputs.py` writes `data/`:
 
 | Input | Source |
 |---|---|
@@ -287,4 +287,4 @@ The fit functions are not part of the package.
 | `data/ipopt_solver.py` | `IpoptSolver`: the OPFs, in Pyomo with Ipopt |
 | `data/pandapower_solver.py` | `PandapowerSolver`: the power flow, and pandapower's OPF |
 | `data/ipopt.py` | `ipopt`: finds Ipopt and checks that it starts |
-| `data/pool.py` | `Pool`, `PoolBuilder`, `read_pool`, `write_pool`, `peak_ratings` |
+| `data/pool.py` | `Pool`, `PoolBuilder`, `read_pool`, `write_pool` |

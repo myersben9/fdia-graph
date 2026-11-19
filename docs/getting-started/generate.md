@@ -88,11 +88,13 @@ A timeline is fixed by its settings, its seed and its pool: the same call writes
 
 ## The same on the New York case
 
-The New York case goes through the same generator, with other settings and data. Nothing is
-released for it, so you build its pool first. That needs a checkout of the repository, the
-`[ny]` extra and the Ipopt solver, and several hours of solving. [Build the operating points](../guides/operating_points.md#the-new-york-case-build-the-pool)
-has the steps, and [Generate a timeline](../guides/generation.md#entry-point-the-new-york-case)
-the build of the timeline.
+The New York case goes through the same generator, with the same settings and other data.
+Nothing is released for it, so you build its pool first. That needs a checkout of the
+repository, the `[ny]` extra and the Ipopt solver, and several hours of solving.
+[Build the operating points](../guides/operating_points.md#the-new-york-case-build-the-pool)
+has the steps, and
+[Generate a timeline](../guides/generation.md#the-original-generator-on-the-new-york-case)
+the build of the timeline from the pool.
 
 ## Where next
 

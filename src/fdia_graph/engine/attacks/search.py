@@ -1,7 +1,7 @@
 """The search-based families: the slow ramp At and the overload Am [WU26].
 
 Both re-solve the attacker's local false state on every scan of an episode (`RampEpisode`,
-`OverloadEpisode`), where a New York family stores one attack vector for its window
+`OverloadEpisode`), where a family of your own stores one attack vector for its window
 (`family.VectorEpisode`). An overload is designed from its window alone, before its split is walked.
 A ramp is designed as the walk reaches its onset (`RampEpisode.begin`): its stealth bound reads the
 frame written just before, and its draws come from the generator's own stream at that moment.

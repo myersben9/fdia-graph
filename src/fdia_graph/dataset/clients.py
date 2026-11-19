@@ -35,7 +35,7 @@ class ClientView:
 
     def node_features(self) -> np.ndarray:
         """`[T, N_c, 4]` per owned bus its |V| (p.u.), voltage angle (degrees), P and Q injection (MW,
-        MVAr) as metered, NaN where the bus carries no meter of that kind (|V| at 60% of buses, the
+        MVAr) as metered, NaN where the bus carries no meter of that kind (|V| at the voltmeter and PMU buses, the
         angle only at PMU buses)."""
         out = np.full((len(self.z), len(self.buses), len(BUS_KINDS)), np.nan, self.z.dtype)
         pos = {int(b): i for i, b in enumerate(self.buses)}
@@ -57,7 +57,8 @@ class ClientView:
 
 
 class Dataset:
-    """An open New York timeline file (`h`, read only). `clients` are the utility names; `client(name)`
+    """An open timeline file written with the owners of its buses (`h`, read only). `clients` are
+    the clients' names (the utilities of the New York case); `client(name)`
     is the view of one, `operator()` the view of every meter. `split` selects the train, val or test
     frames (all frames when None). `plan` is the meter table the file's masks describe, `z` the flat
     reading vector of that table (one column per meter), `own` the `Ownership` of the buses."""
@@ -67,15 +68,16 @@ class Dataset:
         if Attr.CLIENT_NAMES not in self.h.attrs:
             self.h.close()
             raise NotATimeline(
-                f"{path} is not a New York timeline in the layout of fdia_graph.schema; a file written in "
-                "the earlier New York layout reads with fdia-graph 0.21 (pip install fdia-graph==0.21.0)"
+                f"{path} is not a timeline that records its clients (`SearchSource(..., own=...)`); a "
+                "file in the earlier New York layout reads with fdia-graph 0.21 (pip install fdia-graph==0.21.0)"
             )
         self.clients = str(self.h.attrs[Attr.CLIENT_NAMES]).split(",")
         edges = self.h[schema.EDGE_INDEX][:]
         bus_client = self.h[schema.path(schema.Group.GRAPH, Static.BUS_CLIENT)][:]
         self.own = Ownership(np.array(self.clients), bus_client, bus_client[edges[0]] != bus_client[edges[1]])
         masks = MeterLayers(*(self.h[name][0] for name in (schema.NODE_M, schema.EDGE_M, schema.PMU_I_M)))
-        self.plan = MeterPlan.from_masks(masks, edges, bus_client)
+        form = str(self.h.attrs.get(Attr.CURRENT_FORM, schema.CURRENT_RECTANGULAR))
+        self.plan = MeterPlan.from_masks(masks, edges, bus_client, form)
 
     def _frames(self, split: str | None) -> np.ndarray:
         """The frame indices of `split` exactly: week splits interleave, so a span from its first to its

@@ -3,14 +3,14 @@
 
 A family implements one method, `design(window, rng) -> Episode | None`: given the true states of a window it
 returns the attack vector to add to every scan, or None when it finds nothing to attack there. The package's
-families (`InterfaceFdia`, `Ramp`) do this with an attacker that keeps the false readings consistent with a state;
-this one does not, which is the naive kind of attack the residual test is meant to catch. `design_explained` says
-why a design found nothing, and the timeline's source counts those reasons (`NewYorkSource.summary`).
+own families keep the false readings consistent with one AC state; this one does not, which is the naive kind
+of attack the residual test is meant to catch. `design_explained` says why a design found nothing.
 
 The example runs on synthetic window states, so it needs no data. In a real build you pass the family to the
-`NewYorkSource` under a name of your own, beside the package's families, and `source.generate(path)` places,
-designs and writes its episodes like theirs. The name of the dictionary key is free; `Episode.family` must be a
-name in `fdia_graph.FAMILIES`, whose code a file stores. This one uses "Ad", the meter-corruption family.
+source under the name of the family it takes the place of, `SearchSource(net, X, settings, families={"At":
+SlowBias(...)})`, and `source.generate(path)` places, designs and writes its episodes like the package's own.
+`Episode.family` must be a name in `fdia_graph.FAMILIES`, whose code a file stores. This one uses "Ad", the
+meter-corruption family.
 
 Run: python examples/nygrid/custom_attack_family.py
 """
@@ -24,7 +24,7 @@ from fdia_graph.models.plan import Episode
 
 
 class SlowBias(AttackFamily):
-    """Ramp one injection meter by `rate` (its own units) per scan, on the bus with the largest load magnitude."""
+    """Ramp one injection meter by `rate` (its own units) per scan, on a meter drawn from the design's stream."""
 
     def __init__(self, meter_bus: np.ndarray, meter_owner: np.ndarray, rate: float = 2.0) -> None:
         self.meter_bus, self.meter_owner, self.rate = meter_bus, meter_owner, rate

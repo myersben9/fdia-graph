@@ -177,3 +177,56 @@ def test_the_split_stream_is_the_one_the_new_york_build_keys_by_its_seed():
         ours = TimelineSource.stream(SimpleNamespace(seed=seed), "split")
         theirs = rng(Settings(seed=seed), "split")
         assert ours.bit_generator.state == theirs.bit_generator.state
+
+
+# ---- a design family of your own ----------------------------------------------------------------
+def test_a_family_of_your_own_takes_the_place_of_one_by_name(hourly_pool, tmp_path):
+    """A family that designs an attack vector runs through the one source: its episodes are placed,
+    written on the meters of the generator's plan and recorded under its own family code."""
+    from fdia_graph.constants.families import FAMILY_CODE
+    from fdia_graph.engine.attacks.family import AttackFamily
+    from fdia_graph.generation.ieee import IeeeSource
+    from fdia_graph.models.plan import Episode
+    from fdia_graph.sensing.meters import MeterPlan
+    from fdia_graph.systems.network import Network
+
+    class Bias(AttackFamily):
+        """A growing bias on the first meter of the plan; no attack at an onset divisible by 7."""
+
+        def __init__(self, meters: int) -> None:
+            self.meters = meters
+
+        def design(self, window, rng):
+            onset, vm, _ = window
+            if onset % 7 == 0:
+                return None
+            a = np.zeros((len(vm), self.meters))
+            a[:, 0] = 50.0 * (1 + np.arange(len(vm)))
+            return Episode("Ad", np.zeros(1, int), onset, len(vm), np.zeros(1, int), -1, a)
+
+    X, _ = hourly_pool
+    settings = TimelineSettings.of(families=("At",), ramp_len=10, attacked_frac=0.3)
+    # the plan a source with this seed draws, had before the source exists
+    plan = MeterPlan.from_coverage(Network.from_ieee(14).case, settings.meters, np.random.default_rng(5))
+    source = IeeeSource(14, X[:300], settings, seed=5, families={"At": Bias(len(plan.kind))})
+    assert np.array_equal(source.g.plan.bus, plan.bus) and np.array_equal(source.g.plan.kind, plan.kind)
+    # no ramp target is asked of the case and no setting of the search is run for it
+    assert source.searched == () and not source.am_runs
+    out = source.generate(tmp_path / "own.h5")
+    with h5py.File(out, "r") as f:
+        family = f[schema.path(schema.Group.EPISODES, schema.EPISODE_FAMILY)][:]
+        onset = f[schema.path(schema.Group.EPISODES, schema.EPISODE_ONSET)][:]
+        moved = f[schema.NODE_X][:] != f[schema.BENIGN_PATH["benign"]][:]
+        rule = f[schema.Group.ATTACK].attrs[schema.Attr.TAMPER]
+    assert len(family) >= 3 and (family == FAMILY_CODE["Ad"]).all() and (onset % 7 != 0).all()
+    assert moved.any(axis=(1, 2)).sum() == 10 * len(family)  # every scan of every episode carries it
+    assert schema.VECTOR_TAMPER_RULE in rule  # the file says what a 1 means for such a family
+
+
+def test_a_family_under_a_name_the_timeline_does_not_place_is_refused(hourly_pool):
+    from fdia_graph.generation.ieee import IeeeSource
+
+    X, _ = hourly_pool
+    settings = TimelineSettings.of(families=("At",), ramp_len=10)
+    with pytest.raises(ConfigError, match="families= names Am, which this timeline does not place"):
+        IeeeSource(14, X[:100], settings, families={"Am": object()})

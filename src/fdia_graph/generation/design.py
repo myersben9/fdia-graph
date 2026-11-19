@@ -89,7 +89,7 @@ class DesignPool(Generic[Setup, State]):
 class Designer(ABC, Generic[Setup]):
     """The design stage of one source: its families, made in each of the `workers` processes by
     `start(setup)`, and what every design attempt of the run came to (`log`). `known` holds designs
-    made earlier by (family, onset), reused as they are (the New York survey's). A grid says how a
+    made earlier by (family, onset), reused as they are. A grid says how a
     placed episode becomes a task (`task`)."""
 
     def __init__(self, workers: int, start: Callable[[Setup], Families], setup: Setup, seed: int) -> None:
@@ -147,9 +147,9 @@ class Designer(ABC, Generic[Setup]):
 
 @dataclass(frozen=True)
 class _SearchSetup:
-    """What a design process makes the search-based families from: the spec to rebuild the generator,
-    or, when the designs run in the walk's own process, the walk's generator itself; the knobs; and
-    the ramp's (length, rate)."""
+    """What a design process makes its families from: the spec to rebuild the generator, or, when
+    the designs run in the walk's own process, the walk's generator itself; the knobs; and the
+    ramp's (length, rate)."""
 
     spec: GeneratorSpec
     g: Optional[FdiaGenerator]
@@ -157,9 +157,11 @@ class _SearchSetup:
     ramp: tuple[int, float]
 
     def families(self) -> Families:
-        """The slow ramp At and the overload Am, on this process's generator."""
+        """The slow ramp At and the overload Am on this process's generator, then the caller's own
+        (`GeneratorSpec.families`), each in place of the one of its name."""
         g = FdiaGenerator.from_spec(self.spec) if self.g is None else self.g
-        return {AT: SearchRamp(*self.ramp, self.knobs), AM: SearchOverload(g, self.knobs)}
+        search = {AT: SearchRamp(*self.ramp, self.knobs), AM: SearchOverload(g, self.knobs)}
+        return {**search, **self.spec.families}
 
 
 class SearchDesigner(Designer[_SearchSetup]):

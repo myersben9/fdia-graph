@@ -56,7 +56,7 @@ imports the script that started it.
 | What you see | Why | Fix |
 |---|---|---|
 | `NotATimeline` | the file's `kind` is not `timeline`: an older record shard, or another file | load a release from v0.8.0 on |
-| `NotATimeline` from `Dataset` | the file is not a New York timeline | open it with `fg.FdiaGraph` |
+| `NotATimeline` from `Dataset` | the file does not record its clients | open it with `fg.FdiaGraph`, or generate it with `own=` |
 | `MissingCapability` | the view lacks what the caller needs, for example PMU currents | load a file that has them |
 | `ConfigError` on `fg.load` | an option is not one of its choices | the message lists the choices |
 
@@ -76,7 +76,7 @@ imports the script that started it.
 | What you see | Why | Fix |
 |---|---|---|
 | `FileNotFoundError` on `data/...` | the scripts read `data/` and `out/` relative to the working folder | run from the work folder that holds `data/` |
-| `DataConditionError: bus ... has no row in ...` | a bus has no location in the bus-location table | fetch the inputs again (`build_timeline.py --fetch`) |
+| `DataConditionError: bus ... has no row in ...` | a bus has no location in the bus-location table | fetch the inputs again (`fetch_inputs` in `data/inputs.py`) |
 | `DataConditionError: ... first hour has no AC point` | the span's first hour did not solve, so the chunk has no start | start the span at another hour |
 | `ConfigError` on `PoolBuilder.from_settings` | a solve choice the New York pool cannot be built with | [Solving](../concepts/solving.md#why-a-choice-is-refused) |
 
@@ -109,7 +109,7 @@ A file records what it could not build, per split and family, in the attributes
 `episodes_requested`, `episodes_built`, `episode_redraws`, `episodes_dropped` and
 `episode_shortfall`. `fallback_benign` counts the frames of an episode stored benign.
 
-### A `SearchSource` (the IEEE cases)
+### A `SearchSource`
 
 | What you see | Why | Fix |
 |---|---|---|
@@ -122,38 +122,19 @@ An overload window with no stealthy design is moved to another onset of its spli
 measured IEEE-14 builds record their redraws and one shortfall
 ([Generate a timeline](generation.md#entry-point-an-ieee-case)).
 
-### A `NewYorkSource`
+### A design family of your own
 
-| What you see | Why | Fix |
-|---|---|---|
-| `DataConditionError: ...: branch f-t is not in the case in that orientation` | an interface names a branch the case does not hold | check the case file and the interface data against the pinned inputs |
-| `DataConditionError: ...: no rows in interflowHourly_<year>.csv` | no interface flows for that year | fetch the inputs for the year you build |
-| `DataConditionError: the pool must carry each unit's output` | the pool has no `unit_p` | build the pool with `run_pool.py` |
-| `ConfigError` on `NewYorkRelease` | a family other than `Am` and `At`, or `Am` with no interface | fix the field the message names |
+A family that subclasses `AttackFamily` can say why a design found no attack
+(`design_explained` in `engine/attacks/family.py`). After `source.generate(path)`,
+`source.designer.log` holds every design attempt of the run, each with its miss reason
+(`Tried.miss`). A slot is tried again at every onset it moves to, so the log counts attempts,
+not slots.
 
-After `source.generate(path)`, `source.summary()` says what was built.
-
-| Key | Counts |
+| Miss reason | Meaning |
 |---|---|
-| `placed` | the slots placed, per split and family |
-| `moved` | the moves of slots whose design found no attack |
-| `built` | the episodes built |
-| `given_up` | the slots given up after `REDRAWS` moves |
-| `unsolved_attempts` | design attempts not made, because the window touched an unsolved frame |
-| `missed` | why design attempts found no attack, per family |
-| `survey_missed` | the same for the onset survey |
-
-`missed` counts attempts, not slots. A slot is tried again at every onset it moves to.
-
-| Miss reason | Meaning | What to do |
-|---|---|---|
-| `no_target` | nothing to attack: no interface near its limit, or no load bus for a ramp | if it covers every slot, the onset mask and the interface data disagree |
-| `infeasible` | targets existed, but no support met every bound: the load cap, the basepoint band, the ramps, the voltage limits | the bounds are binding; widening them is a modelling decision, not a fix |
-| `solver_error` | Ipopt stopped abnormally on a support the search tried, so `infeasible` may be wrong | the family counts them in `solver_errors` |
-
-For one episode alone, building a `SingleEpisodeSource` raises a `DataConditionError` when the
-window touches an unsolved frame. Its `generate` raises `NoAdmissibleTarget`, naming the
-reason, when that one window has no attack.
+| `no_target` | the family set `last_miss` to it: the window held nothing to attack |
+| `infeasible` | the family returned `None` and gave no reason |
+| `solver_error` | the family raised its `solver_errors` count during the design, so `infeasible` may be wrong |
 
 ## Analysis
 

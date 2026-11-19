@@ -99,7 +99,7 @@ exactly.
 
 A change to the grid is an edit to the file, one row per line. No code patches the case on the
 way in. A variant in code is a copy, never a change in place: `hvdc_links(case)` or
-`case.with_voltage_margin(0.02)`.
+`externals_at_base(case, base)`.
 
 ### What the reader refuses
 
@@ -165,8 +165,7 @@ them. `PandapowerSolver` avoids it by giving every branch a placeholder rating.
 | File | Holds |
 |---|---|
 | `fixes.py` | two variants of the New York case, each a copy: `externals_at_base` and `hvdc_links` |
-| `interfaces.py` | `Interface`: a New York transmission interface, its branches with its hourly limit and flow |
-| `ownership.py` | `Ownership`: which utility owns each New York bus |
+| `ownership.py` | `Ownership`: the client that owns each bus; `assign_clients` gives each New York bus to its utility |
 | `states.py` | `PoolStates`: solved voltages read frame by frame as the states a timeline walks |
 | `tables.py` | the reader of the CSV input tables |
 | `pandapower_types.py` | the pandapower net, named as types for `from_pandapower` |
