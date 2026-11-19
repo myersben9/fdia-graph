@@ -59,6 +59,7 @@ nav:
       - Build the operating points: guides/operating_points.md
       - Estimate the state: guides/state_estimation.md
       - Add a design family, an alarm rule or a test system: guides/extending.md
+      - Check the package yourself: guides/verify.md
       - Troubleshooting: guides/troubleshooting.md
   - Concepts:
       - How the package flows: concepts/flow.md

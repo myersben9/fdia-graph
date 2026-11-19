@@ -5,6 +5,10 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- **Docs: a page that maps each claim of the package to the test that checks it (no change to the
+  packages).** `docs/guides/verify.md`, "Check the package yourself": the set-up, the command for one
+  test and for all, what each test needs, and what the tests do not show.
+
 - **One source and one set of attack designs for every test system.** The New York grid's own OPF
   designs and the source built around them leave the package; the New York case stays, as a test
   system of the one source, `SearchSource`.
