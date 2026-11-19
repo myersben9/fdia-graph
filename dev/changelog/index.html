@@ -1988,8 +1988,25 @@
 the public API, the generated files and the numbers are the same as the previous release.</p>
 <h2 id="unreleased">Unreleased<a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
 <ul>
-<li><strong>The two densest files of the attack core are split by job.</strong> No method's logic changed, and every
-  IEEE timeline is byte for byte what it was.</li>
+<li><strong>One file layout.</strong> A timeline has flows at the from end of a branch and PMU currents as real and
+  imaginary part, on every test system; nothing in the package wrote any other form since the New York
+  source left, so the other form is gone from the package.</li>
+<li>Removed: <code>LayerSet</code> (<code>both_ends</code>, <code>temporal</code>) and the <code>spec</code> argument of <code>FdiaGenerator</code> and
+    <code>TimelineWriter</code>; <code>MeterKind.I</code> and <code>IA</code>, <code>PolarCurrentChannel</code>, <code>EdgeChannel.P_TO</code> and <code>Q_TO</code>;
+    <code>schema.CURRENT_POLAR</code>; <code>Capability.RECTANGULAR_CURRENTS</code>; <code>FdiaGraph.current_form</code>. <code>MeterKind.IR</code>
+    and <code>II</code> are now 6 and 7 (a plan's kinds are not stored in a file).</li>
+<li>A file that declares another layout (four flows in <code>edge_feat</code>, or a <code>current_form</code> other than
+    <code>rectangular</code>) is refused with <code>NotATimeline</code> when it is opened (<code>models.inputs.ReadableLayout</code>),
+    where before an estimator refused a polar file at the fit. Every released file opens as before.</li>
+<li>The notes file that sat inside the package is deleted; the rules it restated are in
+    <code>CONTRIBUTING.md</code> and the tests.</li>
+<li>
+<p>Every IEEE timeline is byte for byte what it was.</p>
+</li>
+<li>
+<p><strong>The two densest files of the attack core are split by job.</strong> No method's logic changed, and every
+  IEEE timeline is byte for byte what it was.</p>
+</li>
 <li><code>engine/attacks/frames.py</code>, the new part <code>AttackFrames</code> (<code>g.attack_frames</code>): <code>frame_from_state</code>,
     <code>frame_from_vector</code>, <code>attack_vector</code>, <code>current_attack</code>, <code>currents_with_attack</code> and <code>changed_meters</code>,
     out of <code>false_state.py</code>, which keeps the solves and the limits.</li>
@@ -2424,7 +2441,7 @@ the public API, the generated files and the numbers are the same as the previous
   both run on it, and <code>data</code> may not import <code>engine</code>. A pool file is read by its path, so an existing
   <code>pool.h5</code> reads as before. The survey cache keeps its <code>_v2</code> chunks: a chunk pickles <code>models.plan.Episode</code>
   with numbers and text, and no pickled class moved. The rules of the New York modules not yet under the
-  SDK's gates are <code>src/fdia_graph/CLAUDE.md</code>.</p>
+  SDK's gates were a notes file inside the package (since deleted).</p>
 <ul>
 <li><strong>One path generates a timeline on any grid, and New York adopts the original generator's noise, walk
   and move rule (a New York file changes; an IEEE file does not: the two IEEE digests are unchanged, and

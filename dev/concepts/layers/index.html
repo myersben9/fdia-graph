@@ -1196,10 +1196,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#what-the-layout-allows" class="md-nav__link">
+  <a href="#one-layout" class="md-nav__link">
     <span class="md-ellipsis">
       
-        What the layout allows
+        One layout
       
     </span>
   </a>
@@ -1950,10 +1950,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#what-the-layout-allows" class="md-nav__link">
+  <a href="#one-layout" class="md-nav__link">
     <span class="md-ellipsis">
       
-        What the layout allows
+        One layout
       
     </span>
   </a>
@@ -2275,39 +2275,13 @@ the clean layer.</p>
 <p>The frames are chunked along time, so a window of consecutive frames is one read.
 <a href="../../reference/DATA_DICTIONARY/#the-timeline-file">The data dictionary</a> lists the datasets of
 each group.</p>
-<h2 id="what-the-layout-allows">What the layout allows<a class="headerlink" href="#what-the-layout-allows" title="Permanent link">&para;</a></h2>
-<p>One writer writes every timeline, in one layout. The layout allows more than the package's own
-source writes, and a file declares in its attributes which form it has. The readers accept each
-form.</p>
-<table>
-<thead>
-<tr>
-<th>Item</th>
-<th>The package's source writes</th>
-<th>The layout also allows</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Flow layers</td>
-<td><code>[E, 2]</code>: the from end</td>
-<td><code>[E, 4]</code>: both ends, named in the <code>edge_feat</code> attribute (<code>LayerSet.both_ends</code>)</td>
-</tr>
-<tr>
-<td>PMU currents</td>
-<td>real and imaginary part</td>
-<td>magnitude and angle (<code>current_form</code> is <code>polar</code>)</td>
-</tr>
-<tr>
-<td>Temporal features</td>
-<td>stored</td>
-<td>not stored (<code>LayerSet.temporal</code>)</td>
-</tr>
-</tbody>
-</table>
-<p>Code that reads a current as real and imaginary parts refuses a polar file with
-<code>MissingCapability</code>.</p>
-<p>A New York file from the package's source has the form of an IEEE file in all three rows. Its
+<h2 id="one-layout">One layout<a class="headerlink" href="#one-layout" title="Permanent link">&para;</a></h2>
+<p>One writer writes every timeline, in one layout: flows at the from end of a branch <code>[E, 2]</code>, PMU
+currents as real and imaginary part, and both temporal features. A file that declares another
+layout in its attributes (flows at both branch ends in <code>edge_feat</code>, or a <code>current_form</code> other than
+<code>rectangular</code>) was written elsewhere. It is refused with <code>NotATimeline</code> when it is opened, so no
+column of it is read as something else.</p>
+<p>A New York file has the form of an IEEE file. Its
 injections are positive for load, like an IEEE file's, and it holds the solved frames of its
 pool only.</p>
 <p>Some datasets are in a file only when the source was given what they hold:</p>

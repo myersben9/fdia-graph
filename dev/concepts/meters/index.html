@@ -2128,20 +2128,12 @@ branch end at its bus.</p>
 <td>MW, MVAr</td>
 </tr>
 <tr>
-<td><code>I</code>, <code>IA</code></td>
-<td>PMU current as magnitude and angle</td>
-<td>p.u., degrees</td>
-</tr>
-<tr>
 <td><code>IR</code>, <code>II</code></td>
 <td>PMU current as real and imaginary part</td>
 <td>p.u.</td>
 </tr>
 </tbody>
 </table>
-<p>A plan uses one form of current, not both: <code>IR</code> and <code>II</code>, or <code>I</code> and <code>IA</code>. The plan the package
-places uses <code>IR</code> and <code>II</code>. <code>I</code> and <code>IA</code> are the kinds of a file that stores its currents as
-magnitude and angle; <code>MeterPlan.from_masks</code> reads such a file's plan.</p>
 <h3 id="the-placement">The placement<a class="headerlink" href="#the-placement" title="Permanent link">&para;</a></h3>
 <p><code>MeterPlan.from_coverage</code> places the meters at random, on every test system.</p>
 <table>
