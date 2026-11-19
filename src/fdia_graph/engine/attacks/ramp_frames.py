@@ -12,7 +12,6 @@ from typing import Optional
 
 import numpy as np
 
-from ...constants.families import AT_CODE
 from ...models.frames import AttackDesign, Frame, FrameKnobs
 from ..base import Part
 
@@ -22,15 +21,6 @@ STEP_HALVINGS = 6
 
 class RampFrames(Part):
     """Build a ramp frame: the local false state of its design, added to the true scan."""
-
-    def attack_frame(
-        self, x_true: np.ndarray, family: int, design: AttackDesign, knobs: FrameKnobs
-    ) -> Optional[Frame]:
-        """The scan of the attacked `family` on the stored operating point `x_true` ([N, 4] = |V|, P_inj,
-        Q_inj, theta): an At ramp frame, `design` naming the scaled loads, the multiplier and the held
-        support. None when its local power flow has no solution at any halving of its step."""
-        assert family == AT_CODE, f"attack_frame builds At frames; family {family} has its own builder"
-        return self._ramp_frame(x_true, design, knobs)
 
     def _stealthy_frame(self, x_true: np.ndarray, design: AttackDesign, knobs: FrameKnobs) -> Optional[Frame]:
         """One local false state [WU26]: the targeted loads scaled by `mult`, the support re-solved with
@@ -59,11 +49,12 @@ class RampFrames(Part):
             frame = self._stealthy_frame(x_true, design, knobs)
         return frame
 
-    def _ramp_frame(self, x_true: np.ndarray, design: AttackDesign, knobs: FrameKnobs) -> Optional[Frame]:
-        """An At frame: the targeted loads scaled, and the area within `hops` of them (or the
-        episode's fewest-tamper support when the search chose one) re-solved locally."""
-        held = design if knobs.min_tamper and design.support is not None else design._replace(support=None)
-        placed = self.g.false_state.with_support(held, knobs)
+    def ramp_frame(self, x_true: np.ndarray, design: AttackDesign, knobs: FrameKnobs) -> Optional[Frame]:
+        """An At frame on the stored operating point `x_true` [N, 4]: the targeted loads scaled, and
+        the area within `hops` of them (or the episode's fewest-tamper support when the search chose
+        one) re-solved locally. None when the targets have no area, or when at every halving of its step
+        the local power flow has no solution or the state breaks the operating limits."""
+        placed = self.g.false_state.with_support(design, knobs)
         if placed is None:
             return None
         return self._solvable_step(x_true, placed, knobs)

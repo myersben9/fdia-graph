@@ -243,11 +243,11 @@ def test_a_step_without_a_local_solution_is_halved(monkeypatch):
     k = FrameKnobs(hops=2)
     x_true = np.zeros((g.n_bus, 4))
     two = g.stealthy_pos[:2]
-    assert g.ramp_frames._ramp_frame(x_true, AttackDesign(two, 1.2), k) == "frame"
+    assert g.ramp_frames.ramp_frame(x_true, AttackDesign(two, 1.2), k) == "frame"
     assert np.allclose(steps, [0.2, 0.1, 0.05, 0.025, 0.0125, 0.00625])
     steps.clear()
     assert (
-        g.ramp_frames._ramp_frame(x_true, AttackDesign(two, 1.9), k) is None
+        g.ramp_frames.ramp_frame(x_true, AttackDesign(two, 1.9), k) is None
     )  # six halvings, none small enough
     assert len(steps) == 7
 

@@ -25,7 +25,7 @@ if TYPE_CHECKING:
 
 class RampEpisode(DesignedEpisode):
     """One slow-ramp At episode of `length` frames growing by `rate` a frame: a fixed load set scaled
-    along a rise, a hold and a return, each scan re-solved locally (`RampFrames.attack_frame`)."""
+    along a rise, a hold and a return, each scan re-solved locally (`RampFrames.ramp_frame`)."""
 
     code = AT_CODE
     design: RampDesign  # drawn by `begin`
@@ -43,9 +43,7 @@ class RampEpisode(DesignedEpisode):
         return True
 
     def frame(self, g: FdiaGenerator, X: np.ndarray, i: int) -> Optional[Frame]:
-        return g.ramp_frames.attack_frame(
-            X, AT_CODE, g.episode_designs.ramp_step(self.design, i, self.rate), self.knobs
-        )
+        return g.ramp_frames.ramp_frame(X, g.episode_designs.ramp_step(self.design, i, self.rate), self.knobs)
 
     def record(self, onset: int, length: int, buses: np.ndarray) -> EpisodeRecord:
         return EpisodeRecord(self.row(onset, length, buses), self.design.tamper)
@@ -98,5 +96,5 @@ class SearchOverload(EpisodeFamily):
         self.g, self.knobs = g, knobs
 
     def designed(self, onset: int, X: np.ndarray, rng: np.random.Generator) -> Optional[OverloadEpisode]:
-        design = self.g.episode_designs.am_overload_design(X, 0, len(X), self.knobs, rng)
+        design = self.g.episode_designs.am_overload_design(X, self.knobs, rng)
         return None if design is None else OverloadEpisode(design, self.knobs)

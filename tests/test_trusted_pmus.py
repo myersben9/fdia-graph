@@ -97,7 +97,7 @@ def test_a_trusted_pmu_keeps_its_bus_true_from_its_slot_on():
     S = np.array(sorted(int(b) for b in case_studies.buses(g, [3, 4, 5, 7, 11])), dtype=np.int64)
     assert bus4 in w.support_at(2, S) and bus4 not in w.support_at(3, S)
     for t in (2, 3, 10):
-        x_false = g.minimizer.goal_state(goal, t, window[t], w.support_at(t, S), k)
+        x_false = g.false_state.goal_state(goal, t, window[t], w.support_at(t, S), k)
         assert x_false is not None
         moved = not np.array_equal(
             x_false[bus4, [NodeChannel.V, NodeChannel.THETA]],

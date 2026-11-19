@@ -265,7 +265,7 @@ def test_the_onset_is_bounded_against_the_frame_before(case):
     for states, _, d in windows(case, 1, held=False):
         area = np.asarray(g.area.hop_area(np.unique(g.load_bus[d.targets]), k.hops))
         held = LoadGoal(tuple(AttackDesign(d.targets, 1.15) for _ in states))
-        x_false = g.minimizer.goal_state(held, 0, states[0], area, k)
+        x_false = g.false_state.goal_state(held, 0, states[0], area, k)
         assert x_false is not None
         # the frame before carried the same step, its branch currents included (hybrid meters)
         from fdia_graph.models.frames import AttackVector

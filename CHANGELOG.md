@@ -5,6 +5,16 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- **The false state of a goal has one entry point, in `FalseState` (no change in behaviour).**
+  `goal_state` moves from `Minimizer` to `FalseState` (`g.false_state.goal_state`), with
+  `load_goal_state` and `flow_goal_state` beside it. The load goal's solve was written twice (once for
+  the ramp's frames, once for the search) and is now written once. So the search's window no longer
+  calls back into the search, and an overload frame no longer goes through it.
+  Leftover parameters are gone: `RampFrames.attack_frame(x_true, family, design, knobs)` is
+  `ramp_frame(x_true, design, knobs)` (the family could only be `At`), and
+  `EpisodeDesigns.am_overload_design(X, t, length, knobs, rng)` is `am_overload_design(states, knobs,
+  rng)` (it was only ever given a whole window). Every IEEE timeline is byte for byte what it was.
+
 - **One word for each set of buses in the attack code (no change in behaviour).** The code used about
   eight words for four things. Now: the **area** is where the attacker may act, the **support** is the
   set of buses a false state re-solves, the **boundary** is the buses one branch outside it, and the

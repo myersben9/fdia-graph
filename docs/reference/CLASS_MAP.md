@@ -57,7 +57,7 @@ Every attack is built in `engine/attacks/`, one part of the generator per module
 (`g.attack_frames`) writes the attack vector onto the true scan, `RampFrames` (`g.ramp_frames`) builds the ramp frames, `Minimizer` (`g.minimizer`) finds the support that tampers
 the fewest devices over an attack window [WU26, eq. 12] (`AttackWindow`, `window.py`, counts what a
 support costs), `Overload` (`g.overload`) builds the overload `Am`,
-and `EpisodeDesigns` (`g.episode_designs`) designs what an `At` or an `Am` episode attacks. `RampFrames.attack_frame`
+and `EpisodeDesigns` (`g.episode_designs`) designs what an `At` or an `Am` episode attacks. `RampFrames.ramp_frame`
 is the one entry for an attacked `At` scan; an `Am` frame comes from `overload_step`. The walk reaches
 both through a designed episode (`engine/attacks/search.py`: `RampEpisode`, `OverloadEpisode`).
 

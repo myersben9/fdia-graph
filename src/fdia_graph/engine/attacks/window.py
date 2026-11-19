@@ -176,7 +176,7 @@ class AttackWindow:
         """Snapshot t on a support: (the node, flow and PMU current channels moved beyond their noise, and
         this snapshot's attack vector), or None when the support has no false state here or (At) breaks the
         stealth bound against the previous snapshot's attack vector `prev`."""
-        x_false = self.g.minimizer.goal_state(self.goal, t, self.states[t], support, self.knobs)
+        x_false = self.g.false_state.goal_state(self.goal, t, self.states[t], support, self.knobs)
         if x_false is None:
             return None
         a_node = np.asarray(x_false, float) - np.asarray(self.states[t], float)

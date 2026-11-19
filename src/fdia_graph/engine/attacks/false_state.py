@@ -5,7 +5,7 @@ vector onto a scan."""
 from __future__ import annotations
 
 from collections.abc import Sequence
-from typing import NamedTuple, Optional, Union
+from typing import NamedTuple, Optional, Union, cast
 
 import numpy as np
 
@@ -20,7 +20,7 @@ from ...formulas.network import (
     local_ac_solve,
     local_flow_solve,
 )
-from ...models.frames import AttackDesign, FrameKnobs, OperatingLimits
+from ...models.frames import AttackDesign, FlowGoal, FrameKnobs, Goal, LoadGoal, OperatingLimits
 from ..base import Part
 
 
@@ -329,6 +329,53 @@ class FalseState(Part):
             self._dense_Y = cached
         return cached
 
+    def goal_state(
+        self, goal: Goal, snap: int, x_true: np.ndarray, support: np.ndarray, knobs: FrameKnobs
+    ) -> Optional[np.ndarray]:
+        """The false state of snapshot `snap` of `goal` on the support, inside the operating limits, or
+        None. Unknowns: |V| and theta of the support, every other voltage held true. A load goal is the
+        square local power flow (`load_goal_state`); a flow goal frees the support's loads and
+        generators (`flow_goal_state`, [WU26 eqs. 13-25])."""
+        if goal.kind == "flow":
+            return self.flow_goal_state(cast(FlowGoal, goal), snap, x_true, support, knobs)
+        return self.load_goal_state(x_true, cast(LoadGoal, goal).designs[snap], support, knobs.limits)
+
+    def load_goal_state(
+        self, x_true: np.ndarray, design: AttackDesign, support: np.ndarray, limits: Optional[OperatingLimits]
+    ) -> Optional[np.ndarray]:
+        """The false state of a load goal: the design's target loads scaled by its multiplier and the
+        support re-solved (`solve_local`); None when the local power flow has no solution or, with
+        `limits`, the state breaks them [WU26 eqs. 21-23]."""
+        p_load_true = self.g.scan_loads.true_load(x_true)  # this scan's active load per load element
+        q_load = self.g.scan_loads.true_reactive_load(x_true)
+        p_load = p_load_true.copy()
+        p_load[design.targets] *= design.mult
+        x_false = self.solve_local(x_true, support, p_load, q_load)
+        if x_false is None:
+            return None
+        if limits is not None and not self.state_within_limits(
+            x_false, x_true, p_load - p_load_true, limits, support
+        ):
+            return None
+        return x_false
+
+    def flow_goal_state(
+        self, goal: FlowGoal, snap: int, x_true: np.ndarray, support: np.ndarray, knobs: FrameKnobs
+    ) -> Optional[np.ndarray]:
+        """The false state of a flow goal: each target branch at its flow of snapshot `snap`
+        (`solve_flow_local`); None when the solve fails or, with limits, a voltage or a generator of
+        the reach leaves them (`formulas.attacks.within_limits`)."""
+        x_false, _, dload = self.solve_flow_local(
+            x_true, support, goal.lines, goal.targets_at(snap), knobs.limits, knobs.load_cap
+        )
+        if x_false is None:
+            return None
+        if knobs.limits is not None:  # every generator the attack moves, on the support's boundary too
+            gen = self.g.split.generation(x_true)
+            if not within_limits(x_false, x_true, gen, dload, knobs.limits, self.reach(support)):
+                return None
+        return x_false
+
     def stealthy_state(
         self, x_true: np.ndarray, design: AttackDesign, knobs: FrameKnobs
     ) -> Optional[np.ndarray]:
@@ -338,19 +385,7 @@ class FalseState(Part):
         placed = self.with_support(design, knobs)
         if placed is None or placed.support is None:
             return None
-        support = placed.support
-        p_load_true = self.g.scan_loads.true_load(x_true)  # this scan's active load per load element
-        q_load = self.g.scan_loads.true_reactive_load(x_true)
-        p_load = p_load_true.copy()
-        p_load[design.targets] *= design.mult
-        x_false = self.solve_local(x_true, support, p_load, q_load)
-        if x_false is None:
-            return None
-        if knobs.limits is not None and not self.state_within_limits(
-            x_false, x_true, p_load - p_load_true, knobs.limits, support
-        ):
-            return None
-        return x_false
+        return self.load_goal_state(x_true, design, placed.support, knobs.limits)
 
     def with_support(self, design: AttackDesign, knobs: FrameKnobs) -> Optional[AttackDesign]:
         """The design with its support filled in: the held one, else the area within `knobs.hops`

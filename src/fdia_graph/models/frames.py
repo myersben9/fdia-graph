@@ -154,7 +154,7 @@ class LoadGoal(NamedTuple):
     search holds one support for all of them. Am's goal is `FlowGoal`."""
 
     designs: tuple[AttackDesign, ...]  # one per snapshot, in window order
-    kind: str = "load"  # the solve the fewest-tamper search applies per snapshot (Minimizer.goal_state)
+    kind: str = "load"  # the solve the fewest-tamper search applies per snapshot (FalseState.goal_state)
 
 
 class FlowGoal(NamedTuple):
@@ -167,7 +167,7 @@ class FlowGoal(NamedTuple):
 
     line: int  # the first target branch (position in the edge index)
     targets: tuple[float, ...]  # the first target's MVA per snapshot, in window order
-    kind: str = "flow"  # the solve the fewest-tamper search applies per snapshot (Minimizer.goal_state)
+    kind: str = "flow"  # the solve the fewest-tamper search applies per snapshot (FalseState.goal_state)
     more: tuple[tuple[int, tuple[float, ...]], ...] = ()  # further (branch, MVA per snapshot) pairs
 
     @property
