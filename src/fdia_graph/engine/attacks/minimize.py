@@ -22,10 +22,10 @@ import numpy as np
 
 from ...models.choices import SupportMethod
 from ...models.config import TrustSchedule
-from ...models.frames import AttackVector, FlowGoal, FrameKnobs, Goal, LoadGoal, MinimizerResult
+from ...models.frames import AttackVector, FlowGoal, FrameKnobs, Goal, LoadGoal, MinimizerResult, SupportCost
 from ...models.inputs import TrustablePmus
 from ..base import Part
-from .window import AttackWindow, Cost
+from .window import AttackWindow
 
 if TYPE_CHECKING:
     from threadpoolctl import ThreadpoolController
@@ -123,8 +123,8 @@ class Minimizer(Part):
         best, evaluated = _cheapest(window, itertools.chain([area], later), area, knobs.min_budget)
         if best is None:  # no candidate meets every constraint: say so, keep the area
             return MinimizerResult(area, -1, -1, evaluated)
-        devices, channels = window.counts(best[0])
-        return MinimizerResult(best[1], devices, channels, evaluated)
+        cost, support = best
+        return MinimizerResult(support, cost.devices, cost.channels, evaluated)
 
     def _goal_seeds(self, goal: Goal) -> tuple[np.ndarray, list[frozenset[int]], Optional[frozenset[int]]]:
         """(the buses the area grows from, the candidates' starting sets, the buses a candidate must hold
@@ -179,18 +179,18 @@ class Minimizer(Part):
 
 def _cheapest(
     window: AttackWindow, candidates: Iterator[np.ndarray], area: np.ndarray, budget: int
-) -> tuple[Optional[tuple[Cost, np.ndarray]], int]:
+) -> tuple[Optional[tuple[SupportCost, np.ndarray]], int]:
     """(The cheapest of at most `budget` candidates with its cost, or None; the candidates solved). It
     stops early at one device on one channel, the least an attack tampers: the candidates after the area
     come smallest first, so none later beats it."""
-    best: Optional[tuple[Cost, np.ndarray]] = None
+    best: Optional[tuple[SupportCost, np.ndarray]] = None
     evaluated = 0
     for support in itertools.islice(candidates, budget):
         evaluated += 1
         # None unless the support beats the best
         cost = window.cost(support, None if best is None else best[0])
         best = best if cost is None else (cost, support)
-        if best is not None and best[0][:2] == (1, 1) and best[1] is not area:
+        if best is not None and (best[0].devices, best[0].channels) == (1, 1) and best[1] is not area:
             break
     return best, evaluated
 

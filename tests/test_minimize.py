@@ -47,6 +47,24 @@ def test_the_search_equals_brute_force(case):
         assert (result.devices, result.channels, len(result.support)) == min(feasible)
 
 
+def test_the_search_minimises_channels_first_when_that_is_the_objective(case):
+    """With `objective="channels"` the search compares the channel count first, the devices next:
+    its answer is the cheapest candidate in that order."""
+    from fdia_graph.engine.attacks.window import AttackWindow
+
+    g, _, k = case
+    by_channels = k._replace(objective="channels")
+    for states, goal, d in windows(case, 4):
+        result = g.minimizer.min_tamper(states, goal, by_channels)
+        buses = np.unique(g.load_bus[d.targets])
+        area = g.area.hop_area(buses, k.hops)
+        window = AttackWindow(g, states, goal, by_channels)
+        candidates = [*g.minimizer._supports([frozenset(int(b) for b in buses)], area), np.asarray(area)]
+        feasible = [c for S in candidates if (c := window.cost(S, None)) is not None]
+        want = min(c.key(True) for c in feasible)
+        assert (result.channels, result.devices, len(result.support)) == want
+
+
 def test_the_emitter_draws_with_the_shared_noise_rule(case):
     """A scan takes one draw per meter, bus by bus (|V|, angle, P, Q), then the flows, then the PMU
     currents, and scales each by the meter's jitter: the class's jitter share, relative on powers
@@ -282,14 +300,15 @@ def test_the_search_stops_early_only_once_a_smaller_support_is_the_cheapest():
     """One device on one channel is the least an attack tampers, so the loop stops there, but not on the
     area itself (solved first, the largest candidate): a smaller support of the same counts follows."""
     from fdia_graph.engine.attacks.minimize import _cheapest
+    from fdia_graph.models.frames import SupportCost
 
     area, failing, small = np.arange(13), np.arange(9), np.arange(7)
-    costs = {13: (1, 1, 13), 9: None, 7: (1, 1, 7)}
+    costs = {13: SupportCost(1, 1, 13), 9: None, 7: SupportCost(1, 1, 7)}
 
     class Table:
         def cost(self, S, beat):
             c = costs[len(S)]
-            return c if c is not None and (beat is None or c < beat) else None
+            return c if c is not None and (beat is None or c.key(False) < beat.key(False)) else None
 
     best, evaluated = _cheapest(Table(), iter([area, failing, small]), area, 256)  # type: ignore[arg-type]
     assert best is not None and len(best[1]) == 7 and evaluated == 3  # the area alone does not stop it

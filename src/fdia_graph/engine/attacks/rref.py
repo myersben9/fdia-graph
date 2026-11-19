@@ -62,8 +62,7 @@ class RrefSupport:
             tried.add(support.tobytes())
             cost = window.cost(support, None)
             if cost is not None:
-                devices, channels = window.counts(cost)
-                return MinimizerResult(support, devices, channels, len(tried))
+                return MinimizerResult(support, cost.devices, cost.channels, len(tried))
         return MinimizerResult(area, -1, -1, len(tried))
 
     def level(self, ladders: list[list[np.ndarray]], level: int, area: np.ndarray) -> np.ndarray:

@@ -126,10 +126,12 @@ def test_the_search_counts_the_current_channels(gens, pool):
     area = np.asarray(g.area.hop_area(np.array([g.load_bus[target]]), k.hops))
     cost = window.cost(area, None)
     moved = window._snapshot(0, area, window.prev)
-    assert cost is not None and moved is not None and moved[2] is not None and moved[2].any()
+    assert cost is not None and moved is not None and moved[0].current.any()
     window.i_m = np.zeros_like(window.i_m)  # the same window, blind to the currents
     blind = window.cost(area, None)
-    assert blind is not None and blind[1] < cost[1]  # the current channels add to the tamper count
+    assert (
+        blind is not None and blind.channels < cost.channels
+    )  # the current channels add to the tamper count
 
 
 def test_the_hybrid_file_carries_the_current_layers_and_the_old_one_does_not(pmu_files):

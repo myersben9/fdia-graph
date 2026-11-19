@@ -63,7 +63,7 @@ def _devices(g, window, k, goal, support) -> tuple[set[str], float]:
     w = AttackWindow(g, window, goal, k)
     prev, names, worst = w.prev, set(), 0.0
     for t in range(len(window)):
-        node, edge, cur, prev = w._snapshot(t, support, prev)
+        (node, edge, cur), prev = w._snapshot(t, support, prev)
         mag = np.abs(np.asarray(prev.node, float)).copy()
         mag[:, [NodeChannel.P_INJ, NodeChannel.Q_INJ]] /= g.case.base_mva
         mag[:, NodeChannel.THETA] = np.deg2rad(mag[:, NodeChannel.THETA])

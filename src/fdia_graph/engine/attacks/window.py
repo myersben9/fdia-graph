@@ -17,16 +17,10 @@ from ...formulas.network import _row_block, complex_voltages
 from ...formulas.noise import paper_current_sigma, paper_sigma
 from ...models.choices import CostUnit
 from ...models.config import TrustSchedule
-from ...models.frames import AttackVector, FrameKnobs, Goal
+from ...models.frames import AttackVector, FrameKnobs, Goal, MeterLayers, SupportCost
 
 if TYPE_CHECKING:
     from ..core import FdiaGenerator
-
-# (devices, channels, support size): the objective, then its tie-breaks; with `FrameKnobs.objective`
-# "channels" the first two swap (`AttackWindow.rank`)
-Cost = tuple[int, int, int]
-# the tampered node, flow and PMU current channels (masks)
-_Channels = tuple[np.ndarray, np.ndarray, np.ndarray]
 
 
 class _Near(NamedTuple):
@@ -107,7 +101,7 @@ class AttackWindow:
             return AttackVector(*(np.zeros(shape) for shape in shapes))
         return AttackVector(*(np.asarray(part, float) for part in prev))
 
-    def cost(self, support: np.ndarray, beat: Optional[Cost]) -> Optional[Cost]:
+    def cost(self, support: np.ndarray, beat: Optional[SupportCost]) -> Optional[SupportCost]:
         """The cost of a support held for the window: the union of the tampered devices and channels over
         every snapshot [WU26 eq. 28]. None when the support is infeasible at a snapshot, moves no device
         beyond its noise over the window (not an attack), or cannot beat `beat`."""
@@ -119,8 +113,9 @@ class AttackWindow:
         union, devices = tampered
         if not devices:
             return None  # within noise at every snapshot: no effect, so not an attack
-        cost = self.rank(devices, _channel_count(union), len(support))
-        return cost if beat is None or cost < beat else None
+        cost = SupportCost(devices, _channel_count(union), len(support))
+        first = self.channels_first
+        return cost if beat is None or cost.key(first) < beat.key(first) else None
 
     def support_at(self, t: int, support: np.ndarray) -> np.ndarray:
         """The buses of the support free at snapshot t: the support less the buses of the PMUs trusted by then
@@ -128,12 +123,13 @@ class AttackWindow:
         pinned = self.pinned[t]
         return support if not pinned else support[~np.isin(support, sorted(pinned))]
 
-    def _tampered(self, support: np.ndarray, beat: Optional[Cost]) -> Optional[tuple[_Channels, int]]:
+    def _tampered(
+        self, support: np.ndarray, beat: Optional[SupportCost]
+    ) -> Optional[tuple[MeterLayers, int]]:
         """The union of tampered channels (node, flow, PMU current masks) on the support over the window and
         its device count, or None when the support fails at a snapshot or its first count so far exceeds
         `beat`'s."""
-        shapes = (self.node_m.shape, self.edge_m.shape, self.i_m.shape)
-        union: _Channels = (np.zeros(shapes[0], bool), np.zeros(shapes[1], bool), np.zeros(shapes[2], bool))
+        union = MeterLayers(*(np.zeros(mask.shape, bool) for mask in (self.node_m, self.edge_m, self.i_m)))
         devices, prev = 0, self.prev
         for t in range(len(self.states)):
             free = self.support_at(t, support)
@@ -142,28 +138,19 @@ class AttackWindow:
             moved = self._snapshot(t, free, prev)
             if moved is None:
                 return None
-            node, edge, current, prev = moved
-            union = _union(union, (node, edge, current))
+            beyond_noise, prev = moved
+            union = _union(union, beyond_noise)
             devices = self._devices(union)
             first = _channel_count(union) if self.channels_first else devices
-            if beat is not None and first > beat[0]:
+            if beat is not None and first > beat.key(self.channels_first)[0]:
                 return None
         return union, devices
 
-    def rank(self, devices: int, channels: int, size: int) -> Cost:
-        """A cost in the order the search compares it: the objective first (`FrameKnobs.objective`),
-        the other count next, the support size last."""
-        return (channels, devices, size) if self.channels_first else (devices, channels, size)
-
-    def counts(self, cost: Cost) -> tuple[int, int]:
-        """(devices, channels) of a cost `rank` built."""
-        return (cost[1], cost[0]) if self.channels_first else (cost[0], cost[1])
-
-    def _devices(self, union: _Channels) -> int:
+    def _devices(self, union: MeterLayers) -> int:
         """How many devices hold a channel of the union (a PMU branch current joins the PMU of the bus
         at its end)."""
         from_bus, to_bus = self.g.edge_index
-        return len(tampered_devices(union[0], union[1], self.pmu, from_bus, union[2], to_bus))
+        return len(tampered_devices(union.node, union.edge, self.pmu, from_bus, union.current, to_bus))
 
     def _zero_on_boundary(self, support: np.ndarray) -> bool:
         """Whether a zero-injection bus sits on the support's boundary (it could not absorb the changed
@@ -172,10 +159,10 @@ class AttackWindow:
 
     def _snapshot(
         self, t: int, support: np.ndarray, prev: AttackVector
-    ) -> Optional[tuple[np.ndarray, np.ndarray, np.ndarray, AttackVector]]:
-        """Snapshot t on a support: (the node, flow and PMU current channels moved beyond their noise, and
-        this snapshot's attack vector), or None when the support has no false state here or (At) breaks the
-        stealth bound against the previous snapshot's attack vector `prev`."""
+    ) -> Optional[tuple[MeterLayers, AttackVector]]:
+        """Snapshot t on a support: (the node, flow and PMU current channels moved beyond their noise, as
+        masks, and this snapshot's attack vector), or None when the support has no false state here or (At)
+        breaks the stealth bound against the previous snapshot's attack vector `prev`."""
         x_false = self.g.false_state.goal_state(self.goal, t, self.states[t], support, self.knobs)
         if x_false is None:
             return None
@@ -195,7 +182,7 @@ class AttackWindow:
             if step[0].any() or step[1].any() or self._current_step(t, a_cur, prev, scale):
                 return None
         node, edge = tampered_channels(a_node, a_edge, sig_node, sig_edge, self.node_m, self.edge_m)
-        return node, edge, self._over(t, a_cur, 1.0), AttackVector(a_node, a_edge, a_cur)
+        return MeterLayers(node, edge, self._over(t, a_cur, 1.0)), AttackVector(a_node, a_edge, a_cur)
 
     def near(self, support: np.ndarray) -> _Near:
         """`_Near` of a support, cached for the last one."""
@@ -233,11 +220,11 @@ class AttackWindow:
         return bool(self._over(t, a_cur - prev.current, scale).any())
 
 
-def _channel_count(union: _Channels) -> int:
+def _channel_count(union: MeterLayers) -> int:
     """How many channels (node, flow, PMU current) the union holds."""
     return sum(int(m.sum()) for m in union)
 
 
-def _union(a: _Channels, b: _Channels) -> _Channels:
+def _union(a: MeterLayers, b: MeterLayers) -> MeterLayers:
     """The channels tampered in either of a and b (node, flow, PMU current)."""
-    return a[0] | b[0], a[1] | b[1], a[2] | b[2]
+    return MeterLayers(a.node | b.node, a.edge | b.edge, a.current | b.current)

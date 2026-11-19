@@ -5,6 +5,15 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- **The search's cost and a snapshot's moved channels are named records (the search finds the same
+  supports; the cost's layout under the `"channels"` objective changes).**
+  `AttackWindow.cost` returns a `SupportCost(devices, channels, size)` (`models/frames.py`) where it
+  returned a bare tuple whose first two slots swapped with the objective, so under `"channels"` a
+  caller reading `cost[0]` now gets the devices; `SupportCost.key` gives the order the search compares, and `AttackWindow.rank` and `counts`, which packed and unpacked the
+  tuple, are gone. The channels a snapshot moves beyond noise are a `MeterLayers` of masks (`node`,
+  `edge`, `current`), where they were three positional arrays. Every IEEE timeline is byte for byte
+  what it was.
+
 - **The false state of a goal has one entry point, in `FalseState` (no change in behaviour).**
   `goal_state` moves from `Minimizer` to `FalseState` (`g.false_state.goal_state`), with
   `load_goal_state` and `flow_goal_state` beside it. The load goal's solve was written twice (once for
