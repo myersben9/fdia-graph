@@ -19,7 +19,7 @@ def test_a_window_with_no_held_support_says_so(case):
     for states, goal, d in windows(case, 4, held=False):
         result = g.minimizer.min_tamper(states, goal, k)
         buses = np.unique(g.load_bus[d.targets])
-        area = g.area.local_region(buses, k.hops)
+        area = g.area.hop_area(buses, k.hops)
         window = AttackWindow(g, states, goal, k)
         feasible = [
             c
@@ -36,7 +36,7 @@ def test_the_search_equals_brute_force(case):
     for states, goal, d in windows(case, 3):
         result = g.minimizer.min_tamper(states, goal, k)
         buses = np.unique(g.load_bus[d.targets])
-        area = g.area.local_region(buses, k.hops)
+        area = g.area.hop_area(buses, k.hops)
         window = AttackWindow(g, states, goal, k)
         feasible = []
         for S in [*g.minimizer._supports([frozenset(int(b) for b in buses)], area), np.asarray(area)]:
@@ -190,13 +190,13 @@ def test_new_generation_searches_by_default():
 
 def test_supports_keep_the_region_rules(case):
     """Every candidate excludes the slack and takes in the zero-injection buses of its boundary, the
-    rules `local_region` applies to the region."""
+    rules `hop_area` applies to the region."""
     g, _, k = case
     zero = set(int(b) for b in g.zero_inj) - {g.slack_bus}
     edges = g.edge_index
     for _, _, d in windows(case, 2):
         buses = np.unique(g.load_bus[d.targets])
-        area = g.area.local_region(buses, k.hops)
+        area = g.area.hop_area(buses, k.hops)
         for S in g.minimizer._supports([frozenset(int(b) for b in buses)], area):
             assert g.slack_bus not in S
             boundary = set(np.unique(edges[:, np.isin(edges, S).any(axis=0)]).tolist()) - set(S.tolist())
@@ -232,7 +232,7 @@ def test_the_stealth_bound_covers_the_onset(case):
 
     g, X, k = case
     for states, _, d in windows(case, 1, held=False):
-        area = np.asarray(g.area.local_region(np.unique(g.load_bus[d.targets]), k.hops))
+        area = np.asarray(g.area.hop_area(np.unique(g.load_bus[d.targets]), k.hops))
         jump = LoadGoal(
             tuple(AttackDesign(d.targets, 1.15) for _ in states)
         )  # held at 1.15: only the onset jumps
@@ -248,7 +248,7 @@ def test_a_support_within_noise_is_not_an_attack(case):
 
     g, _, k = case
     for states, _, d in windows(case, 1, held=False):
-        area = np.asarray(g.area.local_region(np.unique(g.load_bus[d.targets]), k.hops))
+        area = np.asarray(g.area.hop_area(np.unique(g.load_bus[d.targets]), k.hops))
         still = LoadGoal(tuple(AttackDesign(d.targets, 1.0 + 1e-9) for _ in states))
         assert AttackWindow(g, states, still, k).cost(area, None) is None
         assert g.minimizer.min_tamper(states, still, k).devices == -1
@@ -263,7 +263,7 @@ def test_the_onset_is_bounded_against_the_frame_before(case):
 
     g, _, k = case
     for states, _, d in windows(case, 1, held=False):
-        area = np.asarray(g.area.local_region(np.unique(g.load_bus[d.targets]), k.hops))
+        area = np.asarray(g.area.hop_area(np.unique(g.load_bus[d.targets]), k.hops))
         held = LoadGoal(tuple(AttackDesign(d.targets, 1.15) for _ in states))
         x_false = g.minimizer.goal_state(held, 0, states[0], area, k)
         assert x_false is not None

@@ -84,8 +84,8 @@ class AttackFrames(Part):
 def changed_meters(
     a_node: np.ndarray, a_edge: np.ndarray, scan: Scan, tol: float = 1e-7
 ) -> tuple[np.ndarray, np.ndarray]:
-    """The metered channels the attack vector moves (the tamper set): the interior's and the
-    boundary's injections and voltages and every flow on a branch touching the interior."""
+    """The metered channels the attack vector moves (the tamper set): the support's and the
+    boundary's injections and voltages and every flow on a branch touching the support."""
     node = (np.abs(a_node) > tol) & (scan.node_m > 0)
     edge = (np.abs(a_edge) > tol) & (scan.edge_m > 0)
     return node, edge

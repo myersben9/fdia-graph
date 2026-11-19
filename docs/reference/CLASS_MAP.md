@@ -42,7 +42,7 @@ summary); the graph properties are tensors or arrays, `loader()` is a DataLoader
 case's is `Network.from_ieee`), a `MeterPlan`
 (`MeterPlan.from_coverage`, or a plan given), a `Measurement` and a `NoiseModel`. It also holds one
 object of each of its parts (`engine/base.py`, `Part`): a part does one job and holds the generator, so
-it reads the grid as `self.g.case` and calls another part as `self.g.area.local_region(...)`. `ScanLoads`
+it reads the grid as `self.g.case` and calls another part as `self.g.area.hop_area(...)`. `ScanLoads`
 (`g.scan_loads`) reads a scan's load and generation and `Emitter` (`g.emitter`) emits scans; the parts of
 `engine/attacks/` build every attack (next section). `Emitter.benign_frame` emits a benign scan, and a
 designed episode (`engine/attacks/family.py`, `DesignedEpisode`) asks the parts for each attacked one;

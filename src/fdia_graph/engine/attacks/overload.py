@@ -89,8 +89,8 @@ class Overload(Part):
         flows = self.g.emitter.clean_flows_from_states(np.stack(window))  # [T, E, 2], unmetered zeroed
         rating = self.window_ratings(flows)  # finite per window under "delta"
         # [E] the window's largest true flow
-        S = np.hypot(flows[..., EdgeChannel.P_FROM], flows[..., EdgeChannel.Q_FROM]).max(axis=0)
-        ok = np.isfinite(rating) & self.g.flow_metered & (S < np.nan_to_num(rating, nan=-np.inf))
+        peak_flow = np.hypot(flows[..., EdgeChannel.P_FROM], flows[..., EdgeChannel.Q_FROM]).max(axis=0)
+        ok = np.isfinite(rating) & self.g.flow_metered & (peak_flow < np.nan_to_num(rating, nan=-np.inf))
         ok &= self.g.case.own_bus[self.g.edge_index].all(axis=0)  # both ends in the grid itself
         free = set(self.g.false_state.free_injection_buses().tolist())
         lines = [int(b) for b in np.flatnonzero(ok) if self._acts_on(int(b), free, hops)]
@@ -98,7 +98,7 @@ class Overload(Part):
 
     def _acts_on(self, line: int, free: set[int], hops: int) -> bool:
         """Whether the area within `hops` of the branch's ends holds a free injection to pretend."""
-        area = self.g.area.local_region(np.unique(self.g.edge_index[:, line]), hops)
+        area = self.g.area.hop_area(np.unique(self.g.edge_index[:, line]), hops)
         return area is not None and bool(free & {int(b) for b in area})
 
     def overload_goal(self, window: list[np.ndarray], line: int, *more: int) -> FlowGoal:
@@ -135,7 +135,7 @@ class Overload(Part):
     def _partner(self, a: int, order: np.ndarray, hops: int) -> Optional[int]:
         """The first branch of `order` other than a whose two ends lie inside a's attack area (the
         buses within `hops` of a's ends), or None."""
-        area = self.g.area.local_region(np.unique(self.g.edge_index[:, a]), hops)
+        area = self.g.area.hop_area(np.unique(self.g.edge_index[:, a]), hops)
         if area is None:
             return None
         inside = set(area.tolist())

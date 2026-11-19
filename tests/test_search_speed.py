@@ -97,9 +97,9 @@ def test_the_cached_boundary_is_the_subnetwork_boundary(gen):
     rng = np.random.default_rng(0)
     live = gen.edge_index
     for _ in range(50):
-        interior = rng.choice(gen.n_bus, int(rng.integers(1, 6)), replace=False)
-        want = subnetwork(live, interior, 0, gen.n_bus)
-        got = gen.area.boundary(interior)
+        support = rng.choice(gen.n_bus, int(rng.integers(1, 6)), replace=False)
+        want = subnetwork(live, support, 0, gen.n_bus)
+        got = gen.area.boundary(support)
         assert all(np.array_equal(a, b) for a, b in zip(got, want))
 
 
@@ -117,20 +117,20 @@ def test_the_row_block_product_equals_the_full_one(gen, pool):
 def test_the_reused_blocks_solve_as_the_fresh_ones(gen, pool):
     """`local_flow_solve` with the blocks a caller cut once, for a larger set of holdable rows (the
     support and its edge), returns bit for bit the voltages it returns cutting them itself, with an
-    edge bus held as well as interior ones."""
+    edge bus held as well as support ones."""
     x_true = pool[0]
     V = complex_voltages(x_true[:, NodeChannel.V], x_true[:, NodeChannel.THETA])
     Yb, Yf = gen.false_state._dense_admittances()
     line, S = 4, np.array([2, 3, 4, 8])
-    touched = gen.false_state.touched_buses(S)
-    edge = np.setdiff1d(touched, np.r_[S, gen.slack_bus])  # the slack's injection is the balance
-    interior, fixed = S, np.r_[S[:2], edge[:1]]
+    reach = gen.false_state.reach(S)
+    edge = np.setdiff1d(reach, np.r_[S, gen.slack_bus])  # the slack's injection is the balance
+    support, fixed = S, np.r_[S[:2], edge[:1]]
     S0 = bus_injections(V, Yb)
     f = int(gen.case.f[line])
     flow0 = abs(V[f] * np.conj(Yf[line] @ V))
-    fresh = local_flow_solve(Yb, Yf[line], f, V, interior, fixed, S0[fixed], 1.1 * flow0)
-    blocks = _flow_blocks(Yb, Yf[line], interior, touched)
-    reused = local_flow_solve(Yb, Yf[line], f, V, interior, fixed, S0[fixed], 1.1 * flow0, blocks=blocks)
+    fresh = local_flow_solve(Yb, Yf[line], f, V, support, fixed, S0[fixed], 1.1 * flow0)
+    blocks = _flow_blocks(Yb, Yf[line], support, reach)
+    reused = local_flow_solve(Yb, Yf[line], f, V, support, fixed, S0[fixed], 1.1 * flow0, blocks=blocks)
     assert fresh is not None and reused is not None and np.array_equal(fresh, reused)
     assert np.allclose(bus_injections(reused, Yb)[fixed], S0[fixed], atol=1e-8)  # the held buses hold
 

@@ -117,13 +117,13 @@ def test_the_search_counts_the_current_channels(gens, pool):
     k = FrameKnobs(2, g.false_state.operating_limits(pool), True, 256)
     pmu = g.pmu_buses.tolist()
     target = next(
-        i for i, b in enumerate(g.load_bus) if b in pmu or any(n in pmu for n in g.area.local_region([b], 1))
+        i for i, b in enumerate(g.load_bus) if b in pmu or any(n in pmu for n in g.area.hop_area([b], 1))
     )
     states = [pool[0], pool[1]]
     goal = LoadGoal(tuple(AttackDesign(np.array([target]), 1.03) for _ in states))
     window = AttackWindow(g, states, goal, k, stealth_bound=False)
     assert window.i_m is not None and window.i_sigma is not None and len(window.i_sigma) == 2
-    area = np.asarray(g.area.local_region(np.array([g.load_bus[target]]), k.hops))
+    area = np.asarray(g.area.hop_area(np.array([g.load_bus[target]]), k.hops))
     cost = window.cost(area, None)
     moved = window._snapshot(0, area, window.prev)
     assert cost is not None and moved is not None and moved[2] is not None and moved[2].any()

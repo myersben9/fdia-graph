@@ -1,8 +1,8 @@
 """The stealthy ramp At: one scan at a time, a local false state added to the true scan.
 
-The attacker scales its loads inside a subnetwork and solves that subnetwork's power flow with the
-boundary voltages held true, so only the subnetwork's meters change and the measurement vector stays
-consistent with an AC state [WU26]. With the fewest-tamper knob the subnetwork is the support that
+The attacker scales its loads inside a support and solves that support's power flow with the
+boundary voltages held true, so only the reach's meters change and the measurement vector stays
+consistent with an AC state [WU26]. With the fewest-tamper knob the support is the one that
 tampers the fewest devices [WU26 eq. 12].
 """
 
@@ -33,7 +33,7 @@ class RampFrames(Part):
         return self._ramp_frame(x_true, design, knobs)
 
     def _stealthy_frame(self, x_true: np.ndarray, design: AttackDesign, knobs: FrameKnobs) -> Optional[Frame]:
-        """One local false state [WU26]: the targeted loads scaled by `mult`, the interior re-solved with
+        """One local false state [WU26]: the targeted loads scaled by `mult`, the support re-solved with
         the boundary voltages held true, and a = h(x_false) - h(x_true) added to the true scan. Every meter
         keeps its own noise draw, so the scan is a full AC state plus noise; None when no state solves."""
         # Re-emitting the false state would draw each tampered meter's noise from the false reading, which
@@ -49,7 +49,7 @@ class RampFrames(Part):
 
     def _solvable_step(self, x_true: np.ndarray, design: AttackDesign, knobs: FrameKnobs) -> Optional[Frame]:
         """The stealthy frame of the design, or of the largest halving of its step (at most STEP_HALVINGS)
-        that has a local power-flow solution, so a step the region cannot absorb still leaves the frame
+        that has a local power-flow solution, so a step the support cannot absorb still leaves the frame
         attacked. The frame's magnitudes record the step used."""
         frame = self._stealthy_frame(x_true, design, knobs)
         for _ in range(STEP_HALVINGS):
@@ -60,10 +60,10 @@ class RampFrames(Part):
         return frame
 
     def _ramp_frame(self, x_true: np.ndarray, design: AttackDesign, knobs: FrameKnobs) -> Optional[Frame]:
-        """An At frame: the targeted loads scaled, and the subnetwork within `hops` of them (or the
+        """An At frame: the targeted loads scaled, and the area within `hops` of them (or the
         episode's fewest-tamper support when the search chose one) re-solved locally."""
-        held = design if knobs.min_tamper and design.interior is not None else design._replace(interior=None)
-        placed = self.g.false_state.with_region(held, knobs)
+        held = design if knobs.min_tamper and design.support is not None else design._replace(support=None)
+        placed = self.g.false_state.with_support(held, knobs)
         if placed is None:
             return None
         return self._solvable_step(x_true, placed, knobs)

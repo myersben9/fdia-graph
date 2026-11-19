@@ -148,7 +148,7 @@ class SupportMethod(Choice):
 
 class AreaRule(Choice):
     """How the attacker's area is chosen when no area is given [WU26] Sec. III-A: the buses within
-    `hops` of the goal, or the region the paper's four principles pick (`AttackArea.rule_area`; rules
+    `hops` of the goal, or the area the paper's four principles pick (`AttackArea.rule_area`; rules
     1 and 2 as checks, 3 and 4 as a score of ours)."""
 
     HOPS = "hops"

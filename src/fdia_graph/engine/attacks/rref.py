@@ -47,23 +47,23 @@ class RrefSupport:
         """The support the row reduction gives the window of `states` and the flow `goal`, grown until
         the AC solve reaches the goal; None when the goal has no area. `evaluated` counts the supports
         solved, and `devices` is -1 when none reaches the goal."""
-        region = self.g.minimizer.window_area(states, goal, knobs)
-        if region is None:
+        area = self.g.minimizer.window_area(states, goal, knobs)
+        if area is None:
             return None
-        area = np.asarray(region)
+        area = np.asarray(area)
         window = AttackWindow(self.g, states, goal, knobs, prev=prev, trust=trust)
         ladders = [self.ladder(window, t, area) for t in range(len(states))]
         levels = max((len(ladder) for ladder in ladders), default=0)
         tried: set[bytes] = set()
         for level in range(levels):
-            S = self.level(ladders, level, area)
-            if S.tobytes() in tried:
+            support = self.level(ladders, level, area)
+            if support.tobytes() in tried:
                 continue
-            tried.add(S.tobytes())
-            cost = window.cost(S, None)
+            tried.add(support.tobytes())
+            cost = window.cost(support, None)
             if cost is not None:
                 devices, channels = window.counts(cost)
-                return MinimizerResult(S, devices, channels, len(tried))
+                return MinimizerResult(support, devices, channels, len(tried))
         return MinimizerResult(area, -1, -1, len(tried))
 
     def level(self, ladders: list[list[np.ndarray]], level: int, area: np.ndarray) -> np.ndarray:
@@ -144,9 +144,9 @@ class RrefSupport:
         the metered node channels (an angle only at a PMU), the metered flows, the PMU branch currents."""
         g, base_mva = self.g, self.g.case.base_mva
         Vc = complex_voltages(batch[:, :, NodeChannel.V], batch[:, :, NodeChannel.THETA])
-        S = bus_injections(Vc, g.net.ybus, base_mva)
+        injected = bus_injections(Vc, g.net.ybus, base_mva)
         node = batch.copy()
-        node[:, :, NodeChannel.P_INJ], node[:, :, NodeChannel.Q_INJ] = S.real, S.imag
+        node[:, :, NodeChannel.P_INJ], node[:, :, NodeChannel.Q_INJ] = injected.real, injected.imag
         Sf = branch_flows(Vc, g.net.yf, g.case.f, base_mva)
         edge = np.stack([Sf.real, Sf.imag], axis=2)
         sig_node, sig_edge = window.sigma[t]

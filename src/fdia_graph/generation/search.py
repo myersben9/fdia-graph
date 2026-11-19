@@ -137,7 +137,7 @@ class SearchSource(TimelineSource):
             self.g.overload.use_line_ratings(self.settings.overload, self.X)
 
     def _knobs(self) -> FrameKnobs:
-        """The settings every scan shares (`FrameKnobs`): the subnetwork, the operating limits every
+        """The settings every scan shares (`FrameKnobs`): the area, the operating limits every
         false state must satisfy [WU26 eqs. 21-23], the search, and the overload attack's bounds."""
         s, o = self.settings, self.settings.overload
         knobs = FrameKnobs(

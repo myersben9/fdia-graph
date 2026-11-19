@@ -5,6 +5,24 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- **One word for each set of buses in the attack code (no change in behaviour).** The code used about
+  eight words for four things. Now: the **area** is where the attacker may act, the **support** is the
+  set of buses a false state re-solves, the **boundary** is the buses one branch outside it, and the
+  **reach** is the support with its boundary. The glossary defines each.
+
+  | Was | Now |
+  |---|---|
+  | `local_region` | `AttackArea.hop_area` |
+  | `interior` (a parameter, and the field of `AttackDesign`) | `support` |
+  | `interior` of `AttackArea.boundary` and `grow_over_zero_injection`, and of `formulas.attacks.within_limits` | `buses` (each takes an area, a support or a reach) |
+  | `S` (a support) | `support` |
+  | `touched`, `touched_buses` | `reach` |
+  | `with_region` | `with_support` |
+  | `formulas.network`: the `interior` parameter of `local_ac_solve`, `local_flow_solve` and their helpers | `support` |
+
+  A call that passed `interior=` or `S=` by keyword must use `support=` (`buses=` for the three in the
+  last row). Every IEEE timeline is byte for byte what it was.
+
 - **Names in the attack code say what the thing is (no change in behaviour).** `Xt` and `Xa` are
   `x_true` and `x_false`; `Lp` and `Lq` are `p_load` and `q_load`; the attack knobs a function takes
   are `knobs`, not `k` (so `AttackWindow.k` is `AttackWindow.knobs`). On the generator, `C`, `E` and

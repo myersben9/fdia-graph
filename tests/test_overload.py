@@ -56,17 +56,17 @@ def test_the_flow_solve_reaches_its_target_and_holds_the_fixed_buses(g, pool):
     V = complex_voltages(x_true[:, NodeChannel.V], x_true[:, NodeChannel.THETA])
     Yb, Yf = g.false_state._dense_admittances()
     line = 4
-    interior = np.array([2, 3, 4, 8])
-    fixed = interior[:2]  # the other two are free
+    support = np.array([2, 3, 4, 8])
+    fixed = support[:2]  # the other two are free
     S0 = bus_injections(V, Yb)
     f = int(g.case.f[line])
     flow0 = abs(V[f] * np.conj(Yf[line] @ V))
-    v_false = local_flow_solve(Yb, Yf[line], f, V, interior, fixed, S0[fixed], 1.1 * flow0)
+    v_false = local_flow_solve(Yb, Yf[line], f, V, support, fixed, S0[fixed], 1.1 * flow0)
     assert v_false is not None
     assert abs(abs(v_false[f] * np.conj(Yf[line] @ v_false)) - 1.1 * flow0) < 1e-8
     assert np.max(np.abs(bus_injections(v_false, Yb)[fixed] - S0[fixed])) < 1e-8
-    outside = np.setdiff1d(np.arange(len(V)), interior)
-    assert np.array_equal(v_false[outside], V[outside])  # every voltage outside the interior held true
+    outside = np.setdiff1d(np.arange(len(V)), support)
+    assert np.array_equal(v_false[outside], V[outside])  # every voltage outside the support held true
 
 
 def test_the_flow_solve_takes_the_least_norm_step(g, pool):
@@ -77,21 +77,21 @@ def test_the_flow_solve_takes_the_least_norm_step(g, pool):
     x_true = pool[0]
     V = complex_voltages(x_true[:, NodeChannel.V], x_true[:, NodeChannel.THETA])
     Yb, Yf = g.false_state._dense_admittances()
-    line, interior = 4, np.array([2, 3, 4, 8])
-    fixed = interior[:2]
+    line, support = 4, np.array([2, 3, 4, 8])
+    fixed = support[:2]
     S0 = bus_injections(V, Yb)
     f = int(g.case.f[line])
     flow0 = abs(V[f] * np.conj(Yf[line] @ V))
     eps = 1e-5
-    v_false = local_flow_solve(Yb, Yf[line], f, V, interior, fixed, S0[fixed], flow0 + eps)
-    k = len(interior)
+    v_false = local_flow_solve(Yb, Yf[line], f, V, support, fixed, S0[fixed], flow0 + eps)
+    k = len(support)
     got = np.concatenate(
-        [np.angle(v_false[interior]) - np.angle(V[interior]), np.abs(v_false[interior]) - np.abs(V[interior])]
+        [np.angle(v_false[support]) - np.angle(V[support]), np.abs(v_false[support]) - np.abs(V[support])]
     )
     # one goal branch; the two fixed buses hold P and Q
-    blocks = _flow_blocks(Yb, Yf[[line]], interior, interior)
-    held = _held(blocks, interior, (fixed, None), np.zeros(0, int), np.array([f]))
-    J = _flow_jacobian(blocks, held, np.array([f]), V, interior, (fixed, Yb @ V))
+    blocks = _flow_blocks(Yb, Yf[[line]], support, support)
+    held = _held(blocks, support, (fixed, None), np.zeros(0, int), np.array([f]))
+    J = _flow_jacobian(blocks, held, np.array([f]), V, support, (fixed, Yb @ V))
     r = np.zeros(J.shape[0])
     r[-1] = -eps
     want = np.linalg.lstsq(J, -r, rcond=None)[0]
@@ -128,7 +128,7 @@ def test_the_search_on_a_flow_goal_equals_brute_force(g, pool):
     goal = g.overload.overload_goal(window, line)
     result = g.minimizer.min_tamper(window, goal, k)
     seeds, starts, must_hold = g.minimizer._goal_seeds(goal)
-    area = g.area.local_region(seeds, k.hops)
+    area = g.area.hop_area(seeds, k.hops)
     inside = {int(b) for b in area}
     starts = [s for s in starts if s <= inside]
     win = AttackWindow(g, window, goal, k)
@@ -355,7 +355,7 @@ def test_am_has_no_stealth_bound_and_at_keeps_its_own(g, pool):
 
     window = [pool[u] for u in range(8)]
     goal = g.overload.overload_goal(window, int(g.overload.eligible_lines(window, 2)[0]))
-    area = np.asarray(g.area.local_region(np.unique(g.edge_index[:, goal.line]), 2))
+    area = np.asarray(g.area.hop_area(np.unique(g.edge_index[:, goal.line]), 2))
     tight, loose = (AttackWindow(g, window, goal, _knobs(g, pool, s)) for s in (1e-9, 1e9))
     assert not tight.stealth_bound and tight.cost(area, None) == loose.cost(area, None)
     design = AttackDesign(g.stealthy_pos[:1], 1.01)
@@ -401,7 +401,7 @@ def test_a_goal_drives_two_lines_at_once(g, pool):
     assert goal.lines == tuple(lines) and len(goal.targets_at(0)) == 2
     assert goal.targets_at(5) == pytest.approx(tuple(float(g.overload.line_ratings()[b]) for b in lines))
     x_true = pool[0]
-    area = np.asarray(g.area.local_region(np.unique(g.edge_index[:, lines]), 2))
+    area = np.asarray(g.area.hop_area(np.unique(g.edge_index[:, lines]), 2))
     flows = g.emitter.clean_flows_from_states(x_true[None])[0]
     want = [1.02 * float(np.hypot(*flows[b])) for b in lines]
     x_false, converged, _ = g.false_state.solve_flow_local(x_true, area, lines, want)
@@ -472,7 +472,7 @@ def _edge_cases(g, pool):
             S = np.array([int(end)])
             if int(end) not in loads:
                 continue
-            edge_gens = sorted(set(g.false_state.touched_buses(S).tolist()) & gens)
+            edge_gens = sorted(set(g.false_state.reach(S).tolist()) & gens)
             flow = g.emitter.clean_flows_from_states(x_true[None])[0, line]
             target = 1.03 * float(np.hypot(*flow))
             free, _, _ = g.false_state.solve_flow_local(x_true, S, line, target)
@@ -516,9 +516,7 @@ def test_the_load_cap_bounds_every_load_the_attack_moves(g, pool):
         if x_false is None:
             continue
         load = g.split.load(x_true)
-        buses = np.setdiff1d(
-            g.false_state.touched_buses(S), np.r_[g.false_state.generator_buses(), g.slack_bus]
-        )
+        buses = np.setdiff1d(g.false_state.reach(S), np.r_[g.false_state.generator_buses(), g.slack_bus])
         buses = buses[g.split.base_load[buses, 0] != 0]
         change = np.abs(x_false[buses, NodeChannel.P_INJ] - x_true[buses, NodeChannel.P_INJ])
         assert (change <= 0.05 * np.abs(load[buses]) + 1e-6).all()
@@ -542,7 +540,7 @@ def test_two_lines_by_default_and_the_pairs_share_one_area(g, pool):
     pairs = g.overload.target_sets(order, 2, 2)
     assert pairs and all(len(p) == 2 and p[0] != p[1] for p in pairs)
     for a, b in pairs:
-        area = {int(x) for x in g.area.local_region(np.unique(g.edge_index[:, a]), 2)}
+        area = {int(x) for x in g.area.hop_area(np.unique(g.edge_index[:, a]), 2)}
         assert {int(e) for e in g.edge_index[:, b]} <= area
     assert g.overload.target_sets(order, 1, 2) == [(int(b),) for b in order[:8]]
 
@@ -584,7 +582,7 @@ def test_a_voltage_is_held_at_its_limit_while_the_goal_is_met(g, pool):
         q_hi=np.full(g.n_bus, np.inf),
     )
     for line in g.overload.eligible_lines([x_true], 2):
-        S = np.asarray(g.area.local_region(np.unique(g.edge_index[:, line]), 2))
+        S = np.asarray(g.area.hop_area(np.unique(g.edge_index[:, line]), 2))
         flow = g.emitter.clean_flows_from_states(x_true[None])[0, line]
         target = 1.03 * float(np.hypot(*flow))
         free, _, _ = g.false_state.solve_flow_local(x_true, S, int(line), target)
