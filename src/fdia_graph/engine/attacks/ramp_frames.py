@@ -43,7 +43,7 @@ class RampFrames(Part):
             return None  # no local solution, or one outside the operating limits: the caller halves
         buses = self.g.load_bus[design.targets]
         dev = np.abs(np.asarray(design.mult, float) - 1.0)
-        return self.g.false_state.frame_from_state(
+        return self.g.attack_frames.frame_from_state(
             Xt, Xa, buses, np.broadcast_to(dev, buses.shape).astype(float)
         )
 

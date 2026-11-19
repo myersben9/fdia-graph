@@ -12,17 +12,17 @@ Each frame of a timeline is one record. Its operating state is one frame of the 
 layer is `Measurement.h` of that state with no noise (`Emitter.exact`); the node layer
 `clean` is the state itself. `Emitter.emit_from_state` adds each meter's bias and the
 scan's jitter (`NoiseModel`), which gives the benign layer. On an attacked frame
-`FalseState.frame_from_state` adds the attack vector on the meters it moves, which gives the
+`AttackFrames.frame_from_state` adds the attack vector on the meters it moves, which gives the
 observed layer; on a benign frame the observed layer is the benign one. `TimelineWriter.store`
 writes the three layers with the labels `y`, `family` and `seq_id` and the tamper masks.
 An episode designed as a vector over the meters (`VectorEpisode`) uses
-`FalseState.frame_from_vector` instead.
+`AttackFrames.frame_from_vector` instead.
 [Layers and labels](../concepts/layers.md) says what each layer and label is for.
 
 Every attack is built in `engine.attacks`, by the parts the generator holds: a local false state
 (`engine.attacks.false_state`) designed per episode (`ramp_design` for At, `am_overload_design` for
 Am, `engine.attacks.episodes`) on a support the search or [WU26]'s row reduction chooses
-(`Minimizer.min_tamper`, `RrefSupport`); `FalseState.frame_from_state` adds the attack vector to the
+(`Minimizer.min_tamper`, `RrefSupport`); `AttackFrames.frame_from_state` adds the attack vector to the
 benign scan.
 
 ## Modules

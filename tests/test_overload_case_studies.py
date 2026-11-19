@@ -16,7 +16,7 @@ from fdia_graph.constants.channels import (
     CurrentChannel,  # noqa: E402
     NodeChannel,  # noqa: E402
 )
-from fdia_graph.engine.attacks.minimize import _Window  # noqa: E402
+from fdia_graph.engine.attacks.window import AttackWindow  # noqa: E402
 from fdia_graph.engine.core import FdiaGenerator  # noqa: E402
 from fdia_graph.generation import _load_states  # noqa: E402
 from fdia_graph.models.config import OverloadSettings  # noqa: E402
@@ -60,7 +60,7 @@ def _devices(g, window, k, goal, support) -> tuple[set[str], float]:
     """The devices the held support tampers over the window, named as the paper does ("SCADA 3",
     "PMU 4", MATPOWER numbers), and the largest change on one of their channels (pu, angles in rad)."""
     number = g.case.bus_id
-    w = _Window(g, window, goal, k)
+    w = AttackWindow(g, window, goal, k)
     prev, names, worst = w.prev, set(), 0.0
     for t in range(len(window)):
         node, edge, cur, prev = w._snapshot(t, support, prev)

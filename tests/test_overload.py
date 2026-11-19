@@ -120,7 +120,7 @@ def test_eligible_lines_are_rated_metered_and_below_their_rating(g, pool):
 def test_the_search_on_a_flow_goal_equals_brute_force(g, pool):
     # [WU26 eq. 12]
     """Every candidate support solved: the fewest-tamper result is the cheapest among the converged."""
-    from fdia_graph.engine.attacks.minimize import _Window
+    from fdia_graph.engine.attacks.window import AttackWindow
 
     k = _knobs(g, pool)
     window = [pool[u] for u in range(30)]
@@ -131,7 +131,7 @@ def test_the_search_on_a_flow_goal_equals_brute_force(g, pool):
     area = g.area.local_region(seeds, k.hops)
     inside = {int(b) for b in area}
     starts = [s for s in starts if s <= inside]
-    win = _Window(g, window, goal, k)
+    win = AttackWindow(g, window, goal, k)
     costs = [
         c for S in [*g.minimizer._supports(starts, area, must_hold)] if (c := win.cost(S, None)) is not None
     ]
@@ -189,17 +189,17 @@ def test_am_counts_against_the_paper_noise_and_at_against_the_rated_accuracy(g, 
     """The window of a flow goal (Am) takes [WU26]'s noise a load goal (At) keeps the meters'
     rated accuracy."""
     from fdia_graph.constants.meters import ACCURACY_CLASS, POWER_NOISE_FLOOR_MW
-    from fdia_graph.engine.attacks.minimize import _Window
+    from fdia_graph.engine.attacks.window import AttackWindow
     from fdia_graph.models.frames import AttackDesign, LoadGoal
 
     k = _knobs(g, pool, 1.0)
     window = [pool[u] for u in range(5)]
-    flow = _Window(
+    flow = AttackWindow(
         g, window, g.overload.overload_goal(window, int(g.overload.eligible_lines(window, 2)[0])), k
     )
     assert np.all(flow.sigma[0][1] == 0.03 * g.case.base_mva)
     design = AttackDesign(g.stealthy_pos[:1], 1.01)
-    load = _Window(g, window, LoadGoal(tuple([design] * 5)), k)
+    load = AttackWindow(g, window, LoadGoal(tuple([design] * 5)), k)
     flows = g.emitter.clean_flows_from_states(np.stack(window))
     # the rated accuracy at the true readings [ASP14]: absolute on |V| and the angle, relative on powers
     x, N = np.abs(np.asarray(window[0], np.float64)), NodeChannel
@@ -315,11 +315,11 @@ def test_a_voltmeter_angle_is_not_a_channel_the_attack_is_charged_for(g, pool):
     """A SCADA voltmeter reads |V| only; the angle channel exists only at a PMU bus, so the search's
     masks carry an angle at PMU buses alone."""
     from fdia_graph.constants.channels import NodeChannel
-    from fdia_graph.engine.attacks.minimize import _Window
+    from fdia_graph.engine.attacks.window import AttackWindow
 
     window = [pool[u] for u in range(3)]
     line = int(g.overload.eligible_lines(window, 2)[0])
-    w = _Window(g, window, g.overload.overload_goal(window, line), FrameKnobs())
+    w = AttackWindow(g, window, g.overload.overload_goal(window, line), FrameKnobs())
     pmu = np.zeros(g.C, bool)
     pmu[g.pmu_buses] = True
     assert not w.node_m[~pmu, NodeChannel.THETA].any()
@@ -348,16 +348,16 @@ def test_the_overload_am_is_not_checked_against_a_target_count(monkeypatch):
 def test_am_has_no_stealth_bound_and_at_keeps_its_own(g, pool):
     """D11: [WU26]'s model bounds nothing between snapshots; its noise only thresholds the l0 count.
     The overload window's cost does not depend on the stealth scale, At's window is bounded."""
-    from fdia_graph.engine.attacks.minimize import _Window
+    from fdia_graph.engine.attacks.window import AttackWindow
     from fdia_graph.models.frames import AttackDesign, LoadGoal
 
     window = [pool[u] for u in range(8)]
     goal = g.overload.overload_goal(window, int(g.overload.eligible_lines(window, 2)[0]))
     area = np.asarray(g.area.local_region(np.unique(g.ei[:, goal.line]), 2))
-    tight, loose = (_Window(g, window, goal, _knobs(g, pool, s)) for s in (1e-9, 1e9))
+    tight, loose = (AttackWindow(g, window, goal, _knobs(g, pool, s)) for s in (1e-9, 1e9))
     assert not tight.stealth_bound and tight.cost(area, None) == loose.cost(area, None)
     design = AttackDesign(g.stealthy_pos[:1], 1.01)
-    assert _Window(g, window, LoadGoal(tuple([design] * 8)), _knobs(g, pool)).stealth_bound
+    assert AttackWindow(g, window, LoadGoal(tuple([design] * 8)), _knobs(g, pool)).stealth_bound
 
 
 def test_a_generator_only_support_is_valid_and_its_output_stays_in_limits(g, pool):

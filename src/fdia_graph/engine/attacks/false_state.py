@@ -1,5 +1,6 @@
 """The local false state of a stealthy attack: the attacker's area re-solved under false loads with
-the boundary held true, checked against the operating limits, and the attack vector it writes."""
+the boundary held true, and checked against the operating limits. `frames.py` writes its attack
+vector onto a scan."""
 
 from __future__ import annotations
 
@@ -9,7 +10,6 @@ from typing import NamedTuple, Optional, Union
 import numpy as np
 
 from ...constants.channels import NodeChannel
-from ...constants.numerics import ZERO_TOL
 from ...formulas.attacks import operating_limits, within_limits
 from ...formulas.network import (
     _dense,
@@ -20,7 +20,7 @@ from ...formulas.network import (
     local_ac_solve,
     local_flow_solve,
 )
-from ...models.frames import AttackDesign, Frame, FrameKnobs, MeterLayers, OperatingLimits, Scan
+from ...models.frames import AttackDesign, FrameKnobs, OperatingLimits
 from ..base import Part
 
 
@@ -318,49 +318,6 @@ class FalseState(Part):
             self._dense_Y = cached
         return cached
 
-    def frame_from_state(self, Xt: np.ndarray, Xa: np.ndarray, buses: np.ndarray, dev: np.ndarray) -> Frame:
-        """The emitted frame of a local false state `Xa` on the true state `Xt`: the true scan (the
-        benign twin and every meter's noise draw) plus the attack vector a = h(x_false) - h(x_true) on
-        the meters it moves, labelled at `buses` with their designed magnitudes `dev`."""
-        scan = self.g.emitter.emit_from_state(Xt)
-        bnx, bex = scan.node_x, scan.edge_x
-        a_node, a_edge = self._attack_vector(Xa, Xt)
-        moved = changed_meters(a_node, a_edge, scan)
-        nx, ex = bnx.copy(), bex.copy()
-        nx[moved[0]] += a_node[moved[0]]
-        ex[moved[1]] += a_edge[moved[1]]
-        y = np.zeros(self.g.C, np.uint8)
-        y[buses] = 1
-        ix, itamper = self._currents_with_attack(scan, Xa, Xt)
-        # the tamper masks: the meters whose stored float32 reading changed, no fewer, no more
-        changed = MeterLayers(nx != bnx, ex != bex, itamper)
-        return Frame.from_scan(scan, MeterLayers(nx, ex, ix), y, (buses, dev), changed)
-
-    def frame_from_vector(self, Xt: np.ndarray, a: np.ndarray) -> Frame:
-        """The emitted frame of an attack held as a vector over the meters, a [M] = h(x_false) -
-        h(x_true): the true scan plus `a` on every meter. The meters it moves beyond their noise
-        (`NoiseModel.tampered`) are the tamper masks, and a bus with one is labelled."""
-        scan = self.g.emitter.emit_from_state(Xt)
-        tampered = self.g.noise.tampered(self.g.emitter.exact(Xt), a)
-        add = self.g.emitter.layers(np.asarray(a, float))
-        seen = (scan.node_x + add.node, scan.edge_x + add.edge, scan.i_x + add.current)
-        y = np.zeros(self.g.C, np.uint8)
-        y[self.g.plan.bus[tampered]] = 1
-        return Frame.from_scan(
-            scan, MeterLayers(*(x.astype(np.float32) for x in seen)), y, None, self.g.emitter.layers(tampered)
-        )
-
-    def _currents_with_attack(
-        self, scan: Scan, Xa: np.ndarray, Xt: np.ndarray
-    ) -> tuple[np.ndarray, np.ndarray]:
-        """The PMU branch-current readings of a stealthy frame [WU26 eqs. 19-20]: the true scan's
-        currents plus the attack vector on them, and the current channels written."""
-        a = self._current_attack(Xa, Xt)
-        moved = (np.abs(a) > ZERO_TOL) & (scan.i_m > 0)
-        ix = scan.i_x.copy()
-        ix[moved] += a[moved].astype(np.float32)
-        return ix, ix != scan.i_x
-
     def stealthy_state(self, Xt: np.ndarray, design: AttackDesign, k: FrameKnobs) -> Optional[np.ndarray]:
         """The local false state of the design (its targets scaled by its multiplier, re-solved on its
         interior, or on the region around its targets), or None when the local power flow has no solution
@@ -406,27 +363,3 @@ class FalseState(Part):
         dload = np.zeros(self.g.C)
         np.add.at(dload, self.g.load_bus, load_delta_pos)
         return within_limits(Xa, Xt, self.g.split.generation(Xt), dload, limits, interior)
-
-    def _attack_vector(self, Xa: np.ndarray, Xt: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-        """The attack vector a = h(x_false) - h(x_true) [WU26 eqs. 13-18] per node channel [N, 4] and per flow
-        channel [E, 2], in the scan's physical units: the noiseless reading of the false state minus
-        that of the true state (unmetered flows zero on both sides)."""
-        flows = self.g.emitter.clean_flows_from_states(np.stack([Xa, Xt]))  # [2, E, 2], unmetered zeroed
-        return (np.asarray(Xa, float) - np.asarray(Xt, float)).astype(np.float32), flows[0] - flows[1]
-
-    def _current_attack(self, Xa: np.ndarray, Xt: np.ndarray) -> np.ndarray:
-        """The attack vector on the PMU branch-current channels [E, 4] (per unit), zero where no PMU
-        reads that end. The currents of a false state follow from its voltages, so the attacker must
-        write them too [WU26 eqs. 19-20]."""
-        cur = self.g.emitter.currents_from_states(np.stack([Xa, Xt]))
-        return cur[0] - cur[1]
-
-
-def changed_meters(
-    a_node: np.ndarray, a_edge: np.ndarray, scan: Scan, tol: float = 1e-7
-) -> tuple[np.ndarray, np.ndarray]:
-    """The metered channels the attack vector moves (the tamper set): the interior's and the
-    boundary's injections and voltages and every flow on a branch touching the interior."""
-    node = (np.abs(a_node) > tol) & (scan.node_m > 0)
-    edge = (np.abs(a_edge) > tol) & (scan.edge_m > 0)
-    return node, edge

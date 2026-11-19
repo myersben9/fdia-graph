@@ -48,7 +48,9 @@ GROUPS = {
     "attacks": [
         f"{GENERATION}/engine/attacks/area",
         f"{GENERATION}/engine/attacks/false_state",
+        f"{GENERATION}/engine/attacks/frames",
         f"{GENERATION}/engine/attacks/minimize",
+        f"{GENERATION}/engine/attacks/window",
         f"{GENERATION}/engine/attacks/overload",
         f"{GENERATION}/engine/attacks/ramp_frames",
         f"{GENERATION}/engine/attacks/episodes",

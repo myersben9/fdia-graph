@@ -22,7 +22,7 @@ from ...formulas.network import branch_currents, branch_flows, bus_injections, c
 from ...formulas.trust import sparsest_rows
 from ...models.config import TrustSchedule
 from ...models.frames import AttackVector, FlowGoal, FrameKnobs, MinimizerResult
-from .minimize import _Window
+from .window import AttackWindow
 
 if TYPE_CHECKING:
     from ..core import FdiaGenerator
@@ -51,7 +51,7 @@ class RrefSupport:
         if region is None:
             return None
         area = np.asarray(region)
-        window = _Window(self.g, states, goal, k, prev=prev, trust=trust)
+        window = AttackWindow(self.g, states, goal, k, prev=prev, trust=trust)
         ladders = [self.ladder(window, t, area) for t in range(len(states))]
         levels = max((len(ladder) for ladder in ladders), default=0)
         tried: set[bytes] = set()
@@ -73,7 +73,7 @@ class RrefSupport:
         closed = self.g.minimizer.zero_closed(frozenset(buses)) if buses else frozenset()
         return np.array(sorted(closed & {int(b) for b in area}), dtype=np.int64)
 
-    def ladder(self, window: _Window, t: int, area: np.ndarray) -> list[np.ndarray]:
+    def ladder(self, window: AttackWindow, t: int, area: np.ndarray) -> list[np.ndarray]:
         """Snapshot t's supports, in the reduction's order: first the buses of the sparsest attack that
         moves each target line (ours: the paper chases the sparsest row outright), then the buses of each
         remaining row, sparsest first. Empty when no free bus moves some target line."""
@@ -96,13 +96,13 @@ class RrefSupport:
         rest = [_moved_buses(free, _state_change(H, a)) for a in rows[1:]]
         return [np.array(sorted(first), dtype=np.int64), *rest]
 
-    def _area_jacobian(self, window: _Window, t: int, free: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    def _area_jacobian(self, window: AttackWindow, t: int, free: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
         """(H, G) of `area_jacobian`, without the rows' devices."""
         H, G, _ = self.area_jacobian(window, t, free)
         return H, G
 
     def area_jacobian(
-        self, window: _Window, t: int, free: np.ndarray
+        self, window: AttackWindow, t: int, free: np.ndarray
     ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         """(H [m, 2F], G [L, 2F], devices [m]) at snapshot t, by forward differences over the `free` buses
         (columns: |V| of every free bus, then every angle): H the attackable channels over their noise (rows
@@ -123,7 +123,7 @@ class RrefSupport:
         G = ((flows[1:] - flows[0]) / steps[:, None]).T
         return H[kept], G, self.channel_devices(window)[kept]
 
-    def channel_devices(self, window: _Window) -> np.ndarray:
+    def channel_devices(self, window: AttackWindow) -> np.ndarray:
         """The device of every channel `_scaled_channels` lists, in its order (the SCADA terminal of bus b
         is b, its PMU N + b): |V| and angle belong to the bus's PMU when it has one, injections and flows
         to its SCADA terminal, a branch current to the PMU at that end."""
@@ -139,7 +139,7 @@ class RrefSupport:
         ]
         return np.concatenate(parts).astype(np.int64)
 
-    def _scaled_channels(self, window: _Window, t: int, batch: np.ndarray) -> np.ndarray:
+    def _scaled_channels(self, window: AttackWindow, t: int, batch: np.ndarray) -> np.ndarray:
         """Every attackable channel of each state in `batch` [B, N, 4] over its [WU26] noise, [B, m]:
         the metered node channels (an angle only at a PMU), the metered flows, the PMU branch currents."""
         g, base_mva = self.g, self.g.case.base_mva

@@ -16,14 +16,28 @@ classDiagram
         +free_injection_buses()
         +solve_flow_local()
         +touched_buses()
+        +stealthy_state()
+        ... and 3 more
+    }
+    class AttackFrames {
         +frame_from_state()
-        ... and 5 more
+        +frame_from_vector()
+        +currents_with_attack()
+        +attack_vector()
+        +current_attack()
     }
     class Minimizer {
         +min_tamper()
         +window_area()
         +goal_state()
         +zero_closed()
+    }
+    class AttackWindow {
+        +cost()
+        +support_at()
+        +rank()
+        +counts()
+        +near()
     }
     class Overload {
         +use_line_ratings()
@@ -56,6 +70,12 @@ classDiagram
     }
     class AttackVector {
         <<models>>
+    }
+    class CostUnit {
+        <<models>>
+    }
+    class FdiaGenerator {
+        <<engine>>
     }
     class FlowGoal {
         <<models>>
@@ -106,12 +126,21 @@ classDiagram
         <<models>>
     }
     Part <|-- AttackArea
+    Part <|-- AttackFrames
     Part <|-- EpisodeDesigns
     Part <|-- FalseState
     Part <|-- Minimizer
     Part <|-- Overload
     Part <|-- RampFrames
     AttackArea ..> AreaScore : uses
+    AttackFrames ..> Frame : uses
+    AttackFrames ..> MeterLayers : uses
+    AttackFrames ..> Scan : uses
+    AttackWindow ..> AttackVector : uses
+    AttackWindow ..> CostUnit : uses
+    AttackWindow ..> FdiaGenerator : uses
+    AttackWindow ..> FrameKnobs : uses
+    AttackWindow ..> TrustSchedule : uses
     EpisodeDesigns ..> AmOverloadDesign : uses
     EpisodeDesigns ..> AttackDesign : uses
     EpisodeDesigns ..> AttackVector : uses
@@ -119,12 +148,10 @@ classDiagram
     EpisodeDesigns ..> LoadGoal : uses
     EpisodeDesigns ..> RampDesign : uses
     FalseState ..> AttackDesign : uses
-    FalseState ..> Frame : uses
     FalseState ..> FrameKnobs : uses
-    FalseState ..> MeterLayers : uses
     FalseState ..> OperatingLimits : uses
-    FalseState ..> Scan : uses
     Minimizer ..> AttackVector : uses
+    Minimizer ..> AttackWindow : uses
     Minimizer ..> FlowGoal : uses
     Minimizer ..> FrameKnobs : uses
     Minimizer ..> LoadGoal : uses

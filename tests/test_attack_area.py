@@ -10,7 +10,7 @@ pytest.importorskip("pandapower")
 
 from fdia_graph.constants.channels import NodeChannel  # noqa: E402
 from fdia_graph.engine.attacks.area import area_score_total  # noqa: E402
-from fdia_graph.engine.attacks.minimize import _Window  # noqa: E402
+from fdia_graph.engine.attacks.window import AttackWindow  # noqa: E402
 from fdia_graph.engine.core import FdiaGenerator  # noqa: E402
 from fdia_graph.errors import ConfigError  # noqa: E402
 from fdia_graph.generation import _load_states  # noqa: E402
@@ -98,7 +98,7 @@ def test_every_attack_the_search_returns_is_valid():
     trust = TrustSchedule([int(b) for b in case_studies.buses(g, [4, 6, 1, 13])], [1, 3, 5, 7])
     r = g.minimizer.min_tamper(window, goal, k, trust=trust)
     assert r.devices >= 1
-    w = _Window(g, window, goal, k, trust=trust)
+    w = AttackWindow(g, window, goal, k, trust=trust)
     prev = w.prev
     for t in range(len(window)):
         free = w.support_at(t, r.support)

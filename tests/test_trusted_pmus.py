@@ -21,7 +21,7 @@ from fdia_graph.constants.channels import (
     CurrentChannel,  # noqa: E402
     NodeChannel,  # noqa: E402
 )
-from fdia_graph.engine.attacks.minimize import _Window  # noqa: E402
+from fdia_graph.engine.attacks.window import AttackWindow  # noqa: E402
 from fdia_graph.engine.core import FdiaGenerator  # noqa: E402
 from fdia_graph.errors import ConfigError  # noqa: E402
 from fdia_graph.generation import _load_states  # noqa: E402
@@ -92,7 +92,7 @@ def test_a_trusted_pmu_keeps_its_bus_true_from_its_slot_on():
     holds its bus; before its slot the bus may still move."""
     g, window, k, goal = _setup(0, 1.1)
     trust = _schedule(g, 0)
-    w = _Window(g, window, goal, k, trust=trust)
+    w = AttackWindow(g, window, goal, k, trust=trust)
     bus4 = int(case_studies.buses(g, [4])[0])
     S = np.array(sorted(int(b) for b in case_studies.buses(g, [3, 4, 5, 7, 11])), dtype=np.int64)
     assert bus4 in w.support_at(2, S) and bus4 not in w.support_at(3, S)
@@ -109,7 +109,10 @@ def test_an_empty_schedule_costs_what_no_schedule_costs():
     # [WU26 eqs. 12, 28]
     """No trusted PMU is the search without a schedule: the same cost for every support tried."""
     g, window, k, goal = _setup(1, 1.1)
-    bare, empty = _Window(g, window, goal, k), _Window(g, window, goal, k, trust=TrustSchedule([], []))
+    bare, empty = (
+        AttackWindow(g, window, goal, k),
+        AttackWindow(g, window, goal, k, trust=TrustSchedule([], [])),
+    )
     for buses in ([2, 4, 5, 6, 7, 8, 9], [2, 5, 6, 11], [2, 3, 4, 5]):
         S = np.array(sorted(int(b) for b in case_studies.buses(g, buses)), dtype=np.int64)
         assert bare.cost(S, None) == empty.cost(S, None)
@@ -118,7 +121,7 @@ def test_an_empty_schedule_costs_what_no_schedule_costs():
 # ---- the case studies ------------------------------------------------------------------------------
 def _named(g, window, k, goal, trust, result) -> set[str]:
     number = g.case.bus_id
-    w = _Window(g, window, goal, k, trust=trust)
+    w = AttackWindow(g, window, goal, k, trust=trust)
     prev, names = w.prev, set()
     for t in range(len(window)):
         snap = w._snapshot(t, w.support_at(t, result.support), prev)

@@ -9,7 +9,7 @@ re-solve, locally. The attack families are At (the slow ramp) and Am (the overlo
 FdiaGenerator holds the state (the grid, the meters, the random stream) and one object of each
 part (`engine.base.Part`), named after its class: `emitter` (measurement.py, meter readings from a
 state), `scan_loads` (physics.py, a scan's load and generation) and the parts of attacks/ (`area`,
-`false_state`, `ramp_frames`, `minimizer`, `overload`, `episode_designs`).
+`false_state`, `attack_frames`, `ramp_frames`, `minimizer`, `overload`, `episode_designs`).
 """
 
 from __future__ import annotations
@@ -29,6 +29,7 @@ from ..systems.network import Network
 from .attacks.area import AttackArea
 from .attacks.episodes import EpisodeDesigns
 from .attacks.false_state import FalseState
+from .attacks.frames import AttackFrames
 from .attacks.minimize import Minimizer
 from .attacks.overload import Overload
 from .attacks.ramp_frames import RampFrames
@@ -78,7 +79,8 @@ class FdiaGenerator:
         self.E = self.ei.shape[1]
         # the parts, each one job in one class: a call `g.<part>.<method>` names the class of the method
         self.emitter, self.scan_loads, self.area = Emitter(self), ScanLoads(self), AttackArea(self)
-        self.false_state, self.ramp_frames = FalseState(self), RampFrames(self)
+        self.false_state, self.attack_frames = FalseState(self), AttackFrames(self)
+        self.ramp_frames = RampFrames(self)
         self.minimizer, self.overload = Minimizer(self), Overload(self)
         self.episode_designs = EpisodeDesigns(self)
         self._load_tables()

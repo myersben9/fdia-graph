@@ -137,23 +137,23 @@ def test_the_reused_blocks_solve_as_the_fresh_ones(gen, pool):
 
 def test_the_support_attack_vector_equals_the_full_one(gen, pool):
     # [WU26 eqs. 13-16]
-    """The search's attack vector over the support's branches equals `_attack_vector` and
-    `_current_attack` over every branch (float32 flows: to their rounding)."""
-    from fdia_graph.engine.attacks.minimize import _Window
+    """The search's attack vector over the support's branches equals `attack_vector` and
+    `current_attack` over every branch (float32 flows: to their rounding)."""
+    from fdia_graph.engine.attacks.window import AttackWindow
 
     k = _knobs(gen, pool, None)
     window, goal = _goal(gen, pool, "Am", 150, (1,))
-    win = _Window(gen, window, goal, k)
+    win = AttackWindow(gen, window, goal, k)
     S = np.array([4, 5])
     Xa = gen.minimizer.goal_state(goal, 0, window[0], S, k)
     assert Xa is not None
     near = win.near(S)
     a_edge, a_cur = win._branch_attack(0, Xa, near)
-    _, want_edge = gen.false_state._attack_vector(Xa, window[0])
+    _, want_edge = gen.attack_frames.attack_vector(Xa, window[0])
     assert np.allclose(a_edge, want_edge, rtol=1e-5, atol=1e-4)
     far = np.setdiff1d(np.arange(gen.E), near.lines)
     assert not a_edge[far].any()  # a branch off the support reads the same on both sides
-    want_cur = gen.false_state._current_attack(Xa, window[0])
+    want_cur = gen.attack_frames.current_attack(Xa, window[0])
     assert (a_cur is None) == (want_cur is None)
     if a_cur is not None and want_cur is not None:
         assert np.allclose(a_cur, want_cur, rtol=1e-10, atol=1e-12)

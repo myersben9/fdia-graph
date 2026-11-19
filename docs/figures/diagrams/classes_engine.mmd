@@ -39,6 +39,9 @@ classDiagram
     class AttackArea {
         <<engine>>
     }
+    class AttackFrames {
+        <<engine>>
+    }
     class BusType {
         <<constants>>
     }
@@ -107,6 +110,7 @@ classDiagram
     Emitter ..> MeterLayers : uses
     Emitter ..> Scan : uses
     FdiaGenerator ..> AttackArea : uses
+    FdiaGenerator ..> AttackFrames : uses
     FdiaGenerator ..> BusType : uses
     FdiaGenerator ..> Emitter : uses
     FdiaGenerator ..> EpisodeDesigns : uses

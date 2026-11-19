@@ -192,6 +192,9 @@ class FlowGoal(NamedTuple):
         return (self.targets[t], *(targets[t] for _, targets in self.more))
 
 
+Goal = Union[LoadGoal, FlowGoal]  # what a window must realize: the loads of At, the flow of Am
+
+
 class AmOverloadDesign(NamedTuple):
     """One `Am` episode as the overload attack of [WU26]: the target branches (`goal.lines`), their
     ratings, the flow each frame must reach, and the fewest-tamper support held for the window with
