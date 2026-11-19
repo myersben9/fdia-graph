@@ -1981,9 +1981,29 @@ the data terms is in <a href="../../guides/generation/"><code>../guides/generati
 <td><code>constants.families.STEALTHY_FAMILIES</code>, <code>data/stealthy</code></td>
 </tr>
 <tr>
+<td>area</td>
+<td>The buses an attacker may act in: by default the buses within <code>hops</code> branches of the goal's buses, the slack left out, grown over the zero-injection buses of its boundary, with <code>hops</code> reduced until a boundary is left. A support is chosen inside it.</td>
+<td><code>engine.attacks.area.AttackArea.hop_area</code>, <code>attack_area</code></td>
+</tr>
+<tr>
 <td>support</td>
-<td>The buses whose voltages a local false state moves; only meters that depend on them can change. The fewest-tamper search chooses it.</td>
+<td>The buses whose voltages a local false state moves; only meters that depend on them can change. The fewest-tamper search chooses it; without the search it is the whole area.</td>
 <td><code>engine.attacks.minimize.Minimizer.min_tamper</code></td>
+</tr>
+<tr>
+<td>boundary</td>
+<td>The buses one branch outside a support (or an area). Their voltages stay true; their reported injections take up the change.</td>
+<td><code>engine.attacks.area.AttackArea.boundary</code></td>
+</tr>
+<tr>
+<td>reach</td>
+<td>A support with its boundary: every bus whose reported injection a false state on that support can change.</td>
+<td><code>engine.attacks.false_state.FalseState.reach</code></td>
+</tr>
+<tr>
+<td>snapshot</td>
+<td>One state of an attack window, counted from the window's first frame.</td>
+<td><code>engine.attacks.window.AttackWindow</code></td>
 </tr>
 <tr>
 <td>device</td>
@@ -2047,8 +2067,8 @@ the data terms is in <a href="../../guides/generation/"><code>../guides/generati
 </tr>
 <tr>
 <td>local false state</td>
-<td>A state in which only a subnetwork around the targets is re-solved under false loads, boundary voltages held true, and the attack vector <code>h(x_false) - h(x_true)</code> is added to the true scan; it meets constraints (13)-(18) and (21)-(23) of [WU26], and in new generation the branch-current phasors (19)-(20); new generation also holds it on the fewest-device support of eq. (12).</td>
-<td><code>engine.attacks.ramp_frames.RampFrames._stealthy_frame</code>, <code>engine.attacks.false_state.FalseState.solve_local</code>, <code>engine.attacks.area.AttackArea.local_region</code></td>
+<td>A state in which only the support is re-solved under false loads, boundary voltages held true, and the attack vector <code>h(x_false) - h(x_true)</code> is added to the true scan; it meets constraints (13)-(18) and (21)-(23) of [WU26], and in new generation the branch-current phasors (19)-(20); new generation also holds it on the fewest-device support of eq. (12).</td>
+<td><code>engine.attacks.ramp_frames.RampFrames._stealthy_frame</code>, <code>engine.attacks.false_state.FalseState.solve_local</code>, <code>engine.attacks.area.AttackArea.hop_area</code></td>
 </tr>
 <tr>
 <td>theta_ref</td>
