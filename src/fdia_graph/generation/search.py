@@ -67,21 +67,11 @@ class SearchSource(TimelineSource):
         self.seed, self.settings = seed, s
         # one column per family: a family named twice adds nothing
         fams = tuple(dict.fromkeys(family_codes(s.families)))
-        mine = dict(families or {})
-        OwnFamilies(list(mine), [FAMILIES[f] for f in fams])
-        if own is not None:
-            OwnedBuses(len(net.case.bus_id), len(own.bus_client), [str(n) for n in own.names])
-        # the codes the search-based families design: a family of the caller's own needs neither their
-        # targets nor the overload's ratings, and its settings are not recorded
-        self.searched = tuple(f for f in fams if FAMILIES[f] not in mine)
-        self.am_runs = AM_CODE in self.searched
-        if mine:
-            self.tamper_rule = f"{schema.IEEE_TAMPER_RULE}; {schema.VECTOR_TAMPER_RULE}"
+        mine = self._own_families(fams, families)
         # the walk's generator on the meter plan of the settings; `_check_targets` sets the Am ratings
         split = LoadSplit.of(s.loads, net.case, X)
         self.g, self.X = FdiaGenerator(net, seed, s.meters, s.max_load_mw, split=split), X
-        if own is not None:  # each meter belongs to the client of its bus (a label: no design reads it)
-            self.g.use_plan(replace(self.g.plan, owner=own.bus_client[self.g.plan.bus]))
+        self._label_meters(own)
         self._check_targets(self.searched)
         self.limits = self.g.operating_limits(self.X)  # every false state must satisfy [WU26 eqs. 21-23]
         self.knobs = self._knobs()
@@ -92,6 +82,27 @@ class SearchSource(TimelineSource):
         spec = GeneratorSpec(net, seed, s.max_load_mw, s.meters, ratings, delta, split, mine)
         designer = SearchDesigner(self.g, spec, self.knobs, self.X, ramp, workers, self.named)
         super().__init__(self.g, self.X, designer, s, [FAMILIES[f] for f in fams], seed, time)
+
+    def _own_families(self, fams: tuple[int, ...], families: Optional[Families]) -> Families:
+        """The caller's own families by name (refused under a name the timeline does not place), and
+        what follows from them: the codes the search-based families still design (`searched`; a family
+        of the caller's own needs neither their targets nor the overload's ratings, and its settings
+        are not recorded) and the tamper rule the file states."""
+        mine = dict(families or {})
+        OwnFamilies(list(mine), [FAMILIES[f] for f in fams])
+        self.searched = tuple(f for f in fams if FAMILIES[f] not in mine)
+        self.am_runs = AM_CODE in self.searched
+        if mine:
+            self.tamper_rule = f"{schema.IEEE_TAMPER_RULE}; {schema.VECTOR_TAMPER_RULE}"
+        return mine
+
+    def _label_meters(self, own: Optional[Ownership]) -> None:
+        """With an `Ownership` (one client per bus of the case), give each meter to the client of its
+        bus. The owner is a label: no design reads it."""
+        if own is None:
+            return
+        OwnedBuses(self.g.C, len(own.bus_client), [str(n) for n in own.names])
+        self.g.use_plan(replace(self.g.plan, owner=own.bus_client[self.g.plan.bus]))
 
     @classmethod
     def for_pool(
