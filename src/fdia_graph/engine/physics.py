@@ -1,10 +1,10 @@
-"""A scan's load and generation, read from its stored state.
+"""How a stored load-positive injection divides into load and generation.
 
-A pool stores one net injection per bus. How it divides into load and generation depends on how the
-pool was made, and a `LoadSplit` says it: `ScaledSplit` for a pool that scaled the case's load and
-generation by one factor per bus (the released IEEE pools), `NetSplit` for a pool whose units were
-dispatched (an OPF: the New York pool). The attacker's local false state (its area, the local solve,
-the operating limits) is in `engine.attacks`."""
+A pool stores one net injection per bus, load minus generation. A `LoadSplit` says how it divides:
+`ScaledSplit` for a pool that scaled the case's load and generation by one factor per bus, `NetSplit`
+for a pool whose units were dispatched. `ScanLoads` (the generator's `scan_loads`) reads one scan's
+load and generation through the generator's split. They call `formulas.attacks` (`generator_output`,
+`element_loads`)."""
 
 from __future__ import annotations
 

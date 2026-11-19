@@ -1,9 +1,11 @@
-"""What one episode attacks: its design, drawn at onset (`EpisodeDesigns`).
+"""The design of one episode (`EpisodeDesigns`): At's drawn at its onset, Am's from its window.
 
-The timeline decides when an episode starts and how long it lasts; its design decides what it
-attacks. `ramp_design` draws the slow ramp At and tests it on every frame it will occupy, since the
-operating point drifts and a design feasible at onset can lose its stealthy state later.
-`am_overload_design` designs the overload Am of [WU26] (its ratings, goal and frames, overload.py).
+The timeline decides when an episode starts and how long it lasts; its design decides what it attacks.
+`ramp_design` draws the slow ramp At and tests it with `FalseState.is_feasible` on every frame it will
+occupy, since the operating point drifts and a design feasible at onset can lose its false state
+later. `am_overload_design` designs the overload Am of [WU26] from `Overload`'s `eligible_lines`,
+`target_sets` and `overload_goal`. It calls `Minimizer.min_tamper` for the support; `ramp_design` does
+with `knobs.min_tamper`. The ramp's profile is `formulas.attacks.ramp_profile`.
 """
 
 from __future__ import annotations

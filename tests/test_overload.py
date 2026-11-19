@@ -122,18 +122,20 @@ def test_the_search_on_a_flow_goal_equals_brute_force(g, pool):
     """Every candidate support solved: the fewest-tamper result is the cheapest among the converged."""
     from fdia_graph.engine.attacks.window import AttackWindow
 
-    k = _knobs(g, pool)
+    knobs = _knobs(g, pool)
     window = [pool[u] for u in range(30)]
     line = int(g.overload.eligible_lines(window, 2)[0])
     goal = g.overload.overload_goal(window, line)
-    result = g.minimizer.min_tamper(window, goal, k)
+    result = g.minimizer.min_tamper(window, goal, knobs)
     seeds, starts, must_hold = g.minimizer._goal_seeds(goal)
-    area = g.area.hop_area(seeds, k.hops)
+    area = g.area.hop_area(seeds, knobs.hops)
     inside = {int(b) for b in area}
     starts = [s for s in starts if s <= inside]
-    win = AttackWindow(g, window, goal, k)
+    win = AttackWindow(g, window, goal, knobs)
     costs = [
-        c for S in [*g.minimizer._supports(starts, area, must_hold)] if (c := win.cost(S, None)) is not None
+        c
+        for support in [*g.minimizer._supports(starts, area, must_hold)]
+        if (c := win.cost(support, None)) is not None
     ]
     if result is None or result.devices < 0:
         assert not costs
@@ -192,14 +194,14 @@ def test_am_counts_against_the_paper_noise_and_at_against_the_rated_accuracy(g, 
     from fdia_graph.engine.attacks.window import AttackWindow
     from fdia_graph.models.frames import AttackDesign, LoadGoal
 
-    k = _knobs(g, pool, 1.0)
+    knobs = _knobs(g, pool, 1.0)
     window = [pool[u] for u in range(5)]
     flow = AttackWindow(
-        g, window, g.overload.overload_goal(window, int(g.overload.eligible_lines(window, 2)[0])), k
+        g, window, g.overload.overload_goal(window, int(g.overload.eligible_lines(window, 2)[0])), knobs
     )
     assert np.all(flow.sigma[0][1] == 0.03 * g.case.base_mva)
     design = AttackDesign(g.stealthy_pos[:1], 1.01)
-    load = AttackWindow(g, window, LoadGoal(tuple([design] * 5)), k)
+    load = AttackWindow(g, window, LoadGoal(tuple([design] * 5)), knobs)
     flows = g.emitter.clean_flows_from_states(np.stack(window))
     # the rated accuracy at the true readings [ASP14]: absolute on |V| and the angle, relative on powers
     x, N = np.abs(np.asarray(window[0], np.float64)), NodeChannel
@@ -373,14 +375,14 @@ def test_a_generator_only_support_is_valid_and_its_output_stays_in_limits(g, poo
     assert (
         set(gens.tolist()) <= set(g.false_state.free_injection_buses().tolist()) and g.slack_bus not in gens
     )
-    k = _knobs(g, pool)
+    knobs = _knobs(g, pool)
     for line in range(g.n_branch):
-        S = np.intersect1d(g.edge_index[:, line], gens)
-        if len(S) != 1 or len(np.intersect1d(g.edge_index[:, line], g.zero_inj)):
+        support = np.intersect1d(g.edge_index[:, line], gens)
+        if len(support) != 1 or len(np.intersect1d(g.edge_index[:, line], g.zero_inj)):
             continue
         flow = g.emitter.clean_flows_from_states(x_true[None])[0, line]
         x_false, converged, dload = g.false_state.solve_flow_local(
-            x_true, S, line, 1.03 * float(np.hypot(*flow))
+            x_true, support, line, 1.03 * float(np.hypot(*flow))
         )
         if x_false is None:
             continue
@@ -388,7 +390,7 @@ def test_a_generator_only_support_is_valid_and_its_output_stays_in_limits(g, poo
         reached = g.emitter.clean_flows_from_states(x_false[None])[0, line]
         assert np.hypot(*reached) == pytest.approx(1.03 * float(np.hypot(*flow)), rel=1e-6)
         gen = g.split.generation(x_true)
-        assert within_limits(x_false, x_true, gen, dload, k.limits, S)
+        assert within_limits(x_false, x_true, gen, dload, knobs.limits, support)
         return
     pytest.fail("no generator-only support met a 3% flow goal")
 
@@ -416,10 +418,10 @@ def _generator_only_case(g, pool):
     x_true = pool[0]
     gens = g.false_state.generator_buses()
     for line in range(g.n_branch):
-        S = np.intersect1d(g.edge_index[:, line], gens)
-        if len(S) == 1 and not len(np.intersect1d(g.edge_index[:, line], g.zero_inj)):
+        support = np.intersect1d(g.edge_index[:, line], gens)
+        if len(support) == 1 and not len(np.intersect1d(g.edge_index[:, line], g.zero_inj)):
             flow = g.emitter.clean_flows_from_states(x_true[None])[0, line]
-            return x_true, S, line, 1.03 * float(np.hypot(*flow))
+            return x_true, support, line, 1.03 * float(np.hypot(*flow))
     pytest.fail("IEEE-14 has no generator-ended branch")
 
 
@@ -428,16 +430,16 @@ def test_a_generator_at_its_p_limit_keeps_its_q_free(g, pool):
     """Review fix: pinning is per component. With the generator's P range shut to its true output, the
     solve pins P alone and still meets the goal by moving Q; pinning both would leave no free injection."""
 
-    x_true, S, line, target = _generator_only_case(g, pool)
-    b = int(S[0])
+    x_true, support, line, target = _generator_only_case(g, pool)
+    b = int(support[0])
     gen = g.split.generation(x_true)
     limits = _knobs(g, pool).limits
-    # every other generator (the edge's too, D16) unbounded, so only this one's P limit binds
+    # every other generator (the boundary's too, D16) unbounded, so only this one's P limit binds
     p_lo, p_hi = np.full(g.n_bus, -np.inf), np.full(g.n_bus, np.inf)
     p_lo[b] = p_hi[b] = gen[b, 0]
     q_lo, q_hi = np.full(g.n_bus, -np.inf), np.full(g.n_bus, np.inf)
     tight = limits._replace(p_lo=p_lo, p_hi=p_hi, q_lo=q_lo, q_hi=q_hi)
-    x_false, converged, _ = g.false_state.solve_flow_local(x_true, S, line, target, tight)
+    x_false, converged, _ = g.false_state.solve_flow_local(x_true, support, line, target, tight)
     assert converged and x_false is not None
     reached = g.emitter.clean_flows_from_states(x_false[None])[0, line]
     assert np.hypot(*reached) == pytest.approx(target, rel=1e-6)
@@ -453,49 +455,49 @@ def test_a_generator_label_is_relative_to_its_output(g, pool):
     """Review fix: the frame magnitude at a generator bus is its apparent change against the true
     generator output, not against the bus's net injection."""
 
-    x_true, S, line, target = _generator_only_case(g, pool)
-    x_false, _, _ = g.false_state.solve_flow_local(x_true, S, line, target)
-    b = int(S[0])
+    x_true, support, line, target = _generator_only_case(g, pool)
+    x_false, _, _ = g.false_state.solve_flow_local(x_true, support, line, target)
+    b = int(support[0])
     gen = g.split.generation(x_true)[b]
     d = x_false[b] - x_true[b]
     want = np.hypot(d[NodeChannel.P_INJ], d[NodeChannel.Q_INJ]) / np.hypot(gen[0], gen[1])
-    assert g.overload.pretended_change(x_true, x_false, S)[0] == pytest.approx(want)
+    assert g.overload.pretended_change(x_true, x_false, support)[0] == pytest.approx(want)
 
 
-def _edge_cases(g, pool):
-    """Supports of one free load bus at a branch end whose edge holds a non-slack generator, each with
-    a 3% flow goal on that branch, the edge generator, and the free state without bounds."""
+def _boundary_cases(g, pool):
+    """Supports of one free load bus at a branch end whose boundary holds a non-slack generator, each with
+    a 3% flow goal on that branch, the boundary generator, and the free state without bounds."""
     x_true = pool[0]
     gens, loads = set(g.false_state.generator_buses().tolist()), set(g.false_state.free_load_buses().tolist())
     for line in range(g.n_branch):
         for end in g.edge_index[:, line]:
-            S = np.array([int(end)])
+            support = np.array([int(end)])
             if int(end) not in loads:
                 continue
-            edge_gens = sorted(set(g.false_state.reach(S).tolist()) & gens)
+            boundary_gens = sorted(set(g.false_state.reach(support).tolist()) & gens)
             flow = g.emitter.clean_flows_from_states(x_true[None])[0, line]
             target = 1.03 * float(np.hypot(*flow))
-            free, _, _ = g.false_state.solve_flow_local(x_true, S, line, target)
-            if edge_gens and free is not None:
-                yield x_true, S, line, target, edge_gens, free
+            free, _, _ = g.false_state.solve_flow_local(x_true, support, line, target)
+            if boundary_gens and free is not None:
+                yield x_true, support, line, target, boundary_gens, free
 
 
-def test_an_edge_generator_stays_inside_its_limits(g, pool):
+def test_a_boundary_generator_stays_inside_its_limits(g, pool):
     """D16: (22)-(23) bound every generator whose reported output the attack changes, a generator on
-    the support's edge included: shut its P range and the solve holds its P there or refuses."""
+    the support's boundary included: shut its P range and the solve holds its P there or refuses."""
 
     base = _knobs(g, pool).limits
     gen = None
     checked = 0
-    for x_true, S, line, target, edge_gens, free in _edge_cases(g, pool):
+    for x_true, support, line, target, boundary_gens, free in _boundary_cases(g, pool):
         gen = g.split.generation(x_true)
-        b = edge_gens[0]
+        b = boundary_gens[0]
         if abs(free[b, NodeChannel.P_INJ] - x_true[b, NodeChannel.P_INJ]) < 1e-3:
             continue  # the unbounded solve leaves this generator's P alone: nothing to test
         p_lo, p_hi = base.p_lo.copy(), base.p_hi.copy()
         p_lo[b] = p_hi[b] = gen[b, 0]
         x_false, _, _ = g.false_state.solve_flow_local(
-            x_true, S, line, target, base._replace(p_lo=p_lo, p_hi=p_hi)
+            x_true, support, line, target, base._replace(p_lo=p_lo, p_hi=p_hi)
         )
         if x_false is not None:
             out = gen[b, 0] - (x_false[b, NodeChannel.P_INJ] - x_true[b, NodeChannel.P_INJ])
@@ -503,20 +505,22 @@ def test_an_edge_generator_stays_inside_its_limits(g, pool):
             reached = g.emitter.clean_flows_from_states(x_false[None])[0, line]
             assert np.hypot(*reached) == pytest.approx(target, rel=1e-6)
             checked += 1
-    assert checked, "no edge generator case solved"
+    assert checked, "no boundary generator case solved"
 
 
 def test_the_load_cap_bounds_every_load_the_attack_moves(g, pool):
-    """D16: with load_cap tau, no load bus the attack moves (in the support or on its edge) shows a
+    """D16: with load_cap tau, no load bus the attack moves (in the support or on its boundary) shows a
     change beyond tau times its true load [YUA11]; the goal is still met."""
 
     checked = 0
-    for x_true, S, line, target, _, _ in _edge_cases(g, pool):
-        x_false, _, _ = g.false_state.solve_flow_local(x_true, S, line, target, None, 0.05)
+    for x_true, support, line, target, _, _ in _boundary_cases(g, pool):
+        x_false, _, _ = g.false_state.solve_flow_local(x_true, support, line, target, None, 0.05)
         if x_false is None:
             continue
         load = g.split.load(x_true)
-        buses = np.setdiff1d(g.false_state.reach(S), np.r_[g.false_state.generator_buses(), g.slack_bus])
+        buses = np.setdiff1d(
+            g.false_state.reach(support), np.r_[g.false_state.generator_buses(), g.slack_bus]
+        )
         buses = buses[g.split.base_load[buses, 0] != 0]
         change = np.abs(x_false[buses, NodeChannel.P_INJ] - x_true[buses, NodeChannel.P_INJ])
         assert (change <= 0.05 * np.abs(load[buses]) + 1e-6).all()
@@ -574,27 +578,27 @@ def test_a_voltage_is_held_at_its_limit_while_the_goal_is_met(g, pool):
     magnitude; the unbounded solve moves it, the bounded one holds it at the limit (21) and still
     meets the flow goal."""
     x_true = pool[0]
-    k = _knobs(g, pool)
-    free_box = k.limits._replace(
+    knobs = _knobs(g, pool)
+    free_box = knobs.limits._replace(
         p_lo=np.full(g.n_bus, -np.inf),
         p_hi=np.full(g.n_bus, np.inf),
         q_lo=np.full(g.n_bus, -np.inf),
         q_hi=np.full(g.n_bus, np.inf),
     )
     for line in g.overload.eligible_lines([x_true], 2):
-        S = np.asarray(g.area.hop_area(np.unique(g.edge_index[:, line]), 2))
+        support = np.asarray(g.area.hop_area(np.unique(g.edge_index[:, line]), 2))
         flow = g.emitter.clean_flows_from_states(x_true[None])[0, line]
         target = 1.03 * float(np.hypot(*flow))
-        free, _, _ = g.false_state.solve_flow_local(x_true, S, int(line), target)
+        free, _, _ = g.false_state.solve_flow_local(x_true, support, int(line), target)
         if free is None:
             continue
-        b = int(S[np.argmax(np.abs(free[S, NodeChannel.V] - x_true[S, NodeChannel.V]))])
+        b = int(support[np.argmax(np.abs(free[support, NodeChannel.V] - x_true[support, NodeChannel.V]))])
         if abs(free[b, NodeChannel.V] - x_true[b, NodeChannel.V]) < 1e-4:
             continue  # the goal barely moves any voltage here: nothing to hold
         v_lo, v_hi = np.zeros(g.n_bus), np.full(g.n_bus, 10.0)
         v_lo[b] = v_hi[b] = x_true[b, NodeChannel.V]  # the allowed range at b is its true magnitude alone
         x_false, converged, _ = g.false_state.solve_flow_local(
-            x_true, S, int(line), target, free_box._replace(v_lo=v_lo, v_hi=v_hi)
+            x_true, support, int(line), target, free_box._replace(v_lo=v_lo, v_hi=v_hi)
         )
         if x_false is None:
             continue

@@ -1,6 +1,9 @@
-"""What the generator passes around per scan: a measurement scan, the emitted frame with its labels,
-the run's attack knobs, the design of an At ramp and of an Am overload episode, and what the
-fewest-tamper search returns."""
+"""The records the attack code passes around: a scan, a frame, an attack vector, a goal, a design, the
+operating limits, a search result.
+
+This module imports no other module of the package. Also here: the attack settings of a run
+(`FrameKnobs`), the layers of a file (`MeterLayers`), the cost of a support (`SupportCost`) and the
+score of a candidate area (`AreaScore`)."""
 
 from __future__ import annotations
 

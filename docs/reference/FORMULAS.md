@@ -100,3 +100,28 @@ objects); one test checks it on a case small enough to verify by hand.
 | leverage | `formulas.projection.leverage` | diag of P = Hw G⁻¹ Hwᵀ, Hw = W^{1/2} H | [HAN75] | the leverage-weighted change feature |
 | weak directions | `formulas.projection.weak_directions`, `direction_coefficients`, `weak_move` | SVD of Hw; α = Uᵀ W^{1/2} Δz; V_weak V_weakᵀ dx̂ | [JAC26] | the α_weak and weak-move features |
 | meter-to-bus aggregation | `formulas.projection.bus_incidence`, `meters_to_buses` | a bus's own V, P, Q, θ channels plus the flows of its incident branches; sum for energies, max for changes | [JAC26] | the per-bus features, `GatedPrior`, `ResidualLocalizer` |
+
+## [WU26] equation by equation
+
+Each row is an equation, or a range of equations, of [WU26] that the code cites, in the code's own
+words, with where the citation is. Where the code cites one idea under different numbers in different
+places, the table has only the rows every place agrees on. The module paths are under `fdia_graph`.
+
+| equation | what the code says it states | where the citation is |
+|---|---|---|
+| 12 | the tamper count the choice of a support minimizes: the meters moved beyond their noise, which the search counts per device | `formulas.attacks.tampered_channels`, `sensing.noise.NoiseModel.tampered`, the class `engine.attacks.minimize.Minimizer` and its module, the module `engine.attacks.window`, `EpisodeDesigns.ramp_design`, `models.frames.SupportCost`, `models.frames.MinimizerResult`, `models.config.SearchSettings`, `models.choices.SupportMethod`, the knob `FrameKnobs.min_tamper` |
+| 12, 28, 33 | the l0 of these equations taken literally: the tampered measurements | `models.choices.CostUnit`, the knob `FrameKnobs.objective` |
+| 13-14 | a generator's output is an injection measurement the overload attacker may tamper | `engine.attacks.false_state.FalseState.generator_buses` |
+| 13-18 | the attack vector a = h(x_false) - h(x_true), per node channel and per flow channel | `engine.attacks.frames.AttackFrames.attack_vector` |
+| 13-25 | a flow goal frees the loads and generators of the support | `FalseState.goal_state` |
+| 17-20 | only a PMU reads the voltage angle, and it reads the current phasor of every branch end at its bus | `sensing.meters.MeterPlan.from_placement`, `engine.core.FdiaGenerator.__init__`, `models.choices.MeterModel` |
+| 19-20 | the branch-current phasors a PMU reads, I_f = Yf V and I_t = Yt V | `formulas.network.branch_currents`, `constants.channels.CurrentChannel`, `AttackFrames.current_attack`, `AttackFrames.currents_with_attack`, `formulas.attacks.tampered_devices`, `engine.attacks.window.AttackWindow.__init__`, `models.fields.RecordFields`, `schema` (`PMU_I`) |
+| 21 | the voltage magnitude of a bus stays inside its limit | `engine.attacks.false_state._voltages_out_of_range`, `FalseState.solve_flow_local` |
+| 22-23 | a generator's P and Q stay inside its limits | `engine.attacks.false_state._clip_generator`, `FalseState._out_of_bounds`, `FalseState.solve_flow_local`, `FalseState.generator_buses` |
+| 21-23 | the constraints every false state must satisfy: the bus voltage limits and the generator P and Q limits | `formulas.attacks.operating_limits`, `formulas.attacks.within_limits`, `FalseState.operating_limits`, `FalseState.state_within_limits`, `FalseState.load_goal_state`, `FalseState.stealthy_state`, `EpisodeDesigns.am_overload_design`, `FdiaGenerator._case_limits`, `generation.search.SearchSource.__init__`, `SearchSource._knobs`, `models.frames.OperatingLimits` |
+| 24-25 | the flow each target line must show at each snapshot of the window: S_{l,t} = S_true_{l,t} + (t - kappa)/T (S_max - S_true_{l,kappa+T}) | the module `engine.attacks.overload`, `models.frames.FlowGoal`, `formulas.network.local_flow_solve`, `FalseState.solve_flow_local`, `EpisodeDesigns.am_overload_design`, `engine.attacks.search.OverloadEpisode`, `errors.NoLineRatings`, the package `ratings` |
+| 25 | the rating S_max, reached at the last snapshot | `engine.attacks.overload._schedule`, `formulas.attacks.branch_ratings`, `EpisodeDesigns.am_overload_design` |
+| 26-32 | the dynamic trusted-PMU configuration, as a constraint on the attack window | `models.config.TrustSchedule`, `Minimizer.min_tamper` (`trust`) |
+| 28 | the union of the tampered devices and channels over every snapshot | `engine.attacks.window.AttackWindow.cost`, the module `engine.attacks.minimize` |
+| 29 | the attack's state deviation is zero at a trusted PMU, so its bus keeps its true voltage | `models.config.TrustSchedule`, `AttackWindow.support_at` |
+| 30-31 | trust accumulates, h^S_t = h^S_t-1 + dh^S_t: at snapshot t every PMU with a slot at or before t is pinned | `models.config.TrustSchedule` |

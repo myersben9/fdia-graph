@@ -1,7 +1,9 @@
-"""Measurement emission: the generator's meter readings of a stored state, as a file's layers.
+"""The readings of a stored state: exact, then with bias and jitter, laid out per bus and per branch.
 
-The readings are `Measurement.h` of the state on the generator's `MeterPlan`, with `NoiseModel`'s bias
-and jitter; `Emitter` lays them out per bus and per branch, as the attacks and the writer take them.
+`Emitter` is the generator's `emitter`. The exact readings are `Measurement.h` of the state on the
+generator's `MeterPlan`; `NoiseModel.sample` adds each meter's bias and jitter; `MeterPlan.scatter`
+lays them out as a file's layers. The flow of every branch, metered or not, is
+`formulas.network.branch_flows`.
 """
 
 from __future__ import annotations

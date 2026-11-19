@@ -5,6 +5,17 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- **A reading order for the attack code (no change in behaviour).** The files of `engine/` that hold
+  a part, and every file of `engine/attacks/`, open with one sentence saying what the file does and
+  name what it calls; `engine/attacks/__init__.py` lists the files in the order to read them.
+  `FdiaGenerator` has a class docstring listing every attribute, with the shape and unit of each array.
+  `NodeChannel` says once that injections are positive for load. `docs/reference/FORMULAS.md` has a new
+  section, "[WU26] equation by equation", mapping the [WU26] equations the code cites to where they are
+  cited. The search's BLAS thread limit is its own module, `engine/attacks/blas.py`
+  (`one_blas_thread`). The tests use the source's names (`knobs`, `support`, `boundary`, `area`). With
+  docstrings removed, every changed source file but the moved block is identical to before, and every
+  IEEE timeline is byte for byte what it was.
+
 - **The search's cost and a snapshot's moved channels are named records (the search finds the same
   supports; the cost's layout under the `"channels"` objective changes).**
   `AttackWindow.cost` returns a `SupportCost(devices, channels, size)` (`models/frames.py`) where it

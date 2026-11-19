@@ -1,15 +1,11 @@
-"""The dataset generation engine: attack simulation and realistic meter readings on a test system.
+"""The generator: the grid, the meter plan, the load table, the case limits, and one object per part.
 
-The grid is a `Case` with its `Network`, the meters a `MeterPlan` with its `Measurement` and
-`NoiseModel`, the same classes for an IEEE case and the New York grid. An IEEE case
-(`Network.from_ieee`) requires pandapower ('fdia-graph[generate]'), which solves its base power
-flow once. A benign scan is emitted exactly from a stored state (no re-solve); only attacks
-re-solve, locally. The attack families are At (the slow ramp) and Am (the overload attack) [WU26].
-
-FdiaGenerator holds the state (the grid, the meters, the random stream) and one object of each
-part (`engine.base.Part`), named after its class: `emitter` (measurement.py, meter readings from a
-state), `scan_loads` (physics.py, a scan's load and generation) and the parts of attacks/ (`area`,
+`FdiaGenerator` holds that state and the random stream. Each part (`engine.base.Part`) is named after
+its class: `emitter` (measurement.py), `scan_loads` (physics.py) and the parts of attacks/ (`area`,
 `false_state`, `attack_frames`, `ramp_frames`, `minimizer`, `overload`, `episode_designs`).
+It takes a `systems.network.Network` and builds the `MeterPlan`, `Measurement` and `NoiseModel` of
+`sensing` on it. A benign scan is emitted exactly from a stored state (no re-solve); only attacks
+re-solve, locally.
 """
 
 from __future__ import annotations
@@ -40,6 +36,35 @@ if TYPE_CHECKING:
 
 
 class FdiaGenerator:
+    """The state every part reads as `self.g.<name>`. N buses, E branches, M meters, n_loads loaded buses.
+
+    Grid (`__init__`, `_open`, `_load_tables`):
+      net, case            the `Network` and its `Case`
+      n_bus, n_branch      N and E
+      edge_index           [2, E] int32: the from bus and the to bus of each branch
+      slack_bus            the angle reference bus
+      split                the `LoadSplit` of the pool's injections
+      seed, rng, scan_key  the seed, the random stream, the frame whose jitter is drawn next (or None)
+    Meters (`use_plan`):
+      plan, meas, noise    the `MeterPlan` [M], its `Measurement` and its `NoiseModel`
+      masks                `MeterLayers`, nonzero where a meter sits: node [N, 4], edge [E, 2],
+                           current [E, 4]
+      pmu_buses            the buses with an angle meter, sorted
+      flow_metered         [E] bool: the active flow at the from end is metered
+    Load table (`_load_tables`), one row per loaded bus, in bus order:
+      load_bus             [n_loads] the bus of each row
+      load_p0, load_q0     [n_loads] base active load (MW) and base reactive load (MVAr), signed
+      attackable_pos       the rows an attack may target; max_load_mw is their cap (MW, None: no cap)
+      stealthy_pos         the attackable rows off every bus of a unit that is not idle
+      zero_inj             list of the buses that inject nothing
+    Limits (`_case_limits`):
+      v_case               [N, 2] the lowest and highest |V| of each bus (pu)
+      p_lim, q_lim         [N, 2] the lowest and highest generator P (MW) and Q (MVAr) of each bus,
+                           -inf and +inf at the slack and where no unit holds a voltage
+      has_gen              [N] bool: a unit that holds a voltage is on the bus, the slack apart
+    Parts: emitter, scan_loads, area, false_state, attack_frames, ramp_frames, minimizer, overload,
+    episode_designs."""
+
     def __init__(
         self,
         net: Network,

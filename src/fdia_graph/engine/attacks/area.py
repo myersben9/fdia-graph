@@ -1,11 +1,12 @@
-"""The attacker's area: the buses a stealthy attack may act in, and the boundary around a set of buses.
+"""Given seed buses, the attacker's area and the boundary of any set of buses.
 
-[WU26] Section III-A (p. 654) chooses the attacker's area A = (N_a, E_a) by four principles:
-1) it holds at least one compromised PMU or SCADA channel for voltage or injection data, 2) its buses
-form a connected region, 3) it favours areas whose load buses are significant or whose injection
-changes spread across the network, 4) it favours stable load and generation and good observability.
-`rule_area` applies them (rules 1 and 2 as checks, 3 and 4 as a score, ours); a caller that knows the
-paper's own area passes it (`FrameKnobs.area`), and the default is the buses within `hops`.
+The default area is `hop_area`: the buses within `hops` branches of the seeds, the slack out, grown
+over the zero-injection buses of its boundary. A caller that knows the area passes it (`FrameKnobs.area`,
+`explicit_area`). `rule_area` instead scores the hop areas by the four principles of [WU26] Section
+III-A (p. 654): 1) the area holds a compromised voltage or injection channel, 2) its buses are
+connected, 3) its loads are significant or its injection changes spread, 4) its load and generation
+are stable and well observed. Rules 1 and 2 are checks, 3 and 4 a score (ours). This part calls
+`formulas.network` (`subnetwork`, `flow_sensitivities`) and the generator's `LoadSplit`.
 """
 
 from __future__ import annotations

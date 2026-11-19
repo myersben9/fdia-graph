@@ -63,11 +63,11 @@ beyond the install above.
 |---|---|---|
 | On a ramp frame, observed minus benign is the attack vector rebuilt from the frame's labels (to 0.01 MW or 0.1 %), and exactly zero on every untampered channel (first 20 ramp frames, IEEE-14) | `tests/test_timeline.py::test_a_stealthy_frame_is_the_benign_scan_plus_its_attack_vector` | nothing |
 | The tamper masks agree with the layers | `tests/test_timeline.py::test_layers_and_tamper_masks_agree` | nothing |
-| The local area keeps a boundary and leaves the slack bus out (IEEE-14) | `tests/test_timeline.py::test_local_region_keeps_a_boundary_and_the_slack_fixed` | nothing |
+| The local area keeps a boundary and leaves the slack bus out (IEEE-14) | `tests/test_timeline.py::test_the_hop_area_keeps_a_boundary_and_the_slack_fixed` | nothing |
 | A ramp never targets a generator bus or the slack bus | `tests/test_timeline.py::test_stealthy_families_never_target_a_generator_bus`, `test_a_slack_bus_load_is_never_a_target` | nothing |
 | The fewest-device search returns the cheapest of its candidate supports, as found by solving every candidate (IEEE-14) | `tests/test_minimize.py::test_the_search_equals_brute_force`, `tests/test_overload.py::test_the_search_on_a_flow_goal_equals_brute_force` | nothing |
 | The overload reaches the line rating on the support it holds (relative tolerance 1e-4) | `tests/test_overload.py::test_am_reaches_the_rating_on_the_held_support` | nothing |
-| A generator on the support's edge whose P range is shut keeps its P, and a bus whose voltage range is shut keeps its voltage, while the flow goal is met (IEEE-14) | `tests/test_overload.py::test_an_edge_generator_stays_inside_its_limits`, `test_a_voltage_is_held_at_its_limit_while_the_goal_is_met` | nothing |
+| A generator on the support's boundary whose P range is shut keeps its P, and a bus whose voltage range is shut keeps its voltage, while the flow goal is met (IEEE-14) | `tests/test_overload.py::test_a_boundary_generator_stays_inside_its_limits`, `test_a_voltage_is_held_at_its_limit_while_the_goal_is_met` | nothing |
 | The load cap bounds the active change of every load the attack moves | `tests/test_overload.py::test_the_load_cap_bounds_every_load_the_attack_moves` | nothing |
 | The two IEEE-14 scenarios of [WU26] are feasible, reach both ratings and tamper the paper's devices, with one difference the test names. The IEEE-118 scenario is feasible and reaches both ratings | `tests/test_overload_case_studies.py` | nothing; set `FDIA_SLOW=1` for IEEE-118 |
 | On the New York case every labelled bus is a New York bus | `tests/nygrid/test_any_case.py::test_the_original_generator_takes_the_new_york_case` | `[ny]` |

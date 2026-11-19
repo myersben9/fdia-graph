@@ -1,14 +1,13 @@
-"""`Am`, the multi-snapshot overload attack of [WU26]: the reported flows of its target branches (one
-or two, `OverloadSettings.n_lines`) driven to their ratings S_max (`use_line_ratings`) over the window,
-with the fewest devices tampered.
+"""Am's inputs and frames: ratings, eligible lines, the flow schedule of [WU26 eqs. 24-25], one frame.
 
-Goal [WU26 eqs. 24-25], on the noiseless reading of the false state, with kappa the untouched reference
-snapshot before the window's T snapshots:
+Am drives the reported flow of its target lines (one or two) to their ratings S_max over a window.
+The schedule, on the noiseless reading of the false state, with kappa the snapshot before the window's T:
 
     S_{l,t} = S_true_{l,t} + (t - kappa)/T (S_max - S_true_{l,kappa+T}),   t = kappa+1 ... kappa+T
 
-a steady ramp on top of the load's own drift that reaches S_max at the last snapshot. Nothing bounds
-the move between snapshots: each snapshot's readings are those of one AC state, which is the stealth.
+This part calls `Emitter` for the flows, `AttackArea.hop_area`, `FalseState` (`goal_state`,
+`free_injection_buses`, `generator_buses`), `ScanLoads.true_load`, the split, `AttackFrames.frame_from_state`
+and, for the ratings of the branches, `formulas.attacks.branch_ratings` and `ratings.pglib_branches`.
 """
 
 from __future__ import annotations

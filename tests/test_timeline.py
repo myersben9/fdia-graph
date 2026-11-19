@@ -133,7 +133,7 @@ def test_layers_and_tamper_masks_agree(timeline_file):
     assert (nt[nm == 0] == 0).all() and (et[em == 0] == 0).all()
     # untouched meters read the un-attacked value; a tampered meter is where the attacker wrote
     assert (nx[nt == 0] == bn[nt == 0]).all() and (ex[et == 0] == be[et == 0]).all()
-    # At and Am write the meters of a local region: some, never none, never all
+    # At and Am write the meters of a local area: some, never none, never all
     stealthy = np.isin(fam, [5, 7])
     assert (nt[stealthy] <= nm[stealthy]).all()
     share = nt[stealthy].sum(axis=(1, 2)) / nm[stealthy].sum(axis=(1, 2))
@@ -172,14 +172,12 @@ def test_a_stealthy_frame_is_the_benign_scan_plus_its_attack_vector(timeline_fil
         nt, et = a["attack/node_tamper"][t] > 0, a["attack/edge_tamper"][t] > 0
         dn = a["data/node_x"][t].astype(np.float64) - a["benign/node_benign"][t]
         de = a["data/edge_x"][t].astype(np.float64) - a["benign/edge_benign"][t]
-        region = g.area.hop_area(g.load_bus[targets], int(attrs["hops"]))
+        area = g.area.hop_area(g.load_bus[targets], int(attrs["hops"]))
         rebuilt = []
         for sign in (1.0, -1.0):
             p_load = g.scan_loads.true_load(x_true)
             p_load[targets] *= 1.0 + sign * dev
-            x_false = g.false_state.solve_local(
-                x_true, region, p_load, g.scan_loads.true_reactive_load(x_true)
-            )
+            x_false = g.false_state.solve_local(x_true, area, p_load, g.scan_loads.true_reactive_load(x_true))
             if x_false is not None:
                 rebuilt.append(g.attack_frames.attack_vector(x_false, x_true))
         # exactly one direction reproduces the frame; the clean layer is the pool state in float32, so
@@ -193,7 +191,7 @@ def test_a_stealthy_frame_is_the_benign_scan_plus_its_attack_vector(timeline_fil
 
 
 def test_a_slack_bus_load_is_never_a_target():
-    """IEEE-57 carries a load on its slack bus; the slack never enters a region, so that load is
+    """IEEE-57 carries a load on its slack bus; the slack never enters an area, so that load is
     not attackable (a frame scaling it would be labelled attacked with no attack in the state)."""
     from fdia_graph.engine.core import FdiaGenerator
     from fdia_graph.systems.network import Network
@@ -235,19 +233,19 @@ def test_a_step_without_a_local_solution_is_halved(monkeypatch):
     g = FdiaGenerator(Network.from_ieee(14), seed=1)
     steps: list[float] = []
 
-    def fake(x_true, design, k):
+    def fake(x_true, design, knobs):
         steps.append(float(np.max(np.abs(np.asarray(design.mult) - 1.0))))
         return "frame" if steps[-1] <= 0.01 else None
 
     monkeypatch.setattr(g.ramp_frames, "_stealthy_frame", fake)
-    k = FrameKnobs(hops=2)
+    knobs = FrameKnobs(hops=2)
     x_true = np.zeros((g.n_bus, 4))
     two = g.stealthy_pos[:2]
-    assert g.ramp_frames.ramp_frame(x_true, AttackDesign(two, 1.2), k) == "frame"
+    assert g.ramp_frames.ramp_frame(x_true, AttackDesign(two, 1.2), knobs) == "frame"
     assert np.allclose(steps, [0.2, 0.1, 0.05, 0.025, 0.0125, 0.00625])
     steps.clear()
     assert (
-        g.ramp_frames.ramp_frame(x_true, AttackDesign(two, 1.9), k) is None
+        g.ramp_frames.ramp_frame(x_true, AttackDesign(two, 1.9), knobs) is None
     )  # six halvings, none small enough
     assert len(steps) == 7
 
@@ -283,7 +281,7 @@ def test_operating_limits_are_the_case_limits_widened_to_the_pool():
     bad[5, 0] = 0.8
     assert not within_limits(bad, X0, gen, none, lim, everywhere)
     bad = X0.copy()
-    bad[on[0], 1] -= 1e4  # a 10 GW injection change at a generator bus inside the region: past any cap ...
+    bad[on[0], 1] -= 1e4  # a 10 GW injection change at a generator bus inside the area: past any cap ...
     assert not within_limits(bad, X0, gen, none, lim, everywhere)
     pretended = none.copy()
     pretended[on[0]] = -1e4  # ... unless it is the load change the attacker pretends there
@@ -302,16 +300,16 @@ def test_the_fixture_records_its_limits(timeline_file):
     assert attrs["v_lo"] <= 0.94 and attrs["v_hi"] >= 1.06
 
 
-def test_local_region_keeps_a_boundary_and_the_slack_fixed():
+def test_the_hop_area_keeps_a_boundary_and_the_slack_fixed():
     from fdia_graph.engine.core import FdiaGenerator
     from fdia_graph.formulas.network import subnetwork
     from fdia_graph.systems.network import Network
 
     g = FdiaGenerator(Network.from_ieee(14), seed=1)
     for hops in (0, 1, 2, 3):
-        region = g.area.hop_area(g.load_bus[:5], hops)
-        assert region is not None and g.slack_bus not in region
-        _, boundary = subnetwork(g.edge_index, region, 0, g.n_bus)
+        area = g.area.hop_area(g.load_bus[:5], hops)
+        assert area is not None and g.slack_bus not in area
+        _, boundary = subnetwork(g.edge_index, area, 0, g.n_bus)
         assert len(boundary) and not set(boundary.tolist()) & (set(g.zero_inj) - {g.slack_bus})
     whole = g.area.hop_area(
         np.arange(g.n_bus), 0

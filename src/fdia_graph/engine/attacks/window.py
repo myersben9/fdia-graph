@@ -1,9 +1,10 @@
-"""One attack window as the fewest-tamper search sees it: the snapshots, the goal, and what a
-candidate support costs over them (`AttackWindow.cost`).
+"""What one candidate support costs over a window (`AttackWindow.cost`).
 
-A support's cost is the devices and channels its false states tamper over the whole window [WU26
-eq. 12], counted against the meters' noise; a support whose false state fails at a snapshot, or
-whose step between snapshots is larger than noise where a stealth bound holds, has no cost."""
+The cost is the devices and channels the support's false states tamper over the whole window [WU26
+eq. 12], counted against the meters' noise. A support has no cost when its false state fails at a
+snapshot, or when its step between snapshots is larger than noise where a stealth bound holds.
+It calls `FalseState.goal_state` for each snapshot, `Emitter` for the true flows and currents,
+`AttackArea.boundary`, `formulas.attacks` for the counts and `formulas.noise` for [WU26]'s noise."""
 
 from __future__ import annotations
 

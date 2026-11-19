@@ -1,9 +1,10 @@
-"""The stealthy ramp At: one scan at a time, a local false state added to the true scan.
+"""One At frame: the false state of the frame's `AttackDesign`, written as a frame.
 
-The attacker scales its loads inside a support and solves that support's power flow with the
-boundary voltages held true, so only the reach's meters change and the measurement vector stays
-consistent with an AC state [WU26]. With the fewest-tamper knob the support is the one that
-tampers the fewest devices [WU26 eq. 12].
+`search.RampEpisode.frame` calls `ramp_frame` for each frame of an episode. It calls
+`FalseState.with_support` and `stealthy_state` for the false state, then `AttackFrames.frame_from_state`.
+The targeted loads are scaled inside the support and the support is re-solved with every other voltage
+held true, so only the reach's meters change [WU26]. A step with no false state is halved, at most
+`STEP_HALVINGS` times.
 """
 
 from __future__ import annotations

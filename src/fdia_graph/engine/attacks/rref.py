@@ -1,14 +1,13 @@
-"""[WU26]'s construction of the attack's support: row reduction of the transposed area Jacobian.
+"""The other way to choose a support: [WU26]'s row reduction of the transposed area Jacobian.
 
-The method is [WU26] p. 655 (the attacker, after [YAN17]) and p. 657, Solution 1 steps 1-5 (the
-defender); the reduction is `formulas.trust.sparsest_rows`. At each snapshot the Jacobian is that of the
-area's attackable measurements with respect to |V| and angle of the area's buses, less the buses of the
-PMUs trusted by then [WU26 eqs. 27, 29], each row scaled by its channel's noise. Each reduced row is an
-attack vector H c; its state change c names the buses it moves. A snapshot's support is the sparsest
-rows that together move every target line's flow; the window's is their union [WU26 eq. 28]. The
-magnitudes come from the AC solve on that support (`FalseState.solve_flow_local`). A support that
-cannot reach the goal grows by the next sparsest rows (ours: the paper gives only the sparsest attack).
-Row reduction finds a sparse attack, not necessarily the sparsest."""
+`Minimizer.min_tamper` calls it for a flow goal with `support_method` "rref"; it calls back into
+`Minimizer.window_area` and `Minimizer.zero_closed`, and `AttackWindow.cost` solves each support. The
+reduction is `formulas.trust.sparsest_rows` ([WU26] p. 655 and p. 657, Solution 1 steps 1-5). At each
+snapshot the Jacobian is that of the area's attackable measurements with respect to |V| and angle of the
+area's buses, less the buses of the PMUs trusted by then [WU26 eqs. 27, 29], each row scaled by its
+channel's noise. A reduced row's state change names the buses it moves. A snapshot's support is the
+sparsest rows that together move every target line's flow; the window's is their union [WU26 eq. 28].
+A support that cannot reach the goal grows by the next sparsest rows (ours)."""
 
 from __future__ import annotations
 
