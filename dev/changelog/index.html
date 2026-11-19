@@ -1988,9 +1988,20 @@
 the public API, the generated files and the numbers are the same as the previous release.</p>
 <h2 id="unreleased">Unreleased<a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
 <ul>
-<li><strong>The generator is made of parts, not mixins.</strong> <code>FdiaGenerator</code> held every method through a stack of
+<li><strong>The two densest files of the attack core are split by job.</strong> No method's logic changed, and every
+  IEEE timeline is byte for byte what it was.</li>
+<li><code>engine/attacks/frames.py</code>, the new part <code>AttackFrames</code> (<code>g.attack_frames</code>): <code>frame_from_state</code>,
+    <code>frame_from_vector</code>, <code>attack_vector</code>, <code>current_attack</code>, <code>currents_with_attack</code> and <code>changed_meters</code>,
+    out of <code>false_state.py</code>, which keeps the solves and the limits.</li>
+<li>
+<p><code>engine/attacks/window.py</code>: <code>AttackWindow</code> (was <code>_Window</code> in <code>minimize.py</code>), what a candidate
+    support costs over a window. <code>minimize.py</code> keeps the search over supports.</p>
+</li>
+<li>
+<p><strong>The generator is made of parts, not mixins.</strong> <code>FdiaGenerator</code> held every method through a stack of
   mixins; it now holds one object per job, named after its class, so a call names the class its method
-  is in.</li>
+  is in.</p>
+</li>
 </ul>
 <table>
 <thead>

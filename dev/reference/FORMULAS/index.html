@@ -2043,7 +2043,7 @@ objects); one test checks it on a case small enough to verify by hand.</p>
 </tr>
 <tr>
 <td>attack vector</td>
-<td><code>engine.attacks.false_state.FalseState._attack_vector</code>, called by <code>_stealthy_frame</code></td>
+<td><code>engine.attacks.frames.AttackFrames.attack_vector</code>, called by <code>frame_from_state</code></td>
 <td>a = h(x_false) - h(x_true), the noiseless reading of the local false state minus that of the true state, added to the true scan so every meter keeps its own noise draw</td>
 <td>[WU26]</td>
 <td>Aq, At, Al, Am</td>
@@ -2078,7 +2078,7 @@ objects); one test checks it on a case small enough to verify by hand.</p>
 </tr>
 <tr>
 <td>tamper set of a stealthy frame</td>
-<td><code>engine.attacks.false_state.changed_meters</code>, called by <code>_stealthy_frame</code></td>
+<td><code>engine.attacks.frames.changed_meters</code>, called by <code>frame_from_state</code></td>
 <td>the metered channels the attack vector moves: the interior's and boundary's injections and voltages, the flows on branches touching the interior</td>
 <td>[WU26]</td>
 <td>Aq, At, Al, Am</td>

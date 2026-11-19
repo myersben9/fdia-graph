@@ -1956,16 +1956,16 @@ Paths are under <code>src/fdia_graph/</code>; <code>se/</code> and <code>localiz
 layer is <code>Measurement.h</code> of that state with no noise (<code>Emitter.exact</code>); the node layer
 <code>clean</code> is the state itself. <code>Emitter.emit_from_state</code> adds each meter's bias and the
 scan's jitter (<code>NoiseModel</code>), which gives the benign layer. On an attacked frame
-<code>FalseState.frame_from_state</code> adds the attack vector on the meters it moves, which gives the
+<code>AttackFrames.frame_from_state</code> adds the attack vector on the meters it moves, which gives the
 observed layer; on a benign frame the observed layer is the benign one. <code>TimelineWriter.store</code>
 writes the three layers with the labels <code>y</code>, <code>family</code> and <code>seq_id</code> and the tamper masks.
 An episode designed as a vector over the meters (<code>VectorEpisode</code>) uses
-<code>FalseState.frame_from_vector</code> instead.
+<code>AttackFrames.frame_from_vector</code> instead.
 <a href="../../concepts/layers/">Layers and labels</a> says what each layer and label is for.</p>
 <p>Every attack is built in <code>engine.attacks</code>, by the parts the generator holds: a local false state
 (<code>engine.attacks.false_state</code>) designed per episode (<code>ramp_design</code> for At, <code>am_overload_design</code> for
 Am, <code>engine.attacks.episodes</code>) on a support the search or [WU26]'s row reduction chooses
-(<code>Minimizer.min_tamper</code>, <code>RrefSupport</code>); <code>FalseState.frame_from_state</code> adds the attack vector to the
+(<code>Minimizer.min_tamper</code>, <code>RrefSupport</code>); <code>AttackFrames.frame_from_state</code> adds the attack vector to the
 benign scan.</p>
 <h2 id="modules">Modules<a class="headerlink" href="#modules" title="Permanent link">&para;</a></h2>
 <p>The paper's math lives in <code>engine/</code>. <code>generation/</code> drives it in stages (<code>TimelineSource.generate</code>

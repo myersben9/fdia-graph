@@ -2031,13 +2031,14 @@ designed episode (<code>engine/attacks/family.py</code>, <code>DesignedEpisode</
 <p><a href="../../figures/diagrams/classes_engine.png"><img alt="Class diagram of the engine package: Emitter and ScanLoads are each a Part; FdiaGenerator holds them, a Network, a MeterPlan, a Measurement, a NoiseModel and the attack parts of the next diagram; Emitter uses Frame, MeterLayers and Scan" src="../../figures/diagrams/classes_engine.png" /></a></p>
 <h2 id="the-attacks">The attacks<a class="headerlink" href="#the-attacks" title="Permanent link">&para;</a></h2>
 <p>Every attack is built in <code>engine/attacks/</code>, one part of the generator per module:
-<code>AttackArea</code> (<code>g.area</code>) finds the attacker's area, <code>FalseState</code> (<code>g.false_state</code>) solves and checks its false state and the
-attack vector, <code>RampFrames</code> (<code>g.ramp_frames</code>) builds the ramp frames, <code>Minimizer</code> (<code>g.minimizer</code>) finds the support that tampers
-the fewest devices over an attack window [WU26, eq. 12], <code>Overload</code> (<code>g.overload</code>) builds the overload <code>Am</code>,
+<code>AttackArea</code> (<code>g.area</code>) finds the attacker's area, <code>FalseState</code> (<code>g.false_state</code>) solves and checks its false state, <code>AttackFrames</code>
+(<code>g.attack_frames</code>) writes the attack vector onto the true scan, <code>RampFrames</code> (<code>g.ramp_frames</code>) builds the ramp frames, <code>Minimizer</code> (<code>g.minimizer</code>) finds the support that tampers
+the fewest devices over an attack window [WU26, eq. 12] (<code>AttackWindow</code>, <code>window.py</code>, counts what a
+support costs), <code>Overload</code> (<code>g.overload</code>) builds the overload <code>Am</code>,
 and <code>EpisodeDesigns</code> (<code>g.episode_designs</code>) designs what an <code>At</code> or an <code>Am</code> episode attacks. <code>RampFrames.attack_frame</code>
 is the one entry for an attacked <code>At</code> scan; an <code>Am</code> frame comes from <code>overload_step</code>. The walk reaches
 both through a designed episode (<code>engine/attacks/search.py</code>: <code>RampEpisode</code>, <code>OverloadEpisode</code>).</p>
-<p><a href="../../figures/diagrams/classes_attacks.png"><img alt="Class diagram of the attack package: AttackArea, FalseState, RampFrames, Minimizer, Overload and EpisodeDesigns, each a Part that holds the generator; they use AttackDesign, RampDesign, LoadGoal, FlowGoal, MinimizerResult, Frame, FrameKnobs, OperatingLimits and Scan" src="../../figures/diagrams/classes_attacks.png" /></a></p>
+<p><a href="../../figures/diagrams/classes_attacks.png"><img alt="Class diagram of the attack package: AttackArea, FalseState, AttackFrames, RampFrames, Minimizer, Overload and EpisodeDesigns, each a Part that holds the generator, and AttackWindow, which the Minimizer builds; they use AttackDesign, RampDesign, LoadGoal, FlowGoal, MinimizerResult, Frame, FrameKnobs, OperatingLimits, MeterLayers, CostUnit and Scan" src="../../figures/diagrams/classes_attacks.png" /></a></p>
 <h2 id="state-estimation">State estimation<a class="headerlink" href="#state-estimation" title="Permanent link">&para;</a></h2>
 <p><code>SEBase</code> holds the shared solve: the measurement function, the chord Jacobian, the meter weights and the
 chord-Newton loop. Each estimator overrides one hook. <code>GatedPrior</code> takes a fitted localizer as its gate;

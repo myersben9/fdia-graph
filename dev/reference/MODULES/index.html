@@ -2245,7 +2245,7 @@
 </tr>
 <tr>
 <td><code>engine.attacks</code></td>
-<td>Every attack the generator builds. Six files each hold one part of the generator; three hold what serves or uses the parts.</td>
+<td>Every attack the generator builds. Seven files each hold one part of the generator; four hold what serves or uses the parts.</td>
 </tr>
 <tr>
 <td><code>engine.attacks.area</code></td>
@@ -2257,11 +2257,15 @@
 </tr>
 <tr>
 <td><code>engine.attacks.false_state</code></td>
-<td>The local false state of a stealthy attack: the attacker's area re-solved under false loads with the boundary held true, checked against the operating limits, and the attack vector it writes.</td>
+<td>The local false state of a stealthy attack: the attacker's area re-solved under false loads with the boundary held true, and checked against the operating limits. <code>frames.py</code> writes its attack vector onto a scan.</td>
 </tr>
 <tr>
 <td><code>engine.attacks.family</code></td>
 <td>The interface the attack families share. The design stage asks a family one thing, the episode of a window (<code>EpisodeFamily.designed</code>), and the walk emits what it gets (<code>DesignedEpisode</code>), whichever family made it. A family of your own (<code>AttackFamily</code>) designs one <code>Episode</code> (<code>models.plan</code>), an attack vector over its window, or a miss.</td>
+</tr>
+<tr>
+<td><code>engine.attacks.frames</code></td>
+<td>An attack written onto a scan: the attack vector a = h(x_false) - h(x_true) of a false state, and the frame that carries it.</td>
 </tr>
 <tr>
 <td><code>engine.attacks.minimize</code></td>
@@ -2282,6 +2286,10 @@
 <tr>
 <td><code>engine.attacks.search</code></td>
 <td>The search-based families: the slow ramp At and the overload Am [WU26].</td>
+</tr>
+<tr>
+<td><code>engine.attacks.window</code></td>
+<td>One attack window as the fewest-tamper search sees it: the snapshots, the goal, and what a candidate support costs over them (<code>AttackWindow.cost</code>).</td>
 </tr>
 <tr>
 <td><code>engine.base</code></td>
