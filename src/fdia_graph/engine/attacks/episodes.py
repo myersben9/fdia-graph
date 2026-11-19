@@ -1,4 +1,4 @@
-"""What one episode attacks: its design, drawn at onset (`EpisodeDesignMixin`).
+"""What one episode attacks: its design, drawn at onset (`EpisodeDesigns`).
 
 The timeline decides when an episode starts and how long it lasts; its design decides what it
 attacks. `ramp_design` draws the slow ramp At and tests it on every frame it will occupy, since the
@@ -16,7 +16,7 @@ from ...constants.families import AT_CODE
 from ...formulas.attacks import ramp_profile
 from ...models.frames import AmOverloadDesign, AttackDesign, AttackVector, FrameKnobs, LoadGoal, RampDesign
 from ...systems.states import States
-from .overload import OverloadMixin
+from ..base import Part
 
 ONSET_DRAWS = 40  # designs an At episode tries for one with a stealthy state on every frame
 
@@ -37,13 +37,13 @@ def draw_ramp(rng: np.random.Generator, apos: np.ndarray, ramp_len: int) -> Ramp
     return RampDesign(a, direction, rise, hold)
 
 
-class EpisodeDesignMixin(OverloadMixin):
+class EpisodeDesigns(Part):
     """The design of an episode of each family: the slow ramp At and the overload Am of [WU26]."""
 
     def target_counts(self) -> dict[int, int]:
         """The targets the case offers the ramp: At needs a load off every generator bus. Am's targets
         are the rated, metered lines of each window, decided per episode."""
-        return {AT_CODE: len(self.stealthy_pos)}
+        return {AT_CODE: len(self.g.stealthy_pos)}
 
     def ramp_step(self, design: RampDesign, i: int, rate: float) -> AttackDesign:
         """The design of the ramp's frame i: its load set scaled by the profile's deviation there. The
@@ -65,9 +65,11 @@ class EpisodeDesignMixin(OverloadMixin):
         # the fewest-tamper search spends no random draw
         ramp_len, rate = shape
         for _ in range(ONSET_DRAWS):
-            design = draw_ramp(self.rng, self.stealthy_pos, ramp_len)  # At is stealthy: no generator bus
+            design = draw_ramp(self.g.rng, self.g.stealthy_pos, ramp_len)  # At is stealthy: no generator bus
             frames = probe_frames(len(X), t, ramp_len)
-            if all(self.is_feasible(X[u], self.ramp_step(design, u - t, rate), k) for u in frames):
+            if all(
+                self.g.false_state.is_feasible(X[u], self.ramp_step(design, u - t, rate), k) for u in frames
+            ):
                 return self._fewest_tamper(design, X, (frames, t, rate), k, prev) if k.min_tamper else design
         return None
 
@@ -83,7 +85,7 @@ class EpisodeDesignMixin(OverloadMixin):
         unchanged when the search finds none."""
         frames, t, rate = window
         goal = LoadGoal(tuple(self.ramp_step(design, u - t, rate) for u in frames))
-        result = self.min_tamper([X[u] for u in frames], goal, k, prev)
+        result = self.g.minimizer.min_tamper([X[u] for u in frames], goal, k, prev)
         if result is None:
             return design
         held = result.support if result.devices >= 0 else None  # -1: no held support met the constraints
@@ -97,13 +99,13 @@ class EpisodeDesignMixin(OverloadMixin):
         and moves a device beyond noise; None when no set does. One draw from `rng` (None: the generator's
         own stream), if a branch exists."""
         window = [X[u] for u in range(t, min(t + length, len(X)))]
-        lines = self.eligible_lines(window, k.hops)
+        lines = self.g.overload.eligible_lines(window, k.hops)
         if len(lines) == 0:
             return None
-        order = (self.rng if rng is None else rng).permutation(lines)
-        for targets in self._target_sets(order, k.n_lines, k.hops):
-            goal = self.overload_goal(window, *targets)
-            result = self.min_tamper(window, goal, k)
+        order = (self.g.rng if rng is None else rng).permutation(lines)
+        for targets in self.g.overload.target_sets(order, k.n_lines, k.hops):
+            goal = self.g.overload.overload_goal(window, *targets)
+            result = self.g.minimizer.min_tamper(window, goal, k)
             if result is not None and result.devices >= 1:
                 # eq. 25: S_max at the end
                 ratings = tuple(float(s) for s in goal.targets_at(len(window) - 1))

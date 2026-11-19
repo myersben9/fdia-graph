@@ -55,7 +55,7 @@ class AttackDesign(NamedTuple):
 
 class RampDesign(NamedTuple):
     """One At episode, drawn at onset: a fixed load set scaled along a rise, a hold and a return
-    (engine.attacks, `ramp_design`); frame i applies `g.ramp_step(design, i, rate)`."""
+    (engine.attacks, `ramp_design`); frame i applies `g.episode_designs.ramp_step(design, i, rate)`."""
 
     targets: np.ndarray  # positions in the generator's load table
     direction: float  # +1 a load rise, -1 a load drop
@@ -147,7 +147,7 @@ class FrameKnobs(NamedTuple):
     objective: str = "devices"
     # the attacker's area [WU26] Sec. III-A: its buses when the caller gives them bus by bus,
     # else chosen by `area_rule` (`AreaRule`): "hops", the buses within `hops`
-    # of the goal, or "rules", the region the paper's four principles pick (`AreaMixin.rule_area`, ours)
+    # of the goal, or "rules", the region the paper's four principles pick (`AttackArea.rule_area`, ours)
     area: Optional[tuple[int, ...]] = None
     area_rule: str = "hops"
 
@@ -166,7 +166,7 @@ class LoadGoal(NamedTuple):
     search holds one support for all of them. Am's goal is `FlowGoal`."""
 
     designs: tuple[AttackDesign, ...]  # one per snapshot, in window order
-    kind: str = "load"  # the solve the fewest-tamper search applies per snapshot (MinimizeMixin.goal_state)
+    kind: str = "load"  # the solve the fewest-tamper search applies per snapshot (Minimizer.goal_state)
 
 
 class FlowGoal(NamedTuple):
@@ -179,7 +179,7 @@ class FlowGoal(NamedTuple):
 
     line: int  # the first target branch (position in the edge index)
     targets: tuple[float, ...]  # the first target's MVA per snapshot, in window order
-    kind: str = "flow"  # the solve the fewest-tamper search applies per snapshot (MinimizeMixin.goal_state)
+    kind: str = "flow"  # the solve the fewest-tamper search applies per snapshot (Minimizer.goal_state)
     more: tuple[tuple[int, tuple[float, ...]], ...] = ()  # further (branch, MVA per snapshot) pairs
 
     @property

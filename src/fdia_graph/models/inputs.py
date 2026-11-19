@@ -490,7 +490,7 @@ class Requirement(Validated):
 @dataclass(frozen=True)
 class TrustablePmus(Validated):
     """A trusted-PMU schedule's buses against the generator's grid and meter plan
-    (`MinimizeMixin.min_tamper`'s `trust`): every trusted bus is a bus of the grid with a PMU, since a
+    (`Minimizer.min_tamper`'s `trust`): every trusted bus is a bus of the grid with a PMU, since a
     trusted PMU pins its own |V| and angle [WU26 eqs. 27, 29] and a bus without one has nothing to
     trust. Built from the schedule and the plan, since `TrustSchedule` alone does not know the grid."""
 

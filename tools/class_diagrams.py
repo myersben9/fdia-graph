@@ -50,7 +50,7 @@ GROUPS = {
         f"{GENERATION}/engine/attacks/false_state",
         f"{GENERATION}/engine/attacks/minimize",
         f"{GENERATION}/engine/attacks/overload",
-        f"{GENERATION}/engine/attacks/stealthy",
+        f"{GENERATION}/engine/attacks/ramp_frames",
         f"{GENERATION}/engine/attacks/episodes",
         f"{GENERATION}/engine/attacks/__init__",
     ],

@@ -17,13 +17,13 @@ def test_a_window_with_no_held_support_says_so(case):
 
     g, _, k = case
     for states, goal, d in windows(case, 4, held=False):
-        result = g.min_tamper(states, goal, k)
+        result = g.minimizer.min_tamper(states, goal, k)
         buses = np.unique(g.load_bus[d.targets])
-        area = g.local_region(buses, k.hops)
+        area = g.area.local_region(buses, k.hops)
         window = _Window(g, states, goal, k)
         feasible = [
             c
-            for S in g._supports([frozenset(int(b) for b in buses)], area)
+            for S in g.minimizer._supports([frozenset(int(b) for b in buses)], area)
             if (c := window.cost(S, None)) is not None
         ]
         assert (result.devices < 0) == (not feasible and window.cost(area, None) is None)
@@ -34,12 +34,12 @@ def test_the_search_equals_brute_force(case):
 
     g, _, k = case
     for states, goal, d in windows(case, 3):
-        result = g.min_tamper(states, goal, k)
+        result = g.minimizer.min_tamper(states, goal, k)
         buses = np.unique(g.load_bus[d.targets])
-        area = g.local_region(buses, k.hops)
+        area = g.area.local_region(buses, k.hops)
         window = _Window(g, states, goal, k)
         feasible = []
-        for S in [*g._supports([frozenset(int(b) for b in buses)], area), np.asarray(area)]:
+        for S in [*g.minimizer._supports([frozenset(int(b) for b in buses)], area), np.asarray(area)]:
             c = window.cost(S, None)
             if c is not None:
                 feasible.append(c)
@@ -69,14 +69,14 @@ def test_the_emitter_draws_with_the_shared_noise_rule(case):
             sizes.append(size)
             return np.random.default_rng(5).normal(loc, scale, size)
 
-    g._jitter_stream = lambda: _Recorder()
+    g.emitter._jitter_stream = lambda: _Recorder()
     try:
-        scan = g.emit_from_state(X[0])
+        scan = g.emitter.emit_from_state(X[0])
     finally:
-        del g._jitter_stream
-    z = g.exact(X[0])
+        del g.emitter._jitter_stream
+    z = g.emitter.exact(X[0])
     assert sizes == [z.shape]  # one vector draw, a normal per meter
-    drawn = g.layers(g.noise.sample(z, _Recorder()).astype(np.float32))
+    drawn = g.emitter.layers(g.noise.sample(z, _Recorder()).astype(np.float32))
     assert np.array_equal(scan.node_x, drawn.node) and np.array_equal(scan.edge_x, drawn.edge)
     assert scan.i_x is not None and np.array_equal(scan.i_x, drawn.current)
 
@@ -123,9 +123,9 @@ def test_the_search_counts_against_the_calibrations_accuracy_sigma(case):
 
     g, X, _ = case
     x, base = X[0], g.case.base_mva
-    flows = g.clean_flows_from_states(X[:1])[0].astype(np.float64)
-    z = g.exact(x)
-    rated = g.layers(g.noise.sigmas(z))
+    flows = g.emitter.clean_flows_from_states(X[:1])[0].astype(np.float64)
+    z = g.emitter.exact(x)
+    rated = g.emitter.layers(g.noise.sigmas(z))
     sig, sig_f = rated.node, rated.edge
     node, edge = g.masks.node > 0, g.masks.edge > 0  # a sigma is kept where a meter sits
     volt, pmu = node[:, NodeChannel.V], node[:, NodeChannel.THETA]
@@ -151,7 +151,7 @@ def test_the_search_counts_against_the_calibrations_accuracy_sigma(case):
     assert np.allclose(sig[pmu, NodeChannel.THETA], np.degrees(ACCURACY_CLASS["va"]))
     on = edge[:, 1]
     assert np.allclose(sig_f[on, 1], ACCURACY_CLASS["qf"] * np.abs(flows[on, 1]) + 1e-3)
-    jit = g.layers(g.noise.jitter(z))
+    jit = g.emitter.layers(g.noise.jitter(z))
     assert (sig >= jit.node).all() and (sig_f >= jit.edge).all() and (rated.current >= jit.current).all()
     assert (sig[volt, NodeChannel.V] > jit.node[volt, NodeChannel.V]).all()
 
@@ -196,8 +196,8 @@ def test_supports_keep_the_region_rules(case):
     edges = g.ei
     for _, _, d in windows(case, 2):
         buses = np.unique(g.load_bus[d.targets])
-        area = g.local_region(buses, k.hops)
-        for S in g._supports([frozenset(int(b) for b in buses)], area):
+        area = g.area.local_region(buses, k.hops)
+        for S in g.minimizer._supports([frozenset(int(b) for b in buses)], area):
             assert g.slack_bus not in S
             boundary = set(np.unique(edges[:, np.isin(edges, S).any(axis=0)]).tolist()) - set(S.tolist())
             assert not boundary & zero
@@ -232,7 +232,7 @@ def test_the_stealth_bound_covers_the_onset(case):
 
     g, X, k = case
     for states, _, d in windows(case, 1, held=False):
-        area = np.asarray(g.local_region(np.unique(g.load_bus[d.targets]), k.hops))
+        area = np.asarray(g.area.local_region(np.unique(g.load_bus[d.targets]), k.hops))
         jump = LoadGoal(
             tuple(AttackDesign(d.targets, 1.15) for _ in states)
         )  # held at 1.15: only the onset jumps
@@ -248,10 +248,10 @@ def test_a_support_within_noise_is_not_an_attack(case):
 
     g, _, k = case
     for states, _, d in windows(case, 1, held=False):
-        area = np.asarray(g.local_region(np.unique(g.load_bus[d.targets]), k.hops))
+        area = np.asarray(g.area.local_region(np.unique(g.load_bus[d.targets]), k.hops))
         still = LoadGoal(tuple(AttackDesign(d.targets, 1.0 + 1e-9) for _ in states))
         assert _Window(g, states, still, k).cost(area, None) is None
-        assert g.min_tamper(states, still, k).devices == -1
+        assert g.minimizer.min_tamper(states, still, k).devices == -1
 
 
 def test_the_onset_is_bounded_against_the_frame_before(case):
@@ -263,14 +263,16 @@ def test_the_onset_is_bounded_against_the_frame_before(case):
 
     g, _, k = case
     for states, _, d in windows(case, 1, held=False):
-        area = np.asarray(g.local_region(np.unique(g.load_bus[d.targets]), k.hops))
+        area = np.asarray(g.area.local_region(np.unique(g.load_bus[d.targets]), k.hops))
         held = LoadGoal(tuple(AttackDesign(d.targets, 1.15) for _ in states))
-        Xa = g.goal_state(held, 0, states[0], area, k)
+        Xa = g.minimizer.goal_state(held, 0, states[0], area, k)
         assert Xa is not None
         # the frame before carried the same step, its branch currents included (hybrid meters)
         from fdia_graph.models.frames import AttackVector
 
-        before = AttackVector(*g._attack_vector(Xa, states[0]), g._current_attack(Xa, states[0]))
+        before = AttackVector(
+            *g.false_state._attack_vector(Xa, states[0]), g.false_state._current_attack(Xa, states[0])
+        )
         assert _Window(g, states, held, k).cost(area, None) is None
         assert _Window(g, states, held, k, prev=before).cost(area, None) is not None
 

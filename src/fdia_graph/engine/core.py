@@ -6,9 +6,10 @@ The grid is a `Case` with its `Network`, the meters a `MeterPlan` with its `Meas
 flow once. A benign scan is emitted exactly from a stored state (no re-solve); only attacks
 re-solve, locally. The attack families are At (the slow ramp) and Am (the overload attack) [WU26].
 
-FdiaGenerator sets up the state here (`__init__`) and gets its methods from three mixins:
-physics.py (a scan's load and generation), measurement.py (meter readings from a state) and
-attacks/ (every attack).
+FdiaGenerator holds the state (the grid, the meters, the random stream) and one object of each
+part (`engine.base.Part`), named after its class: `emitter` (measurement.py, meter readings from a
+state), `scan_loads` (physics.py, a scan's load and generation) and the parts of attacks/ (`area`,
+`false_state`, `ramp_frames`, `minimizer`, `overload`, `episode_designs`).
 """
 
 from __future__ import annotations
@@ -25,14 +26,20 @@ from ..sensing.measure import Measurement
 from ..sensing.meters import MeterPlan
 from ..sensing.noise import NoiseModel
 from ..systems.network import Network
-from .attacks import AttackMixin
-from .physics import LoadSplit, ScaledSplit
+from .attacks.area import AttackArea
+from .attacks.episodes import EpisodeDesigns
+from .attacks.false_state import FalseState
+from .attacks.minimize import Minimizer
+from .attacks.overload import Overload
+from .attacks.ramp_frames import RampFrames
+from .measurement import Emitter
+from .physics import LoadSplit, ScaledSplit, ScanLoads
 
 if TYPE_CHECKING:
     from ..models.plan import GeneratorSpec
 
 
-class FdiaGenerator(AttackMixin):
+class FdiaGenerator:
     def __init__(
         self,
         net: Network,
@@ -61,18 +68,26 @@ class FdiaGenerator(AttackMixin):
         # No load of the other seven ladder systems exceeds 1.1 GW.
         self.max_load_mw = max_load_mw
         self.rng = np.random.default_rng(seed)
-        self.seed, self.scan_key = seed, None
+        self.seed = seed
+        # the timestep whose jitter the next emission draws (a timeline walk sets it), or None: the
+        # jitter then comes from `rng` like every other draw
+        self.scan_key: Optional[int] = None
         self.net, self.case = net, net.case
         self.C = len(self.case.bus_id)
         self.ei = np.vstack([self.case.f, self.case.t]).astype(np.int32)  # [2, E]: from bus, to bus
         self.E = self.ei.shape[1]
+        # the parts, each one job in one class: a call `g.<part>.<method>` names the class of the method
+        self.emitter, self.scan_loads, self.area = Emitter(self), ScanLoads(self), AttackArea(self)
+        self.false_state, self.ramp_frames = FalseState(self), RampFrames(self)
+        self.minimizer, self.overload = Minimizer(self), Overload(self)
+        self.episode_designs = EpisodeDesigns(self)
         self._load_tables()
         self._case_limits()
 
     def use_plan(self, plan: MeterPlan) -> None:
         """The meter plan with its measurement function, its noise and the masks of its meters."""
         self.plan, self.meas, self.noise = plan, Measurement(self.net, plan), NoiseModel(plan)
-        self.masks = self.layers(np.ones(len(plan.kind), np.uint8))
+        self.masks = self.emitter.layers(np.ones(len(plan.kind), np.uint8))
         self.pmu_buses = plan.buses(MeterKind.VA)
         self.flow_metered = self.masks.edge[:, FLOW_KINDS.index(MeterKind.PF)] > 0
 
@@ -80,7 +95,7 @@ class FdiaGenerator(AttackMixin):
     def from_spec(cls, spec: GeneratorSpec) -> FdiaGenerator:
         """The generator of `spec`: its case, meter plan and ratings."""
         g = cls(spec.net, spec.seed, spec.meters, spec.max_load_mw, split=spec.split)
-        g._line_ratings, g._rating_delta = spec.ratings, spec.rating_delta
+        g.overload.ratings, g.overload.rating_delta = spec.ratings, spec.rating_delta
         return g
 
     def _load_tables(self) -> None:

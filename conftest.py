@@ -95,5 +95,5 @@ def case():
 
     g = FdiaGenerator(Network.from_ieee(14), seed=1)
     X = _load_states(14, None)
-    k = FrameKnobs(2, g.operating_limits(X), True, 4096)
+    k = FrameKnobs(2, g.false_state.operating_limits(X), True, 4096)
     return g, X, k

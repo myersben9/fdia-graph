@@ -62,7 +62,7 @@ def gen(model):
 
 
 def _knobs(g, pool, load_cap=0.5, budget=100000):
-    return FrameKnobs(2, g.operating_limits(pool), True, budget, 1.0, load_cap)
+    return FrameKnobs(2, g.false_state.operating_limits(pool), True, budget, 1.0, load_cap)
 
 
 def _goal(g, pool, kind, t, which):
@@ -70,10 +70,10 @@ def _goal(g, pool, kind, t, which):
     peak flows."""
     window = [pool[u] for u in range(t, t + WINDOW)]
     if kind == "Am":
-        g.use_line_ratings(OverloadSettings(rating_margin=MARGIN), np.stack(window))
-        return window, g.overload_goal(window, *which)
+        g.overload.use_line_ratings(OverloadSettings(rating_margin=MARGIN), np.stack(window))
+        return window, g.overload.overload_goal(window, *which)
     design = draw_ramp(np.random.default_rng(100 + which), g.stealthy_pos, WINDOW)
-    return window, LoadGoal(tuple(g.ramp_step(design, i, 0.002) for i in range(WINDOW)))
+    return window, LoadGoal(tuple(g.episode_designs.ramp_step(design, i, 0.002) for i in range(WINDOW)))
 
 
 def test_exhaustive_searches_return_their_pinned_answers(model, gen, pool):
@@ -86,8 +86,8 @@ def test_exhaustive_searches_return_their_pinned_answers(model, gen, pool):
         k = _knobs(gen, pool, cap)
         window, goal = _goal(gen, pool, kind, t, which)
         if kind == "Am":
-            assert set(which) <= set(gen.eligible_lines(window, 2).tolist())
-        r = gen.min_tamper(window, goal, k)
+            assert set(which) <= set(gen.overload.eligible_lines(window, 2).tolist())
+        r = gen.minimizer.min_tamper(window, goal, k)
         got = (r.support.tolist(), r.devices, r.channels, r.evaluated)
         assert got == want, (cap, kind, t, which)
         assert r.evaluated < k.min_budget  # exhaustive: the answer is the search's full optimum
@@ -99,7 +99,7 @@ def test_the_cached_boundary_is_the_subnetwork_boundary(gen):
     for _ in range(50):
         interior = rng.choice(gen.C, int(rng.integers(1, 6)), replace=False)
         want = subnetwork(live, interior, 0, gen.C)
-        got = gen._boundary(interior)
+        got = gen.area.boundary(interior)
         assert all(np.array_equal(a, b) for a, b in zip(got, want))
 
 
@@ -108,7 +108,7 @@ def test_the_row_block_product_equals_the_full_one(gen, pool):
     product's values (to rounding: the sum runs over fewer terms)."""
     V = complex_voltages(pool[0][:, NodeChannel.V], pool[0][:, NodeChannel.THETA])
     for rows in (np.array([0]), np.array([2, 3, 8]), np.arange(gen.E)):
-        for Y in (gen.net.yf, gen.net.yt, gen._dense_admittances()[1]):
+        for Y in (gen.net.yf, gen.net.yt, gen.false_state._dense_admittances()[1]):
             block, cols = _row_block(Y, rows)
             full = np.asarray(Y @ V)[rows]
             assert np.allclose(block @ V[cols], full, rtol=1e-13, atol=1e-13)
@@ -120,9 +120,9 @@ def test_the_reused_blocks_solve_as_the_fresh_ones(gen, pool):
     edge bus held as well as interior ones."""
     Xt = pool[0]
     V = complex_voltages(Xt[:, NodeChannel.V], Xt[:, NodeChannel.THETA])
-    Yb, Yf = gen._dense_admittances()
+    Yb, Yf = gen.false_state._dense_admittances()
     line, S = 4, np.array([2, 3, 4, 8])
-    touched = gen.touched_buses(S)
+    touched = gen.false_state.touched_buses(S)
     edge = np.setdiff1d(touched, np.r_[S, gen.slack_bus])  # the slack's injection is the balance
     interior, fixed = S, np.r_[S[:2], edge[:1]]
     S0 = bus_injections(V, Yb)
@@ -145,15 +145,15 @@ def test_the_support_attack_vector_equals_the_full_one(gen, pool):
     window, goal = _goal(gen, pool, "Am", 150, (1,))
     win = _Window(gen, window, goal, k)
     S = np.array([4, 5])
-    Xa = gen.goal_state(goal, 0, window[0], S, k)
+    Xa = gen.minimizer.goal_state(goal, 0, window[0], S, k)
     assert Xa is not None
     near = win.near(S)
     a_edge, a_cur = win._branch_attack(0, Xa, near)
-    _, want_edge = gen._attack_vector(Xa, window[0])
+    _, want_edge = gen.false_state._attack_vector(Xa, window[0])
     assert np.allclose(a_edge, want_edge, rtol=1e-5, atol=1e-4)
     far = np.setdiff1d(np.arange(gen.E), near.lines)
     assert not a_edge[far].any()  # a branch off the support reads the same on both sides
-    want_cur = gen._current_attack(Xa, window[0])
+    want_cur = gen.false_state._current_attack(Xa, window[0])
     assert (a_cur is None) == (want_cur is None)
     if a_cur is not None and want_cur is not None:
         assert np.allclose(a_cur, want_cur, rtol=1e-10, atol=1e-12)
@@ -163,7 +163,7 @@ def test_search_holds_blas_to_one_thread_and_restores_it(monkeypatch):
     """`min_tamper` runs its search with every BLAS pool on one thread and gives the caller's
     setting back after, returning the search's answer unchanged."""
     threadpoolctl = pytest.importorskip("threadpoolctl")
-    from fdia_graph.engine.attacks.minimize import MinimizeMixin
+    from fdia_graph.engine.attacks.minimize import Minimizer
 
     def blas() -> list[int]:
         return [p["num_threads"] for p in threadpoolctl.threadpool_info() if p["user_api"] == "blas"]
@@ -176,11 +176,11 @@ def test_search_holds_blas_to_one_thread_and_restores_it(monkeypatch):
         seen.append(blas())
         return "answer"
 
-    monkeypatch.setattr(MinimizeMixin, "_min_tamper", search)
+    monkeypatch.setattr(Minimizer, "_min_tamper", search)
     with threadpoolctl.threadpool_limits(limits=2, user_api="blas"):
         outside = blas()
-        g = object.__new__(MinimizeMixin)  # no grid needed: the search itself is replaced
-        assert g.min_tamper([], LoadGoal(()), FrameKnobs()) == "answer"
+        part = object.__new__(Minimizer)  # no grid needed: the search itself is replaced
+        assert part.min_tamper([], LoadGoal(()), FrameKnobs()) == "answer"
         assert seen == [[1] * len(outside)]
         assert blas() == outside
 

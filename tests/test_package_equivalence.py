@@ -37,7 +37,7 @@ def test_jitter_draws_in_the_per_channel_order():
     rows = zip(plan.kind.tolist(), plan.bus.tolist(), plan.branch.tolist(), plan.end.tolist())
     assert list(rows) == want
 
-    z = g.exact(np.stack([g.case.vm, g.case.pd, g.case.qd, g.case.va], axis=1))
+    z = g.emitter.exact(np.stack([g.case.vm, g.case.pd, g.case.qd, g.case.va], axis=1))
     sig = g.noise.jitter(z)
     got = g.noise.sample(z, np.random.default_rng(7))
     ref = np.random.default_rng(7)

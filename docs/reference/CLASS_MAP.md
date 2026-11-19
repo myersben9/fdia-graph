@@ -40,27 +40,27 @@ summary); the graph properties are tensors or arrays, `loader()` is a DataLoader
 
 `FdiaGenerator` is the AC model of one test system with its meter plan: the `Network` of its `Case` (an IEEE
 case's is `Network.from_ieee`), a `MeterPlan`
-(`MeterPlan.from_coverage`, or a plan given), a `Measurement` and a `NoiseModel`. `GridBase` declares the state the mixins
-share. `PhysicsMixin` reads a scan's load and generation and `MeasurementMixin` emits scans; neither calls the
-other, so each has `GridBase` alone as its base. `AttackMixin` builds every attack (next section) and calls both.
-A mixin lists as bases the mixins whose methods it calls.
-`MeasurementMixin.benign_frame` emits a benign scan, and a designed episode (`engine/attacks/family.py`,
-`DesignedEpisode`) asks the mixin for each attacked one; `timeline.py` decides when and where each episode
-runs.
+(`MeterPlan.from_coverage`, or a plan given), a `Measurement` and a `NoiseModel`. It also holds one
+object of each of its parts (`engine/base.py`, `Part`): a part does one job and holds the generator, so
+it reads the grid as `self.g.case` and calls another part as `self.g.area.local_region(...)`. `ScanLoads`
+(`g.scan_loads`) reads a scan's load and generation and `Emitter` (`g.emitter`) emits scans; the parts of
+`engine/attacks/` build every attack (next section). `Emitter.benign_frame` emits a benign scan, and a
+designed episode (`engine/attacks/family.py`, `DesignedEpisode`) asks the parts for each attacked one;
+`timeline.py` decides when and where each episode runs.
 
-[![Class diagram of the engine package: GridBase, PhysicsMixin and MeasurementMixin each under it, AttackMixin composed of EpisodeDesignMixin and StealthyMixin, and FdiaGenerator inheriting AttackMixin; the mixins use Scan, AttackDesign, Frame and FrameKnobs, and the generator holds a Network, a MeterPlan, a Measurement and a NoiseModel](../figures/diagrams/classes_engine.png)](../figures/diagrams/classes_engine.png)
+[![Class diagram of the engine package: Emitter and ScanLoads are each a Part; FdiaGenerator holds them, a Network, a MeterPlan, a Measurement, a NoiseModel and the attack parts of the next diagram; Emitter uses Frame, MeterLayers and Scan](../figures/diagrams/classes_engine.png)](../figures/diagrams/classes_engine.png)
 
 ## The attacks
 
-Every attack is built in `engine/attacks/`, one module per concern, composed into `AttackMixin`:
-`AreaMixin` finds the attacker's area, `FalseStateMixin` solves and checks its false state and the
-attack vector, `StealthyMixin` builds the ramp frames, `MinimizeMixin` finds the support that tampers
-the fewest devices over an attack window [WU26, eq. 12], `OverloadMixin` builds the overload `Am`,
-and `EpisodeDesignMixin` draws what an `At` episode attacks at its onset. `AttackMixin.attack_frame`
+Every attack is built in `engine/attacks/`, one part of the generator per module:
+`AttackArea` (`g.area`) finds the attacker's area, `FalseState` (`g.false_state`) solves and checks its false state and the
+attack vector, `RampFrames` (`g.ramp_frames`) builds the ramp frames, `Minimizer` (`g.minimizer`) finds the support that tampers
+the fewest devices over an attack window [WU26, eq. 12], `Overload` (`g.overload`) builds the overload `Am`,
+and `EpisodeDesigns` (`g.episode_designs`) designs what an `At` or an `Am` episode attacks. `RampFrames.attack_frame`
 is the one entry for an attacked `At` scan; an `Am` frame comes from `overload_step`. The walk reaches
 both through a designed episode (`engine/attacks/search.py`: `RampEpisode`, `OverloadEpisode`).
 
-[![Class diagram of the attack package: MeasurementMixin with AreaMixin under it, FalseStateMixin under AreaMixin and PhysicsMixin, StealthyMixin and MinimizeMixin under FalseStateMixin, OverloadMixin under MinimizeMixin, EpisodeDesignMixin under OverloadMixin, and AttackMixin inheriting EpisodeDesignMixin and StealthyMixin; the mixins use AttackDesign, RampDesign, LoadGoal, FlowGoal, MinimizerResult, Frame, FrameKnobs, OperatingLimits and Scan](../figures/diagrams/classes_attacks.png)](../figures/diagrams/classes_attacks.png)
+[![Class diagram of the attack package: AttackArea, FalseState, RampFrames, Minimizer, Overload and EpisodeDesigns, each a Part that holds the generator; they use AttackDesign, RampDesign, LoadGoal, FlowGoal, MinimizerResult, Frame, FrameKnobs, OperatingLimits and Scan](../figures/diagrams/classes_attacks.png)](../figures/diagrams/classes_attacks.png)
 
 ## State estimation
 

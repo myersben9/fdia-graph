@@ -450,9 +450,9 @@ Every source emits its scans through one generator, `FdiaGenerator`, in `engine/
 | File | Holds |
 |---|---|
 | `engine/core.py` | `FdiaGenerator`: a `Network`, its meter plan and noise |
-| `engine/base.py` | `GridBase`: the attributes the generator's parts share |
-| `engine/measurement.py` | `MeasurementMixin`: a scan from a stored state |
-| `engine/physics.py` | a scan's load and generation, read from its state |
+| `engine/base.py` | `Part`: one job of the generator, a class that holds the generator |
+| `engine/measurement.py` | `Emitter`: a scan from a stored state |
+| `engine/physics.py` | `ScanLoads` and `LoadSplit`: a scan's load and generation, read from its state |
 
 The attack designs are under `engine/attacks/`
 ([The attack families](../concepts/attacks.md#where-the-code-is)).

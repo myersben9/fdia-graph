@@ -50,10 +50,10 @@ def _scenario(system: int, scenario: tuple) -> tuple:
         flow[case_studies.branch(g, 6, 11)] = True  # the paper meters line 6-11
     g = case_studies.paper_metering(g, case_studies.PMUS[system], flow)
     window = list(X[:WINDOW])
-    g.use_line_ratings(OverloadSettings(rating_margin=MARGIN), np.stack(window))
-    k = FrameKnobs(2, g.operating_limits(X), True, 4096, 1.0, 0.5, 2)
-    goal = g.overload_goal(window, *lines)
-    return g, window, k, goal, g.min_tamper(window, goal, k)
+    g.overload.use_line_ratings(OverloadSettings(rating_margin=MARGIN), np.stack(window))
+    k = FrameKnobs(2, g.false_state.operating_limits(X), True, 4096, 1.0, 0.5, 2)
+    goal = g.overload.overload_goal(window, *lines)
+    return g, window, k, goal, g.minimizer.min_tamper(window, goal, k)
 
 
 def _devices(g, window, k, goal, support) -> tuple[set[str], float]:
@@ -84,10 +84,10 @@ def _devices(g, window, k, goal, support) -> tuple[set[str], float]:
 
 
 def _reaches_both_ratings(g, window, k, goal, support) -> None:
-    Xa = g.goal_state(goal, len(window) - 1, window[-1], support, k)
+    Xa = g.minimizer.goal_state(goal, len(window) - 1, window[-1], support, k)
     assert Xa is not None
-    flows = g.clean_flows_from_states(Xa[None])[0, list(goal.lines)]
-    ratings = g.line_ratings()[list(goal.lines)]
+    flows = g.emitter.clean_flows_from_states(Xa[None])[0, list(goal.lines)]
+    ratings = g.overload.line_ratings()[list(goal.lines)]
     assert np.allclose(np.hypot(flows[:, 0], flows[:, 1]), ratings, rtol=1e-6)
 
 

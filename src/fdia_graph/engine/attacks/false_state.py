@@ -21,8 +21,7 @@ from ...formulas.network import (
     local_flow_solve,
 )
 from ...models.frames import AttackDesign, Frame, FrameKnobs, MeterLayers, OperatingLimits, Scan
-from ..physics import PhysicsMixin
-from .area import AreaMixin
+from ..base import Part
 
 
 def _voltages_out_of_range(
@@ -75,13 +74,13 @@ class _FlowRegion(NamedTuple):
     load: np.ndarray
 
 
-class FalseStateMixin(AreaMixin, PhysicsMixin):
+class FalseState(Part):
     """Solve and check the false state an attack design implies, and the meters it moves."""
 
     def operating_limits(self, X: np.ndarray) -> OperatingLimits:
         """The constraints every false state must satisfy [WU26 eqs. 21-23]: the case's bus voltage
         limits, and its generator limits widened to what the pool X ran each generator over."""
-        return operating_limits(self.v_case, self.p_lim, self.q_lim, self.split.generation(X))
+        return operating_limits(self.g.v_case, self.g.p_lim, self.g.q_lim, self.g.split.generation(X))
 
     def solve_local(
         self, Xt: np.ndarray, interior: np.ndarray, Lp: np.ndarray, Lq: np.ndarray
@@ -89,27 +88,27 @@ class FalseStateMixin(AreaMixin, PhysicsMixin):
         """The local false state [N, 4] [WU26]: the interior re-solved under the false loads `Lp`, `Lq`
         (per load-table position, MW/MVAr), every other voltage held true. The injections of the interior
         and its boundary follow the false voltages. None when the local power flow does not converge."""
-        C = self.C
+        C = self.g.C
         Xa = np.array(Xt, np.float64, copy=True)
         Pinj, Qinj = Xa[:, NodeChannel.P_INJ].copy(), Xa[:, NodeChannel.Q_INJ].copy()
         # the pool's injection is load-positive: every load element at a bus minus that bus's
         # generation, held at this scan's dispatch (the attacker moves loads only)
         load, qload = np.zeros(C), np.zeros(C)
-        np.add.at(load, self.load_bus, Lp)
-        np.add.at(qload, self.load_bus, Lq)
-        buses = np.unique(self.load_bus)
-        Pinj[buses] = load[buses] - self.scan_generation(Xt)[buses]
-        Qinj[buses] = qload[buses] - self.scan_reactive_generation(Xt)[buses]
+        np.add.at(load, self.g.load_bus, Lp)
+        np.add.at(qload, self.g.load_bus, Lq)
+        buses = np.unique(self.g.load_bus)
+        Pinj[buses] = load[buses] - self.g.scan_loads.scan_generation(Xt)[buses]
+        Qinj[buses] = qload[buses] - self.g.scan_loads.scan_reactive_generation(Xt)[buses]
         Vc = complex_voltages(Xa[:, NodeChannel.V], Xa[:, NodeChannel.THETA])
-        base_mva = self.case.base_mva
+        base_mva = self.g.case.base_mva
         target = -(Pinj[interior] + 1j * Qinj[interior]) / base_mva  # generation-positive, per unit
         Vf = local_ac_solve(self._dense_admittances()[0], Vc, interior, target)
         if Vf is None:
             return None
         Xa[interior, NodeChannel.V] = np.abs(Vf[interior])
         Xa[interior, NodeChannel.THETA] = np.degrees(np.angle(Vf[interior]))
-        touched = np.union1d(interior, self._boundary(interior)[1])  # and its boundary
-        S = bus_injections(Vf, self.net.ybus, base_mva)[touched]
+        touched = np.union1d(interior, self.g.area.boundary(interior)[1])  # and its boundary
+        S = bus_injections(Vf, self.g.net.ybus, base_mva)[touched]
         Xa[touched, NodeChannel.P_INJ] = -S.real
         Xa[touched, NodeChannel.Q_INJ] = -S.imag
         return Xa
@@ -117,7 +116,7 @@ class FalseStateMixin(AreaMixin, PhysicsMixin):
     def free_load_buses(self) -> np.ndarray:
         """The buses whose load an attacker may pretend in a flow goal (a load off every generator bus,
         under the load cap), sorted."""
-        return np.unique(self.load_bus[self.stealthy_pos])
+        return np.unique(self.g.load_bus[self.g.stealthy_pos])
 
     def generator_buses(self) -> np.ndarray:
         """The grid's own buses with a generator (zero-MW condensers included), the slack excluded: their
@@ -125,7 +124,7 @@ class FalseStateMixin(AreaMixin, PhysicsMixin):
         eqs. 22-23."""
         cached = getattr(self, "_generator_buses", None)
         if cached is None:  # asked once per candidate solve: built once, read-only
-            cached = np.setdiff1d(np.flatnonzero(self.has_gen & self.case.own_bus), [self.slack_bus])
+            cached = np.setdiff1d(np.flatnonzero(self.g.has_gen & self.g.case.own_bus), [self.g.slack_bus])
             cached.flags.writeable = False
             self._generator_buses = cached
         return cached
@@ -156,7 +155,7 @@ class FalseStateMixin(AreaMixin, PhysicsMixin):
         # of S inside eq. 21; with `load_cap`, a load bus shows at most that share of its true load. A
         # component (P or Q) the solve drives past its bound is pinned there and the solve repeated (an
         # active set). The state is None when the solve fails, a bound cannot be met, or S has no free bus.
-        dload = np.zeros(self.C)
+        dload = np.zeros(self.g.C)
         free = np.intersect1d(S, self.free_injection_buses())
         if len(free) == 0:
             return None, True, dload
@@ -184,7 +183,7 @@ class FalseStateMixin(AreaMixin, PhysicsMixin):
 
     def touched_buses(self, S: np.ndarray) -> np.ndarray:
         """S and its edge: the buses whose reported injection a false state on S can change."""
-        return np.union1d(S, self._boundary(S)[1])
+        return np.union1d(S, self.g.area.boundary(S)[1])
 
     def _flow_region(
         self,
@@ -209,8 +208,8 @@ class FalseStateMixin(AreaMixin, PhysicsMixin):
             touched,
             S_true,
             blocks,
-            self.split.generation(Xt),
-            self.split.load(Xt),
+            self.g.split.generation(Xt),
+            self.g.split.load(Xt),
         )
 
     def _support_blocks(self, S: np.ndarray, lines: np.ndarray) -> tuple[np.ndarray, _FlowBlocks]:
@@ -236,7 +235,7 @@ class FalseStateMixin(AreaMixin, PhysicsMixin):
         """One flow solve on the region's support. `held` = ((bus -> pinned P change, bus -> pinned Q
         change), bus -> held |V|). Returns (the false state [N, 4], the injection change per bus [N],
         generation positive, MVA), or None when the solve fails."""
-        C, S, touched, base_mva = self.C, region.S, region.touched, self.case.base_mva
+        C, S, touched, base_mva = self.g.C, region.S, region.touched, self.g.case.base_mva
         lines, targets = region.goal
         (pin_p, pin_q), held_v = held
         both = region.rest  # the buses of S that hold their injection
@@ -252,7 +251,7 @@ class FalseStateMixin(AreaMixin, PhysicsMixin):
         Vf = local_flow_solve(
             Yb,
             Yf[lines],
-            self.case.f[lines],
+            self.g.case.f[lines],
             region.V,
             S,
             fixed,
@@ -300,10 +299,10 @@ class FalseStateMixin(AreaMixin, PhysicsMixin):
         by more than `load_cap` times their true load [YUA11], each with the injection change
         (generation positive, MW) that puts the load change at the cap."""
         load = region.load
-        loaded = np.intersect1d(region.touched, np.flatnonzero(self.split.base_load[:, 0] != 0))
+        loaded = np.intersect1d(region.touched, np.flatnonzero(self.g.split.base_load[:, 0] != 0))
         buses = np.setdiff1d(loaded, self.generator_buses())
         out: dict[int, float] = {}
-        for b in np.setdiff1d(buses, [self.slack_bus]):
+        for b in np.setdiff1d(buses, [self.g.slack_bus]):
             b = int(b)
             cap = load_cap * abs(float(load[b]))
             dD = -float(np.real(dS[b]))  # the load change the reading shows, MW
@@ -315,7 +314,7 @@ class FalseStateMixin(AreaMixin, PhysicsMixin):
         """Ybus and Yf as dense arrays, built once (the flow solve indexes rows and multiplies often)."""
         cached = getattr(self, "_dense_Y", None)
         if cached is None:
-            cached = (_dense(self.net.ybus), _dense(self.net.yf))
+            cached = (_dense(self.g.net.ybus), _dense(self.g.net.yf))
             self._dense_Y = cached
         return cached
 
@@ -323,14 +322,14 @@ class FalseStateMixin(AreaMixin, PhysicsMixin):
         """The emitted frame of a local false state `Xa` on the true state `Xt`: the true scan (the
         benign twin and every meter's noise draw) plus the attack vector a = h(x_false) - h(x_true) on
         the meters it moves, labelled at `buses` with their designed magnitudes `dev`."""
-        scan = self.emit_from_state(Xt)
+        scan = self.g.emitter.emit_from_state(Xt)
         bnx, bex = scan.node_x, scan.edge_x
         a_node, a_edge = self._attack_vector(Xa, Xt)
         moved = changed_meters(a_node, a_edge, scan)
         nx, ex = bnx.copy(), bex.copy()
         nx[moved[0]] += a_node[moved[0]]
         ex[moved[1]] += a_edge[moved[1]]
-        y = np.zeros(self.C, np.uint8)
+        y = np.zeros(self.g.C, np.uint8)
         y[buses] = 1
         ix, itamper = self._currents_with_attack(scan, Xa, Xt)
         # the tamper masks: the meters whose stored float32 reading changed, no fewer, no more
@@ -341,14 +340,14 @@ class FalseStateMixin(AreaMixin, PhysicsMixin):
         """The emitted frame of an attack held as a vector over the meters, a [M] = h(x_false) -
         h(x_true): the true scan plus `a` on every meter. The meters it moves beyond their noise
         (`NoiseModel.tampered`) are the tamper masks, and a bus with one is labelled."""
-        scan = self.emit_from_state(Xt)
-        tampered = self.noise.tampered(self.exact(Xt), a)
-        add = self.layers(np.asarray(a, float))
+        scan = self.g.emitter.emit_from_state(Xt)
+        tampered = self.g.noise.tampered(self.g.emitter.exact(Xt), a)
+        add = self.g.emitter.layers(np.asarray(a, float))
         seen = (scan.node_x + add.node, scan.edge_x + add.edge, scan.i_x + add.current)
-        y = np.zeros(self.C, np.uint8)
-        y[self.plan.bus[tampered]] = 1
+        y = np.zeros(self.g.C, np.uint8)
+        y[self.g.plan.bus[tampered]] = 1
         return Frame.from_scan(
-            scan, MeterLayers(*(x.astype(np.float32) for x in seen)), y, None, self.layers(tampered)
+            scan, MeterLayers(*(x.astype(np.float32) for x in seen)), y, None, self.g.emitter.layers(tampered)
         )
 
     def _currents_with_attack(
@@ -370,14 +369,14 @@ class FalseStateMixin(AreaMixin, PhysicsMixin):
         if placed is None or placed.interior is None:
             return None
         interior = placed.interior
-        Lp = self.true_load(Xt)  # this scan's active load per load element
-        Lq = self.true_reactive_load(Xt)
+        Lp = self.g.scan_loads.true_load(Xt)  # this scan's active load per load element
+        Lq = self.g.scan_loads.true_reactive_load(Xt)
         Lp_true, Lp = Lp, Lp.copy()
         Lp[design.targets] *= design.mult
         Xa = self.solve_local(Xt, interior, Lp, Lq)
         if Xa is None:
             return None
-        if k.limits is not None and not self._within_limits(Xa, Xt, Lp - Lp_true, k.limits, interior):
+        if k.limits is not None and not self.state_within_limits(Xa, Xt, Lp - Lp_true, k.limits, interior):
             return None
         return Xa
 
@@ -386,14 +385,14 @@ class FalseStateMixin(AreaMixin, PhysicsMixin):
         branches of its targets; None when the targets have no such region."""
         if design.interior is not None:
             return design
-        interior = self.local_region(self.load_bus[design.targets], k.hops)
+        interior = self.g.area.local_region(self.g.load_bus[design.targets], k.hops)
         return None if interior is None else design._replace(interior=interior)
 
     def is_feasible(self, Xt: np.ndarray, design: AttackDesign, k: FrameKnobs) -> bool:
         """Whether the design has a stealthy state on `Xt`: the onset test of an episode (no random draw)."""
         return self.stealthy_state(Xt, design, k) is not None
 
-    def _within_limits(
+    def state_within_limits(
         self,
         Xa: np.ndarray,
         Xt: np.ndarray,
@@ -404,22 +403,22 @@ class FalseStateMixin(AreaMixin, PhysicsMixin):
         """[WU26 eqs. 21-23] on a false state: `load_delta_pos` is the pretended load change per
         load-table position (MW), summed per bus for buses carrying several loads; the generator
         limits apply to the generators of `interior`, the attacked subnetwork."""
-        dload = np.zeros(self.C)
-        np.add.at(dload, self.load_bus, load_delta_pos)
-        return within_limits(Xa, Xt, self.split.generation(Xt), dload, limits, interior)
+        dload = np.zeros(self.g.C)
+        np.add.at(dload, self.g.load_bus, load_delta_pos)
+        return within_limits(Xa, Xt, self.g.split.generation(Xt), dload, limits, interior)
 
     def _attack_vector(self, Xa: np.ndarray, Xt: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
         """The attack vector a = h(x_false) - h(x_true) [WU26 eqs. 13-18] per node channel [N, 4] and per flow
         channel [E, 2], in the scan's physical units: the noiseless reading of the false state minus
         that of the true state (unmetered flows zero on both sides)."""
-        flows = self.clean_flows_from_states(np.stack([Xa, Xt]))  # [2, E, 2], unmetered zeroed
+        flows = self.g.emitter.clean_flows_from_states(np.stack([Xa, Xt]))  # [2, E, 2], unmetered zeroed
         return (np.asarray(Xa, float) - np.asarray(Xt, float)).astype(np.float32), flows[0] - flows[1]
 
     def _current_attack(self, Xa: np.ndarray, Xt: np.ndarray) -> np.ndarray:
         """The attack vector on the PMU branch-current channels [E, 4] (per unit), zero where no PMU
         reads that end. The currents of a false state follow from its voltages, so the attacker must
         write them too [WU26 eqs. 19-20]."""
-        cur = self.currents_from_states(np.stack([Xa, Xt]))
+        cur = self.g.emitter.currents_from_states(np.stack([Xa, Xt]))
         return cur[0] - cur[1]
 
 

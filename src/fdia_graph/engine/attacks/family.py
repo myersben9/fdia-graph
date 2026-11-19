@@ -69,7 +69,7 @@ class VectorEpisode(DesignedEpisode):
         self.episode, self.code = episode, FAMILY_CODE[episode.family]
 
     def frame(self, g: FdiaGenerator, X: np.ndarray, i: int) -> Frame | None:
-        return g.frame_from_vector(X, self.episode.a[i])
+        return g.false_state.frame_from_vector(X, self.episode.a[i])
 
     def record(self, onset: int, length: int, buses: np.ndarray) -> EpisodeRecord:
         return EpisodeRecord(replace(self.episode, onset=onset))

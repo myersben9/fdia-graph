@@ -139,7 +139,7 @@ class CostUnit(Choice):
 
 class SupportMethod(Choice):
     """How the overload attack picks the buses its false state moves [WU26 eq. 12]: the fewest-tamper
-    search over the area's supports (`MinimizeMixin.min_tamper`), or the paper's row reduction of the
+    search over the area's supports (`Minimizer.min_tamper`), or the paper's row reduction of the
     transposed attack-area Jacobian with column exchanges (`engine.attacks.rref.RrefSupport`, Sec. IV-D1 after
     [YAN17])."""
 
@@ -149,7 +149,7 @@ class SupportMethod(Choice):
 
 class AreaRule(Choice):
     """How the attacker's area is chosen when no area is given [WU26] Sec. III-A: the buses within
-    `hops` of the goal, or the region the paper's four principles pick (`AreaMixin.rule_area`; rules
+    `hops` of the goal, or the region the paper's four principles pick (`AttackArea.rule_area`; rules
     1 and 2 as checks, 3 and 4 as a score of ours)."""
 
     HOPS = "hops"

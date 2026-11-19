@@ -31,7 +31,9 @@ def _irls_support(g, states, goal, area, iters=20):
     targets = np.unique(g.load_bus[design.targets])
     dload = np.zeros(N)
     np.add.at(
-        dload, g.load_bus[design.targets], g.true_load(Xt)[design.targets] * (np.asarray(design.mult) - 1.0)
+        dload,
+        g.load_bus[design.targets],
+        g.scan_loads.true_load(Xt)[design.targets] * (np.asarray(design.mult) - 1.0),
     )
     A = np.vstack([P[targets][:, cols], Q[targets][:, cols]])
     rhs = np.r_[dload[targets], np.zeros(len(targets))] / g.case.base_mva
@@ -50,7 +52,7 @@ def _irls_support(g, states, goal, area, iters=20):
         w = 1.0 / (change + 1e-6)
     move = np.abs(x[: len(area)]) + np.abs(x[len(area) :])
     S = np.union1d(area[move > 5e-2 * move.max()], targets)
-    S, _ = g._grow_over_zero_injection(S)  # the region's rule, as every candidate follows it
+    S, _ = g.area.grow_over_zero_injection(S)  # the region's rule, as every candidate follows it
     return S
 
 
@@ -64,11 +66,11 @@ def test_reweighted_l1_never_beats_the_search(case):
     compared = 0
     for states, goal, d in windows(case, 3, held=False):
         buses = np.unique(g.load_bus[d.targets])
-        area = g.local_region(buses, k.hops)
+        area = g.area.local_region(buses, k.hops)
         window = _Window(g, states, goal, k, stealth_bound=False)
         costs = [
             c
-            for S in g._supports([frozenset(int(b) for b in buses)], area)
+            for S in g.minimizer._supports([frozenset(int(b) for b in buses)], area)
             if (c := window.cost(S, None)) is not None
         ]
         S = _irls_support(g, states, goal, np.asarray(area))

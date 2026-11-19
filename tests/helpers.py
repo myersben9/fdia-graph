@@ -120,13 +120,13 @@ def windows(case, n, held=True):
     out = []
     while len(out) < n:
         t = int(rng.integers(0, len(X) - WINDOW))
-        d = g.ramp_design(X, t, (WINDOW, 0.002), k._replace(min_tamper=False))
+        d = g.episode_designs.ramp_design(X, t, (WINDOW, 0.002), k._replace(min_tamper=False))
         if d is None:
             continue
         frames = probe_frames(len(X), t, WINDOW)
-        goal = LoadGoal(tuple(g.ramp_step(d, u - t, 0.002) for u in frames))
+        goal = LoadGoal(tuple(g.episode_designs.ramp_step(d, u - t, 0.002) for u in frames))
         states = [X[u] for u in frames]
-        if held and g.min_tamper(states, goal, k).devices <= 0:
+        if held and g.minimizer.min_tamper(states, goal, k).devices <= 0:
             continue  # no held support, or nothing moves above noise: nothing for the search to choose
         out.append((states, goal, d))
     return out

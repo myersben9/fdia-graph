@@ -38,9 +38,9 @@ def test_the_search_uses_the_area_it_is_given(g118):
     # [WU26] Sec. III-A Fig. 9
     area = case_studies.area(g118)
     states = list(_load_states(118, None)[:4])
-    goal = g118.overload_goal(states, *_lines(g118, 118))
+    goal = g118.overload.overload_goal(states, *_lines(g118, 118))
     k = FrameKnobs(area=area)
-    got = g118.window_area(states, goal, k)
+    got = g118.minimizer.window_area(states, goal, k)
     assert set(area) <= set(got.tolist())  # the paper's buses, grown only over zero-injection boundaries
 
 
@@ -49,15 +49,15 @@ def test_the_rules_check_1_and_2_and_charge_for_size(g118):
     states = np.stack(_load_states(118, None)[:10])
     lines = _lines(g118, 118)
     seeds = np.unique(g118.ei[:, lines])
-    chosen = g118.rule_area(seeds, lines, states)
-    assert chosen is not None and g118._connected(chosen)
-    scores = [g118.area_score(g118.local_region(seeds, h), lines, states) for h in (1, 2, 3, 4)]
+    chosen = g118.area.rule_area(seeds, lines, states)
+    assert chosen is not None and g118.area._connected(chosen)
+    scores = [g118.area.area_score(g118.area.local_region(seeds, h), lines, states) for h in (1, 2, 3, 4)]
     best = max((s for s in scores if s.observable and s.connected), key=area_score_total)
     assert np.array_equal(chosen, best.buses)
     assert all(
         0.0 <= v <= 1.0 for s in scores for v in (s.load_share, s.spread, s.stability, s.observability)
     )
-    assert not g118._connected(np.array([0, 117]))  # rule 2 fails on two far buses
+    assert not g118.area._connected(np.array([0, 117]))  # rule 2 fails on two far buses
 
 
 def test_area_rule_is_a_validated_choice():
@@ -70,10 +70,10 @@ def test_delta_ratings_end_each_goal_at_its_flow_plus_the_step():
     # [WU26 eqs. 24-25]
     g = FdiaGenerator(Network.from_ieee(14), seed=1)
     window = list(_load_states(14, None)[:6])
-    g.use_line_ratings(OverloadSettings(rating_source="delta", rating_delta=0.1), np.stack(window))
+    g.overload.use_line_ratings(OverloadSettings(rating_source="delta", rating_delta=0.1), np.stack(window))
     lines = _lines(g, 14)
-    goal = g.overload_goal(window, *lines)
-    flows = g.clean_flows_from_states(np.stack(window))
+    goal = g.overload.overload_goal(window, *lines)
+    flows = g.emitter.clean_flows_from_states(np.stack(window))
     want = np.hypot(flows[-1, lines, 0], flows[-1, lines, 1]) + 0.1 * g.case.base_mva
     assert np.allclose(goal.targets_at(len(window) - 1), want)
     with pytest.raises(ConfigError):
@@ -92,19 +92,19 @@ def test_every_attack_the_search_returns_is_valid():
     flow[case_studies.branch(g, 6, 11)] = True
     g = case_studies.paper_metering(g, case_studies.PMUS[14], flow)
     window = list(X[:8])
-    g.use_line_ratings(OverloadSettings(rating_margin=1.1), np.stack(window))
-    k = FrameKnobs(2, g.operating_limits(X), True, 256, 1.0, 0.5, 2, area=case_studies.area(g))
-    goal = g.overload_goal(window, *lines)
+    g.overload.use_line_ratings(OverloadSettings(rating_margin=1.1), np.stack(window))
+    k = FrameKnobs(2, g.false_state.operating_limits(X), True, 256, 1.0, 0.5, 2, area=case_studies.area(g))
+    goal = g.overload.overload_goal(window, *lines)
     trust = TrustSchedule([int(b) for b in case_studies.buses(g, [4, 6, 1, 13])], [1, 3, 5, 7])
-    r = g.min_tamper(window, goal, k, trust=trust)
+    r = g.minimizer.min_tamper(window, goal, k, trust=trust)
     assert r.devices >= 1
     w = _Window(g, window, goal, k, trust=trust)
     prev = w.prev
     for t in range(len(window)):
         free = w.support_at(t, r.support)
-        Xa = g.goal_state(goal, t, window[t], free, k)
+        Xa = g.minimizer.goal_state(goal, t, window[t], free, k)
         assert Xa is not None
-        reached = g.clean_flows_from_states(Xa[None])[0, lines]
+        reached = g.emitter.clean_flows_from_states(Xa[None])[0, lines]
         assert np.allclose(np.hypot(reached[:, 0], reached[:, 1]), goal.targets_at(t), atol=1e-6)
         for b in w.pinned[t]:
             assert np.array_equal(
@@ -137,4 +137,4 @@ def test_delta_ratings_generate_am_episodes(tmp_path):
     with h5py.File(out, "r") as f:
         assert len(f[schema.Group.EPISODES][schema.EPISODE_AM_EPISODE]) >= 1
     g = FdiaGenerator.from_spec(GeneratorSpec(Network.from_ieee(14), 3, None, MeterSettings(), None, 10.0))
-    assert g._rating_delta == 10.0
+    assert g.overload.rating_delta == 10.0

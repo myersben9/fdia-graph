@@ -17,7 +17,7 @@ import numpy as np
 from ...constants.channels import NodeChannel
 from ...formulas.network import complex_voltages, flow_sensitivities, subnetwork
 from ...models.frames import AreaScore
-from ..measurement import MeasurementMixin
+from ..base import Part
 
 # the regions `rule_area` chooses among: the buses within this many hops of the goal (ours)
 AREA_HOPS = (1, 2, 3, 4)
@@ -32,7 +32,7 @@ def area_score_total(s: AreaScore) -> float:
     return s.load_share + s.spread + s.stability + s.observability - AREA_SIZE_PENALTY * s.size
 
 
-class AreaMixin(MeasurementMixin):
+class AttackArea(Part):
     """Where a stealthy attack acts: the interior buses it may move and the boundary around them."""
 
     def local_region(self, seeds: np.ndarray, hops: int) -> Optional[np.ndarray]:
@@ -40,8 +40,8 @@ class AreaMixin(MeasurementMixin):
         (the estimator pins it), grown over zero-injection boundary buses (they cannot absorb the changed
         power), with `hops` reduced until a boundary exists. None when the seeds alone leave no boundary."""
         for h in range(hops, -1, -1):
-            interior, _ = subnetwork(self.ei, seeds, h, self.C)
-            interior, boundary = self._grow_over_zero_injection(interior[interior != self.slack_bus])
+            interior, _ = subnetwork(self.g.ei, seeds, h, self.g.C)
+            interior, boundary = self.grow_over_zero_injection(interior[interior != self.g.slack_bus])
             if len(interior) and len(boundary):
                 return interior
         return None
@@ -51,31 +51,31 @@ class AreaMixin(MeasurementMixin):
         window."""
         cached = getattr(self, "_adjacency_cache", None)
         if cached is None:
-            adj: list[set[int]] = [set() for _ in range(self.C)]
-            for a, b in self.ei.T:
+            adj: list[set[int]] = [set() for _ in range(self.g.C)]
+            for a, b in self.g.ei.T:
                 adj[int(a)].add(int(b))
                 adj[int(b)].add(int(a))
             cached = [frozenset(n) for n in adj]
             self._adjacency_cache = cached
         return cached
 
-    def _boundary(self, interior: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    def boundary(self, interior: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
         """(the interior sorted, its boundary: the buses one branch outside it, sorted)."""
         adj = self._adjacency()
         inside = {int(b) for b in interior}
         ring = {j for i in inside for j in adj[i]} - inside
         return np.array(sorted(inside), int), np.array(sorted(ring), int)
 
-    def _grow_over_zero_injection(self, interior: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    def grow_over_zero_injection(self, interior: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
         """The interior with every zero-injection bus of its boundary taken in (repeated until the
         boundary holds none), and that boundary; the slack stays out."""
-        zero = {int(b) for b in self.zero_inj} - {self.slack_bus}
-        interior, boundary = self._boundary(interior)
+        zero = {int(b) for b in self.g.zero_inj} - {self.g.slack_bus}
+        interior, boundary = self.boundary(interior)
         while len(boundary):
             grow = [int(b) for b in boundary if int(b) in zero]
             if not grow:
                 break
-            interior, boundary = self._boundary(np.union1d(interior, grow))
+            interior, boundary = self.boundary(np.union1d(interior, grow))
         return interior, boundary
 
     def attack_area(
@@ -95,8 +95,8 @@ class AreaMixin(MeasurementMixin):
     def explicit_area(self, buses: np.ndarray) -> Optional[np.ndarray]:
         """An area the caller gives bus by bus (`FrameKnobs.area`): sorted, the slack out, grown over
         the zero-injection buses of its boundary as every region is; None when no boundary is left."""
-        inside = np.setdiff1d(np.asarray(buses, np.int64), [self.slack_bus])
-        interior, boundary = self._grow_over_zero_injection(inside)
+        inside = np.setdiff1d(np.asarray(buses, np.int64), [self.g.slack_bus])
+        interior, boundary = self.grow_over_zero_injection(inside)
         return interior if len(interior) and len(boundary) else None
 
     def rule_area(self, seeds: np.ndarray, lines: list[int], states: np.ndarray) -> Optional[np.ndarray]:
@@ -118,8 +118,8 @@ class AreaMixin(MeasurementMixin):
         true `states` [T, N, 4]; `spread` is `_spread(states)` when the caller already has it."""
         if lines and spread is None:
             spread = self._spread(states)
-        node_m = self.masks.node
-        loads = np.abs(self.split.load(np.asarray(states, float)))  # [T, N] MW
+        node_m = self.g.masks.node
+        loads = np.abs(self.g.split.load(np.asarray(states, float)))  # [T, N] MW
         mean, sd = loads.mean(0), loads.std(0)
         total = float(mean.sum())
         loaded = mean[buses] > 1e-6
@@ -133,7 +133,7 @@ class AreaMixin(MeasurementMixin):
             min(1.0, float(np.abs(spread[lines][:, buses]).mean())) if spread is not None else 0.0,
             float(1.0 / (1.0 + cv.mean())) if len(cv) else 0.0,
             float(min(1.0, per_bus[buses].mean() / max(per_bus.mean(), 1e-9) / 2)),
-            len(buses) / self.C,
+            len(buses) / self.g.C,
         )
 
     def _connected(self, buses: np.ndarray) -> bool:
@@ -156,4 +156,4 @@ class AreaMixin(MeasurementMixin):
         true state (`formulas.network.flow_sensitivities`, the AC power flow's own sensitivities)."""
         first = np.asarray(states, float)[0]
         V = complex_voltages(first[:, NodeChannel.V], first[:, NodeChannel.THETA])
-        return flow_sensitivities(V, self.net.ybus, self.net.yf, self.case.f, self.slack_bus)
+        return flow_sensitivities(V, self.g.net.ybus, self.g.net.yf, self.g.case.f, self.g.slack_bus)
