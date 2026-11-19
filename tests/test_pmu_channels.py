@@ -53,8 +53,8 @@ def test_the_current_mask_follows_the_pmus(gens):
 
 def test_emitted_currents_sit_within_their_accuracy_class(gens, pool):
     g = gens
-    scan = g.emit_from_state(pool[0])
-    true = g.currents_from_states(pool[:1])[0]
+    scan = g.emitter.emit_from_state(pool[0])
+    true = g.emitter.currents_from_states(pool[:1])[0]
     assert scan.i_x is not None and scan.i_m is not None
     sig = current_sigma(true, PMU_CURRENT_CLASS)
     on = scan.i_m > 0
@@ -66,8 +66,8 @@ def test_the_exact_currents_carry_the_exact_flows(gens, pool):
     """S_from = V_from conj(I_from): the current channels agree with the flows of the same state."""
     g = gens
     X = pool[:3]
-    cur = g.currents_from_states(X)
-    flows = g.clean_flows_from_states(X)  # [T, E, 2] MW/MVAr, unmetered zeroed
+    cur = g.emitter.currents_from_states(X)
+    flows = g.emitter.clean_flows_from_states(X)  # [T, E, 2] MW/MVAr, unmetered zeroed
     both = (g.masks.current[:, CurrentChannel.RE_FROM] > 0) & (flows[0, :, 0] != 0)
     th = np.deg2rad(X[:, :, NodeChannel.THETA])
     Vf = (X[:, :, NodeChannel.V] * np.exp(1j * th))[:, g.ei[0]]
@@ -88,9 +88,9 @@ def test_a_false_state_writes_its_currents(gens, pool):
     Xt = np.asarray(pool[5], float)
     Xa = Xt.copy()
     Xa[3, NodeChannel.THETA] += 0.05
-    scan = g.emit_from_state(Xt)
-    a = g._current_attack(Xa, Xt)
-    ix, tamper = g._currents_with_attack(scan, Xa, Xt)
+    scan = g.emitter.emit_from_state(Xt)
+    a = g.false_state._current_attack(Xa, Xt)
+    ix, tamper = g.false_state._currents_with_attack(scan, Xa, Xt)
     assert a is not None and ix is not None and tamper is not None and scan.i_x is not None
     moved = (np.abs(a) > 1e-9) & (scan.i_m > 0)
     np.testing.assert_allclose(ix[moved] - scan.i_x[moved], a[moved], atol=1e-6)
@@ -114,16 +114,16 @@ def test_the_search_counts_the_current_channels(gens, pool):
     from fdia_graph.models.frames import AttackDesign, FrameKnobs, LoadGoal
 
     g = gens
-    k = FrameKnobs(2, g.operating_limits(pool), True, 256)
+    k = FrameKnobs(2, g.false_state.operating_limits(pool), True, 256)
     pmu = g.pmu_buses.tolist()
     target = next(
-        i for i, b in enumerate(g.load_bus) if b in pmu or any(n in pmu for n in g.local_region([b], 1))
+        i for i, b in enumerate(g.load_bus) if b in pmu or any(n in pmu for n in g.area.local_region([b], 1))
     )
     states = [pool[0], pool[1]]
     goal = LoadGoal(tuple(AttackDesign(np.array([target]), 1.03) for _ in states))
     window = _Window(g, states, goal, k, stealth_bound=False)
     assert window.i_m is not None and window.i_sigma is not None and len(window.i_sigma) == 2
-    area = np.asarray(g.local_region(np.array([g.load_bus[target]]), k.hops))
+    area = np.asarray(g.area.local_region(np.array([g.load_bus[target]]), k.hops))
     cost = window.cost(area, None)
     moved = window._snapshot(0, area, window.prev)
     assert cost is not None and moved is not None and moved[2] is not None and moved[2].any()

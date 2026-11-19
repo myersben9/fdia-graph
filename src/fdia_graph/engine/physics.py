@@ -17,7 +17,7 @@ from ..constants.grid import LOAD_FLOOR_MW, BusType
 from ..formulas.attacks import element_loads, generator_output
 from ..models.choices import LoadRule
 from ..systems.case import Case
-from .base import GridBase
+from .base import Part
 
 
 class LoadSplit(ABC):
@@ -103,26 +103,26 @@ class NetSplit(LoadSplit):
         return np.where(self.has_unit[:, None], injected, 0.0)
 
 
-class PhysicsMixin(GridBase):
-    """Read a scan's load and generation. Mixed into FdiaGenerator."""
+class ScanLoads(Part):
+    """Read a scan's load and generation: the generator's `scan_loads`."""
 
     def true_load(self, Xt: np.ndarray) -> np.ndarray:
         """This scan's active load per row of the load table [n_loads] (MW), `LoadSplit.load`; zero
         on a row with no base active load."""
-        return element_loads(self.split.load(Xt), self.load_bus, self.load_p0)
+        return element_loads(self.g.split.load(Xt), self.g.load_bus, self.g.load_p0)
 
     def true_reactive_load(self, Xt: np.ndarray) -> np.ndarray:
         """This scan's reactive load per row of the load table [n_loads] (MVAr): the bus's reactive
         injection plus its generators' reactive output; zero on a row with no base reactive load."""
         bus_q = Xt[:, NodeChannel.Q_INJ] + self.scan_reactive_generation(Xt)
-        return element_loads(bus_q, self.load_bus, self.load_q0)
+        return element_loads(bus_q, self.g.load_bus, self.g.load_q0)
 
     def scan_reactive_generation(self, Xt: np.ndarray) -> np.ndarray:
         """This scan's generator reactive output per bus [N] (MVAr), `LoadSplit.generation`, zero at
         a bus with no generator (a zero-MW condenser counts as one)."""
-        return np.where(self.has_gen, self.split.generation(Xt)[:, 1], 0.0)
+        return np.where(self.g.has_gen, self.g.split.generation(Xt)[:, 1], 0.0)
 
     def scan_generation(self, Xt: np.ndarray) -> np.ndarray:
         """This scan's active generation per bus [N] (MW), `LoadSplit.generation`; zero where the
         bus has no generator."""
-        return self.split.generation(Xt)[:, 0]
+        return self.g.split.generation(Xt)[:, 0]

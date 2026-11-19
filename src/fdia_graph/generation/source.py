@@ -144,7 +144,7 @@ class TimelineSource(ABC):
         """The noiseless truth of frames a..b-1: the states as float32 and the exact flows at the
         metered branch ends (an unsolved frame keeps its place with NaN)."""
         with np.errstate(invalid="ignore"):
-            return self.X[a:b].astype(np.float32), self.g.clean_flows_from_states(self.X[a:b])
+            return self.X[a:b].astype(np.float32), self.g.emitter.clean_flows_from_states(self.X[a:b])
 
     def graph(self) -> dict[str, np.ndarray]:
         """The static graph the file carries, by `Static` name: the case's (`Case.static_graph`)."""

@@ -53,7 +53,7 @@ def test_the_loads_of_a_dispatched_pool_are_read_at_the_grids_own_buses(grid):
     # a unit the pool dispatches is not idle, whatever the case's base state says: its bus is no junction
     assert not set(g.zero_inj) & set(case.unit_bus.tolist())
     # the units an overload may move are New York's
-    assert len(g.generator_buses()) and case.own_bus[g.generator_buses()].all()
+    assert len(g.false_state.generator_buses()) and case.own_bus[g.false_state.generator_buses()].all()
     # a bus with a unit is all generation, any other bus all load
     X = source.X[0]
     assert (g.split.load(X)[has_unit] == 0).all()

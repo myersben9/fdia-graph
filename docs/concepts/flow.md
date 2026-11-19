@@ -91,8 +91,8 @@ added to the benign scan.
 | `At` | `ramp_design` | `SearchRamp` |
 | `Am` | `am_overload_design` | `SearchOverload` |
 
-The designs are methods of `FdiaGenerator` (`engine/core.py`), which gets them from
-`AttackMixin`. They run on every test system.
+The designs are made by the parts `FdiaGenerator` holds (`engine/core.py`), the classes of
+`engine/attacks/`. They run on every test system.
 A timeline asks every family the same thing, the episode of a window (`EpisodeFamily.designed`,
 `engine/attacks/family.py`); the designs answer as the families `SearchRamp` and
 `SearchOverload` (`engine/attacks/search.py`). A source also takes a family of your own in

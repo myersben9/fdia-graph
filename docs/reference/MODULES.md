@@ -64,17 +64,17 @@ What every folder of the repository holds, then what every Python file does, in 
 | `dataset.sequence` | The timeline as sequences: sliding windows over a time-ordered view, and the episode table. |
 | `download` | Fetch the built-in datasets from the GitHub Release and cache them under ~/.cache/fdia_graph. |
 | `engine` | The generation engine — the math/physics/theory half of the SDK, behind fg.generate(). |
-| `engine.attacks` | Every attack the generator builds, behind one mixin: `AttackMixin`, mixed into FdiaGenerator. |
+| `engine.attacks` | Every attack the generator builds. Six files each hold one part of the generator; three hold what serves or uses the parts. |
 | `engine.attacks.area` | The attacker's area: the subnetwork a stealthy attack re-solves, and the boundary it holds true. |
-| `engine.attacks.episodes` | What one episode attacks: its design, drawn at onset (`EpisodeDesignMixin`). |
+| `engine.attacks.episodes` | What one episode attacks: its design, drawn at onset (`EpisodeDesigns`). |
 | `engine.attacks.false_state` | The local false state of a stealthy attack: the attacker's area re-solved under false loads with the boundary held true, checked against the operating limits, and the attack vector it writes. |
 | `engine.attacks.family` | The interface the attack families share. The design stage asks a family one thing, the episode of a window (`EpisodeFamily.designed`), and the walk emits what it gets (`DesignedEpisode`), whichever family made it. A family of your own (`AttackFamily`) designs one `Episode` (`models.plan`), an attack vector over its window, or a miss. |
 | `engine.attacks.minimize` | The cheapest support of an attack window [WU26 eq. 12]. |
 | `engine.attacks.overload` | `Am`, the multi-snapshot overload attack of [WU26]: the reported flows of its target branches (one or two, `OverloadSettings.n_lines`) driven to their ratings S_max (`use_line_ratings`) over the window, with the fewest devices tampered. |
+| `engine.attacks.ramp_frames` | The stealthy ramp At: one scan at a time, a local false state added to the true scan. |
 | `engine.attacks.rref` | [WU26]'s construction of the attack's support: row reduction of the transposed area Jacobian. |
 | `engine.attacks.search` | The search-based families: the slow ramp At and the overload Am [WU26]. |
-| `engine.attacks.stealthy` | The stealthy ramp At: one scan at a time, a local false state added to the true scan. |
-| `engine.base` | The state FdiaGenerator's mixins share: attribute annotations only. |
+| `engine.base` | A part of the generator: one job (emitting scans, choosing an area, solving a false state, ...) as one class that holds the generator it belongs to. |
 | `engine.core` | The dataset generation engine: attack simulation and realistic meter readings on a test system. |
 | `engine.measurement` | Measurement emission: the generator's meter readings of a stored state, as a file's layers. |
 | `engine.physics` | A scan's load and generation, read from its stored state. |

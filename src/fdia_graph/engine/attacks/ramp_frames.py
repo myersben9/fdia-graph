@@ -12,15 +12,25 @@ from typing import Optional
 
 import numpy as np
 
+from ...constants.families import AT_CODE
 from ...models.frames import AttackDesign, Frame, FrameKnobs
-from .false_state import FalseStateMixin
+from ..base import Part
 
 # times a ramp frame's step with no local power-flow solution is halved (its step is sub-floor)
 STEP_HALVINGS = 6
 
 
-class StealthyMixin(FalseStateMixin):
+class RampFrames(Part):
     """Build a ramp frame: the local false state of its design, added to the true scan."""
+
+    def attack_frame(
+        self, Xt: np.ndarray, family: int, design: AttackDesign, k: FrameKnobs
+    ) -> Optional[Frame]:
+        """The scan of the attacked `family` on the stored operating point `Xt` ([N, 4] = |V|, P_inj,
+        Q_inj, theta): an At ramp frame, `design` naming the scaled loads, the multiplier and the held
+        support. None when its local power flow has no solution at any halving of its step."""
+        assert family == AT_CODE, f"attack_frame builds At frames; family {family} has its own builder"
+        return self._ramp_frame(Xt, design, k)
 
     def _stealthy_frame(self, Xt: np.ndarray, design: AttackDesign, k: FrameKnobs) -> Optional[Frame]:
         """One local false state [WU26]: the targeted loads scaled by `mult`, the interior re-solved with
@@ -28,12 +38,14 @@ class StealthyMixin(FalseStateMixin):
         keeps its own noise draw, so the scan is a full AC state plus noise; None when no state solves."""
         # Re-emitting the false state would draw each tampered meter's noise from the false reading, which
         # a meter whose true reading is structurally zero (a condenser's P, a zero-injection bus) gives away.
-        Xa = self.stealthy_state(Xt, design, k)
+        Xa = self.g.false_state.stealthy_state(Xt, design, k)
         if Xa is None:
             return None  # no local solution, or one outside the operating limits: the caller halves
-        buses = self.load_bus[design.targets]
+        buses = self.g.load_bus[design.targets]
         dev = np.abs(np.asarray(design.mult, float) - 1.0)
-        return self.frame_from_state(Xt, Xa, buses, np.broadcast_to(dev, buses.shape).astype(float))
+        return self.g.false_state.frame_from_state(
+            Xt, Xa, buses, np.broadcast_to(dev, buses.shape).astype(float)
+        )
 
     def _solvable_step(self, Xt: np.ndarray, design: AttackDesign, k: FrameKnobs) -> Optional[Frame]:
         """The stealthy frame of the design, or of the largest halving of its step (at most STEP_HALVINGS)
@@ -51,7 +63,7 @@ class StealthyMixin(FalseStateMixin):
         """An At frame: the targeted loads scaled, and the subnetwork within `hops` of them (or the
         episode's fewest-tamper support when the search chose one) re-solved locally."""
         held = design if k.min_tamper and design.interior is not None else design._replace(interior=None)
-        placed = self.with_region(held, k)
+        placed = self.g.false_state.with_region(held, k)
         if placed is None:
             return None
         return self._solvable_step(Xt, placed, k)

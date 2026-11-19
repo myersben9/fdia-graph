@@ -9,20 +9,20 @@ Paths are under `src/fdia_graph/`; `se/` and `localization/` are under
 ![one record of a timeline, top to bottom: the operating state, one frame of the pool; the clean layer, clean and edge_clean, Measurement.h with no noise; plus meter noise, the benign layer, benign and edge_benign, from emit_from_state; plus the attack, the observed layer, node_x and edge_x, from frame_from_state; the labels y, family, seq_id and the tamper masks; TimelineWriter.store writes the record](../figures/diagrams/concepts_one_record.png)
 
 Each frame of a timeline is one record. Its operating state is one frame of the pool. The clean
-layer is `Measurement.h` of that state with no noise (`MeasurementMixin.exact`); the node layer
-`clean` is the state itself. `MeasurementMixin.emit_from_state` adds each meter's bias and the
+layer is `Measurement.h` of that state with no noise (`Emitter.exact`); the node layer
+`clean` is the state itself. `Emitter.emit_from_state` adds each meter's bias and the
 scan's jitter (`NoiseModel`), which gives the benign layer. On an attacked frame
-`FalseStateMixin.frame_from_state` adds the attack vector on the meters it moves, which gives the
+`FalseState.frame_from_state` adds the attack vector on the meters it moves, which gives the
 observed layer; on a benign frame the observed layer is the benign one. `TimelineWriter.store`
 writes the three layers with the labels `y`, `family` and `seq_id` and the tamper masks.
 An episode designed as a vector over the meters (`VectorEpisode`) uses
-`FalseStateMixin.frame_from_vector` instead.
+`FalseState.frame_from_vector` instead.
 [Layers and labels](../concepts/layers.md) says what each layer and label is for.
 
-Every attack is built in `engine.attacks`, the generator's `AttackMixin`: a local false state
+Every attack is built in `engine.attacks`, by the parts the generator holds: a local false state
 (`engine.attacks.false_state`) designed per episode (`ramp_design` for At, `am_overload_design` for
 Am, `engine.attacks.episodes`) on a support the search or [WU26]'s row reduction chooses
-(`MinimizeMixin.min_tamper`, `RrefSupport`); `FalseStateMixin.frame_from_state` adds the attack vector to the
+(`Minimizer.min_tamper`, `RrefSupport`); `FalseState.frame_from_state` adds the attack vector to the
 benign scan.
 
 ## Modules
@@ -36,7 +36,7 @@ to its function.
 
 | engine/ file | formula it implements |
 |------|-----|
-| `core.py` | `FdiaGenerator`: grid + noise setup (`__init__`), attack targeting; composes the measurement, physics and attack mixins |
+| `core.py` | `FdiaGenerator`: grid + noise setup (`__init__`), attack targeting; holds one object of each part (measurement, loads, the attacks) |
 | `measurement.py` | `emit_from_state` (a scan: `Measurement.h`, the measurement function `h(x)`, with `NoiseModel`'s noise), `clean_flows_from_states`, `currents_from_states` |
 | `physics.py` | `true_load`, `scan_generation`: a scan's load and generation from its stored state |
 | `attacks/` | the false states, the fewest-tamper search, the `At` ramp and the overload `Am` |
@@ -62,8 +62,8 @@ Walkthrough: `../guides/state_estimation.md`. Results: `../analysis/estimation/R
 
 | family | paper | build | code |
 |--------|-------|-------|------|
-| At | `A_t` | slow ramp, 0.2 percent per frame, a local false state per frame | `engine/attacks/episodes.EpisodeDesignMixin.ramp_design` + `EpisodeDesignMixin.ramp_step` |
-| Am | `A_m` | the overload attack of [WU26]: a line's reported flow driven to its rating over the window, the fewest devices tampered | `engine/attacks/episodes.EpisodeDesignMixin.am_overload_design` + `overload.overload_step` |
+| At | `A_t` | slow ramp, 0.2 percent per frame, a local false state per frame | `engine/attacks/episodes.EpisodeDesigns.ramp_design` + `EpisodeDesigns.ramp_step` |
+| Am | `A_m` | the overload attack of [WU26]: a line's reported flow driven to its rating over the window, the fewest devices tampered | `engine/attacks/episodes.EpisodeDesigns.am_overload_design` + `overload.overload_step` |
 
 - At and Am are local false states: the buses around the attack are re-solved with the boundary
   voltages held true, inside the case's voltage limits and the region's generator limits, and the
@@ -76,8 +76,8 @@ Walkthrough: `../guides/state_estimation.md`. Results: `../analysis/estimation/R
   (`../concepts/attacks.md`). The single-snapshot families of older releases (`Aq`,
   `Al`, and the in-place `Ad`, `As`, `Ar`) are read-only: fdia-graph 0.20 generates them.
 - With `min_tamper=True` an At episode is held on the support that tampers the fewest devices over
-  the episode, the objective of [WU26, eq. 12] (`engine/attacks/minimize.MinimizeMixin.min_tamper`,
-  called by `engine/attacks/episodes.EpisodeDesignMixin.ramp_design`).
+  the episode, the objective of [WU26, eq. 12] (`engine/attacks/minimize.Minimizer.min_tamper`,
+  called by `engine/attacks/episodes.EpisodeDesigns.ramp_design`).
 - The At ramp moves in per-frame steps under the noise floor, by design.
 
 ## Temporal feature

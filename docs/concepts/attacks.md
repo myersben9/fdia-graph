@@ -206,7 +206,7 @@ every voltmeter bus and no PMU currents ([Meters and noise](meters.md)).
 | `engine/attacks/episodes.py` | `ramp_design`, `am_overload_design` |
 | `engine/attacks/area.py` | the attacker's area and its boundary |
 | `engine/attacks/false_state.py` | the local false state: the area re-solved |
-| `engine/attacks/stealthy.py` | one scan of `At`: a false state added to the true scan |
+| `engine/attacks/ramp_frames.py` | one scan of `At`: a false state added to the true scan |
 | `engine/attacks/overload.py` | the overload goal, the ratings, the eligible lines |
 | `engine/attacks/minimize.py` | the fewest-tamper search |
 | `engine/attacks/rref.py` | the support by row reduction |

@@ -1,7 +1,7 @@
 classDiagram
-    class GridBase {
+    class Part {
     }
-    class MeasurementMixin {
+    class Emitter {
         +exact()
         +layers()
         +emit_from_state()
@@ -26,21 +26,18 @@ classDiagram
         +idle_units()
         +generation()
     }
-    class PhysicsMixin {
+    class ScanLoads {
         +true_load()
         +true_reactive_load()
         +scan_reactive_generation()
         +scan_generation()
     }
-    class AttackMixin {
-        +attack_frame()
-    }
     class FdiaGenerator {
         +use_plan()
         +from_spec()
     }
-    class AttackDesign {
-        <<models>>
+    class AttackArea {
+        <<engine>>
     }
     class BusType {
         <<constants>>
@@ -48,13 +45,13 @@ classDiagram
     class Case {
         <<systems>>
     }
-    class EpisodeDesignMixin {
+    class EpisodeDesigns {
+        <<engine>>
+    }
+    class FalseState {
         <<engine>>
     }
     class Frame {
-        <<models>>
-    }
-    class FrameKnobs {
         <<models>>
     }
     class GeneratorOptions {
@@ -84,33 +81,36 @@ classDiagram
     class MeterSettings {
         <<models>>
     }
+    class Minimizer {
+        <<engine>>
+    }
     class Network {
         <<systems>>
     }
     class NoiseModel {
         <<sensing>>
     }
-    class OverloadMixin {
+    class Overload {
+        <<engine>>
+    }
+    class RampFrames {
         <<engine>>
     }
     class Scan {
         <<models>>
     }
-    class StealthyMixin {
-        <<engine>>
-    }
-    AttackMixin <|-- FdiaGenerator
-    EpisodeDesignMixin <|-- AttackMixin
-    GridBase <|-- MeasurementMixin
-    GridBase <|-- PhysicsMixin
     LoadSplit <|-- NetSplit
     LoadSplit <|-- ScaledSplit
-    OverloadMixin <|-- AttackMixin
-    StealthyMixin <|-- AttackMixin
-    AttackMixin ..> AttackDesign : uses
-    AttackMixin ..> Frame : uses
-    AttackMixin ..> FrameKnobs : uses
+    Part <|-- Emitter
+    Part <|-- ScanLoads
+    Emitter ..> Frame : uses
+    Emitter ..> MeterLayers : uses
+    Emitter ..> Scan : uses
+    FdiaGenerator ..> AttackArea : uses
     FdiaGenerator ..> BusType : uses
+    FdiaGenerator ..> Emitter : uses
+    FdiaGenerator ..> EpisodeDesigns : uses
+    FdiaGenerator ..> FalseState : uses
     FdiaGenerator ..> GeneratorOptions : uses
     FdiaGenerator ..> GeneratorSpec : uses
     FdiaGenerator ..> LayerSet : uses
@@ -119,22 +119,16 @@ classDiagram
     FdiaGenerator ..> MeterKind : uses
     FdiaGenerator ..> MeterPlan : uses
     FdiaGenerator ..> MeterSettings : uses
+    FdiaGenerator ..> Minimizer : uses
     FdiaGenerator ..> Network : uses
     FdiaGenerator ..> NoiseModel : uses
+    FdiaGenerator ..> Overload : uses
+    FdiaGenerator ..> RampFrames : uses
     FdiaGenerator ..> ScaledSplit : uses
-    GridBase ..> Case : uses
-    GridBase ..> LayerSet : uses
-    GridBase ..> LoadSplit : uses
-    GridBase ..> Measurement : uses
-    GridBase ..> MeterLayers : uses
-    GridBase ..> MeterPlan : uses
-    GridBase ..> Network : uses
-    GridBase ..> NoiseModel : uses
+    FdiaGenerator ..> ScanLoads : uses
     LoadSplit ..> Case : uses
     LoadSplit ..> LoadRule : uses
-    MeasurementMixin ..> Frame : uses
-    MeasurementMixin ..> MeterLayers : uses
-    MeasurementMixin ..> Scan : uses
     NetSplit ..> Case : uses
+    Part ..> FdiaGenerator : uses
     ScaledSplit ..> BusType : uses
     ScaledSplit ..> Case : uses

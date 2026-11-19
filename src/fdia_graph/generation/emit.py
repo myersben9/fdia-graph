@@ -38,7 +38,7 @@ class Walk:
     def emit_benign(self, t: int) -> Frame:
         """The benign scan of timestep t, its jitter from the stream of its pool frame."""
         self.g.scan_key = self.first + t
-        return self.g.benign_frame(self.X[t])
+        return self.g.emitter.benign_frame(self.X[t])
 
     def store(self, t: int, fid: int, frame: Optional[Frame], sid: int, buses: np.ndarray) -> None:
         """Store frame t of family `fid` in the episode `sid` and add its labels to `buses`. A frame

@@ -172,14 +172,14 @@ def test_a_stealthy_frame_is_the_benign_scan_plus_its_attack_vector(timeline_fil
         nt, et = a["attack/node_tamper"][t] > 0, a["attack/edge_tamper"][t] > 0
         dn = a["data/node_x"][t].astype(np.float64) - a["benign/node_benign"][t]
         de = a["data/edge_x"][t].astype(np.float64) - a["benign/edge_benign"][t]
-        region = g.local_region(g.load_bus[targets], int(attrs["hops"]))
+        region = g.area.local_region(g.load_bus[targets], int(attrs["hops"]))
         rebuilt = []
         for sign in (1.0, -1.0):
-            Lp = g.true_load(Xt)
+            Lp = g.scan_loads.true_load(Xt)
             Lp[targets] *= 1.0 + sign * dev
-            Xa = g.solve_local(Xt, region, Lp, g.true_reactive_load(Xt))
+            Xa = g.false_state.solve_local(Xt, region, Lp, g.scan_loads.true_reactive_load(Xt))
             if Xa is not None:
-                rebuilt.append(g._attack_vector(Xa, Xt))
+                rebuilt.append(g.false_state._attack_vector(Xa, Xt))
         # exactly one direction reproduces the frame; the clean layer is the pool state in float32, so
         # the rebuilt vector agrees to ~1e-4 MW, where a second noise draw would differ by about 1%
         match = [(n, e) for n, e in rebuilt if np.allclose(dn[nt], n[nt], rtol=1e-3, atol=1e-2)]
@@ -237,14 +237,14 @@ def test_a_step_without_a_local_solution_is_halved(monkeypatch):
         steps.append(float(np.max(np.abs(np.asarray(design.mult) - 1.0))))
         return "frame" if steps[-1] <= 0.01 else None
 
-    monkeypatch.setattr(g, "_stealthy_frame", fake)
+    monkeypatch.setattr(g.ramp_frames, "_stealthy_frame", fake)
     k = FrameKnobs(hops=2)
     Xt = np.zeros((g.C, 4))
     two = g.stealthy_pos[:2]
-    assert g._ramp_frame(Xt, AttackDesign(two, 1.2), k) == "frame"
+    assert g.ramp_frames._ramp_frame(Xt, AttackDesign(two, 1.2), k) == "frame"
     assert np.allclose(steps, [0.2, 0.1, 0.05, 0.025, 0.0125, 0.00625])
     steps.clear()
-    assert g._ramp_frame(Xt, AttackDesign(two, 1.9), k) is None  # six halvings, none small enough
+    assert g.ramp_frames._ramp_frame(Xt, AttackDesign(two, 1.9), k) is None  # six halvings, none small enough
     assert len(steps) == 7
 
 
@@ -262,7 +262,7 @@ def test_operating_limits_are_the_case_limits_widened_to_the_pool():
     for b, ps, qs in zip(net.shunt.bus, net.res_shunt.p_mw, net.res_shunt.q_mvar):
         X0[int(b), 1:3] -= (ps, qs)  # the pool stores injections without the shunt draw
     X = np.stack([X0, X0 * [[1.0, 1.3, 1.3, 1.0]]])  # the pool scales load and generation together
-    lim = g.operating_limits(X)
+    lim = g.false_state.operating_limits(X)
     assert (lim.v_lo == g.v_case[:, 0]).all() and (lim.v_hi == g.v_case[:, 1]).all()  # voltages verbatim
     assert (lim.p_lo <= g.p_lim[:, 0]).all() and (lim.p_hi >= g.p_lim[:, 1]).all()  # generators widened
     assert X0[:, 0].max() > lim.v_hi.max()  # the base case runs above 1.06 pu at some bus ...
@@ -303,11 +303,11 @@ def test_local_region_keeps_a_boundary_and_the_slack_fixed():
 
     g = FdiaGenerator(Network.from_ieee(14), seed=1)
     for hops in (0, 1, 2, 3):
-        region = g.local_region(g.load_bus[:5], hops)
+        region = g.area.local_region(g.load_bus[:5], hops)
         assert region is not None and g.slack_bus not in region
         _, boundary = subnetwork(g.ei, region, 0, g.C)
         assert len(boundary) and not set(boundary.tolist()) & (set(g.zero_inj) - {g.slack_bus})
-    whole = g.local_region(
+    whole = g.area.local_region(
         np.arange(g.C), 0
     )  # every bus as a seed: the slack alone is left to balance against
     assert whole is not None and sorted(whole.tolist()) == sorted(set(range(g.C)) - {g.slack_bus})
@@ -357,12 +357,12 @@ def test_reactive_load_adds_back_the_generators_output():
 
     g = FdiaGenerator(Network.from_ieee(14), seed=5)
     X = _solve_states_chunk(14, np.full((1, len(_case_buses(14))), 1.1))[0]
-    Lq = g.true_reactive_load(X)
+    Lq = g.scan_loads.true_reactive_load(X)
     for pos, b in enumerate(g.load_bus):
         want = 1.1 * g.split.base_load[b, 1] if g.has_gen[b] else X[b, 2]
         assert Lq[pos] == pytest.approx(want, abs=1e-6)
-    interior = g.local_region(g.load_bus[[2]], 1)
-    Xa = g.solve_local(X, interior, g.true_load(X), Lq)
+    interior = g.area.local_region(g.load_bus[[2]], 1)
+    Xa = g.false_state.solve_local(X, interior, g.scan_loads.true_load(X), Lq)
     assert np.allclose(Xa, X, atol=1e-5)
 
 
@@ -397,11 +397,11 @@ def test_stealthy_targets_avoid_every_generator_and_live_static_generator_bus():
 def test_a_family_with_nothing_to_attack_is_refused():
     from types import SimpleNamespace
 
-    from fdia_graph.engine.attacks.episodes import EpisodeDesignMixin
+    from fdia_graph.engine.attacks.episodes import EpisodeDesigns
     from fdia_graph.errors import NoAdmissibleTarget
     from fdia_graph.models.inputs import AdmissibleTargets
 
-    none = EpisodeDesignMixin.target_counts(SimpleNamespace(stealthy_pos=np.array([], int)))
+    none = EpisodeDesigns(SimpleNamespace(stealthy_pos=np.array([], int))).target_counts()
     AdmissibleTargets(["benign"], none)
     with pytest.raises(NoAdmissibleTarget, match="At"):
         AdmissibleTargets(["At"], none)

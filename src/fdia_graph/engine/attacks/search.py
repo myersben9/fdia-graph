@@ -25,7 +25,7 @@ if TYPE_CHECKING:
 
 class RampEpisode(DesignedEpisode):
     """One slow-ramp At episode of `length` frames growing by `rate` a frame: a fixed load set scaled
-    along a rise, a hold and a return, each scan re-solved locally (`AttackMixin.attack_frame`)."""
+    along a rise, a hold and a return, each scan re-solved locally (`RampFrames.attack_frame`)."""
 
     code = AT_CODE
     design: RampDesign  # drawn by `begin`
@@ -34,16 +34,18 @@ class RampEpisode(DesignedEpisode):
         self.length, self.rate, self.knobs = length, rate, knobs
 
     def begin(self, g: FdiaGenerator, X: States, t: int, prev: AttackVector) -> bool:
-        """Design the ramp at frame t (`EpisodeDesignMixin.ramp_design`, on the generator's own
+        """Design the ramp at frame t (`EpisodeDesigns.ramp_design`, on the generator's own
         stream); False when no admissible ramp exists at this onset."""
-        design = g.ramp_design(X, t, (self.length, self.rate), self.knobs, prev)
+        design = g.episode_designs.ramp_design(X, t, (self.length, self.rate), self.knobs, prev)
         if design is None:
             return False
         self.design = design
         return True
 
     def frame(self, g: FdiaGenerator, X: np.ndarray, i: int) -> Optional[Frame]:
-        return g.attack_frame(X, AT_CODE, g.ramp_step(self.design, i, self.rate), self.knobs)
+        return g.ramp_frames.attack_frame(
+            X, AT_CODE, g.episode_designs.ramp_step(self.design, i, self.rate), self.knobs
+        )
 
     def record(self, onset: int, length: int, buses: np.ndarray) -> EpisodeRecord:
         return EpisodeRecord(self.row(onset, length, buses), self.design.tamper)
@@ -63,7 +65,7 @@ class OverloadEpisode(DesignedEpisode):
 
     def frame(self, g: FdiaGenerator, X: np.ndarray, i: int) -> Optional[Frame]:
         lines = list(self.design.goal.lines)
-        frame, self.reached = g.overload_step(self.design, X, i, self.knobs)
+        frame, self.reached = g.overload.overload_step(self.design, X, i, self.knobs)
         if frame is not None:
             self.emitted = np.hypot(frame.edge_x[lines, 0], frame.edge_x[lines, 1])
         return frame
@@ -90,11 +92,11 @@ class SearchRamp(EpisodeFamily):
 
 class SearchOverload(EpisodeFamily):
     """The overload Am on the generator `g`: the first target set, in a random order of the eligible
-    branches, whose support meets the goal over the window (`EpisodeDesignMixin.am_overload_design`)."""
+    branches, whose support meets the goal over the window (`EpisodeDesigns.am_overload_design`)."""
 
     def __init__(self, g: FdiaGenerator, knobs: FrameKnobs) -> None:
         self.g, self.knobs = g, knobs
 
     def designed(self, onset: int, X: np.ndarray, rng: np.random.Generator) -> Optional[OverloadEpisode]:
-        design = self.g.am_overload_design(X, 0, len(X), self.knobs, rng)
+        design = self.g.episode_designs.am_overload_design(X, 0, len(X), self.knobs, rng)
         return None if design is None else OverloadEpisode(design, self.knobs)

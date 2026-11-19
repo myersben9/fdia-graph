@@ -66,14 +66,14 @@ def _reaches_the_goal(g, window, k, goal, result, trust=None) -> None:
     w = _Window(g, window, goal, k, trust=trust)
     for t in range(len(window)):
         S = w.support_at(t, result.support)
-        Xa = g.goal_state(goal, t, window[t], S, k)
+        Xa = g.minimizer.goal_state(goal, t, window[t], S, k)
         assert Xa is not None, f"no false state at snapshot {t}"
         for b in w.pinned[t]:
             assert np.array_equal(
                 Xa[b, [NodeChannel.V, NodeChannel.THETA]], window[t][b, [NodeChannel.V, NodeChannel.THETA]]
             )
-    flows = g.clean_flows_from_states(Xa[None])[0, list(goal.lines)]
-    ratings = g.line_ratings()[list(goal.lines)]
+    flows = g.emitter.clean_flows_from_states(Xa[None])[0, list(goal.lines)]
+    ratings = g.overload.line_ratings()[list(goal.lines)]
     assert np.allclose(np.hypot(flows[:, 0], flows[:, 1]), ratings, rtol=1e-6)
 
 
@@ -82,8 +82,8 @@ def test_the_reduction_names_buses_3_and_11_for_lines_3_4_and_6_11():
     every snapshot: the paper's reduction, before our fallback grows the support."""
     g, window, k, goal = _setup(0, 1.1)
     number = g.case.bus_id
-    seeds, _, _ = g._goal_seeds(goal)
-    area = np.asarray(g.local_region(seeds, k.hops))
+    seeds, _, _ = g.minimizer._goal_seeds(goal)
+    area = np.asarray(g.area.local_region(seeds, k.hops))
     w = _Window(g, window, goal, k)
     for t in (0, 7, 19):
         assert sorted(int(number[b]) for b in RrefSupport(g).ladder(w, t, area)[0]) == [3, 11]
@@ -101,7 +101,7 @@ def test_the_rref_attack_is_feasible_and_pinned(scenario, margin, trusted, count
         TrustSchedule([int(b) for b in case_studies.buses(g, ORDER[scenario])], SLOTS) if trusted else None
     )
     k = k._replace(support_method="rref")
-    r = g.min_tamper(window, goal, k, trust=trust)
+    r = g.minimizer.min_tamper(window, goal, k, trust=trust)
     assert (r.devices, r.channels) == counts
     _reaches_the_goal(g, window, k, goal, r, trust)
 
@@ -112,7 +112,7 @@ def test_the_schedule_stops_the_rref_attack_at_k_1_2(scenario):
     the search."""
     g, window, k, goal = _setup(scenario, 1.2)
     trust = TrustSchedule([int(b) for b in case_studies.buses(g, ORDER[scenario])], SLOTS)
-    r = g.min_tamper(window, goal, k._replace(support_method="rref"), trust=trust)
+    r = g.minimizer.min_tamper(window, goal, k._replace(support_method="rref"), trust=trust)
     assert r.devices == -1
 
 
@@ -124,7 +124,7 @@ def test_a_line_no_free_bus_moves_leaves_the_snapshot_nothing_to_rank(monkeypatc
     assert sparsest_rows(np.eye(3), eligible=lambda r: False).shape == (0, 3)
     monkeypatch.setattr(rref, "_moved_lines", lambda G, c: set())
     g, window, k, goal = _setup(0, 1.1)
-    seeds, _, _ = g._goal_seeds(goal)
-    area = np.asarray(g.local_region(seeds, k.hops))
+    seeds, _, _ = g.minimizer._goal_seeds(goal)
+    area = np.asarray(g.area.local_region(seeds, k.hops))
     assert RrefSupport(g).ladder(_Window(g, window, goal, k), 0, area) == []
-    assert g.min_tamper(window, goal, k._replace(support_method="rref")).devices == -1
+    assert g.minimizer.min_tamper(window, goal, k._replace(support_method="rref")).devices == -1

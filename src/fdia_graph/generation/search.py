@@ -73,12 +73,14 @@ class SearchSource(TimelineSource):
         self.g, self.X = FdiaGenerator(net, seed, s.meters, s.max_load_mw, split=split), X
         self._label_meters(own)
         self._check_targets(self.searched)
-        self.limits = self.g.operating_limits(self.X)  # every false state must satisfy [WU26 eqs. 21-23]
+        self.limits = self.g.false_state.operating_limits(
+            self.X
+        )  # every false state must satisfy [WU26 eqs. 21-23]
         self.knobs = self._knobs()
         # a searched ramp is designed by the walk itself: workers serve the overload and the caller's own
         ramp, workers = (s.ramp.length, s.ramp.rate), s.workers if self.am_runs or mine else 1
         # what a design process rebuilds this generator from: the grid, the meters and the ratings set above
-        ratings, delta = self.g._line_ratings, self.g._rating_delta
+        ratings, delta = self.g.overload.ratings, self.g.overload.rating_delta
         spec = GeneratorSpec(net, seed, s.max_load_mw, s.meters, ratings, delta, split, mine)
         designer = SearchDesigner(self.g, spec, self.knobs, self.X, ramp, workers, self.named)
         super().__init__(self.g, self.X, designer, s, [FAMILIES[f] for f in fams], seed, time)
@@ -130,9 +132,9 @@ class SearchSource(TimelineSource):
             return  # a timeline placing no attacked frame needs no target
         # the overload Am is not checked here: its targets are the rated, metered lines of each
         # window, decided per episode (an episode on a window with none is moved)
-        AdmissibleTargets(tuple(f for f in fams if f != AM_CODE), self.g.target_counts())
+        AdmissibleTargets(tuple(f for f in fams if f != AM_CODE), self.g.episode_designs.target_counts())
         if self.am_runs:
-            self.g.use_line_ratings(self.settings.overload, self.X)
+            self.g.overload.use_line_ratings(self.settings.overload, self.X)
 
     def _knobs(self) -> FrameKnobs:
         """The settings every scan shares (`FrameKnobs`): the subnetwork, the operating limits every

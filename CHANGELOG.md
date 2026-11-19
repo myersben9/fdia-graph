@@ -5,6 +5,26 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- **The generator is made of parts, not mixins.** `FdiaGenerator` held every method through a stack of
+  mixins; it now holds one object per job, named after its class, so a call names the class its method
+  is in.
+
+  | Part | On the generator | Was |
+  |---|---|---|
+  | `Emitter` (`engine/measurement.py`) | `g.emitter` | `MeasurementMixin` |
+  | `ScanLoads` (`engine/physics.py`) | `g.scan_loads` | `PhysicsMixin` |
+  | `AttackArea` (`engine/attacks/area.py`) | `g.area` | `AreaMixin` |
+  | `FalseState` (`engine/attacks/false_state.py`) | `g.false_state` | `FalseStateMixin` |
+  | `RampFrames` (`engine/attacks/ramp_frames.py`) | `g.ramp_frames` | `StealthyMixin`, and `AttackMixin.attack_frame` |
+  | `Minimizer` (`engine/attacks/minimize.py`) | `g.minimizer` | `MinimizeMixin` |
+  | `Overload` (`engine/attacks/overload.py`) | `g.overload` | `OverloadMixin` |
+  | `EpisodeDesigns` (`engine/attacks/episodes.py`) | `g.episode_designs` | `EpisodeDesignMixin` |
+
+  A method keeps its name and moves to its part: `g.benign_frame(X)` is `g.emitter.benign_frame(X)`,
+  `g.solve_flow_local(...)` is `g.false_state.solve_flow_local(...)`, and so on. `GridBase` and
+  `AttackMixin` are gone; a part is an `engine.base.Part`. No method's code changed, and every IEEE
+  timeline is byte for byte what it was.
+
 - **Docs: a page that maps each claim of the package to the test that checks it (no change to the
   packages).** `docs/guides/verify.md`, "Check the package yourself": the set-up, the command for one
   test and for all, what each test needs, and what the tests do not show.

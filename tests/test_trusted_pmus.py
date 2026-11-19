@@ -52,9 +52,9 @@ def _setup(scenario: int, margin: float) -> tuple:
     flow[case_studies.branch(g, 6, 11)] = True  # the paper meters line 6-11
     g = case_studies.paper_metering(g, case_studies.PMUS[14], flow)
     window = list(X[:WINDOW])
-    g.use_line_ratings(OverloadSettings(rating_margin=margin), np.stack(window))
-    k = FrameKnobs(2, g.operating_limits(X), True, 4096, 1.0, 0.5, 2)
-    return g, window, k, g.overload_goal(window, *lines)
+    g.overload.use_line_ratings(OverloadSettings(rating_margin=margin), np.stack(window))
+    k = FrameKnobs(2, g.false_state.operating_limits(X), True, 4096, 1.0, 0.5, 2)
+    return g, window, k, g.overload.overload_goal(window, *lines)
 
 
 def _schedule(g, scenario: int) -> TrustSchedule:
@@ -97,7 +97,7 @@ def test_a_trusted_pmu_keeps_its_bus_true_from_its_slot_on():
     S = np.array(sorted(int(b) for b in case_studies.buses(g, [3, 4, 5, 7, 11])), dtype=np.int64)
     assert bus4 in w.support_at(2, S) and bus4 not in w.support_at(3, S)
     for t in (2, 3, 10):
-        Xa = g.goal_state(goal, t, window[t], w.support_at(t, S), k)
+        Xa = g.minimizer.goal_state(goal, t, window[t], w.support_at(t, S), k)
         assert Xa is not None
         moved = not np.array_equal(
             Xa[bus4, [NodeChannel.V, NodeChannel.THETA]], window[t][bus4, [NodeChannel.V, NodeChannel.THETA]]
@@ -143,7 +143,7 @@ def test_scenario_2_survives_the_schedule_at_a_higher_cost():
     and PMU 6, whose |V| and angle are trusted from snapshot 4 but whose branch currents are not (eq. 27)."""
     g, window, k, goal = _setup(1, 1.1)
     trust = _schedule(g, 1)
-    r = g.min_tamper(window, goal, k, trust=trust)
+    r = g.minimizer.min_tamper(window, goal, k, trust=trust)
     assert (r.devices, r.channels) == (9, 28)
     assert {"SCADA 6", "PMU 6"} <= _named(g, window, k, goal, trust, r)
 
@@ -157,12 +157,12 @@ def test_the_ieee14_scenarios_at_k_1_1(scenario, before, after):
     """Undefended and defended counts, and the paper's order against the swapped one: the order does not
     change the result (the cheapest support avoids every PMU bus)."""
     g, window, k, goal = _setup(scenario, 1.1)
-    bare = g.min_tamper(window, goal, k)
+    bare = g.minimizer.min_tamper(window, goal, k)
     assert (bare.devices, bare.channels) == before
-    r = g.min_tamper(window, goal, k, trust=_schedule(g, scenario))
+    r = g.minimizer.min_tamper(window, goal, k, trust=_schedule(g, scenario))
     assert (r.devices, r.channels) == after
     swapped = TrustSchedule([int(b) for b in case_studies.buses(g, ORDER[1 - scenario])], SLOTS)
-    r = g.min_tamper(window, goal, k, trust=swapped)
+    r = g.minimizer.min_tamper(window, goal, k, trust=swapped)
     assert (r.devices, r.channels) == after
 
 
@@ -172,8 +172,8 @@ def test_the_schedule_stops_the_ieee14_scenarios_at_k_1_2(scenario):
     """At k = 1.2 no candidate reaches both ratings with the four PMUs trusted, while the undefended
     attack does (8 and 10 devices)."""
     g, window, k, goal = _setup(scenario, 1.2)
-    assert g.min_tamper(window, goal, k).devices == (8, 10)[scenario]
-    assert g.min_tamper(window, goal, k, trust=_schedule(g, scenario)).devices == -1
+    assert g.minimizer.min_tamper(window, goal, k).devices == (8, 10)[scenario]
+    assert g.minimizer.min_tamper(window, goal, k, trust=_schedule(g, scenario)).devices == -1
 
 
 @pytest.mark.parametrize("bus", [2, 99])  # MATPOWER bus 2 has no PMU in the paper's plan; 99 is no bus
@@ -182,4 +182,4 @@ def test_a_trusted_bus_must_carry_a_pmu(bus):
     g, window, k, goal = _setup(0, 1.1)
     trusted = int(case_studies.buses(g, [bus])[0]) if bus <= 14 else bus
     with pytest.raises(ConfigError):
-        g.min_tamper(window, goal, k, trust=TrustSchedule([trusted], [1]))
+        g.minimizer.min_tamper(window, goal, k, trust=TrustSchedule([trusted], [1]))

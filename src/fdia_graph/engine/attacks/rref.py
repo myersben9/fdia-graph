@@ -6,13 +6,13 @@ area's attackable measurements with respect to |V| and angle of the area's buses
 PMUs trusted by then [WU26 eqs. 27, 29], each row scaled by its channel's noise. Each reduced row is an
 attack vector H c; its state change c names the buses it moves. A snapshot's support is the sparsest
 rows that together move every target line's flow; the window's is their union [WU26 eq. 28]. The
-magnitudes come from the AC solve on that support (`FalseStateMixin.solve_flow_local`). A support that
+magnitudes come from the AC solve on that support (`FalseState.solve_flow_local`). A support that
 cannot reach the goal grows by the next sparsest rows (ours: the paper gives only the sparsest attack).
 Row reduction finds a sparse attack, not necessarily the sparsest."""
 
 from __future__ import annotations
 
-from typing import Optional, cast
+from typing import TYPE_CHECKING, Optional, cast
 
 import numpy as np
 
@@ -22,15 +22,18 @@ from ...formulas.network import branch_currents, branch_flows, bus_injections, c
 from ...formulas.trust import sparsest_rows
 from ...models.config import TrustSchedule
 from ...models.frames import AttackVector, FlowGoal, FrameKnobs, MinimizerResult
-from .minimize import MinimizeMixin, _Window
+from .minimize import _Window
+
+if TYPE_CHECKING:
+    from ..core import FdiaGenerator
 
 
 class RrefSupport:
     """The overload attack's support by [WU26]'s row reduction (`OverloadSettings.support_method`
-    "rref"), which `MinimizeMixin.min_tamper` takes for a flow goal in place of its candidate search.
+    "rref"), which `Minimizer.min_tamper` takes for a flow goal in place of its candidate search.
     It holds the generator it reads the grid from."""
 
-    def __init__(self, g: MinimizeMixin) -> None:
+    def __init__(self, g: FdiaGenerator) -> None:
         self.g = g
 
     def rref_support(
@@ -44,7 +47,7 @@ class RrefSupport:
         """The support the row reduction gives the window of `states` and the flow `goal`, grown until
         the AC solve reaches the goal; None when the goal has no area. `evaluated` counts the supports
         solved, and `devices` is -1 when none reaches the goal."""
-        region = self.g.window_area(states, goal, k)
+        region = self.g.minimizer.window_area(states, goal, k)
         if region is None:
             return None
         area = np.asarray(region)
@@ -67,7 +70,7 @@ class RrefSupport:
         """The window's support at a growth level: every snapshot's first `level + 1` rungs joined,
         closed over the zero-injection buses of its boundary as a search candidate is, kept in the area."""
         buses = {int(b) for ladder in ladders for rung in ladder[: level + 1] for b in rung}
-        closed = self.g._zero_closed(frozenset(buses)) if buses else frozenset()
+        closed = self.g.minimizer.zero_closed(frozenset(buses)) if buses else frozenset()
         return np.array(sorted(closed & {int(b) for b in area}), dtype=np.int64)
 
     def ladder(self, window: _Window, t: int, area: np.ndarray) -> list[np.ndarray]:
@@ -114,7 +117,9 @@ class RrefSupport:
         z = self._scaled_channels(window, t, batch)
         H = ((z[1:] - z[0]) / steps[:, None]).T
         kept = np.abs(H).max(axis=1) > 0
-        flows = np.abs(self.g.all_flows_from_states(batch)[:, list(cast(FlowGoal, window.goal).lines)])
+        flows = np.abs(
+            self.g.emitter.all_flows_from_states(batch)[:, list(cast(FlowGoal, window.goal).lines)]
+        )
         G = ((flows[1:] - flows[0]) / steps[:, None]).T
         return H[kept], G, self.channel_devices(window)[kept]
 
