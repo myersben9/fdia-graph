@@ -42,12 +42,7 @@ branch end at its bus.
 | `VA` | voltage angle at a PMU bus | degrees |
 | `P`, `Q` | power injection at a bus | MW, MVAr |
 | `PF`, `QF` | power flow at one end of a branch | MW, MVAr |
-| `I`, `IA` | PMU current as magnitude and angle | p.u., degrees |
 | `IR`, `II` | PMU current as real and imaginary part | p.u. |
-
-A plan uses one form of current, not both: `IR` and `II`, or `I` and `IA`. The plan the package
-places uses `IR` and `II`. `I` and `IA` are the kinds of a file that stores its currents as
-magnitude and angle; `MeterPlan.from_masks` reads such a file's plan.
 
 ### The placement
 

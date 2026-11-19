@@ -21,7 +21,6 @@ import numpy as np
 from ..constants.grid import BusType
 from ..constants.meters import FLOW_KINDS, MeterKind
 from ..models.config import GeneratorOptions, MeterSettings
-from ..models.frames import LayerSet
 from ..sensing.measure import Measurement
 from ..sensing.meters import MeterPlan
 from ..sensing.noise import NoiseModel
@@ -48,22 +47,19 @@ class FdiaGenerator:
         meters: MeterSettings = MeterSettings(),
         max_load_mw: Optional[float] = 2000.0,
         plan: Optional[MeterPlan] = None,
-        spec: LayerSet = LayerSet(),
         split: Optional[LoadSplit] = None,
     ) -> None:
         """The generator of any grid: its `Network`, and the meter plan of `meters` drawn from `seed`
         (`MeterPlan.from_coverage`: the meters, then their biases). Only PMUs read angles, and they
-        read branch currents [WU26 eqs. 17-20]. A `plan` is used as given and nothing is drawn. A
-        scan is laid out in the layers of `spec` (a plan that meters both ends of a branch needs `LayerSet(both_ends=True)`).
+        read branch currents [WU26 eqs. 17-20]. A `plan` is used as given and nothing is drawn.
         `split` says how the pool's injections divide into load and generation (None: a scaled pool)."""
         options = GeneratorOptions(max_load_mw)
         self.split = ScaledSplit.of_case(net.case) if split is None else split
-        self._open(net, seed, spec, options.max_load_mw)
+        self._open(net, seed, options.max_load_mw)
         self.use_plan(MeterPlan.from_coverage(self.case, meters, self.rng) if plan is None else plan)
 
-    def _open(self, net: Network, seed: int, spec: LayerSet, max_load_mw: Optional[float]) -> None:
+    def _open(self, net: Network, seed: int, max_load_mw: Optional[float]) -> None:
         """The grid, the generator's random stream and the tables of the case."""
-        self.spec = spec
         # `max_load_mw` keeps a larger load out of the attack targets (None: no cap): it is an area
         # equivalent (IEEE-145 has loads of 4 to 58 GW), with no power-flow solution near a 5% to 20% shift.
         # No load of the other seven ladder systems exceeds 1.1 GW.

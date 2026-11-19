@@ -9,28 +9,14 @@ from typing import NamedTuple, Optional, Union
 import numpy as np
 
 
-class LayerSet(NamedTuple):
-    """Which per-frame layers a timeline file carries; the grid decides."""
-
-    # the flow layers hold both branch ends [E, 4] = P_from, Q_from, P_to, Q_to (New York meters each
-    # end of a branch); False: the from end only [E, 2]
-    both_ends: bool = False
-    temporal: bool = True  # data/temporal_delta and data/swing (a New York file has neither yet)
-
-    @property
-    def edge_width(self) -> int:
-        """The columns of a flow layer."""
-        return 4 if self.both_ends else 2
-
-
 class MeterLayers(NamedTuple):
     """One value per meter of a meter table, laid out as a file's layers
-    (`sensing.meters.MeterPlan.scatter`), zero where no meter sits. An IEEE file's flow
-    layer has the from end only [..., E, 2], and its currents are real and imaginary parts."""
+    (`sensing.meters.MeterPlan.scatter`), zero where no meter sits. A flow is metered at the from
+    end of its branch; a current is the real and imaginary part of the phasor at each end."""
 
     node: np.ndarray  # [..., N, 4] |V|, P_inj, Q_inj, theta
-    edge: np.ndarray  # [..., E, 4] P_from, Q_from, P_to, Q_to
-    current: np.ndarray  # [..., E, 4] |I| and its angle at the from end, then at the to end
+    edge: np.ndarray  # [..., E, 2] P_from, Q_from (`scatter` lays out four columns, the last two empty)
+    current: np.ndarray  # [..., E, 4] Re and Im of the current at the from end, then at the to end
 
 
 class Scan(NamedTuple):

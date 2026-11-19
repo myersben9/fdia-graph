@@ -19,6 +19,7 @@ from fdia_graph.errors import NotATimeline
 from fdia_graph.formulas.temporal import wrap_degrees
 from fdia_graph.models.choices import Split
 from fdia_graph.models.frames import MeterLayers
+from fdia_graph.models.inputs import ReadableLayout
 from fdia_graph.schema import Attr, Static
 from fdia_graph.sensing.meters import MeterPlan
 from fdia_graph.systems.ownership import Ownership
@@ -71,13 +72,19 @@ class Dataset:
                 f"{path} is not a timeline that records its clients (`SearchSource(..., own=...)`); a "
                 "file in the earlier New York layout reads with fdia-graph 0.21 (pip install fdia-graph==0.21.0)"
             )
+        try:  # the one layout: a file that declares another is refused, never misread
+            ReadableLayout(
+                str(path), **{k: str(self.h.attrs[k]) for k in schema.LAYOUT_ATTRS if k in self.h.attrs}
+            )
+        except NotATimeline:
+            self.h.close()
+            raise
         self.clients = str(self.h.attrs[Attr.CLIENT_NAMES]).split(",")
         edges = self.h[schema.EDGE_INDEX][:]
         bus_client = self.h[schema.path(schema.Group.GRAPH, Static.BUS_CLIENT)][:]
         self.own = Ownership(np.array(self.clients), bus_client, bus_client[edges[0]] != bus_client[edges[1]])
         masks = MeterLayers(*(self.h[name][0] for name in (schema.NODE_M, schema.EDGE_M, schema.PMU_I_M)))
-        form = str(self.h.attrs.get(Attr.CURRENT_FORM, schema.CURRENT_RECTANGULAR))
-        self.plan = MeterPlan.from_masks(masks, edges, bus_client, form)
+        self.plan = MeterPlan.from_masks(masks, edges, bus_client)
 
     def _frames(self, split: str | None) -> np.ndarray:
         """The frame indices of `split` exactly: week splits interleave, so a span from its first to its

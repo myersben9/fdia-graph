@@ -14,7 +14,7 @@ if TYPE_CHECKING:
 import numpy as np
 
 from .. import schema
-from ..constants.channels import NodeChannel, PolarCurrentChannel
+from ..constants.channels import NodeChannel
 from ..constants.records import ID_FIELDS, UNIT_KIND
 from ..models.data import BatchBundle, RecordBundle
 from .base import DatasetBase, _torch
@@ -28,16 +28,14 @@ class RecordsMixin(DatasetBase):
     def _to_units(self, arr: np.ndarray, kind: str) -> np.ndarray:
         """A physical-unit array in self.units: unchanged unless units == "pu", then a float32 copy.
         `kind` "node": P and Q over baseMVA, theta degrees to radians; "edge" and "td": over baseMVA;
-        "current" (already per unit): the angles of a polar file to radians."""
+        "current": already per unit, as it is."""
         if self.units != "pu":
             return arr
         b = self.baseMVA
         a = np.array(arr, dtype=np.float32, copy=True)
         if kind == "current":
-            if self.current_form == schema.CURRENT_POLAR:  # magnitude, angle per end
-                angles = [PolarCurrentChannel.ANGLE_FROM, PolarCurrentChannel.ANGLE_TO]
-                a[..., angles] = np.deg2rad(a[..., angles])
-        elif kind == "node":
+            return a
+        if kind == "node":
             a[..., NodeChannel.P_INJ] /= b
             a[..., NodeChannel.Q_INJ] /= b  # P_inj, Q_inj  MW/MVAr -> p.u.
             a[..., NodeChannel.THETA] = np.deg2rad(a[..., NodeChannel.THETA])  # theta  deg -> rad

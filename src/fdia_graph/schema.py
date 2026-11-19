@@ -213,7 +213,7 @@ class Attr:
     )
     CURRENT_FEAT = "current_feat"  # the legend of pmu_i, on a hybrid-meter file
     CURRENT_UNITS = "current_units"
-    CURRENT_FORM = "current_form"  # how pmu_i holds a phasor (`CURRENT_RECTANGULAR` when absent)
+    CURRENT_FORM = "current_form"  # read only: a file that names a form other than `constants.channels.CURRENT_RECTANGULAR` is refused
     CLIENT_NAMES = "client_names"  # New York: the utilities, comma-separated, in `Static.BUS_CLIENT` order
     MAX_LOAD_MW = "max_load_mw"
     V_LO = "v_lo"  # the widest bus voltage limits of the case, what a false state must stay in
@@ -229,27 +229,19 @@ class Attr:
 
 
 KIND_TIMELINE = "timeline"
-# the two forms of a PMU current phasor in pmu_i, per branch end: real and imaginary part (the IEEE
-# files, which carry no `Attr.CURRENT_FORM`), or magnitude and angle in degrees (New York)
-CURRENT_RECTANGULAR, CURRENT_POLAR = "rectangular", "polar"
+# the attributes in which a file declares its layout, the fields of `models.inputs.ReadableLayout`
+LAYOUT_ATTRS = (Attr.EDGE_FEAT, Attr.CURRENT_FORM)
 
 # ---- the legends a file carries: the values of its legend attributes ------------------------------
 # The columns of the bus layers and of the flow layers, in the order of `constants.channels.NodeChannel`
-# and `EdgeChannel`, each with its unit. A file with the from end only names the first two flows.
+# and `EdgeChannel`, each with its unit.
 NODE_FEAT_LEGEND = "V,P_inj,Q_inj,theta"  # `Attr.NODE_FEAT`
 NODE_UNITS_LEGEND = "V:pu,P_inj:MW,Q_inj:MVAr,theta:deg"  # `Attr.NODE_UNITS`
-FLOW_NAMES = ("P_from", "Q_from", "P_to", "Q_to")  # joined by commas in `Attr.EDGE_FEAT`
-FLOW_UNITS = ("MW", "MVAr", "MW", "MVAr")  # with the names in `Attr.EDGE_UNITS`: "P_from:MW,Q_from:MVAr"
-EDGE_FEAT_DEFAULT = "P_from,Q_from"  # what a file with no `Attr.EDGE_FEAT` holds
-# The columns of pmu_i and their units, by the form of the phasor (`Attr.CURRENT_FEAT`, `Attr.CURRENT_UNITS`).
-CURRENT_FEAT_LEGEND = {
-    CURRENT_RECTANGULAR: "Re_I_from,Im_I_from,Re_I_to,Im_I_to",
-    CURRENT_POLAR: "I_from,angle_from,I_to,angle_to",
-}
-CURRENT_UNITS_LEGEND = {
-    CURRENT_RECTANGULAR: "pu on the base current",
-    CURRENT_POLAR: "I:pu on the base current,angle:deg",
-}
+FLOW_NAMES = ("P_from", "Q_from")  # joined by commas in `Attr.EDGE_FEAT`
+FLOW_UNITS = ("MW", "MVAr")  # with the names in `Attr.EDGE_UNITS`: "P_from:MW,Q_from:MVAr"
+# The columns of pmu_i and their unit (`Attr.CURRENT_FEAT`, `Attr.CURRENT_UNITS`).
+CURRENT_FEAT_LEGEND = "Re_I_from,Im_I_from,Re_I_to,Im_I_to"
+CURRENT_UNITS_LEGEND = "pu on the base current"
 # What a 1 in the tamper masks means (`Attr.TAMPER` of attack/): for the package's own families, and
 # for a family that designs an attack vector (a bus is then labelled where a meter at it is 1).
 IEEE_TAMPER_RULE = (

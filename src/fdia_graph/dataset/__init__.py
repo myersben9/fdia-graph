@@ -27,6 +27,7 @@ from ..constants.families import HELDOUT_CODES
 from ..errors import NotATimeline
 from ..models.choices import Split
 from ..models.config import LoadOptions
+from ..models.inputs import ReadableLayout
 from ..schema import SPLIT_CODE as _SPLIT
 from ..schema import STATIC_PHYSICS as _STATIC_PHYSICS
 from ..schema import Attr
@@ -120,10 +121,10 @@ class FdiaGraph(GraphMixin, AdmittanceMixin, RecordsMixin, ExportMixin, Sequence
         self.N = int(a[Attr.N])
         self.E = int(a[Attr.E])  # fixed graph size: bus count N, branch count E
         self.baseMVA = float(a.get(Attr.BASEMVA, 100.0))  # p.u. base; v0.4.1+, default 100 MVA
-        # the flow layers' columns
-        self.edge_feat = str(a.get(Attr.EDGE_FEAT, schema.EDGE_FEAT_DEFAULT)).split(",")
-        # how pmu_i holds a current phasor: real and imaginary part unless the file says otherwise
-        self.current_form = str(a.get(Attr.CURRENT_FORM, schema.CURRENT_RECTANGULAR))
+        # the one layout: flows at the from end, currents as real and imaginary parts (a file that
+        # declares another is refused here)
+        layout = ReadableLayout(str(self.path), **{k: str(a[k]) for k in schema.LAYOUT_ATTRS if k in a})
+        self.edge_feat = layout.edge_feat.split(",")  # the flow layers' columns
 
     def _read_static_graph(self, f: h5py.File) -> None:
         """The static graph, read once and cached as numpy: the edge index and the per-unit branch

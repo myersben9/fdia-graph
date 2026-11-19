@@ -14,7 +14,6 @@ from fdia_graph.constants.channels import TO_END_OFFSET
 from fdia_graph.constants.meters import (
     ACCURACY_CLASS,
     BUS_KINDS,
-    FILE_KINDS,
     FLOW_KINDS,
     JITTER_FRAC,
     KIND_ACCURACY,
@@ -156,16 +155,13 @@ class MeterPlan:
         return z
 
     @classmethod
-    def from_masks(
-        cls, masks: MeterLayers, edges: np.ndarray, bus_client: np.ndarray, current_form: str
-    ) -> MeterPlan:
+    def from_masks(cls, masks: MeterLayers, edges: np.ndarray, bus_client: np.ndarray) -> MeterPlan:
         """The plan a file's meter masks describe, kind by kind (bus meters by bus, branch meters by
-        branch then end), for a file that stores its currents in `current_form` ("rectangular" or
-        "polar"). `gather` on the file's layers gives that plan's flat vector. `edges` is [2, E], and
+        branch then end). `gather` on the file's layers gives that plan's flat vector. `edges` is [2, E], and
         each meter's owner is the client of its bus (`bus_client` [N]). A file does not store `bias`:
         it reads NaN."""
         kind, bus, branch, end = [], [], [], []
-        for k in FILE_KINDS[current_form]:
+        for k in MeterKind:
             layer, column = METER_SLOT[k]
             at_bus = layer == 0
             # row-major, so the meters come by bus, or by branch and then end

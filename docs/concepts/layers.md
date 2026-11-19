@@ -142,22 +142,15 @@ The frames are chunked along time, so a window of consecutive frames is one read
 [The data dictionary](../reference/DATA_DICTIONARY.md#the-timeline-file) lists the datasets of
 each group.
 
-## What the layout allows
+## One layout
 
-One writer writes every timeline, in one layout. The layout allows more than the package's own
-source writes, and a file declares in its attributes which form it has. The readers accept each
-form.
+One writer writes every timeline, in one layout: flows at the from end of a branch `[E, 2]`, PMU
+currents as real and imaginary part, and both temporal features. A file that declares another
+layout in its attributes (flows at both branch ends in `edge_feat`, or a `current_form` other than
+`rectangular`) was written elsewhere. It is refused with `NotATimeline` when it is opened, so no
+column of it is read as something else.
 
-| Item | The package's source writes | The layout also allows |
-|---|---|---|
-| Flow layers | `[E, 2]`: the from end | `[E, 4]`: both ends, named in the `edge_feat` attribute (`LayerSet.both_ends`) |
-| PMU currents | real and imaginary part | magnitude and angle (`current_form` is `polar`) |
-| Temporal features | stored | not stored (`LayerSet.temporal`) |
-
-Code that reads a current as real and imaginary parts refuses a polar file with
-`MissingCapability`.
-
-A New York file from the package's source has the form of an IEEE file in all three rows. Its
+A New York file has the form of an IEEE file. Its
 injections are positive for load, like an IEEE file's, and it holds the solved frames of its
 pool only.
 

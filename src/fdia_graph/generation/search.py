@@ -189,8 +189,8 @@ class SearchSource(TimelineSource):
         if s.search.min_tamper or self.am_runs:
             out[Attr.STEALTH_SCALE] = s.ramp.stealth_scale
         out[Attr.METER_MODEL] = s.meters.meter_model
-        out[Attr.CURRENT_FEAT] = schema.CURRENT_FEAT_LEGEND[schema.CURRENT_RECTANGULAR]
-        out[Attr.CURRENT_UNITS] = schema.CURRENT_UNITS_LEGEND[schema.CURRENT_RECTANGULAR]
+        out[Attr.CURRENT_FEAT] = schema.CURRENT_FEAT_LEGEND
+        out[Attr.CURRENT_UNITS] = schema.CURRENT_UNITS_LEGEND
         if self.own is not None:
             out[Attr.CLIENT_NAMES] = ",".join(str(name) for name in self.own.names)
         return out

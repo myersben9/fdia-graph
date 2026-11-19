@@ -18,7 +18,7 @@ from .. import schema
 from ..constants.families import BENIGN_CODE, FAMILIES, FAMILY_CODE, STEALTHY_FAMILIES
 from ..formulas.temporal import recent_change_scale
 from ..models.choices import Split
-from ..models.frames import AttackVector, Frame, LayerSet, MinimizerResult
+from ..models.frames import AttackVector, Frame, MinimizerResult
 from ..models.plan import Episode, EpisodeRecord, Placement
 from ..schema import Attr, Group
 
@@ -36,26 +36,23 @@ class TimelineWriter:
 
     # ---- the layout this writer creates: the datasets, their shapes and their types ------------------
     CHUNK_ROWS = 128  # frames per chunk: a per-frame dataset is chunked along the frame axis
-    FLOW_WIDTH = -1  # in the layer tables: as many columns as a flow layer has (`LayerSet.edge_width`)
     # the per-frame layers: path -> (one row per bus "C" or per branch "E", columns (0: none), dtype)
     FRAME_LAYERS = {
         schema.NODE_X: ("C", 4, np.float32),
-        schema.EDGE_X: ("E", FLOW_WIDTH, np.float32),
+        schema.EDGE_X: ("E", 2, np.float32),
         schema.Y: ("C", 0, np.uint8),
         schema.TEMPORAL_DELTA: ("C", 2, np.float32),
         schema.SWING: ("C", 2, np.float32),
         schema.NODE_BENIGN: ("C", 4, np.float32),
-        schema.EDGE_BENIGN: ("E", FLOW_WIDTH, np.float32),
+        schema.EDGE_BENIGN: ("E", 2, np.float32),
         schema.NODE_CLEAN: ("C", 4, np.float32),
-        schema.EDGE_CLEAN: ("E", FLOW_WIDTH, np.float32),
+        schema.EDGE_CLEAN: ("E", 2, np.float32),
         schema.NODE_TAMPER: ("C", 4, np.uint8),
-        schema.EDGE_TAMPER: ("E", FLOW_WIDTH, np.uint8),
+        schema.EDGE_TAMPER: ("E", 2, np.uint8),
         schema.PMU_I: ("E", 4, np.float32),  # the PMU branch-current layers
         schema.PMU_I_BENIGN: ("E", 4, np.float32),
         schema.PMU_I_TAMPER: ("E", 4, np.uint8),
     }
-    # filled after the walk; a `LayerSet` may leave them out
-    TEMPORAL_LAYERS = (schema.TEMPORAL_DELTA, schema.SWING)
     # the columns of the episode tables under episodes/, in the order of a row's values: (name, dtype)
     EPISODE_COLUMNS = (
         (schema.EPISODE_ONSET, np.int32),
@@ -79,11 +76,9 @@ class TimelineWriter:
 
     # ---- 1. stage frames: the file is opened, its layers created, the walk's frames stored ------------
 
-    def __init__(
-        self, path: str, dims: tuple[int, int, int], clean: CleanSlice, spec: LayerSet = LayerSet()
-    ) -> None:
+    def __init__(self, path: str, dims: tuple[int, int, int], clean: CleanSlice) -> None:
         T, C, E = dims
-        self.dims, self.spec, self._n, self._base = dims, spec, min(_BATCH, T), 0
+        self.dims, self._n, self._base = dims, min(_BATCH, T), 0
         self._layers: dict[str, np.ndarray] = {}  # the staged batch of each per-frame layer
         # their datasets, held open for the whole walk: HDF5 then lays the chunks out in one order
         self._sink: dict[str, h5py.Dataset] = {}
@@ -100,7 +95,7 @@ class TimelineWriter:
         self.am_rows: list[tuple[int, int, float, float, float, float]] = []  # (episode, *a row of AmRows)
         # the attack vector of the last stored frame, observed minus its benign twin (zero when benign):
         # an adjacent episode's stealth bound starts from it
-        self.last_attack = AttackVector(np.zeros((C, 4)), np.zeros((E, spec.edge_width)), np.zeros((E, 4)))
+        self.last_attack = AttackVector(np.zeros((C, 4)), np.zeros((E, 2)), np.zeros((E, 4)))
         self.attacked = 0  # frames stored so far with at least one attacked bus
         self._clean = clean
         self.f = h5py.File(path, "w")
@@ -112,14 +107,11 @@ class TimelineWriter:
             raise
 
     def _create_layers(self) -> None:
-        """Create the groups and the per-frame datasets the layer set asks for, each with a batch of
-        frames staged for it."""
+        """Create the groups and the per-frame datasets, each with a batch of frames staged for it."""
         for group in (Group.DATA, Group.BENIGN, Group.CLEAN, Group.ATTACK):
             self.f.create_group(group)
-        spec, rows = self.spec, {"C": self.dims[1], "E": self.dims[2]}
-        table = {n: v for n, v in self.FRAME_LAYERS.items() if spec.temporal or n not in self.TEMPORAL_LAYERS}
-        for name, (axis, width, dtype) in table.items():
-            width = spec.edge_width if width == self.FLOW_WIDTH else width
+        rows = {"C": self.dims[1], "E": self.dims[2]}
+        for name, (axis, width, dtype) in self.FRAME_LAYERS.items():
             shape = (rows[axis], width) if width else (rows[axis],)
             self._sink[name] = self._create(name, shape, dtype)
             self._layers[name] = np.zeros((self._n, *shape), dtype)
@@ -134,7 +126,7 @@ class TimelineWriter:
         physical (node_x = [V pu, P_inj MW, Q_inj MVAr, theta deg], flows MW/MVAr); baseMVA lets the
         loader also serve a per-unit view."""
         T, N, E = self.dims
-        flows = schema.FLOW_NAMES[: self.spec.edge_width]
+        flows = schema.FLOW_NAMES
         return {
             Attr.SYSTEM: N,
             Attr.N: N,
@@ -257,8 +249,7 @@ class TimelineWriter:
         self._write_columns(columns)
         self._write_episodes(tamper_rule)
         self._write_attrs(header, knobs, record, rec, columns[schema.SPLIT], frac)
-        if self.spec.temporal:
-            self.write_temporal_layers(self.f)
+        self.write_temporal_layers(self.f)
 
     def _write_masks(self) -> None:
         """Write data/node_m and data/edge_m per frame: the static plan repeated, in bounded slabs. Per

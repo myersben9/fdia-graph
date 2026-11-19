@@ -143,7 +143,7 @@ def test_bias_and_jitter_keep_the_class_total():
     floor = np.where(relative, plan.sigma_abs, 0.0)
     bias = np.where(relative, plan.bias * size, plan.bias)
     jitter = noise.jitter(z) - floor
-    assert set(plan.kind.tolist()) == {k for k in MeterKind if k not in (MeterKind.I, MeterKind.IA)}
+    assert set(plan.kind.tolist()) == set(MeterKind)
     assert np.allclose(jitter, 0.25 * cls, rtol=1e-9, atol=1e-15)
     assert np.allclose(bias**2 + jitter**2, cls**2, rtol=1e-9, atol=1e-18)
     assert np.allclose(noise.sigmas(z), cls + floor)

@@ -68,11 +68,6 @@ CAPABILITIES: dict[str, tuple[Callable[[DatasetBase], bool], str]] = {
         lambda ds: ds.has_currents,
         'a hybrid-meter timeline (meter_model="hybrid"), which carries PMU currents',
     ),
-    Capability.RECTANGULAR_CURRENTS: (
-        lambda ds: ds.has_currents and ds.current_form == schema.CURRENT_RECTANGULAR,
-        "PMU currents stored as real and imaginary parts; a New York file stores magnitude and angle "
-        "(its current_form attribute), which would be misread",
-    ),
 }
 
 
@@ -86,7 +81,6 @@ class DatasetBase:
     N: int
     E: int
     baseMVA: float
-    current_form: str
     edge_feat: list[str]  # the columns of a flow layer, by name (the file's legend)
     slack: Optional[int]
     idx: np.ndarray
