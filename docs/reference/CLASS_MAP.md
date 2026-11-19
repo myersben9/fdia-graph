@@ -53,14 +53,15 @@ designed episode (`engine/attacks/family.py`, `DesignedEpisode`) asks the parts 
 ## The attacks
 
 Every attack is built in `engine/attacks/`, one part of the generator per module:
-`AttackArea` (`g.area`) finds the attacker's area, `FalseState` (`g.false_state`) solves and checks its false state and the
-attack vector, `RampFrames` (`g.ramp_frames`) builds the ramp frames, `Minimizer` (`g.minimizer`) finds the support that tampers
-the fewest devices over an attack window [WU26, eq. 12], `Overload` (`g.overload`) builds the overload `Am`,
+`AttackArea` (`g.area`) finds the attacker's area, `FalseState` (`g.false_state`) solves and checks its false state, `AttackFrames`
+(`g.attack_frames`) writes the attack vector onto the true scan, `RampFrames` (`g.ramp_frames`) builds the ramp frames, `Minimizer` (`g.minimizer`) finds the support that tampers
+the fewest devices over an attack window [WU26, eq. 12] (`AttackWindow`, `window.py`, counts what a
+support costs), `Overload` (`g.overload`) builds the overload `Am`,
 and `EpisodeDesigns` (`g.episode_designs`) designs what an `At` or an `Am` episode attacks. `RampFrames.attack_frame`
 is the one entry for an attacked `At` scan; an `Am` frame comes from `overload_step`. The walk reaches
 both through a designed episode (`engine/attacks/search.py`: `RampEpisode`, `OverloadEpisode`).
 
-[![Class diagram of the attack package: AttackArea, FalseState, RampFrames, Minimizer, Overload and EpisodeDesigns, each a Part that holds the generator; they use AttackDesign, RampDesign, LoadGoal, FlowGoal, MinimizerResult, Frame, FrameKnobs, OperatingLimits and Scan](../figures/diagrams/classes_attacks.png)](../figures/diagrams/classes_attacks.png)
+[![Class diagram of the attack package: AttackArea, FalseState, AttackFrames, RampFrames, Minimizer, Overload and EpisodeDesigns, each a Part that holds the generator, and AttackWindow, which the Minimizer builds; they use AttackDesign, RampDesign, LoadGoal, FlowGoal, MinimizerResult, Frame, FrameKnobs, OperatingLimits, MeterLayers, CostUnit and Scan](../figures/diagrams/classes_attacks.png)](../figures/diagrams/classes_attacks.png)
 
 ## State estimation
 

@@ -15,7 +15,7 @@ from fdia_graph.engine.attacks.rref import RrefSupport
 pytest.importorskip("pandapower")
 
 from fdia_graph.constants.channels import NodeChannel  # noqa: E402
-from fdia_graph.engine.attacks.minimize import _Window  # noqa: E402
+from fdia_graph.engine.attacks.window import AttackWindow  # noqa: E402
 from fdia_graph.errors import ConfigError  # noqa: E402
 from fdia_graph.formulas.trust import sparsest_rows  # noqa: E402
 from fdia_graph.models.config import (
@@ -63,7 +63,7 @@ def test_the_support_method_is_a_validated_choice():
 def _reaches_the_goal(g, window, k, goal, result, trust=None) -> None:
     """Every snapshot has its false state on the support (the goal met inside the limits and the D16
     bounds, `goal_state`), the last one at both ratings, and a trusted PMU's bus is true from its slot."""
-    w = _Window(g, window, goal, k, trust=trust)
+    w = AttackWindow(g, window, goal, k, trust=trust)
     for t in range(len(window)):
         S = w.support_at(t, result.support)
         Xa = g.minimizer.goal_state(goal, t, window[t], S, k)
@@ -84,7 +84,7 @@ def test_the_reduction_names_buses_3_and_11_for_lines_3_4_and_6_11():
     number = g.case.bus_id
     seeds, _, _ = g.minimizer._goal_seeds(goal)
     area = np.asarray(g.area.local_region(seeds, k.hops))
-    w = _Window(g, window, goal, k)
+    w = AttackWindow(g, window, goal, k)
     for t in (0, 7, 19):
         assert sorted(int(number[b]) for b in RrefSupport(g).ladder(w, t, area)[0]) == [3, 11]
 
@@ -126,5 +126,5 @@ def test_a_line_no_free_bus_moves_leaves_the_snapshot_nothing_to_rank(monkeypatc
     g, window, k, goal = _setup(0, 1.1)
     seeds, _, _ = g.minimizer._goal_seeds(goal)
     area = np.asarray(g.area.local_region(seeds, k.hops))
-    assert RrefSupport(g).ladder(_Window(g, window, goal, k), 0, area) == []
+    assert RrefSupport(g).ladder(AttackWindow(g, window, goal, k), 0, area) == []
     assert g.minimizer.min_tamper(window, goal, k._replace(support_method="rref")).devices == -1

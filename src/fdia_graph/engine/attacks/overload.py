@@ -156,7 +156,7 @@ class Overload(Part):
         # the labels: the free injections of the support, the loads and generator outputs it pretends
         free = np.intersect1d(design.support, self.g.false_state.free_injection_buses())
         dev = self.pretended_change(Xt, Xa, free)
-        frame = self.g.false_state.frame_from_state(Xt, Xa, free, dev.astype(float))
+        frame = self.g.attack_frames.frame_from_state(Xt, Xa, free, dev.astype(float))
         flow = self.g.emitter.clean_flows_from_states(Xa[None])[0, list(design.goal.lines)]
         return frame, np.hypot(flow[:, 0], flow[:, 1])
 

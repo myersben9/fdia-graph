@@ -89,8 +89,8 @@ def test_a_false_state_writes_its_currents(gens, pool):
     Xa = Xt.copy()
     Xa[3, NodeChannel.THETA] += 0.05
     scan = g.emitter.emit_from_state(Xt)
-    a = g.false_state._current_attack(Xa, Xt)
-    ix, tamper = g.false_state._currents_with_attack(scan, Xa, Xt)
+    a = g.attack_frames.current_attack(Xa, Xt)
+    ix, tamper = g.attack_frames.currents_with_attack(scan, Xa, Xt)
     assert a is not None and ix is not None and tamper is not None and scan.i_x is not None
     moved = (np.abs(a) > 1e-9) & (scan.i_m > 0)
     np.testing.assert_allclose(ix[moved] - scan.i_x[moved], a[moved], atol=1e-6)
@@ -110,7 +110,7 @@ def test_a_tampered_current_counts_in_its_ends_pmu():
 
 
 def test_the_search_counts_the_current_channels(gens, pool):
-    from fdia_graph.engine.attacks.minimize import _Window
+    from fdia_graph.engine.attacks.window import AttackWindow
     from fdia_graph.models.frames import AttackDesign, FrameKnobs, LoadGoal
 
     g = gens
@@ -121,7 +121,7 @@ def test_the_search_counts_the_current_channels(gens, pool):
     )
     states = [pool[0], pool[1]]
     goal = LoadGoal(tuple(AttackDesign(np.array([target]), 1.03) for _ in states))
-    window = _Window(g, states, goal, k, stealth_bound=False)
+    window = AttackWindow(g, states, goal, k, stealth_bound=False)
     assert window.i_m is not None and window.i_sigma is not None and len(window.i_sigma) == 2
     area = np.asarray(g.area.local_region(np.array([g.load_bus[target]]), k.hops))
     cost = window.cost(area, None)

@@ -179,7 +179,7 @@ def test_a_stealthy_frame_is_the_benign_scan_plus_its_attack_vector(timeline_fil
             Lp[targets] *= 1.0 + sign * dev
             Xa = g.false_state.solve_local(Xt, region, Lp, g.scan_loads.true_reactive_load(Xt))
             if Xa is not None:
-                rebuilt.append(g.false_state._attack_vector(Xa, Xt))
+                rebuilt.append(g.attack_frames.attack_vector(Xa, Xt))
         # exactly one direction reproduces the frame; the clean layer is the pool state in float32, so
         # the rebuilt vector agrees to ~1e-4 MW, where a second noise draw would differ by about 1%
         match = [(n, e) for n, e in rebuilt if np.allclose(dn[nt], n[nt], rtol=1e-3, atol=1e-2)]

@@ -60,14 +60,14 @@ def test_reweighted_l1_never_beats_the_search(case):
     """The continuous relaxation proposes a support; under the same constraints it never tampers fewer
     devices than exhaustive search over the area. The relaxation cannot see the per-snapshot stealth
     bound, so both sides are costed without it."""
-    from fdia_graph.engine.attacks.minimize import _Window
+    from fdia_graph.engine.attacks.window import AttackWindow
 
     g, _, k = case
     compared = 0
     for states, goal, d in windows(case, 3, held=False):
         buses = np.unique(g.load_bus[d.targets])
         area = g.area.local_region(buses, k.hops)
-        window = _Window(g, states, goal, k, stealth_bound=False)
+        window = AttackWindow(g, states, goal, k, stealth_bound=False)
         costs = [
             c
             for S in g.minimizer._supports([frozenset(int(b) for b in buses)], area)

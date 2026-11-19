@@ -13,14 +13,14 @@ from tests.helpers import FixedDraws, windows
 
 def test_a_window_with_no_held_support_says_so(case):
     """Brute force finds no feasible support exactly when the search reports -1."""
-    from fdia_graph.engine.attacks.minimize import _Window
+    from fdia_graph.engine.attacks.window import AttackWindow
 
     g, _, k = case
     for states, goal, d in windows(case, 4, held=False):
         result = g.minimizer.min_tamper(states, goal, k)
         buses = np.unique(g.load_bus[d.targets])
         area = g.area.local_region(buses, k.hops)
-        window = _Window(g, states, goal, k)
+        window = AttackWindow(g, states, goal, k)
         feasible = [
             c
             for S in g.minimizer._supports([frozenset(int(b) for b in buses)], area)
@@ -30,14 +30,14 @@ def test_a_window_with_no_held_support_says_so(case):
 
 
 def test_the_search_equals_brute_force(case):
-    from fdia_graph.engine.attacks.minimize import _Window
+    from fdia_graph.engine.attacks.window import AttackWindow
 
     g, _, k = case
     for states, goal, d in windows(case, 3):
         result = g.minimizer.min_tamper(states, goal, k)
         buses = np.unique(g.load_bus[d.targets])
         area = g.area.local_region(buses, k.hops)
-        window = _Window(g, states, goal, k)
+        window = AttackWindow(g, states, goal, k)
         feasible = []
         for S in [*g.minimizer._supports([frozenset(int(b) for b in buses)], area), np.asarray(area)]:
             c = window.cost(S, None)
@@ -227,7 +227,7 @@ def test_generate_with_the_knob_records_each_ramp_search(tmp_path):
 def test_the_stealth_bound_covers_the_onset(case):
     """A window whose first frame jumps (a 15 percent load step from the attack-free frame before it)
     solves without the bound and is refused with it: the increment is measured from a zero attack."""
-    from fdia_graph.engine.attacks.minimize import _Window
+    from fdia_graph.engine.attacks.window import AttackWindow
     from fdia_graph.models.frames import AttackDesign, LoadGoal
 
     g, X, k = case
@@ -236,21 +236,21 @@ def test_the_stealth_bound_covers_the_onset(case):
         jump = LoadGoal(
             tuple(AttackDesign(d.targets, 1.15) for _ in states)
         )  # held at 1.15: only the onset jumps
-        assert _Window(g, states, jump, k, stealth_bound=False).cost(area, None) is not None
-        assert _Window(g, states, jump, k).cost(area, None) is None
+        assert AttackWindow(g, states, jump, k, stealth_bound=False).cost(area, None) is not None
+        assert AttackWindow(g, states, jump, k).cost(area, None) is None
 
 
 def test_a_support_within_noise_is_not_an_attack(case):
     """A window whose loads never move a device beyond its accuracy sigma costs nothing, so it is not an
     attack: no support is feasible and the search records -1, never a 0-device result."""
-    from fdia_graph.engine.attacks.minimize import _Window
+    from fdia_graph.engine.attacks.window import AttackWindow
     from fdia_graph.models.frames import AttackDesign, LoadGoal
 
     g, _, k = case
     for states, _, d in windows(case, 1, held=False):
         area = np.asarray(g.area.local_region(np.unique(g.load_bus[d.targets]), k.hops))
         still = LoadGoal(tuple(AttackDesign(d.targets, 1.0 + 1e-9) for _ in states))
-        assert _Window(g, states, still, k).cost(area, None) is None
+        assert AttackWindow(g, states, still, k).cost(area, None) is None
         assert g.minimizer.min_tamper(states, still, k).devices == -1
 
 
@@ -258,7 +258,7 @@ def test_the_onset_is_bounded_against_the_frame_before(case):
     """Episodes may be adjacent: a window after an attacked frame starts its stealth bound from that
     frame's attack vector. A held 15 percent step is refused after a benign frame (it jumps at onset)
     and accepted right after a frame carrying the same step (no increment at onset)."""
-    from fdia_graph.engine.attacks.minimize import _Window
+    from fdia_graph.engine.attacks.window import AttackWindow
     from fdia_graph.models.frames import AttackDesign, LoadGoal
 
     g, _, k = case
@@ -271,10 +271,10 @@ def test_the_onset_is_bounded_against_the_frame_before(case):
         from fdia_graph.models.frames import AttackVector
 
         before = AttackVector(
-            *g.false_state._attack_vector(Xa, states[0]), g.false_state._current_attack(Xa, states[0])
+            *g.attack_frames.attack_vector(Xa, states[0]), g.attack_frames.current_attack(Xa, states[0])
         )
-        assert _Window(g, states, held, k).cost(area, None) is None
-        assert _Window(g, states, held, k, prev=before).cost(area, None) is not None
+        assert AttackWindow(g, states, held, k).cost(area, None) is None
+        assert AttackWindow(g, states, held, k, prev=before).cost(area, None) is not None
 
 
 def test_the_search_stops_early_only_once_a_smaller_support_is_the_cheapest():

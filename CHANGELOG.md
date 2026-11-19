@@ -5,6 +5,14 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- **The two densest files of the attack core are split by job.** No method's logic changed, and every
+  IEEE timeline is byte for byte what it was.
+  - `engine/attacks/frames.py`, the new part `AttackFrames` (`g.attack_frames`): `frame_from_state`,
+    `frame_from_vector`, `attack_vector`, `current_attack`, `currents_with_attack` and `changed_meters`,
+    out of `false_state.py`, which keeps the solves and the limits.
+  - `engine/attacks/window.py`: `AttackWindow` (was `_Window` in `minimize.py`), what a candidate
+    support costs over a window. `minimize.py` keeps the search over supports.
+
 - **The generator is made of parts, not mixins.** `FdiaGenerator` held every method through a stack of
   mixins; it now holds one object per job, named after its class, so a call names the class its method
   is in.
