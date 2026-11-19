@@ -2012,7 +2012,7 @@ the data terms is in <a href="../../guides/generation/"><code>../guides/generati
 </tr>
 <tr>
 <td>load cap</td>
-<td>The overload attack's load-plausibility bound tau: every load bus the attack moves, in its support or on the support's edge, shows an active change of at most tau times its true load [YUA11]; 0.5 by default.</td>
+<td>The overload attack's load-plausibility bound: every load bus the attack moves, in its support or on the support's boundary (a bus with a base load, no generator, not the slack), shows an active change of at most <code>load_cap</code> times its true load [YUA11]; 0.5 by default.</td>
 <td><code>models.config.OverloadSettings.load_cap</code>, <code>generate_timeline(..., am_attack={"load_cap": ...})</code>, <code>engine.attacks.false_state.FalseState.solve_flow_local</code></td>
 </tr>
 <tr>
@@ -2032,12 +2032,12 @@ the data terms is in <a href="../../guides/generation/"><code>../guides/generati
 </tr>
 <tr>
 <td>tamper cost</td>
-<td>The devices with a channel moved beyond its accuracy-class sigma at some snapshot of an attack window, the objective of [WU26, eq. 12].</td>
+<td>The devices with a channel moved beyond the family's threshold at some snapshot of an attack window, the objective of [WU26, eq. 12]. The threshold is the accuracy-class sigma for <code>At</code> and the paper noise for <code>Am</code>.</td>
 <td><code>formulas.attacks.tampered_channels</code>, <code>tampered_devices</code></td>
 </tr>
 <tr>
 <td>accuracy-class sigma</td>
-<td>A meter's rated accuracy at a reading (relative for power channels plus a floor, absolute for voltage and angle): the sigma the measured calibration uses and the threshold of the fewest-tamper search.</td>
+<td>A meter's rated accuracy at a reading (relative for power channels plus a floor, absolute for voltage and angle): the sigma the measured calibration uses and the threshold of the fewest-tamper search for <code>At</code>.</td>
 <td><code>NoiseModel.sigmas</code>, <code>formulas.noise.accuracy_class_sigma</code></td>
 </tr>
 <tr>

@@ -1988,9 +1988,26 @@
 the public API, the generated files and the numbers are the same as the previous release.</p>
 <h2 id="unreleased">Unreleased<a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
 <ul>
-<li><strong>One file layout.</strong> A timeline has flows at the from end of a branch and PMU currents as real and
+<li>
+<p><strong>Names in the attack code say what the thing is (no change in behaviour).</strong> <code>Xt</code> and <code>Xa</code> are
+  <code>x_true</code> and <code>x_false</code>; <code>Lp</code> and <code>Lq</code> are <code>p_load</code> and <code>q_load</code>; the attack knobs a function takes
+  are <code>knobs</code>, not <code>k</code> (so <code>AttackWindow.k</code> is <code>AttackWindow.knobs</code>). On the generator, <code>C</code>, <code>E</code> and
+  <code>ei</code> are <code>n_bus</code>, <code>n_branch</code> and <code>edge_index</code>. The parameters of <code>formulas.attacks.within_limits</code>
+  and of the <code>ScanLoads</code> methods are renamed with them, so a call that passed <code>Xt=</code>, <code>Xa=</code>, <code>Lp=</code>,
+  <code>Lq=</code> or <code>k=</code> by keyword must use the new name. Every IEEE timeline is byte for byte what it was.
+  The attacks page and the glossary are corrected where they said something the code does not do: a
+  ramp's targets need not be neighbours; a ramp stays one step away from the true load after its return
+  and can end before the return is complete; the search tries the whole area first; a ramp checks the
+  generator limits inside the buses it re-solves and not on the buses one branch outside, where an
+  overload does; the third rating source <code>"delta"</code>; the tamper threshold is the rated accuracy for
+  <code>At</code> and the paper noise for <code>Am</code>; the designs are methods of <code>EpisodeDesigns</code>; and a search that
+  finds no support records <code>-1</code> devices and the ramp runs on its whole area.</p>
+</li>
+<li>
+<p><strong>One file layout.</strong> A timeline has flows at the from end of a branch and PMU currents as real and
   imaginary part, on every test system; nothing in the package wrote any other form since the New York
-  source left, so the other form is gone from the package.</li>
+  source left, so the other form is gone from the package.</p>
+</li>
 <li>Removed: <code>LayerSet</code> (<code>both_ends</code>, <code>temporal</code>) and the <code>spec</code> argument of <code>FdiaGenerator</code> and
     <code>TimelineWriter</code>; <code>MeterKind.I</code> and <code>IA</code>, <code>PolarCurrentChannel</code>, <code>EdgeChannel.P_TO</code> and <code>Q_TO</code>;
     <code>schema.CURRENT_POLAR</code>; <code>Capability.RECTANGULAR_CURRENTS</code>; <code>FdiaGraph.current_form</code>. <code>MeterKind.IR</code>
