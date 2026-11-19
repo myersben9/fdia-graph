@@ -51,7 +51,7 @@ def test_the_rules_check_1_and_2_and_charge_for_size(g118):
     seeds = np.unique(g118.edge_index[:, lines])
     chosen = g118.area.rule_area(seeds, lines, states)
     assert chosen is not None and g118.area._connected(chosen)
-    scores = [g118.area.area_score(g118.area.local_region(seeds, h), lines, states) for h in (1, 2, 3, 4)]
+    scores = [g118.area.area_score(g118.area.hop_area(seeds, h), lines, states) for h in (1, 2, 3, 4)]
     best = max((s for s in scores if s.observable and s.connected), key=area_score_total)
     assert np.array_equal(chosen, best.buses)
     assert all(

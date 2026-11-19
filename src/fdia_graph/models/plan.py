@@ -123,7 +123,7 @@ class Episode:
     its frames carry the attack."""
 
     family: str  # its name ("Am", "At")
-    # the owners of the tampered meters (New York; the attacker's subnetwork may span utilities)
+    # the owners of the tampered meters (New York; the attacker's area may span utilities)
     clients: np.ndarray
     onset: int
     length: int

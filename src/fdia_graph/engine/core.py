@@ -109,7 +109,7 @@ class FdiaGenerator:
         p_load = np.abs(self.load_p0)
         # Attackable: active load above zero, off the slack bus, at most `max_load_mw`, at one of the
         # grid's own buses. A reactive-only load (IEEE-300 buses 141, 183) would leave no P footprint yet
-        # be labelled attacked; a load on the slack bus can never enter a region; a gigawatt
+        # be labelled attacked; a load on the slack bus can never enter an area; a gigawatt
         # area-equivalent load has no local solution; a neighbour's equivalent bus is not the grid's.
         attackable = (p_load > 0.0) & (self.load_bus != self.slack_bus) & case.own_bus[self.load_bus]
         if self.max_load_mw is not None:

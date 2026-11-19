@@ -18,9 +18,10 @@ def operating_limits(
     q_lim: np.ndarray,
     gen: np.ndarray,
 ) -> OperatingLimits:
-    """The limits of [WU26 eqs. 21-23]: the case's voltage limits `v_case` [N, 2] as given, and the
-    generator limits widened to the range the benign pool's generator output `gen` [T, N, 2] spans (the
-    pool never enforces nameplate): p_lo_i = min(P_i^min, min_t P_gen,i,t), p_hi_i = max(P_i^max, max_t P_gen,i,t), likewise Q."""
+    """The limits of [WU26 eqs. 21-23]: the case's voltage limits `v_case` [N, 2] as given, and the generator
+    limits widened to the range the benign pool's generator output `gen` [T, N, 2] spans (the pool never
+    enforces nameplate): p_lo_i = min(P_i^min, min_t P_gen,i,t), p_hi_i = max(P_i^max, max_t P_gen,i,t),
+    likewise Q."""
     return OperatingLimits(
         v_case[:, 0],
         v_case[:, 1],
@@ -43,8 +44,8 @@ def generator_output(X: np.ndarray, load_base: np.ndarray, gen_base: np.ndarray)
 
 
 def element_loads(bus_p: np.ndarray, load_bus: np.ndarray, p0: np.ndarray) -> np.ndarray:
-    """A bus's scan load (MW, from `engine.physics.LoadSplit.load`) split over its load elements by their base shares
-    [DAT26]: P_e = P_bus(e) · P0_e / Σ_{e' at bus(e)} P0_e'. Returns [n_loads] MW; an element on a
+    """A bus's scan load (MW, from `engine.physics.LoadSplit.load`) split over its load elements by their base
+    shares [DAT26]: P_e = P_bus(e) · P0_e / Σ_{e' at bus(e)} P0_e'. Returns [n_loads] MW; an element on a
     bus whose base loads sum to zero gets zero."""
     tot = np.zeros(len(bus_p))
     np.add.at(tot, load_bus, p0)
@@ -58,17 +59,18 @@ def within_limits(
     gen_true: np.ndarray,
     load_delta: np.ndarray,
     limits: OperatingLimits,
-    interior: np.ndarray,
+    buses: np.ndarray,
 ) -> bool:
     """Whether the false state x_false [N, 4] satisfies [WU26 eqs. 21-23]: every |V| inside v_lo_i =
-    min(V_i^min, |V_i^true|), v_hi_i = max(V_i^max, |V_i^true|), and, at the interior's generators, the
-    implied output P_gen - (ΔP_inj - ΔP_load) and Q_gen - ΔQ_inj inside its limits. `load_delta` is MW."""
+    min(V_i^min, |V_i^true|), v_hi_i = max(V_i^max, |V_i^true|), and, at the generators among `buses` (the
+    support for a load goal, the reach for a flow goal), the implied output P_gen - (ΔP_inj - ΔP_load) and
+    Q_gen - ΔQ_inj inside its limits. `load_delta` is MW."""
     V, Vt = x_false[:, NodeChannel.V], x_true[:, NodeChannel.V]
     if np.any(V < np.minimum(limits.v_lo, Vt) - LIMIT_TOL_V):
         return False
     if np.any(V > np.maximum(limits.v_hi, Vt) + LIMIT_TOL_V):
         return False
-    I_ = np.asarray(interior, int)
+    I_ = np.asarray(buses, int)
     p = gen_true[I_, 0] - (x_false[I_, NodeChannel.P_INJ] - x_true[I_, NodeChannel.P_INJ] - load_delta[I_])
     q = gen_true[I_, 1] - (x_false[I_, NodeChannel.Q_INJ] - x_true[I_, NodeChannel.Q_INJ])
     return bool(

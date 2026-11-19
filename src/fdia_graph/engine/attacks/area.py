@@ -1,6 +1,6 @@
-"""The attacker's area: the subnetwork a stealthy attack re-solves, and the boundary it holds true.
+"""The attacker's area: the buses a stealthy attack may act in, and the boundary around a set of buses.
 
-[WU26] Section III-A (p. 654) chooses the attacker's subnetwork A = (N_a, E_a) by four principles:
+[WU26] Section III-A (p. 654) chooses the attacker's area A = (N_a, E_a) by four principles:
 1) it holds at least one compromised PMU or SCADA channel for voltage or injection data, 2) its buses
 form a connected region, 3) it favours areas whose load buses are significant or whose injection
 changes spread across the network, 4) it favours stable load and generation and good observability.
@@ -19,10 +19,10 @@ from ...formulas.network import complex_voltages, flow_sensitivities, subnetwork
 from ...models.frames import AreaScore
 from ..base import Part
 
-# the regions `rule_area` chooses among: the buses within this many hops of the goal (ours)
+# the areas `rule_area` chooses among: the buses within this many hops of the goal (ours)
 AREA_HOPS = (1, 2, 3, 4)
 # the score's price per bus, as a share of the system (ours): rules 3 and 4 each grow with the area,
-# so without it the largest region always wins; at 0.5 the rule picks IEEE-118's 3-hop region around
+# so without it the largest area always wins; at 0.5 the rule picks IEEE-118's 3-hop area around
 # [WU26]'s lines 84-85 and 99-100, the closest to its Fig. 9 area
 AREA_SIZE_PENALTY = 0.5
 
@@ -33,17 +33,17 @@ def area_score_total(s: AreaScore) -> float:
 
 
 class AttackArea(Part):
-    """Where a stealthy attack acts: the interior buses it may move and the boundary around them."""
+    """Where a stealthy attack acts: the buses it may move and the boundary around them."""
 
-    def local_region(self, seeds: np.ndarray, hops: int) -> Optional[np.ndarray]:
-        """The attacker's interior around `seeds` [WU26]: the buses within `hops` branches, never the slack
+    def hop_area(self, seeds: np.ndarray, hops: int) -> Optional[np.ndarray]:
+        """The attacker's area around `seeds` [WU26]: the buses within `hops` branches, never the slack
         (the estimator pins it), grown over zero-injection boundary buses (they cannot absorb the changed
         power), with `hops` reduced until a boundary exists. None when the seeds alone leave no boundary."""
         for h in range(hops, -1, -1):
-            interior, _ = subnetwork(self.g.edge_index, seeds, h, self.g.n_bus)
-            interior, boundary = self.grow_over_zero_injection(interior[interior != self.g.slack_bus])
-            if len(interior) and len(boundary):
-                return interior
+            area, _ = subnetwork(self.g.edge_index, seeds, h, self.g.n_bus)
+            area, boundary = self.grow_over_zero_injection(area[area != self.g.slack_bus])
+            if len(area) and len(boundary):
+                return area
         return None
 
     def _adjacency(self) -> list[frozenset[int]]:
@@ -59,24 +59,25 @@ class AttackArea(Part):
             self._adjacency_cache = cached
         return cached
 
-    def boundary(self, interior: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-        """(the interior sorted, its boundary: the buses one branch outside it, sorted)."""
+    def boundary(self, buses: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+        """(`buses` sorted, their boundary: the buses one branch outside them, sorted). `buses` is an
+        area or a support."""
         adj = self._adjacency()
-        inside = {int(b) for b in interior}
-        ring = {j for i in inside for j in adj[i]} - inside
-        return np.array(sorted(inside), int), np.array(sorted(ring), int)
+        inside = {int(b) for b in buses}
+        outside = {j for i in inside for j in adj[i]} - inside
+        return np.array(sorted(inside), int), np.array(sorted(outside), int)
 
-    def grow_over_zero_injection(self, interior: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-        """The interior with every zero-injection bus of its boundary taken in (repeated until the
-        boundary holds none), and that boundary; the slack stays out."""
+    def grow_over_zero_injection(self, buses: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+        """`buses` (an area or a support) with every zero-injection bus of its boundary taken in
+        (repeated until the boundary holds none), and that boundary; the slack stays out."""
         zero = {int(b) for b in self.g.zero_inj} - {self.g.slack_bus}
-        interior, boundary = self.boundary(interior)
+        grown, boundary = self.boundary(buses)
         while len(boundary):
             grow = [int(b) for b in boundary if int(b) in zero]
             if not grow:
                 break
-            interior, boundary = self.boundary(np.union1d(interior, grow))
-        return interior, boundary
+            grown, boundary = self.boundary(np.union1d(grown, grow))
+        return grown, boundary
 
     def attack_area(
         self,
@@ -85,27 +86,27 @@ class AttackArea(Part):
         rule: str = "hops",
         context: Optional[tuple[list[int], np.ndarray]] = None,
     ) -> Optional[np.ndarray]:
-        """The attacker's area for a goal acting through `seeds`: the buses within `hops` (`local_region`,
-        the default), or with `rule` "rules" the region [WU26]'s Section III-A principles pick
+        """The attacker's area for a goal acting through `seeds`: the buses within `hops` (`hop_area`,
+        the default), or with `rule` "rules" the area [WU26]'s Section III-A principles pick
         (`rule_area`; `context` = (goal lines, the window's states))."""
         if rule == "rules" and context is not None:
             return self.rule_area(seeds, *context)
-        return self.local_region(seeds, hops)
+        return self.hop_area(seeds, hops)
 
     def explicit_area(self, buses: np.ndarray) -> Optional[np.ndarray]:
         """An area the caller gives bus by bus (`FrameKnobs.area`): sorted, the slack out, grown over
-        the zero-injection buses of its boundary as every region is; None when no boundary is left."""
+        the zero-injection buses of its boundary as every area is; None when no boundary is left."""
         inside = np.setdiff1d(np.asarray(buses, np.int64), [self.g.slack_bus])
-        interior, boundary = self.grow_over_zero_injection(inside)
-        return interior if len(interior) and len(boundary) else None
+        area, boundary = self.grow_over_zero_injection(inside)
+        return area if len(area) and len(boundary) else None
 
     def rule_area(self, seeds: np.ndarray, lines: list[int], states: np.ndarray) -> Optional[np.ndarray]:
-        """The best-scoring region around `seeds` among `AREA_HOPS` that passes rules 1 and 2 (ours, from
+        """The best-scoring area around `seeds` among `AREA_HOPS` that passes rules 1 and 2 (ours, from
         [WU26] p. 654): None when none does."""
         scored = []
         spread = self._spread(states) if lines else None  # one solve for every candidate
         for h in AREA_HOPS:
-            area = self.local_region(seeds, h)
+            area = self.hop_area(seeds, h)
             if area is not None and not any(np.array_equal(area, s.buses) for s in scored):
                 scored.append(self.area_score(area, lines, states, spread))
         ok = [s for s in scored if s.observable and s.connected]

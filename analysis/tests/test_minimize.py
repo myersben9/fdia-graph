@@ -66,7 +66,7 @@ def test_reweighted_l1_never_beats_the_search(case):
     compared = 0
     for states, goal, d in windows(case, 3, held=False):
         buses = np.unique(g.load_bus[d.targets])
-        area = g.area.local_region(buses, k.hops)
+        area = g.area.hop_area(buses, k.hops)
         window = AttackWindow(g, states, goal, k, stealth_bound=False)
         costs = [
             c

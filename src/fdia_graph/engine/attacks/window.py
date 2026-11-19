@@ -41,9 +41,9 @@ class _Near(NamedTuple):
     metered: np.ndarray
 
 
-def _near_branches(g: FdiaGenerator, S: np.ndarray) -> _Near:
-    """`_Near` of support S: the branches with an end in S."""
-    lines = np.flatnonzero(np.isin(g.edge_index, S).any(axis=0))
+def _near_branches(g: FdiaGenerator, support: np.ndarray) -> _Near:
+    """`_Near` of a support: the branches with an end in the support."""
+    lines = np.flatnonzero(np.isin(g.edge_index, support).any(axis=0))
     yf, yt = _row_block(g.net.yf, lines), _row_block(g.net.yt, lines)
     return _Near(lines, yf, yt, g.case.f[lines], g.flow_metered[lines])
 
@@ -107,35 +107,36 @@ class AttackWindow:
             return AttackVector(*(np.zeros(shape) for shape in shapes))
         return AttackVector(*(np.asarray(part, float) for part in prev))
 
-    def cost(self, S: np.ndarray, beat: Optional[Cost]) -> Optional[Cost]:
-        """The cost of support S held for the window: the union of the tampered devices and channels over
-        every snapshot [WU26 eq. 28]. None when S is infeasible at a snapshot, moves no device beyond its
-        noise over the window (not an attack), or cannot beat `beat`."""
-        if self._zero_on_boundary(S):
+    def cost(self, support: np.ndarray, beat: Optional[Cost]) -> Optional[Cost]:
+        """The cost of a support held for the window: the union of the tampered devices and channels over
+        every snapshot [WU26 eq. 28]. None when the support is infeasible at a snapshot, moves no device
+        beyond its noise over the window (not an attack), or cannot beat `beat`."""
+        if self._zero_on_boundary(support):
             return None  # never for a candidate of `Minimizer._supports`, which takes such a bus in
-        tampered = self._tampered(S, beat)
+        tampered = self._tampered(support, beat)
         if tampered is None:
             return None
         union, devices = tampered
         if not devices:
             return None  # within noise at every snapshot: no effect, so not an attack
-        cost = self.rank(devices, _channel_count(union), len(S))
+        cost = self.rank(devices, _channel_count(union), len(support))
         return cost if beat is None or cost < beat else None
 
-    def support_at(self, t: int, S: np.ndarray) -> np.ndarray:
-        """The buses of S free at snapshot t: S less the buses of the PMUs trusted by then ([WU26] eq. 29
-        holds their deviation at zero, so they keep their true voltage)."""
+    def support_at(self, t: int, support: np.ndarray) -> np.ndarray:
+        """The buses of the support free at snapshot t: the support less the buses of the PMUs trusted by then
+        ([WU26] eq. 29 holds their deviation at zero, so they keep their true voltage)."""
         pinned = self.pinned[t]
-        return S if not pinned else S[~np.isin(S, sorted(pinned))]
+        return support if not pinned else support[~np.isin(support, sorted(pinned))]
 
-    def _tampered(self, S: np.ndarray, beat: Optional[Cost]) -> Optional[tuple[_Channels, int]]:
-        """The union of tampered channels (node, flow, PMU current masks) on S over the window and its
-        device count, or None when S fails at a snapshot or its first count so far exceeds `beat`'s."""
+    def _tampered(self, support: np.ndarray, beat: Optional[Cost]) -> Optional[tuple[_Channels, int]]:
+        """The union of tampered channels (node, flow, PMU current masks) on the support over the window and
+        its device count, or None when the support fails at a snapshot or its first count so far exceeds
+        `beat`'s."""
         shapes = (self.node_m.shape, self.edge_m.shape, self.i_m.shape)
         union: _Channels = (np.zeros(shapes[0], bool), np.zeros(shapes[1], bool), np.zeros(shapes[2], bool))
         devices, prev = 0, self.prev
         for t in range(len(self.states)):
-            free = self.support_at(t, S)
+            free = self.support_at(t, support)
             if not len(free) or (self.pinned[t] and self._zero_on_boundary(free)):
                 return None
             moved = self._snapshot(t, free, prev)
@@ -164,21 +165,22 @@ class AttackWindow:
         from_bus, to_bus = self.g.edge_index
         return len(tampered_devices(union[0], union[1], self.pmu, from_bus, union[2], to_bus))
 
-    def _zero_on_boundary(self, S: np.ndarray) -> bool:
-        """Whether a zero-injection bus sits on S's boundary (it could not absorb the changed power)."""
-        return bool(np.isin(self.g.area.boundary(S)[1], self.zero).any())
+    def _zero_on_boundary(self, support: np.ndarray) -> bool:
+        """Whether a zero-injection bus sits on the support's boundary (it could not absorb the changed
+        power)."""
+        return bool(np.isin(self.g.area.boundary(support)[1], self.zero).any())
 
     def _snapshot(
-        self, t: int, S: np.ndarray, prev: AttackVector
+        self, t: int, support: np.ndarray, prev: AttackVector
     ) -> Optional[tuple[np.ndarray, np.ndarray, np.ndarray, AttackVector]]:
-        """Snapshot t on support S: (the node, flow and PMU current channels moved beyond their noise,
-        and this snapshot's attack vector), or None when S has no false state here or (At) breaks the
+        """Snapshot t on a support: (the node, flow and PMU current channels moved beyond their noise, and
+        this snapshot's attack vector), or None when the support has no false state here or (At) breaks the
         stealth bound against the previous snapshot's attack vector `prev`."""
-        x_false = self.g.minimizer.goal_state(self.goal, t, self.states[t], S, self.knobs)
+        x_false = self.g.minimizer.goal_state(self.goal, t, self.states[t], support, self.knobs)
         if x_false is None:
             return None
         a_node = np.asarray(x_false, float) - np.asarray(self.states[t], float)
-        a_edge, a_cur = self._branch_attack(t, x_false, self.near(S))
+        a_edge, a_cur = self._branch_attack(t, x_false, self.near(support))
         sig_node, sig_edge = self.sigma[t]
         if self.stealth_bound:  # no metered channel moves more than its rated accuracy per step
             scale = self.knobs.stealth_scale
@@ -195,11 +197,11 @@ class AttackWindow:
         node, edge = tampered_channels(a_node, a_edge, sig_node, sig_edge, self.node_m, self.edge_m)
         return node, edge, self._over(t, a_cur, 1.0), AttackVector(a_node, a_edge, a_cur)
 
-    def near(self, S: np.ndarray) -> _Near:
-        """`_Near` of support S, cached for the last support."""
-        key = np.asarray(S, np.int64).tobytes()
+    def near(self, support: np.ndarray) -> _Near:
+        """`_Near` of a support, cached for the last one."""
+        key = np.asarray(support, np.int64).tobytes()
         if self._near is None or self._near[0] != key:
-            self._near = (key, _near_branches(self.g, S))
+            self._near = (key, _near_branches(self.g, support))
         return self._near[1]
 
     def _branch_attack(self, t: int, x_false: np.ndarray, near: _Near) -> tuple[np.ndarray, np.ndarray]:

@@ -65,7 +65,7 @@ What every folder of the repository holds, then what every Python file does, in 
 | `download` | Fetch the built-in datasets from the GitHub Release and cache them under ~/.cache/fdia_graph. |
 | `engine` | The generation engine — the math/physics/theory half of the SDK, behind fg.generate(). |
 | `engine.attacks` | Every attack the generator builds. Seven files each hold one part of the generator; four hold what serves or uses the parts. |
-| `engine.attacks.area` | The attacker's area: the subnetwork a stealthy attack re-solves, and the boundary it holds true. |
+| `engine.attacks.area` | The attacker's area: the buses a stealthy attack may act in, and the boundary around a set of buses. |
 | `engine.attacks.episodes` | What one episode attacks: its design, drawn at onset (`EpisodeDesigns`). |
 | `engine.attacks.false_state` | The local false state of a stealthy attack: the attacker's area re-solved under false loads with the boundary held true, and checked against the operating limits. `frames.py` writes its attack vector onto a scan. |
 | `engine.attacks.family` | The interface the attack families share. The design stage asks a family one thing, the episode of a window (`EpisodeFamily.designed`), and the walk emits what it gets (`DesignedEpisode`), whichever family made it. A family of your own (`AttackFamily`) designs one `Episode` (`models.plan`), an attack vector over its window, or a miss. |

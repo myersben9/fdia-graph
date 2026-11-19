@@ -84,7 +84,7 @@ def test_the_reduction_names_buses_3_and_11_for_lines_3_4_and_6_11():
     g, window, k, goal = _setup(0, 1.1)
     number = g.case.bus_id
     seeds, _, _ = g.minimizer._goal_seeds(goal)
-    area = np.asarray(g.area.local_region(seeds, k.hops))
+    area = np.asarray(g.area.hop_area(seeds, k.hops))
     w = AttackWindow(g, window, goal, k)
     for t in (0, 7, 19):
         assert sorted(int(number[b]) for b in RrefSupport(g).ladder(w, t, area)[0]) == [3, 11]
@@ -126,6 +126,6 @@ def test_a_line_no_free_bus_moves_leaves_the_snapshot_nothing_to_rank(monkeypatc
     monkeypatch.setattr(rref, "_moved_lines", lambda G, c: set())
     g, window, k, goal = _setup(0, 1.1)
     seeds, _, _ = g.minimizer._goal_seeds(goal)
-    area = np.asarray(g.area.local_region(seeds, k.hops))
+    area = np.asarray(g.area.hop_area(seeds, k.hops))
     assert RrefSupport(g).ladder(AttackWindow(g, window, goal, k), 0, area) == []
     assert g.minimizer.min_tamper(window, goal, k._replace(support_method="rref")).devices == -1

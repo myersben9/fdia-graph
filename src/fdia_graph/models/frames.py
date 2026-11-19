@@ -32,11 +32,13 @@ class Scan(NamedTuple):
 
 class AttackDesign(NamedTuple):
     """A stealthy attack's design on one scan: the loads it moves, by how much, and over which
-    subnetwork. The local false state is solved from it (engine.attacks, `stealthy_state`)."""
+    support. The local false state is solved from it (engine.attacks, `stealthy_state`)."""
 
     targets: np.ndarray  # positions in the generator's load table (not bus numbers)
     mult: Union[float, np.ndarray]  # load multiplier: a scalar for the ramp, one per target otherwise
-    interior: Optional[np.ndarray] = None  # the attacker's subnetwork; None: the region around targets
+    support: Optional[np.ndarray] = (
+        None  # the buses the false state re-solves; None: the area within `hops` of the targets
+    )
 
 
 class RampDesign(NamedTuple):
@@ -48,7 +50,7 @@ class RampDesign(NamedTuple):
     rise: int  # frames of the rise
     hold: int  # frames held at the peak
     # with the fewest-tamper knob: the support the minimizer chose, held for every frame of the
-    # episode, and its result; None: every frame is solved on the region around its targets
+    # episode, and its result; None: every frame is solved on the area around its targets
     support: Optional[np.ndarray] = None
     tamper: Optional[MinimizerResult] = None
 
@@ -113,11 +115,11 @@ class OperatingLimits(NamedTuple):
 class FrameKnobs(NamedTuple):
     """The attack settings of one generation run, fixed for every scan."""
 
-    # the attacks are local false states [WU26]: the attacker solves the subnetwork within `hops`
+    # the attacks are local false states [WU26]: the attacker solves the area within `hops`
     # branches of the attacked buses (or the target lines) with the boundary voltages held true
     hops: int = 2
     limits: Optional[OperatingLimits] = None  # a false state outside the box is rejected (then halved)
-    # [WU26 eq. 12]: an episode's support is the one that tampers the fewest devices (off: the region
+    # [WU26 eq. 12]: an episode's support is the one that tampers the fewest devices (off: the area
     # within `hops`), searched over at most `min_budget` candidate supports
     min_tamper: bool = False
     min_budget: int = 256
@@ -133,7 +135,7 @@ class FrameKnobs(NamedTuple):
     objective: str = "devices"
     # the attacker's area [WU26] Sec. III-A: its buses when the caller gives them bus by bus,
     # else chosen by `area_rule` (`AreaRule`): "hops", the buses within `hops`
-    # of the goal, or "rules", the region the paper's four principles pick (`AttackArea.rule_area`, ours)
+    # of the goal, or "rules", the area the paper's four principles pick (`AttackArea.rule_area`, ours)
     area: Optional[tuple[int, ...]] = None
     area_rule: str = "hops"
 
@@ -199,7 +201,7 @@ class MinimizerResult(NamedTuple):
     support: np.ndarray  # the buses whose voltages the false state moves (sorted)
     devices: int  # devices with a channel moved beyond its noise at some snapshot; -1 when no candidate
     # support meets every constraint and moves at least one device beyond its noise (the episode then
-    # runs on the region)
+    # runs on the area)
     channels: int  # channels moved beyond their noise at some snapshot
     evaluated: int  # candidate supports solved
 
@@ -212,7 +214,8 @@ class AreaScore(NamedTuple):
     observable: bool  # rule 1: a metered voltage or injection channel in the area
     connected: bool  # rule 2: one connected region over live branches
     load_share: float  # rule 3: the area's share of the system's active load over the window
-    spread: float  # rule 3: mean |AC flow sensitivity| of the goal lines to the area's injections (0 for a load goal)
+    # rule 3: mean |AC flow sensitivity| of the goal lines to the area's injections (0 for a load goal)
+    spread: float
     stability: float  # rule 4: 1 / (1 + the mean coefficient of variation of the area's loads)
     observability: float  # rule 4: metered channels per area bus against the system's, capped at 1
     size: float  # the area's buses as a share of the system's

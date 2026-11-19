@@ -172,7 +172,7 @@ def test_a_stealthy_frame_is_the_benign_scan_plus_its_attack_vector(timeline_fil
         nt, et = a["attack/node_tamper"][t] > 0, a["attack/edge_tamper"][t] > 0
         dn = a["data/node_x"][t].astype(np.float64) - a["benign/node_benign"][t]
         de = a["data/edge_x"][t].astype(np.float64) - a["benign/edge_benign"][t]
-        region = g.area.local_region(g.load_bus[targets], int(attrs["hops"]))
+        region = g.area.hop_area(g.load_bus[targets], int(attrs["hops"]))
         rebuilt = []
         for sign in (1.0, -1.0):
             p_load = g.scan_loads.true_load(x_true)
@@ -309,11 +309,11 @@ def test_local_region_keeps_a_boundary_and_the_slack_fixed():
 
     g = FdiaGenerator(Network.from_ieee(14), seed=1)
     for hops in (0, 1, 2, 3):
-        region = g.area.local_region(g.load_bus[:5], hops)
+        region = g.area.hop_area(g.load_bus[:5], hops)
         assert region is not None and g.slack_bus not in region
         _, boundary = subnetwork(g.edge_index, region, 0, g.n_bus)
         assert len(boundary) and not set(boundary.tolist()) & (set(g.zero_inj) - {g.slack_bus})
-    whole = g.area.local_region(
+    whole = g.area.hop_area(
         np.arange(g.n_bus), 0
     )  # every bus as a seed: the slack alone is left to balance against
     assert whole is not None and sorted(whole.tolist()) == sorted(set(range(g.n_bus)) - {g.slack_bus})
@@ -367,8 +367,8 @@ def test_reactive_load_adds_back_the_generators_output():
     for pos, b in enumerate(g.load_bus):
         want = 1.1 * g.split.base_load[b, 1] if g.has_gen[b] else X[b, 2]
         assert q_load[pos] == pytest.approx(want, abs=1e-6)
-    interior = g.area.local_region(g.load_bus[[2]], 1)
-    x_false = g.false_state.solve_local(X, interior, g.scan_loads.true_load(X), q_load)
+    support = g.area.hop_area(g.load_bus[[2]], 1)
+    x_false = g.false_state.solve_local(X, support, g.scan_loads.true_load(X), q_load)
     assert np.allclose(x_false, X, atol=1e-5)
 
 

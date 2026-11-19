@@ -2,7 +2,7 @@
 
 [WU26] minimizes the tampered measurements, a change under a meter's noise not counted, subject to the
 AC model and the operating limits. Here every tampered reading comes from a local false state, so the
-support S (the buses whose voltages the false state frees) sets which meters move. The candidates are
+support (the buses whose voltages the false state frees) sets which meters move. The candidates are
 the area (`window_area`), then the goal's buses grown one adjacent area bus at a time, smallest first,
 at most `FrameKnobs.min_budget`. Each is solved at every snapshot and its tampered devices and channels
 counted over the window [WU26 eq. 28]. The cheapest found wins; nothing is claimed about optimality.
@@ -116,7 +116,11 @@ class Minimizer(Part):
         _, starts, must_hold = self._goal_seeds(goal)
         starts = _starts_in_area(starts, area, must_hold)
         window = AttackWindow(self.g, states, goal, knobs, prev=prev, trust=trust)
-        later = (S for S in self._supports(starts, area, must_hold) if not np.array_equal(S, area))
+        later = (
+            support
+            for support in self._supports(starts, area, must_hold)
+            if not np.array_equal(support, area)
+        )
         best, evaluated = _cheapest(window, itertools.chain([area], later), area, knobs.min_budget)
         if best is None:  # no candidate meets every constraint: say so, keep the area
             return MinimizerResult(area, -1, -1, evaluated)
@@ -138,33 +142,34 @@ class Minimizer(Part):
         return ends, starts, frozenset(int(b) for b in self.g.false_state.free_injection_buses())
 
     def goal_state(
-        self, goal: Goal, t: int, x_true: np.ndarray, S: np.ndarray, knobs: FrameKnobs
+        self, goal: Goal, t: int, x_true: np.ndarray, support: np.ndarray, knobs: FrameKnobs
     ) -> Optional[np.ndarray]:
-        """The false state of snapshot t on support S that meets the goal inside the operating limits, or
-        None. Unknowns: |V| and theta of S, every other voltage held true. A load goal is the square local
-        power flow; a flow goal frees S's loads and generators (`solve_flow_local`, [WU26 eqs. 13-25])."""
+        """The false state of snapshot t on the support that meets the goal inside the operating limits, or
+        None. Unknowns: |V| and theta of the support, every other voltage held true. A load goal is the square
+        local power flow; a flow goal frees the support's loads and generators (`solve_flow_local`, [WU26 eqs.
+        13-25])."""
         if goal.kind == "flow":
-            return self._flow_goal_state(cast(FlowGoal, goal), t, x_true, S, knobs)
-        return self._load_goal_state(cast(LoadGoal, goal), t, x_true, S, knobs)
+            return self._flow_goal_state(cast(FlowGoal, goal), t, x_true, support, knobs)
+        return self._load_goal_state(cast(LoadGoal, goal), t, x_true, support, knobs)
 
     def _flow_goal_state(
-        self, goal: FlowGoal, t: int, x_true: np.ndarray, S: np.ndarray, knobs: FrameKnobs
+        self, goal: FlowGoal, t: int, x_true: np.ndarray, support: np.ndarray, knobs: FrameKnobs
     ) -> Optional[np.ndarray]:
         x_false, _, dload = self.g.false_state.solve_flow_local(
-            x_true, S, goal.lines, goal.targets_at(t), knobs.limits, knobs.load_cap
+            x_true, support, goal.lines, goal.targets_at(t), knobs.limits, knobs.load_cap
         )
         if x_false is None:
             return None
-        if knobs.limits is not None:  # every generator the attack moves, on S's edge too
+        if knobs.limits is not None:  # every generator the attack moves, on the support's boundary too
             gen = self.g.split.generation(x_true)
             if not within_limits(
-                x_false, x_true, gen, dload, knobs.limits, self.g.false_state.touched_buses(S)
+                x_false, x_true, gen, dload, knobs.limits, self.g.false_state.reach(support)
             ):
                 return None
         return x_false
 
     def _load_goal_state(
-        self, goal: LoadGoal, t: int, x_true: np.ndarray, S: np.ndarray, knobs: FrameKnobs
+        self, goal: LoadGoal, t: int, x_true: np.ndarray, support: np.ndarray, knobs: FrameKnobs
     ) -> Optional[np.ndarray]:
         design = goal.designs[t]
         p_load_true, q_load = (
@@ -173,11 +178,11 @@ class Minimizer(Part):
         )
         p_load = p_load_true.copy()
         p_load[design.targets] *= design.mult
-        x_false = self.g.false_state.solve_local(x_true, S, p_load, q_load)
+        x_false = self.g.false_state.solve_local(x_true, support, p_load, q_load)
         if x_false is None:
             return None
         if knobs.limits is not None and not self.g.false_state.state_within_limits(
-            x_false, x_true, p_load - p_load_true, knobs.limits, S
+            x_false, x_true, p_load - p_load_true, knobs.limits, support
         ):
             return None
         return x_false
@@ -196,11 +201,11 @@ class Minimizer(Part):
             _push(heap, seen, self.zero_closed(s))
         while heap:
             _, key = heapq.heappop(heap)
-            S = frozenset(key)
-            if must_hold is None or S & must_hold:  # a flow goal's support needs a free injection
+            support = frozenset(key)
+            if must_hold is None or support & must_hold:  # a flow goal's support needs a free injection
                 yield np.array(key, dtype=np.int64)
-            for v in sorted({n for b in S for n in adj[b]} - S):
-                child = self.zero_closed(S | {v})
+            for v in sorted({n for b in support for n in adj[b]} - support):
+                child = self.zero_closed(support | {v})
                 if child <= allowed:
                     _push(heap, seen, child)
 
@@ -213,9 +218,9 @@ class Minimizer(Part):
                 adj[int(b)].add(int(a))
         return adj
 
-    def zero_closed(self, S: frozenset[int]) -> frozenset[int]:
-        """S with every zero-injection bus of its boundary taken in, as the area is grown."""
-        grown, _ = self.g.area.grow_over_zero_injection(np.array(sorted(S), dtype=np.int64))
+    def zero_closed(self, support: frozenset[int]) -> frozenset[int]:
+        """The support with every zero-injection bus of its boundary taken in, as the area is grown."""
+        grown, _ = self.g.area.grow_over_zero_injection(np.array(sorted(support), dtype=np.int64))
         return frozenset(int(b) for b in grown)
 
 
@@ -227,20 +232,23 @@ def _cheapest(
     come smallest first, so none later beats it."""
     best: Optional[tuple[Cost, np.ndarray]] = None
     evaluated = 0
-    for S in itertools.islice(candidates, budget):
+    for support in itertools.islice(candidates, budget):
         evaluated += 1
-        cost = window.cost(S, None if best is None else best[0])  # None unless S beats the best
-        best = best if cost is None else (cost, S)
+        # None unless the support beats the best
+        cost = window.cost(support, None if best is None else best[0])
+        best = best if cost is None else (cost, support)
         if best is not None and best[0][:2] == (1, 1) and best[1] is not area:
             break
     return best, evaluated
 
 
-def _push(heap: list[tuple[int, tuple[int, ...]]], seen: set[frozenset[int]], S: frozenset[int]) -> None:
-    """Queue support S by size, once."""
-    if S not in seen:
-        seen.add(S)
-        heapq.heappush(heap, (len(S), tuple(sorted(S))))
+def _push(
+    heap: list[tuple[int, tuple[int, ...]]], seen: set[frozenset[int]], support: frozenset[int]
+) -> None:
+    """Queue a support by size, once."""
+    if support not in seen:
+        seen.add(support)
+        heapq.heappush(heap, (len(support), tuple(sorted(support))))
 
 
 def _starts_in_area(

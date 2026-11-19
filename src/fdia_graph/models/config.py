@@ -202,9 +202,9 @@ class RampSettings(Validated):
 
 @dataclass(frozen=True)
 class SearchSettings(Validated):
-    """The attacker's subnetwork and the fewest-tamper search [WU26 eq. 12]: `hops`, the buses within
+    """The attacker's area and the fewest-tamper search [WU26 eq. 12]: `hops`, the buses within
     this many branches of the attacked loads (At) or target lines (Am); `min_tamper`, hold each At
-    episode on the support tampering the fewest devices (off: the whole subnetwork); `min_budget`,
+    episode on the support tampering the fewest devices (off: the whole area); `min_budget`,
     the candidate supports solved per episode before the search settles; `area_rule`, how the
     attacker's area is chosen (`AreaRule`: the buses within `hops`, or [WU26] Sec. III-A's principles)."""
 

@@ -180,8 +180,8 @@ def edge_adjacency(edge_index: np.ndarray, n_bus: int) -> Admittance:
 def subnetwork(
     edge_index: np.ndarray, seeds: np.ndarray, hops: int, n_bus: int
 ) -> tuple[np.ndarray, np.ndarray]:
-    """The attacker's local subnetwork around `seeds` [WU26]: (interior, boundary), both sorted and
-    disjoint. The interior is every bus within `hops` branches of a seed; the boundary is the buses
+    """The attacker's local subnetwork around `seeds` [WU26]: (inside, boundary), both sorted and
+    disjoint. Inside is every bus within `hops` branches of a seed; the boundary is the buses
     one branch outside it."""
     dist = hop_distances(edge_adjacency(edge_index, n_bus), seeds)
     reached = dist >= 0
@@ -191,7 +191,7 @@ def subnetwork(
 def _local_mismatch(
     YV: np.ndarray, V: np.ndarray, I_: np.ndarray, S_target: np.ndarray
 ) -> tuple[np.ndarray, float]:
-    """The interior injection mismatch [Re; Im] of S_target - S(V) and its largest entry, from the
+    """The support injection mismatch [Re; Im] of S_target - S(V) and its largest entry, from the
     bus currents YV = Ybus V of the same V."""
     mis = S_target - (V * np.conj(YV))[I_]
     f = np.concatenate([np.real(mis), np.imag(mis)])
@@ -234,9 +234,9 @@ def _as_real_blocks(A: np.ndarray, B: np.ndarray) -> np.ndarray:
     return J
 
 
-def _interior_jacobian(Y_II: np.ndarray, V_I: np.ndarray, I_I: np.ndarray) -> np.ndarray:
-    """The [2k, 2k] Jacobian of the interior injections in [θ_I, |V|_I]. An entry (i, j) depends only
-    on Y_ij, V_i, V_j and the current I_i, so the block is built from the interior pieces directly
+def _support_jacobian(Y_II: np.ndarray, V_I: np.ndarray, I_I: np.ndarray) -> np.ndarray:
+    """The [2k, 2k] Jacobian of the support injections in [θ_I, |V|_I]. An entry (i, j) depends only
+    on Y_ij, V_i, V_j and the current I_i, so the block is built from the support pieces directly
     and not sliced from the n x n matrices."""
     Vn_I = V_I / np.abs(V_I)
     A = 1j * (V_I[:, None] * np.conj(np.diag(I_I) - Y_II * V_I[None, :]))
@@ -247,9 +247,9 @@ def _interior_jacobian(Y_II: np.ndarray, V_I: np.ndarray, I_I: np.ndarray) -> np
 def _injection_jacobian(
     Y_RI: np.ndarray, V_R: np.ndarray, V_I: np.ndarray, I_R: np.ndarray, D: np.ndarray
 ) -> np.ndarray:
-    """The [2r, 2k] Jacobian of the injections at the buses R (inside the interior or on its edge) in
-    the interior's [θ_I, |V|_I], from S_r = V_r conj(sum_j Y_rj V_j). `Y_RI` [r, k] is R's rows of
-    Ybus on the interior's columns, `I_R` = (Ybus V)_R, and `D` [r, k] is 1 where r is interior bus j.
+    """The [2r, 2k] Jacobian of the injections at the buses R (inside the support or on its boundary) in
+    the support's [θ_I, |V|_I], from S_r = V_r conj(sum_j Y_rj V_j). `Y_RI` [r, k] is R's rows of
+    Ybus on the support's columns, `I_R` = (Ybus V)_R, and `D` [r, k] is 1 where r is support bus j.
 
         dS_r/dθ_j   = 1j V_r conj(I_r) [r = j] - 1j V_r conj(Y_rj V_j)
         dS_r/d|V|_j = V_r conj(Y_rj V_j / |V_j|) + conj(I_r) V_r / |V_r| [r = j]
@@ -265,31 +265,31 @@ def _injection_jacobian(
 def local_ac_solve(
     Ybus: Admittance,
     V: np.ndarray,
-    interior: np.ndarray,
+    support: np.ndarray,
     S_target: np.ndarray,
     iters: int = 50,
     tol: float = 1e-9,  # pu: the mismatch the Newton iteration stops at (not the zero test `ZERO_TOL`)
 ) -> Optional[np.ndarray]:
-    """The false state of a local attacker [WU26]: the interior bus voltages that give the target
+    """The false state of a local attacker [WU26]: the support bus voltages that give the target
     injections there, with every other bus voltage held at its true value.
 
-        S_i(V) = V_i conj(Σ_j Y_ij V_j) = S_target_i   for i in the interior, V_j fixed elsewhere
+        S_i(V) = V_i conj(Σ_j Y_ij V_j) = S_target_i   for i in the support, V_j fixed elsewhere
 
     Newton on [θ_I, |V|_I], each step halved until the mismatch drops [AE04, ch. 2] (a large load
     step overshoots otherwise). `S_target` is per unit, generation positive. Returns the [n] false
     voltages, or None when no step helps or `iters` run out. The product Ybus V stays the full dense
-    one: a product over the interior rows alone rounds differently and breaks byte stability. Pass
+    one: a product over the support rows alone rounds differently and breaks byte stability. Pass
     `Ybus` dense when solving often: a sparse one is expanded on every call.
     """
     Yb = _dense(Ybus)
     V = np.array(V, np.complex128, copy=True)
-    I_ = np.asarray(interior, int)
+    I_ = np.asarray(support, int)
     YV = Yb @ V
     for _ in range(iters):
         f, norm = _local_mismatch(YV, V, I_, S_target)
         if norm < tol:
             return V
-        J = _interior_jacobian(Yb[np.ix_(I_, I_)], V[I_], YV[I_])
+        J = _support_jacobian(Yb[np.ix_(I_, I_)], V[I_], YV[I_])
         try:
             step = np.linalg.solve(J, f)
         except np.linalg.LinAlgError:
@@ -314,9 +314,9 @@ def _row_block(Y: Admittance, rows: np.ndarray) -> tuple[np.ndarray, np.ndarray]
 
 
 class _FlowBlocks(NamedTuple):
-    """The constant pieces of a local flow solve on one interior, cut once (`_flow_blocks`): the dense
-    Ybus, the buses whose injection a solve may hold (`rows`) and their Ybus rows on the interior's
-    columns, and the goal branches' rows of Yf, full and on the interior's columns. Slices only:
+    """The constant pieces of a local flow solve on one support, cut once (`_flow_blocks`): the dense
+    Ybus, the buses whose injection a solve may hold (`rows`) and their Ybus rows on the support's
+    columns, and the goal branches' rows of Yf, full and on the support's columns. Slices only:
     every product stays the full one."""
 
     Yb: np.ndarray
@@ -327,9 +327,9 @@ class _FlowBlocks(NamedTuple):
 
 
 class _Held(NamedTuple):
-    """What one `local_flow_solve` call holds: the fixed buses' rows of Ybus on the interior's columns,
-    where each fixed bus is the interior bus, which [P; Q] rows are held, the held magnitudes'
-    positions in the interior, and each goal branch's from-bus position there (-1 outside it)."""
+    """What one `local_flow_solve` call holds: the fixed buses' rows of Ybus on the support's columns,
+    where each fixed bus sits among the support's buses, which [P; Q] rows are held, the held magnitudes'
+    positions in the support, and each goal branch's from-bus position there (-1 outside it)."""
 
     Y_FI: np.ndarray
     D: np.ndarray
@@ -338,12 +338,10 @@ class _Held(NamedTuple):
     f_at: np.ndarray
 
 
-def _flow_blocks(
-    Ybus: Admittance, yf_rows: Admittance, interior: np.ndarray, rows: np.ndarray
-) -> _FlowBlocks:
-    """The `_FlowBlocks` of `local_flow_solve` on this interior, for held buses among `rows` and these
-    goal branches' Yf rows. A caller that solves the same region many times cuts them once."""
-    I_ = np.asarray(interior, int)
+def _flow_blocks(Ybus: Admittance, yf_rows: Admittance, support: np.ndarray, rows: np.ndarray) -> _FlowBlocks:
+    """The `_FlowBlocks` of `local_flow_solve` on this support, for held buses among `rows` and these
+    goal branches' Yf rows. A caller that solves the same support many times cuts them once."""
+    I_ = np.asarray(support, int)
     R = np.asarray(rows, int)
     Yb = np.asarray(_dense(Ybus))
     yf = np.atleast_2d(np.asarray(_dense(yf_rows)))
@@ -436,7 +434,7 @@ def local_flow_solve(
     yf_row: np.ndarray,
     from_bus: Union[int, np.ndarray],
     V: np.ndarray,
-    interior: np.ndarray,
+    support: np.ndarray,
     fixed: np.ndarray,
     S_fixed: np.ndarray,
     target: Union[float, np.ndarray],
@@ -447,7 +445,7 @@ def local_flow_solve(
     blocks: Optional[_FlowBlocks] = None,
 ) -> Optional[np.ndarray]:
     """The false state of a local attacker who drives branches' apparent flows to their targets
-    [WU26 eqs. 24-25]. Interior voltages move; outside the interior every voltage stays true.
+    [WU26 eqs. 24-25]. The support's voltages move; outside it every voltage stays true.
 
         S_i(V) = S_fixed_i   for i in `fixed`,      |V_f conj(y_f . V)| = target_l for each goal l
 
@@ -456,9 +454,9 @@ def local_flow_solve(
     Every product Ybus V is the full one, for byte stability. All quantities are per unit.
 
     yf_row, from_bus, target : one goal branch ([n], int, float) or L of them ([L, n], [L], [L])
-    fixed, S_fixed : buses (interior or on its edge) whose injection is held, and those injections
-               (generation positive); every other interior bus is a free injection
-    vm_fixed : (interior buses, magnitudes) held at those voltage magnitudes, or None
+    fixed, S_fixed : buses (in the support or on its boundary) whose injection is held, and those injections
+               (generation positive); every other support bus is a free injection
+    vm_fixed : (support buses, magnitudes) held at those voltage magnitudes, or None
     hold     : [len(fixed), 2] bool, which of P and Q each fixed bus holds (a generator at one limit
                keeps the other component free); None holds both
     blocks   : `_flow_blocks(...)` cut by the caller for rows holding every bus of `fixed`, or None
@@ -466,7 +464,7 @@ def local_flow_solve(
     f = np.atleast_1d(np.asarray(from_bus, int))
     goal = np.atleast_1d(np.asarray(target, float))
     V = np.array(V, np.complex128, copy=True)
-    I_ = np.asarray(interior, int)
+    I_ = np.asarray(support, int)
     fx = np.asarray(fixed, int)
     vb, vm = (
         (np.zeros(0, int), np.zeros(0)) if vm_fixed is None else (np.asarray(vm_fixed[0], int), vm_fixed[1])

@@ -1,7 +1,7 @@
 """Every attack the generator builds. Seven files each hold one part of the generator; four hold what
 serves or uses the parts.
 
-area.py         `AttackArea`: where a stealthy attack acts, the interior it moves and the boundary it holds true
+area.py         `AttackArea`: where a stealthy attack may act, the area and the boundary around it
 false_state.py  `FalseState`: the local false state of a load goal or a flow goal, inside its operating limits
 frames.py       `AttackFrames`: the attack vector a = h(x_false) - h(x_true), written onto the true scan
 ramp_frames.py  `RampFrames`: the frames of the ramp At
