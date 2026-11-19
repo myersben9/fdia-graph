@@ -19,5 +19,3 @@ STEALTHY_FAMILIES = {FAMILY_CODE[n] for n in ("Aq", AT, "Al", AM)}
 HELDOUT_CODES = {FAMILY_CODE[n] for n in ("As", "Ar")}
 # What the generator makes: the multi-snapshot families [WU26].
 GENERATED_FAMILIES = (AT, AM)
-# The families the New York release builds, by the names its files carry.
-NEW_YORK_FAMILIES = (AM, AT)

@@ -310,6 +310,40 @@ class AdmissibleTargets(Validated):
 
 
 @dataclass(frozen=True)
+class OwnFamilies(Validated):
+    """The names a caller's own design families are given under, against the families the timeline
+    places: a family under any other name would never be asked for a design."""
+
+    names: Sequence[str]
+    placed: Sequence[str]
+
+    def invariants(self) -> Iterable[tuple[bool, str]]:
+        stray = sorted(set(self.names) - set(self.placed))
+        yield (
+            not stray,
+            f"families= names {', '.join(stray)}, which this timeline does not place "
+            f"(it places {', '.join(self.placed)}): give a family under the name it takes the place of",
+        )
+
+
+@dataclass(frozen=True)
+class OwnedBuses(Validated):
+    """The ownership a source is given against the `buses` of its case: a client for each of
+    `owned` buses, one per bus of the case, and `names` a file can list (it joins them with commas)."""
+
+    buses: Annotated[int, Integer()]
+    owned: Annotated[int, Integer()]
+    names: Sequence[str]
+
+    def invariants(self) -> Iterable[tuple[bool, str]]:
+        yield (
+            self.owned == self.buses,
+            f"own gives a client for {self.owned} buses; the case has {self.buses}",
+        )
+        yield not any("," in str(n) for n in self.names), "a client's name must hold no comma"
+
+
+@dataclass(frozen=True)
 class SplitRule(Validated):
     """How a timeline's splits are cut (`SplitBy`) against its pool of `frames` frames and their
     `time` [T] (None: the pool carries none): numpy datetime64 values, one per frame, each later

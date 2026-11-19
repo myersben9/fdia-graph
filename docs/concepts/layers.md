@@ -70,8 +70,8 @@ frame's row in the file.
 
 ## The temporal features
 
-A file written by a `SearchSource` also stores two features computed from the observed frames
-alone (`formulas/temporal.py`, written by `TimelineWriter.write_temporal_layers`).
+A file also stores two features computed from the observed frames alone (`formulas/temporal.py`,
+written by `TimelineWriter.write_temporal_layers`).
 
 | Feature | Definition |
 |---|---|
@@ -83,8 +83,8 @@ scans before the frame (`SWING_WINDOW_SCANS`), plus 0.001. A sudden jump reads a
 slow ramp `At` changes by less than the typical recent change on every frame, so its swing stays
 near the benign level.
 
-A New York file does not store these two today. `ClientView.temporal()` computes each client's
-change from its own readings.
+`ClientView.temporal()` is a third: it computes each client's change from its own readings when
+a file is read as clients.
 
 ## Which layers a feature may read
 
@@ -142,45 +142,37 @@ The frames are chunked along time, so a window of consecutive frames is one read
 [The data dictionary](../reference/DATA_DICTIONARY.md#the-timeline-file) lists the datasets of
 each group.
 
-## What a New York file declares
+## What the layout allows
 
-A New York timeline has the same layout, written by the same writer. What reads differently is
-declared in the file itself.
+One writer writes every timeline, in one layout. The layout allows more than the package's own
+source writes, and a file declares in its attributes which form it has. The readers accept each
+form.
 
-| Item | IEEE file | New York file |
+| Item | The package's source writes | The layout also allows |
 |---|---|---|
-| Flow layers | `[E, 2]`: the from end | `[E, 4]`: both ends (`edge_feat` attribute) |
+| Flow layers | `[E, 2]`: the from end | `[E, 4]`: both ends, named in the `edge_feat` attribute (`LayerSet.both_ends`) |
 | PMU currents | real and imaginary part | magnitude and angle (`current_form` is `polar`) |
-| Tamper rule | see [the attack families](attacks.md#labels-and-the-tamper-masks) | the same attribute, `tamper` |
-| Temporal features | stored | not stored |
-| Injection sign | load positive | generation positive |
-| Unsolved frames | none | kept in place, with NaN readings, labelled benign |
+| Temporal features | stored | not stored (`LayerSet.temporal`) |
 
 Code that reads a current as real and imaginary parts refuses a polar file with
 `MissingCapability`.
 
-Of the files the generator writes today, only a New York file carries these:
+A New York file from the package's source has the form of an IEEE file in all three rows. Its
+injections are positive for load, like an IEEE file's, and it holds the solved frames of its
+pool only.
 
-| Where | Dataset or attribute | Holds |
-|---|---|---|
-| `data/` | `time` | each frame's time, int64 seconds, NYISO's local clock |
-| `episodes/` | `target_branch` | the interface branch an episode is anchored on |
-| `graph/` | `bus_client` | the utility that owns each bus; -1 outside New York |
-| `graph/` | `edge_rating` | the line ratings (MVA) of the case: the case file's, or the pool's peak flow on a branch it leaves unrated |
-| `graph/` | `bus_type`, `bus_vmin`, `bus_vmax`, `bus_base_kv` | bus facts of the case |
-| `graph/` | `bus_has_gen`, `bus_base_pd`, `bus_base_qd` | units and base loads per bus |
-| attributes | `client_names` | the utilities, in the order `bus_client` indexes |
+Some datasets are in a file only when the source was given what they hold:
 
-An IEEE timeline built with `time=` stores `data/time` too
-([Generate a timeline](../guides/generation.md#split_by-and-time)).
+| Where | Dataset or attribute | Holds | Written when |
+|---|---|---|---|
+| `data/` | `time` | each frame's time, int64 seconds | the pool has times (a New York pool), or `time=` is passed |
+| `graph/` | `bus_client` | the client that owns each bus; -1 for none | the source has `own=` |
+| attributes | `client_names` | the clients' names, in the order `bus_client` indexes | the source has `own=` |
 
-The line ratings are in the file because the case file does not give them all:
-`NewYorkSource.production` rates a branch the case leaves unrated at its peak flow over the
-pool. The unit table, the bus names and the
-bus coordinates are not in the file. They are the case file's
-([Test systems](test_systems.md#the-new-york-case-file)).
+[Generate a timeline](../guides/generation.md#split_by-and-time) says what `time=` takes, and
+[its section on clients](../guides/generation.md#a-timeline-read-as-clients) what `own=` does.
 
-The attributes record the settings as JSON (`settings`) with their hash (`settings_hash`). In a
-New York file the settings include, under `release`, the fields of the `NewYorkRelease` it was
-built from. A single-episode file records its one episode under `episode`, in place of the
-attacked share, the splits and the survey.
+The unit table, the bus names and the bus coordinates of the New York case are not in a file.
+They are the case file's ([Test systems](test_systems.md#the-new-york-case-file)).
+
+The attributes record the settings as JSON (`settings`) with their hash (`settings_hash`).

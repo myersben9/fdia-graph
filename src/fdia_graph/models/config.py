@@ -8,15 +8,14 @@ from __future__ import annotations
 
 import math
 import os
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field, fields, replace
-from typing import Annotated, Optional, Union, cast, get_args, get_type_hints
+from typing import Annotated, Optional, cast, get_args, get_type_hints
 
 import numpy as np
 
-from ..constants.families import AT, GENERATED_FAMILIES, NEW_YORK_FAMILIES
+from ..constants.families import AT, GENERATED_FAMILIES
 from ..constants.files import EXPORT_COLUMNS
-from ..constants.newyork import RELEASE_INTERFACE
 from ..errors import ConfigError
 from .choices import (
     AmAttack,
@@ -41,7 +40,6 @@ from .inputs import GeneratedFamilies
 from .validation import (
     AsTuple,
     AtLeast,
-    Boolean,
     Finite,
     InRange,
     Integer,
@@ -418,92 +416,6 @@ class NewYorkSolve(SolveSettings):
 
 
 # ---- the New York grid -------------------------------------------------------------------------------
-SurveyGrid = Annotated[int, Integer(), AtLeast(0)]  # frames between two surveyed onsets; 0: no survey
-FolderPath = Union[str, os.PathLike[str]]
-
-
-@dataclass(frozen=True)
-class NewYorkSettings(Validated):
-    """The settings of a timeline on the New York grid (`NewYorkSource`).
-
-    `length` is the frames per episode, one number for every family or `{family: frames}` (16
-    five-minute scans by default). `survey` (frames, 0 off) first designs every waiting family's
-    allowed onsets on that grid and places its episodes only among those with an attack; each chunk
-    of designs is saved under `survey_cache` when given, so a stopped build resumes."""
-
-    length: Union[int, Mapping[str, int]] = 16
-    attacked_frac: Annotated[float, InRange(0.0, 1.0, lo_closed=True, hi_closed=True)] = 0.2  # per split
-    split: SplitSettings = field(default_factory=lambda: SplitSettings((0.7, 0.15, 0.15)))
-    split_by: Annotated[str, OneOf(SplitBy)] = "week"  # whole weeks, or three blocks in time order ("time")
-    workers: Count = 1  # the processes the designs run on (1: the caller's)
-    verbose: Annotated[bool, Boolean()] = False
-    survey: SurveyGrid = 0
-    survey_cache: Optional[FolderPath] = None
-
-    def invariants(self) -> Iterable[tuple[bool, str]]:
-        frames = list(self.length.values()) if isinstance(self.length, Mapping) else [self.length]
-        yield (
-            all(isinstance(n, int) and not isinstance(n, bool) and n >= 1 for n in frames),
-            "length must be a whole number of frames, at least 1, or one per family",
-        )
-        yield isinstance(self.split, SplitSettings), "split must be a SplitSettings"
-
-    def as_record(self) -> dict[str, object]:
-        """The settings as nested plain values (JSON-ready), what a file records. Left out is what the
-        timeline does not depend on: `workers`, `verbose` and `survey_cache`."""
-        return _record(self, "workers", "verbose", "survey_cache")
-
-    def lengths_for(self, families: Sequence[str]) -> dict[str, int]:
-        """The episode length in frames of each of `families`."""
-        if isinstance(self.length, Mapping):
-            return {f: int(self.length[f]) for f in families}
-        return {f: int(self.length) for f in families}
-
-
-@dataclass(frozen=True)
-class NewYorkRelease(Validated):
-    """What the New York release's source is built from (`NewYorkSource.production`).
-
-    `families`, each one of Am and At: Am targets the NYISO `interfaces` (at least one), At is the
-    slow ramp. `survey` is the onset survey's grid in frames (0 off), saved by chunk under
-    `survey_cache` when given. `root` is the folder whose `data/` holds the fetched inputs and that
-    the pool's path is relative to. The last five fields are the attacker's sensitivities."""
-
-    families: Annotated[Sequence[str], AsTuple()] = NEW_YORK_FAMILIES
-    interfaces: Annotated[Sequence[str], AsTuple()] = (RELEASE_INTERFACE,)
-    workers: Count = 12  # the processes that design the episodes
-    survey: SurveyGrid = 12
-    survey_cache: Optional[FolderPath] = None
-    root: FolderPath = "."
-    hold_external: Annotated[bool, Boolean()] = False  # keep every bus outside New York at its true injection
-    # (p.u.) widens the voltage limits the attacker must respect, on its own copy of the case
-    v_margin: Annotated[float, Finite(), AtLeast(0)] = 0.0
-    # (p.u.) holds each generator bus's false voltage that close to its schedule
-    gen_v_tol: Annotated[Optional[float], Finite(), AtLeast(0)] = None
-    # the cap on a pretended load change (None keeps the family's own, 0.1)
-    load_cap: Annotated[Optional[float], Finite(), Positive()] = None
-    # the share of a unit's upper limit in its basepoint band (None keeps 0.03)
-    band: Annotated[Optional[float], Finite(), Positive()] = None
-
-    def invariants(self) -> Iterable[tuple[bool, str]]:
-        unknown = [str(f) for f in self.families if f not in NEW_YORK_FAMILIES]
-        yield (
-            not unknown,
-            f"the release builds the families {', '.join(NEW_YORK_FAMILIES)}; it does not build "
-            f"{', '.join(unknown)}",
-        )
-        yield (
-            "Am" not in self.families or len(self.interfaces) > 0,
-            "Am attacks a NYISO interface: name at least one in `interfaces`",
-        )
-        yield isinstance(self.root, (str, os.PathLike)), f"root must be a folder path, got {self.root!r}"
-
-    def as_record(self) -> dict[str, object]:
-        """The knobs as nested plain values (JSON-ready), what a file records. Left out: what the timeline
-        does not depend on (`workers`, `survey_cache`, `root`) and `survey`, which `NewYorkSettings` records."""
-        return _record(self, "workers", "survey", "survey_cache", "root")
-
-
 @dataclass(frozen=True)
 class ProfileFetch(Validated):
     """A load-profile download: the operator and the optional resampling cadence (minutes)."""

@@ -153,16 +153,6 @@ INTERFACE_NAMES = (
     "UPNY CONED",
     "SPR/DUN-SOUTH",
 )
-# updateOpCond.m L420-430: the branches of each internal NYISO interface as (from bus, to bus, sign) of
-# the reduced case, as mapped by end buses in out/ratings_check/interface_branch_map.csv. The sign makes
-# the from-end P of every branch count in the interface's positive direction.
-INTERFACE_BRANCHES: dict[str, list[tuple[int, int, int]]] = {
-    "CENTRAL EAST - VC": [(41, 45, -1), (40, 44, -1), (37, 38, -1), (37, 43, -1)],
-    "MOSES SOUTH": [(47, 48, -1), (44, 48, -1), (46, 49, -1)],
-    "UPNY CONED": [(73, 74, 1), (74, 77, -1)],
-    "SPR/DUN-SOUTH": [(78, 81, 1), (78, 82, 1)],
-}
-RELEASE_INTERFACE = "SPR/DUN-SOUTH"  # the NYISO interface the release's Am attacks
 EXT_PRICES = ("NPX", "O H", "PJM", "H Q")  # proxy buses pricing the NE, IESO, PJM and HQ units
 # External areas (the areas of `REGIONS`) and the proxy bus pricing them (updateOpCond.m L497-500).
 AREA_PRICE = {1: "NPX", 4: "O H", 5: "PJM", 6: "PJM"}
@@ -206,8 +196,6 @@ SWITCH_OFF = 0.51719  # the share of pulses that start with a drop
 HYDRO_RAMP_PER_MIN = 0.10  # share of nameplate per minute (USBR, Hydro Model Data Project, 2013, Tables 1-2)
 # MW per minute: NY real-time interchange ramp per interface (ISO-NE CROP.31001, 300 MW per 15 min)
 IMPORT_RAMP_MW_PER_MIN = 300.0 / 15
-BASEPOINT_BAND = 0.03  # share of the upper operating limit (NYISO MST Rate Schedule 3-A, 15.3A.1)
-Q_SHARE = 0.312  # |Q| per MW of capability at power factor 0.95 (NYISO Manual 2, 3.6; FERC Order 827)
 
 
 # ---- the pool file --------------------------------------------------------------------------------

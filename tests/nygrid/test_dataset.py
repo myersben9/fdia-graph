@@ -1,237 +1,75 @@
-"""A New York timeline read back (`dataset.clients`): the file holds what the source stored, in the layout of
-`fdia_graph.schema`; the meter table and the flat reading vector come back from its layers exactly; each client
-sees only its own meters, buses and labels; the operator and split views select the right frames; and the
-static graph gives the case's admittance matrix. On the synthetic grid of `conftest.py`: no data, no solver."""
+"""A timeline read back as clients (`dataset.clients`): with the `Ownership` of the buses the source
+gives each meter to the client of its bus, and the file reads as one view per client and one for the
+operator. On the packaged New York case with made-up clients and the checked-in days' pool: no NYgrid
+data, no solver."""
 
-from dataclasses import fields
+from __future__ import annotations
 
 import h5py
 import numpy as np
 import pytest
 
 from fdia_graph import schema
-from fdia_graph.constants.families import FAMILY_CODE
+from fdia_graph.constants.meters import MeterKind
 from fdia_graph.models.choices import Split
-from tests.helpers import ATTR_KEYS, CURRENT_LAYERS
 
-from .conftest import LENGTHS, UNSOLVED, T
+from .inputs import DAYS_POOL
 
 
 @pytest.fixture(scope="module")
-def written(grid, tmp_path_factory):
-    """(the open file, its source, what the source must have stored): the flat vectors worked out here from
-    the pool, a row per frame, and each frame's family and episode row as its designed episodes say. A frame's
-    benign scan is the exact reading with the noise of the frame's own stream, keyed (seed, JITTER_STREAM,
-    frame); under an episode the scan is that float32 reading plus its row of the attack vector."""
-    from fdia_graph.constants.streams import JITTER_STREAM
+def written(tmp_path_factory):
+    """(the open file as clients, its source): the original generator on the days' pool, split by weeks,
+    with three made-up clients over the New York buses."""
+    pytest.importorskip("matpowercaseframes")  # the packaged case file's reader (the [ny] extra)
+    from fdia_graph.data.pool import read_pool
     from fdia_graph.dataset.clients import Dataset
-    from fdia_graph.generation.newyork import NewYorkSource
-    from fdia_graph.models.config import NewYorkSettings
+    from fdia_graph.generation.search import SearchSource
+    from fdia_graph.models.config import TimelineSettings
+    from fdia_graph.systems.case import nygrid_case
+    from fdia_graph.systems.network import Network
+    from fdia_graph.systems.ownership import Ownership
 
-    pool, att, families, own = grid
-    source = NewYorkSource(pool, att, families, own, NewYorkSettings(length=LENGTHS))
+    case = nygrid_case()
+    bus_client = np.where(case.is_ny, np.arange(len(case.bus_id)) % 3, -1)
+    own = Ownership(np.array(["a", "b", "c"]), bus_client, bus_client[case.f] != bus_client[case.t])
+    settings = TimelineSettings.of(families=("At",), ramp_len=12, attacked_frac=0.3, split_by="week")
+    source = SearchSource.for_pool(Network(case), read_pool(DAYS_POOL), settings, seed=5, own=own)
     path = source.generate(tmp_path_factory.mktemp("dataset") / "timeline.h5")
-    meas, seed = att.meas, source.build.seed
-    with np.errstate(invalid="ignore"):  # the unsolved frames are NaN
-        scans = [
-            source.noise.sample(
-                meas.h(pool.vm[t], pool.va[t]), np.random.default_rng([seed, JITTER_STREAM, t])
-            )
-            for t in range(T)
-        ]
-    benign = np.array(scans).astype(np.float32)
-    stored = {"z": benign.copy(), "z_benign": benign, "tampered": np.zeros(benign.shape, bool)}
-    stored["family"], stored["episode"] = np.zeros(T, int), np.full(T, -1)
-    for row, ep in enumerate(source.episodes):
-        w = slice(ep.onset, ep.onset + ep.length)
-        stored["z"][w] = (benign[w] + ep.a).astype(np.float32)
-        stored["tampered"][w] = att.tampered(pool.vm[w], pool.va[w], ep.a)
-        stored["family"][w], stored["episode"][w] = FAMILY_CODE[ep.family], row
-    return Dataset(path), source, stored
+    return Dataset(path), source
 
 
-def _all(ds):
-    return np.arange(ds.h[schema.Y].shape[0])
-
-
-def test_the_meter_table_and_the_flat_vectors_come_back_exactly(written):
-    from fdia_graph.sensing.meters import MeterPlan
-
-    ds, source, stored = written
-    plan = source.meas.plan
-    # each meter has its own place in the layers, or two meters would share a stored number
-    place = np.c_[plan.kind, np.where(plan.branch >= 0, plan.branch, plan.bus), plan.end]
-    assert len(np.unique(place, axis=0)) == len(plan.kind)
-    for f in fields(MeterPlan):  # the same rows in the same order; the bias is not in a file
-        if f.init and f.name != "bias":  # `slots` is worked out from the columns
-            assert np.array_equal(getattr(ds.plan, f.name), getattr(plan, f.name)), f.name
-    assert np.isnan(ds.plan.bias).all()
-    frames = _all(ds)
-    assert len(frames) == T and np.isnan(ds.z(frames)[UNSOLVED]).all()  # an unsolved frame keeps its place
-    assert np.array_equal(ds.z(frames), stored["z"].astype(np.float32), equal_nan=True)
-    assert np.array_equal(ds.z(frames, benign=True), stored["z_benign"].astype(np.float32), equal_nan=True)
-    assert np.array_equal(ds.tampered(frames), stored["tampered"]) and stored["tampered"].any()
-
-
-def test_the_file_holds_what_the_source_stored(written):
-    ds, source, stored = written
-    h, pool, own = ds.h, source.pool, source.own
-    assert ds.clients == own.names.tolist() and np.array_equal(ds.own.bus_client, own.bus_client)
-    assert np.array_equal(ds.own.tie_lines, own.tie_lines)
-    assert np.array_equal(h[schema.TIME][:].astype("datetime64[s]"), pool.time)
-    assert np.array_equal(h[schema.SPLIT][:], source.split)
-    assert np.array_equal(h[schema.FAMILY][:], stored["family"])
-    assert np.array_equal(h[schema.SEQ_ID][:], stored["episode"])
-    assert set(np.unique(stored["family"]).tolist()) == {0, FAMILY_CODE["Am"], FAMILY_CODE["At"]}
-    # a bus is attacked when a meter at it is tampered
-    attacked = np.zeros((T, len(own.bus_client)), bool)
-    for j, bus in enumerate(source.meas.plan.bus):
-        attacked[:, bus] |= stored["tampered"][:, j]
-    assert np.array_equal(h[schema.Y][:].astype(bool), attacked)
-    # the true state, float32: the solved voltages with the injections they give
-    clean = h[schema.NODE_CLEAN][:]
-    assert np.array_equal(clean[:, :, 0], pool.vm.astype(np.float32), equal_nan=True)
-    assert np.array_equal(clean[:, :, 3], pool.va.astype(np.float32), equal_nan=True)
-    p, _ = source.meas.net.injections(pool.vm[:5], pool.va[:5])
-    assert np.array_equal(clean[:5, :, 1], p.astype(np.float32))
-    # the episode table: one row per designed episode, in onset order
-    e = h[schema.Group.EPISODES]
-    episodes = source.episodes
-    assert len(episodes) >= 10 and e[schema.EPISODE_ONSET][:].tolist() == [ep.onset for ep in episodes]
-    assert e[schema.EPISODE_FAMILY][:].tolist() == [FAMILY_CODE[ep.family] for ep in episodes]
-    assert e[schema.EPISODE_TARGET_BRANCH][:].tolist() == [ep.target_branch for ep in episodes]
-    ptr, idx = e[schema.EPISODE_BUS_PTR][:], e[schema.EPISODE_BUS_IDX][:]
-    for i, ep in enumerate(episodes):
-        assert idx[ptr[i] : ptr[i + 1]].tolist() == ep.buses.tolist()
-
-
-def test_every_name_in_the_file_is_a_schema_name(written):
-    ds, _, _ = written
-    names = []
-    ds.h.visititems(lambda n, o: names.append(n) if isinstance(o, h5py.Dataset) else None)
-    attrs = set(ds.h.attrs)
-    graph_only = (schema.Static.BUS_CLIENT, schema.Static.EDGE_RATING)
-    new_york_only = {schema.TIME, schema.path(schema.Group.EPISODES, schema.EPISODE_TARGET_BRANCH)}
-    new_york_only |= {schema.path(schema.Group.GRAPH, name) for name in graph_only}
-    assert new_york_only <= set(names)  # what only this grid's files carry
-    assert {schema.Attr.CURRENT_FORM, schema.Attr.CLIENT_NAMES} <= attrs
-    assert attrs <= ATTR_KEYS, sorted(attrs - ATTR_KEYS)
-    assert not {schema.TEMPORAL_DELTA, schema.SWING} & set(names)  # left out on this grid for now
-    per_frame = set(schema.FIELD_PATH.values()) | set(CURRENT_LAYERS) | {schema.SPLIT, schema.TIME}
-    per_frame |= {schema.NODE_TAMPER, schema.EDGE_TAMPER, schema.MAG_PTR, schema.MAG_BUS, schema.MAG}
-    graph = {schema.EDGE_INDEX} | {schema.path(schema.Group.GRAPH, k) for k in schema.STATIC_PHYSICS}
-    episodes = {n for n in names if n.startswith(schema.Group.EPISODES)}
-    assert set(names) - episodes <= per_frame | graph, sorted(set(names) - episodes - per_frame - graph)
-    assert ds.h.attrs[schema.Attr.KIND] == schema.KIND_TIMELINE
-    assert ds.h.attrs[schema.Attr.CURRENT_FORM] == schema.CURRENT_POLAR
-    assert (
-        ds.h.attrs[schema.Attr.EDGE_FEAT] == "P_from,Q_from,P_to,Q_to" and ds.h[schema.EDGE_X].shape[2] == 4
-    )
-
-
-def test_the_static_graph_gives_the_cases_admittance_matrix(written):
-    """`FdiaGraph` opens a New York file, and the admittance matrix it builds from the file's static graph is
-    the one of the case (`Network`)."""
-    from fdia_graph.dataset import FdiaGraph
-
-    ds, source, _ = written
-    net = source.meas.net
-    graph = FdiaGraph(ds.h.filename)
-    assert graph.N == len(net.case.bus_id) and graph.E == len(net.case.f) and len(graph) == T
-    assert graph.has_currents and graph.current_form == schema.CURRENT_POLAR and not graph.has_temporal
-    for ours, theirs in ((graph.ybus_np, net.ybus), (graph.yf_np, net.yf), (graph.yt_np, net.yt)):
-        np.testing.assert_allclose(ours, theirs.toarray(), rtol=1e-12, atol=1e-12)
-
-
-def test_the_graph_holds_the_ratings_and_its_integers_are_int32(written):
-    """The line ratings the attacks were designed against are in the file, and the integer arrays have the
-    type an IEEE file gives them whatever the platform's own integer is."""
-    ds, source, _ = written
-    graph = ds.h[schema.Group.GRAPH]
-    assert np.array_equal(graph[schema.Static.EDGE_RATING][:], source.meas.net.case.rating)
-    for name in (schema.Static.BUS_TYPE, schema.Static.BUS_CLIENT):
-        assert graph[name].dtype == np.int32, name
-    assert ds.h[schema.EDGE_INDEX].dtype == np.int32
-
-
-def test_the_settings_and_their_hash_identify_the_file(written):
-    """The file records its source's record; a release knob changes it, and so does placing one episode by
-    hand, whose record has no attacked share (and its file no `target_attacked_frac`)."""
-    import json
-
-    from fdia_graph.generation.newyork import NewYorkSource, SingleEpisodeSource
-    from fdia_graph.models.config import NewYorkRelease
-
-    ds, source, _ = written
-    attrs = ds.h.attrs
-    assert json.loads(attrs[schema.Attr.SETTINGS]) == source.record()
-    assert attrs[schema.Attr.SETTINGS_HASH] == schema.config_hash(source.record())
-    assert attrs[schema.Attr.TARGET_ATTACKED_FRAC] == source.settings.attacked_frac
-    knobs = {"load_cap", "band", "v_margin", "interfaces", "hold_external", "gen_v_tol", "families"}
-    hashes = {schema.config_hash(source.record())}  # a source built by hand: no release
-    for release in (NewYorkRelease(), NewYorkRelease(load_cap=0.05), NewYorkRelease(hold_external=True)):
-        twin = NewYorkSource(source.pool, source.att, source.families, source.own, source.settings)
-        twin.release = release.as_record()
-        assert set(twin.release) == knobs
-        hashes.add(schema.config_hash(twin.record()))
-    assert len(hashes) == 4
-    one = SingleEpisodeSource(source, 10, "At")
-    assert one.record()["episode"] == {"family": "At", "onset": 10, "lag": 0, "lo": 10, "hi": 14}
-    assert one.record()["release"] == source.release and "attacked_frac" not in one.record()
-    assert schema.Attr.TARGET_ATTACKED_FRAC not in one.recorded() and one.fractions == (1.0, 0.0, 0.0)
-    others = (SingleEpisodeSource(source, 11, "At"), SingleEpisodeSource(source, 10, "At", lag=1))
-    others += (SingleEpisodeSource(source, 10, "At", lo=5), SingleEpisodeSource(source, 10, "Am"))
-    hashes |= {schema.config_hash(s.record()) for s in (one, *others)}
-    assert len(hashes) == 9
-
-
-def test_fdia_graph_exports_both_branch_ends_and_converts_polar_angles(written):
-    """`FdiaGraph` on a New York file: the pandas table has a column per stored flow (both branch ends),
-    and a `units="pu"` view gives the angles of the polar PMU currents in radians, as it gives theta, in a
-    record and in an export; the magnitudes and the masks are untouched."""
-    pytest.importorskip("pandas")
-    pytest.importorskip("torch")
-    from fdia_graph.dataset import FdiaGraph
-
-    ds, _, _ = written
-    physical, pu = FdiaGraph(ds.h.filename), FdiaGraph(ds.h.filename, units="pu")
-    table = physical.export(format="pandas")
-    edge_x = ds.h[schema.EDGE_X][:]
-    for column, name in enumerate(("Pflow", "Qflow", "P_to", "Q_to")):
-        for e in (0, physical.E - 1):
-            assert np.array_equal(table[f"{name}_e{e}"].to_numpy(), edge_x[:, e, column], equal_nan=True)
-    stored = physical.export(["pmu_i", "pmu_i_benign", "pmu_i_m"])
-    converted = pu.export(["pmu_i", "pmu_i_benign", "pmu_i_m", "prev_pmu_i"])
-    metered = stored["pmu_i_m"][0, :, 1].astype(bool)
-    assert metered.any() and np.array_equal(converted["pmu_i_m"], stored["pmu_i_m"])
-    for key in ("pmu_i", "pmu_i_benign"):
-        assert np.array_equal(converted[key][..., 0::2], stored[key][..., 0::2], equal_nan=True)
-        want = np.deg2rad(stored[key][..., 1::2])
-        assert np.array_equal(converted[key][..., 1::2], want, equal_nan=True)
-    assert np.array_equal(converted["prev_pmu_i"][1:], converted["pmu_i"][:-1], equal_nan=True)
-    record, raw = pu[5], physical[5]
-    assert np.array_equal(record["pmu_i"].numpy(), converted["pmu_i"][5])
-    assert np.array_equal(record["pmu_i_benign"].numpy(), converted["pmu_i_benign"][5])
-    assert np.array_equal(raw["pmu_i"].numpy(), stored["pmu_i"][5])
-    assert np.array_equal(record["pmu_i_m"].numpy(), raw["pmu_i_m"].numpy())
-    assert np.abs(raw["pmu_i"].numpy()[metered, 1]).max() > np.pi  # degrees as stored, so the test can tell
+def test_the_file_records_the_clients_and_the_meter_table_comes_back(written):
+    ds, source = written
+    plan, own = source.g.plan, source.own
+    assert ds.clients == ["a", "b", "c"] and np.array_equal(ds.own.bus_client, own.bus_client)
+    # each meter belongs to the client of its bus; a meter at a neighbour's bus belongs to none
+    assert np.array_equal(plan.owner, own.bus_client[plan.bus]) and (plan.owner == -1).any()
+    # the plan read from the file's masks holds the same meters, whatever their row order
+    rows = lambda p: sorted(zip(p.kind.tolist(), p.bus.tolist(), p.branch.tolist(), p.end.tolist()))
+    assert rows(ds.plan) == rows(plan)
+    assert np.array_equal(ds.plan.owner, own.bus_client[ds.plan.bus])
+    # and its flat vector is the file's layers, meter by meter
+    frames = np.arange(3)
+    back = ds.plan.scatter(ds.z(frames), len(own.bus_client), source.g.E)
+    assert np.array_equal(back.node, ds.h[schema.NODE_X][:3])
+    assert np.array_equal(back.edge[..., :2], ds.h[schema.EDGE_X][:3])
+    assert np.array_equal(back.current, ds.h[schema.PMU_I][:3])
 
 
 def test_client_view_holds_only_its_own_meters_buses_and_labels(written):
     from fdia_graph.dataset.clients import ClientView
 
-    ds, source, stored = written
-    plan, own = source.meas.plan, source.own
-    z, labels = stored["z"].astype(np.float32), ds.h[schema.Y][:].astype(bool)
-    seen = np.zeros(len(plan.kind), int)
+    ds, source = written
+    T = source.frames
+    z, labels = ds.z(np.arange(T)), ds.h[schema.Y][:].astype(bool)
+    seen = np.zeros(len(ds.plan.kind), int)
     for c, name in enumerate(ds.clients):
         v = ds.client(name)
-        mine = np.flatnonzero(plan.owner == c)
-        assert (v.meters.owner == c).all() and len(v.meters.kind) == len(mine)
-        assert np.array_equal(v.buses, np.flatnonzero(own.bus_client == c))
+        mine = np.flatnonzero(ds.plan.owner == c)
+        assert isinstance(v, ClientView) and (v.meters.owner == c).all() and len(v.meters.kind) == len(mine)
+        assert np.array_equal(v.buses, np.flatnonzero(source.own.bus_client == c))
         assert set(v.meters.bus.tolist()) <= set(v.buses.tolist())  # its meters sit at its own buses
-        assert np.array_equal(v.z, z[:, mine], equal_nan=True)
-        assert np.array_equal(v.labels, labels[:, v.buses]) and v.labels.dtype == bool
+        assert np.array_equal(v.z, z[:, mine]) and np.array_equal(v.labels, labels[:, v.buses])
         # the view keeps no file handle and no array wider than its own meters or buses
         for value in vars(v).values():
             assert not hasattr(value, "file")
@@ -239,52 +77,46 @@ def test_client_view_holds_only_its_own_meters_buses_and_labels(written):
                 assert value.shape[1] in (len(mine), len(v.buses))
         assert v.node_features().shape == (T, len(v.buses), 4) and v.temporal().shape == v.z.shape
         seen[mine] += 1
-    assert (seen == 1).all()  # the clients' meters partition the plan, none shared
-    assert isinstance(ds.client(ds.clients[0]), ClientView)
+    assert (seen[ds.plan.owner >= 0] == 1).all() and (seen[ds.plan.owner < 0] == 0).all()
+    assert labels.any() and not labels[:, source.own.bus_client < 0].any()  # every label is some client's
 
 
 def test_operator_and_split_views(written):
-    ds, source, stored = written
-    plan = source.meas.plan
+    ds, source = written
+    T = source.frames
     op = ds.operator()
-    assert op.z.shape == (T, len(plan.kind)) and op.labels.shape == (T, len(source.own.bus_client))
-    mine = np.flatnonzero(plan.owner == 0)
+    assert op.z.shape == (T, len(ds.plan.kind)) and op.labels.shape == (T, len(source.own.bus_client))
     sizes = []
     for code, split in enumerate(Split.values()):
-        v = ds.client(ds.clients[0], split)
+        v = ds.client("a", split)
         assert np.array_equal(v.frames, np.flatnonzero(source.split == code))
-        assert np.array_equal(v.z, stored["z"].astype(np.float32)[v.frames][:, mine], equal_nan=True)
         gaps = np.diff(v.frames) != 1
         assert (v.temporal()[1:][gaps] == 0).all()  # no change across another split's frames
         sizes.append(len(v.z))
-    assert sum(sizes) == T and min(sizes) > 0
-    assert (np.diff(ds.client(ds.clients[0], "train").frames) != 1).any()  # the weekly splits interleave
+    assert sum(sizes) == T
 
 
 def test_temporal_wraps_angle_changes(written):
     from fdia_graph.dataset.clients import ClientView
 
-    ds, source, _ = written
-    from fdia_graph.constants.meters import MeterKind
-
-    plan = source.meas.plan
+    plan = written[0].plan
     angle = np.isin(plan.kind, [MeterKind.VA, MeterKind.IA])
     z = np.zeros((3, len(plan.kind)))
     z[:, angle] = [[179.5], [-179.5], [179.0]]  # crosses +-180 twice
     z[:, ~angle] = [[1.0], [3.0], [2.0]]
     view = ClientView(z, np.zeros((3, 0), bool), plan, np.arange(0), np.arange(3))
     d = view.temporal()
-    assert np.allclose(d[1:, angle], [[1.0], [-1.5]])  # wrapped to (-180, 180], not +-359
+    assert angle.any() and np.allclose(d[1:, angle], [[1.0], [-1.5]])  # wrapped to (-180, 180]
     assert np.allclose(d[1:, ~angle], [[2.0], [-1.0]]) and (d[0] == 0).all()
     assert np.array_equal(view.z, z)  # the readings themselves stay raw
 
 
-def test_a_file_in_the_earlier_new_york_layout_is_refused(tmp_path):
+def test_a_file_without_clients_is_refused(tmp_path):
     from fdia_graph.dataset.clients import Dataset
     from fdia_graph.errors import NotATimeline
 
     old = tmp_path / "old.h5"
     with h5py.File(old, "w") as h:
         h.create_dataset("frames/z", data=np.zeros((2, 3), np.float32))
-    with pytest.raises(NotATimeline, match="earlier New York layout"):
+    with pytest.raises(NotATimeline, match="clients"):
         Dataset(old)

@@ -29,22 +29,6 @@ def test_every_module_imports_and_the_package_exports_no_name(pkg):
     assert not [n for n, o in vars(m).items() if not n.startswith("_") and not inspect.ismodule(o)]
 
 
-@pytest.mark.parametrize(
-    ("families", "interfaces", "says"),
-    [(("Am", "Ap"), ("SPR/DUN-SOUTH",), "Am, At"), (("Am",), (), "interface")],
-    ids=["a family nothing builds", "Am with no interface"],
-)
-def test_the_release_source_refuses_what_it_does_not_build(families, interfaces, says):
-    """Before it reads a file: a family other than Am and At, or Am with no interface to attack."""
-    pytest.importorskip("pandapower")
-    from fdia_graph.errors import ConfigError
-    from fdia_graph.generation.newyork import NewYorkSource
-    from fdia_graph.models.config import NewYorkRelease
-
-    with pytest.raises(ConfigError, match=says):
-        NewYorkSource.production("no_pool.h5", NewYorkRelease(families=families, interfaces=interfaces))
-
-
 def test_reading_a_dataset_needs_neither_pandapower_nor_pyomo():
     """Runs without the [ny] extra too: there above all, reading a dataset must not need it."""
     pytest.importorskip("h5py")  # the dataset reader's own dependency

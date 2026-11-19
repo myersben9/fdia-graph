@@ -49,11 +49,9 @@ attacks solve again, and only on a small area of the grid.
 
 | Attack design | Solve | Code |
 |---|---|---|
-| `At` and `Am` on the IEEE cases | a local AC solve in numpy | `local_ac_solve`, `local_flow_solve` in `formulas/network.py` |
-| `At` on New York | the same local solve | `Attacker.false_state` in `engine/attacks/attacker.py` |
-| `Am` on New York | a local OPF, in Pyomo with Ipopt | `OpfFdia` in `engine/attacks/opf.py` |
+| `At` and `Am`, on every test system | a local AC solve in numpy | `local_ac_solve`, `local_flow_solve` in `formulas/network.py` |
 
-`data/ipopt.py` has one function, `ipopt`. Every OPF gets its solver from it. It finds
+`data/ipopt.py` has one function, `ipopt`. Every OPF in Ipopt gets its solver from it. It finds
 Ipopt, checks that it starts, and raises `SolverUnavailable` with the fix when it does not.
 
 `Case.from_ieee` also solves the base power flow of an IEEE case once, in pandapower.
@@ -64,7 +62,8 @@ Ipopt, checks that it starts, and raises `SolverUnavailable` with the fix when i
 |---|---|
 | load a released timeline | `pip install fdia-graph` |
 | generate an IEEE timeline | `pip install "fdia-graph[generate]"` (pandapower) |
-| build the New York pool or timeline | `pip install "fdia-graph[ny]"` (pandapower, Pyomo), and Ipopt |
+| build the New York pool | `pip install "fdia-graph[ny]"` (pandapower, Pyomo), and Ipopt |
+| generate a New York timeline from a pool | `pip install "fdia-graph[ny]"`; no Ipopt |
 
 Ipopt is a program, not a Python package, so pip does not install it:
 

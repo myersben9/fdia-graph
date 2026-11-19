@@ -12,6 +12,7 @@ from ..models.config import TimelineSettings
 from ..registry import CACHE_DIR, system_id
 from ..systems.network import Network
 from . import _load_states
+from .design import Families
 from .search import SearchSource
 from .source import OutPath
 
@@ -19,7 +20,8 @@ from .source import OutPath
 class IeeeSource(SearchSource):
     """The IEEE case `system` ("ieee118" and 118 alike) with its pool of AC operating points
     (`states`: an array, a path, or None for the downloaded pool), the `settings` of the walk, the
-    `seed` of the generator and, when the caller has it, each frame's `time` [T]."""
+    `seed` of the generator, when the caller has it each frame's `time` [T], and design `families`
+    of your own (`SearchSource`)."""
 
     named = "an IeeeSource"
 
@@ -30,9 +32,11 @@ class IeeeSource(SearchSource):
         settings: TimelineSettings,
         seed: int = 123,
         time: Optional[np.ndarray] = None,
+        families: Optional[Families] = None,
     ) -> None:
         self.system = system_id(system)
-        super().__init__(Network.from_ieee(self.system), _load_states(system, states), settings, seed, time)
+        net, X = Network.from_ieee(self.system), _load_states(system, states)
+        super().__init__(net, X, settings, seed, time, families)
 
     def out_path(self, out: Optional[OutPath]) -> str:
         """`out`, or `timeline_ieee{N}.h5` under the cache directory."""

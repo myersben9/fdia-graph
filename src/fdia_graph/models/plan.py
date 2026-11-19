@@ -5,7 +5,7 @@ and what a design worker rebuilds its generator from (`GeneratorSpec`)."""
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from typing import TYPE_CHECKING, Generic, Optional, TypeVar
 
@@ -16,7 +16,7 @@ from .config import MeterSettings
 from .frames import MinimizerResult
 
 if TYPE_CHECKING:  # a designed episode and a network are a producer's: named for the type checker only
-    from ..engine.attacks.family import DesignedEpisode
+    from ..engine.attacks.family import DesignedEpisode, EpisodeFamily
     from ..engine.physics import LoadSplit
     from ..systems.network import Network
 
@@ -128,9 +128,9 @@ class Episode:
     onset: int
     length: int
     buses: np.ndarray  # the attacked buses (the pretended loads and generators, the localization label)
-    target_branch: int  # the interface branch Am's area is anchored on (-1 for At)
+    target_branch: int  # the branch a design is anchored on (-1: none)
     # [length, M] the attack vector added to each frame's benign scan: h(x_false) - h(x_true) in full,
-    # so the operator's residual test over all meters sees noise. `Attacker.tampered` names the
+    # so the operator's residual test over all meters sees noise. `NoiseModel.tampered` names the
     # meters it moves beyond their noise.
     a: np.ndarray
 
@@ -182,3 +182,5 @@ class GeneratorSpec:
     ratings: Optional[np.ndarray]
     rating_delta: Optional[float] = None
     split: Optional[LoadSplit] = None  # how the pool's injections divide (None: a scaled pool)
+    # the caller's own design families by name, each in place of the search family of that name
+    families: Mapping[str, EpisodeFamily] = field(default_factory=dict)

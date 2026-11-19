@@ -39,6 +39,8 @@ VALID = {
     inputs.ProfileSource: dict(source=type("Series", (), {"loads": lambda self: np.ones(2)})()),
     inputs.DatasetName: dict(name="ieee14", local=frozenset(), builtin=frozenset({"ieee14"})),
     inputs.AdmissibleTargets: dict(families=("Aq", "Ad"), targets={1: 2, 2: 3}),
+    inputs.OwnFamilies: dict(names=("At",), placed=("At", "Am")),
+    inputs.OwnedBuses: dict(buses=3, owned=3, names=("a", "b")),
     inputs.SplitRule: dict(split_by="time", frames=3),
     inputs.ModelledNet: dict(
         out_of_service=(), scaled=(), not_read=(), open_branches=0, buses=14, solved_buses=14

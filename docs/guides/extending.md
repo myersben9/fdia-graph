@@ -44,30 +44,40 @@ to attack.
 |---|---|
 | `family` | the family's name; it must be a name in `fg.FAMILIES`, whose code the file stores |
 | `onset`, `length` | the window |
-| `a` | the attack vector `[L, M]`, added to each scan |
-| `buses` | the buses it attacks |
-| `clients` | the owners of the meters it moves |
-| `target_branch` | the branch it is anchored on; -1 for none |
+| `a` | the attack vector `[L, M]`, one column per meter of the source's plan, added to each scan |
+| `buses` | the buses it attacks, as the episode table records them |
+| `clients` | the owners of the meters it moves; the file does not store it |
+| `target_branch` | a branch it is anchored on, -1 for none; the file does not store it |
+
+The per-frame labels and tamper masks come from the vector itself: a meter is tampered where the
+vector moves its reading by more than its accuracy class, and a bus is labelled where a tampered
+meter sits. `M` and the place of each meter are the plan's, `source.g.plan`, which you can have before the source exists: `MeterPlan.from_coverage(net.case, settings.meters, np.random.default_rng(seed))` is the plan a source with that seed draws.
 
 **Saying why there is no attack.** When `design` returns `None`, set
 `self.last_miss = "no_target"` if the window held nothing to attack. `design_explained` then
 reports `no_target`. A `None` left unexplained reads as `infeasible`.
 
-**Limiting the onsets.** Override `onset_mask(vm, va, length)` to hold the family to the frames
-it may start at. It receives the states of the whole pool, `[T, N]`, and returns one flag per
-frame. The default allows any frame.
+**Refusing an onset.** Return `None` at an onset the family will not take. The episode then
+moves to another free onset of its split, up to 20 times.
 
 **Keeping it stealthy.** An attack the residual test should not see has to change the readings
-as `h(x_false) - h(x_true)` for a false state, as the package's `Attacker` does
+as `h(x_false) - h(x_true)` for a false state, as the package's own designs do
 ([The attack families](../concepts/attacks.md#the-local-false-state)). A family that does not,
 like the example's slow bias, is the naive attack the residual test is meant to catch. It is
 useful as a baseline.
 
-**Where it plugs in today.** `NewYorkSource` takes its families as a dictionary, name to
-family, beside the package's own. `source.generate(path)` then places, designs and writes its
-episodes like theirs. The dictionary key may be any name, but `Episode.family` must be a name
-in `fg.FAMILIES`. A `SearchSource` builds its two families itself and takes none from the
-caller.
+**Where it plugs in.** `SearchSource`, `IeeeSource` and `SearchSource.for_pool` take
+`families=`, a dictionary from a family's name to a family object:
+
+```python
+source = SearchSource(grid, pool, settings, seed=1, families={"At": MyFamily()})
+```
+
+The key is `"At"` or `"Am"`: your family takes the place of the search family of that name, and
+its episodes are placed with that name's length and share. `source.generate(path)` then places,
+designs and writes its episodes like the package's own. `Episode.family` must be a name in
+`fg.FAMILIES`; the file stores that name's code
+([Generate a timeline](generation.md#a-design-family-of-your-own)).
 
 Example:
 [custom_attack_family.py](https://github.com/myersben9/fdia-graph/blob/main/examples/nygrid/custom_attack_family.py).
@@ -168,12 +178,13 @@ print(fg.FdiaGraph(path).summary())
 ```
 
 The example borrows the IEEE-14 pool builder, because `pn.case14()` is that grid. For a grid of
-your own you bring the pool. Two things hold for it today:
+your own you bring the pool. Two things hold for it:
 
 - `fg.generate_states` builds pools for the eight IEEE cases only.
-- The search-based designs read a scan's load and generation from its state by the rule of the
-  IEEE pools: each bus's load and generation scaled by one factor, load positive. A pool built
-  another way does not fit them.
+- A pool stores each bus's injection with load positive. The setting `loads` says how the
+  designs divide it into load and generation: `"scaled"` for a pool made by scaling the case,
+  `"net"` for a dispatched pool
+  ([How a pool's load is read](generation.md#how-a-pools-load-is-read)).
 
 One source generates one timeline. A second `generate` on the same `SearchSource` is refused;
 build a new source.
@@ -181,7 +192,7 @@ build a new source.
 To change the New York grid itself, edit its case file
 ([Test systems](../concepts/test_systems.md#the-new-york-case-file)). Edit rows in place, or add
 and delete whole rows. A variant in code is a copy, never a change in place:
-`hvdc_links(case)`, `externals_at_base(case, base)`, `case.with_voltage_margin(0.02)`.
+`hvdc_links(case)`, `externals_at_base(case, base)` (`systems/fixes.py`).
 
 ## What an extension should keep to
 
@@ -189,7 +200,7 @@ and delete whole rows. A variant in code is a copy, never a change in place:
   argument, a `DataConditionError` for data that does not meet a condition, `SolverUnavailable`
   for an environment that cannot run the solver.
 - **Settings are arguments.** A setting is an argument of the function or constructor that uses
-  it. A variant is a copy, such as `InterfaceFdia.with_overshoot(mw)`.
+  it. A variant is a copy, never a change in place.
 
 Changing the package itself is covered in
 [Contributing](https://github.com/myersben9/fdia-graph/blob/main/CONTRIBUTING.md).

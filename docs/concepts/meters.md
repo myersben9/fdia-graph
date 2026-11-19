@@ -45,31 +45,31 @@ branch end at its bus.
 | `I`, `IA` | PMU current as magnitude and angle | p.u., degrees |
 | `IR`, `II` | PMU current as real and imaginary part | p.u. |
 
-A plan uses one form of current, not both: `IR` and `II`, or `I` and `IA`.
+A plan uses one form of current, not both: `IR` and `II`, or `I` and `IA`. The plan the package
+places uses `IR` and `II`. `I` and `IA` are the kinds of a file that stores its currents as
+magnitude and angle; `MeterPlan.from_masks` reads such a file's plan.
 
-### Two placements
+### The placement
 
-There are two ways to place the meters today. Which one a timeline uses follows its source
-([Generate a timeline](../guides/generation.md#what-differs-between-the-ieee-cases-and-the-new-york-case-today)).
+`MeterPlan.from_coverage` places the meters at random, on every test system.
 
-| | Random coverage | Owned placement |
-|---|---|---|
-| Function | `MeterPlan.from_coverage` | `plan_meters` |
-| Used by | `SearchSource` (the IEEE cases) | `NewYorkSource` |
-| `P`, `Q` injection | every bus | every New York bus |
-| `P`, `Q` flow | the from end of a random share of branches | every branch end on a New York bus |
-| Voltmeters | a random share of buses | a random 60 % of New York buses |
-| PMUs | a random share of buses, at least one | the smallest set that sees every New York bus |
-| PMU currents | real and imaginary part | magnitude and angle |
-| Owner | one client | the utility that owns the bus |
+| Meter | Where |
+|---|---|
+| `P`, `Q` injection | every bus |
+| `P`, `Q` flow | the from end of a random share of branches |
+| Voltmeters | a random share of buses |
+| PMUs | a random share of buses, at least one |
+| PMU currents | every branch end at a PMU bus, as real and imaginary part |
+| Owner | one client; with the owners of the buses, the client of the meter's bus |
 
-**Random coverage.** `MeterSettings` gives the shares: `vbus_frac` 0.6, `pmu_frac` 0.2 and
+`MeterSettings` gives the shares: `vbus_frac` 0.6, `pmu_frac` 0.2 and
 `flow_frac` 0.9. The voltmeter buses are `int(0.6 N)` buses drawn at random, the PMU buses
 `max(1, int(0.2 N))`. Each branch gets a flow meter with probability 0.9.
 
-**Owned placement.** Buses outside New York carry no meter. Each side of a tie line meters its
-own end. A PMU sees its own bus and the buses next to it, and the PMUs sit at the smallest set
-of buses that sees every New York bus.
+On the New York case the meters are drawn over all 140 buses, the neighbouring grids' included.
+A source built with `own=` gives each meter the client of its bus; a meter at a bus that
+belongs to no client has owner -1
+([Generate a timeline](../guides/generation.md#a-timeline-read-as-clients)).
 
 ```python
 import numpy as np
@@ -96,7 +96,7 @@ timeline file they are layers: one array per bus, per branch and per PMU current
 |---|---|
 | `MeterPlan.scatter` | puts one value per meter at its place in the layers |
 | `MeterPlan.gather` | reads the flat vector back from the layers |
-| `MeterPlan.from_masks` | rebuilds the table from a New York file's meter masks |
+| `MeterPlan.from_masks` | rebuilds the table from the meter masks of a file that records the client of each bus |
 
 The round trip is exact. A client's data is the columns of `z` whose meter it owns.
 
@@ -127,9 +127,8 @@ scan = NoiseModel(plan).sample(z, rng)  # one noisy scan
 print(z.shape, scan.shape)            # (86,) (86,)
 ```
 
-The sign of an injection differs between files today. An IEEE file stores load as positive, the
-sign its pool uses. A New York file stores generation minus load, the sign `Measurement.h`
-computes ([Data dictionary](../reference/DATA_DICTIONARY.md)).
+`Measurement.h` computes an injection from the voltages as generation minus load. A file stores
+load as positive, the sign an IEEE pool uses ([Data dictionary](../reference/DATA_DICTIONARY.md)).
 
 ## Accuracy classes
 
@@ -164,8 +163,8 @@ The squares of the two shares add to 1 (0.25² + 0.97² = 1), so bias and jitter
 the standard deviation of the class. On a relative meter the bias is a gain error. On
 an absolute meter it is an offset.
 
-The biases are drawn with the plan. With random coverage there is one draw for every bus and
-branch, metered or not (`MeterPlan.from_placement`).
+The biases are drawn with the plan: one draw for every bus and branch, metered or not
+(`MeterPlan.from_placement`).
 
 A reading is the exact value with its bias, plus the jitter of that scan (`NoiseModel.sample`).
 `NoiseModel.sigmas(z)` gives the total of both, which an estimator weights by.

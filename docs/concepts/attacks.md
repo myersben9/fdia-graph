@@ -40,7 +40,7 @@ limits of the case [WU26, eqs. 21-23].
 | Family | Code | What the attacker does |
 |---|---|---|
 | `At`, the slow ramp | 5 | a false load that rises a little each frame, holds, and returns |
-| `Am`, the overload | 7 | the reported flow of a line or an interface rises to its limit |
+| `Am`, the overload | 7 | the reported flow of a line rises to its rating |
 
 **`At`** is hard to see because each step is small, so a detector that looks for jumps sees
 none. Its ramp profile is described in [DAT26], and the published attack it follows is in
@@ -50,30 +50,25 @@ none. Its ramp profile is described in [DAT26], and the published attack it foll
 reported flow of the target moves from its true value to its limit. The operator sees a line
 about to overload that is not.
 
-## Two design approaches
+## The designs
 
-A design decides what an episode changes on each frame. Two approaches exist today, and the
-design family is tied to the test system: a `SearchSource` (the IEEE cases) uses the
-search-based designs, and a `NewYorkSource` uses the optimisation-based designs.
+A design decides what an episode changes on each frame. The package's designs are search-based,
+and they run on every test system: the IEEE cases and the New York case.
 
-| | Search-based | Optimisation-based |
+| | `At` | `Am` |
 |---|---|---|
-| Test systems today | the IEEE cases | the New York case |
-| `At` | `SearchRamp` | `Ramp` |
-| `Am` | `SearchOverload` | `InterfaceFdia` |
-| `Am` targets | one or two lines, at their ratings | a transmission interface, at its limit |
-| False state from | a local AC solve in numpy | a local OPF in Ipopt (`Am`) |
-| Designed | `Am` before its split is walked; `At` as the walk reaches it | every episode before its split is walked |
+| Family class | `SearchRamp` | `SearchOverload` |
+| Targets | up to 5 loads | one or two lines, at their ratings |
+| False state from | a local AC solve in numpy | a local AC solve in numpy |
+| Designed | as the walk reaches it | before its split is walked |
 
 Every family answers the same question for the timeline: the episode of a window
 (`EpisodeFamily.designed` in `engine/attacks/family.py`). That is why one path generates every
 timeline ([Generate a timeline](../guides/generation.md)).
 
-The two approaches cannot be swapped between systems today, for two reasons stated in the code.
-Each reads its own meter placement. And the search-based designs read a scan's load and
-generation from its state by the rule of the IEEE pools, which scale a bus's load and generation
-by one factor (`formulas/attacks.py`). A dispatched pool such as New York's does not follow that
-rule.
+The designs read a scan's load and generation from its state. How a bus's injection divides
+into the two is the setting `loads`
+([How a pool's load is read](../guides/generation.md#how-a-pools-load-is-read)).
 
 ### The search-based designs
 
@@ -134,47 +129,19 @@ The overload episodes these settings build, measured with `families=("Am",)` and
 | IEEE-118 | two lines, with the load and generator bounds (default) | 2000 | 17 | 0 | 17.8 | 72.0 | 1.33 / 3.39 | 78 |
 <!-- /results -->
 
-### The optimisation-based designs
+### A family of your own
 
-The designs are classes on one `Attacker` (`engine/attacks/attacker.py`), which holds a
-`Network` and a `Measurement`. `Attacker.area` finds the local area, `Attacker.false_state`
-re-solves it, and `Attacker.attack_vector` gives the change of every reading.
+A source takes design families of your own, each in place of the search family of one name
+([Generate a timeline](../guides/generation.md#a-design-family-of-your-own)). The simplest is a
+subclass of `AttackFamily` (`engine/attacks/family.py`). It returns an `Episode`
+(`models/plan.py`) from `design(window, rng)`, or `None` when the window holds no attack. The
+window is the true state over the frames the episode would cover. The episode holds one attack
+vector: a value for every meter on every frame. The walk adds each row to the true scan of its
+frame (`VectorEpisode`).
 
-Each family subclasses `AttackFamily` and returns an `Episode` (`models/plan.py`) from
-`design(window, rng)`, or `None` when the window holds no attack. The window is the true state
-over the frames the episode would cover.
-
-**`At`: `Ramp`** (`engine/attacks/ramp.py`).
-
-- It ramps up to 4 load buses at once inside an area of 2 hops.
-- The rise is 40 % of the window and the hold 20 %.
-- A step may use at most 0.9 of a bus's natural five-minute swing over the window.
-- The false state comes from `Attacker.false_state`, a local AC solve in numpy in which the
-  other loads and units of the area absorb the change.
-
-**`Am`: `InterfaceFdia`** (`engine/attacks/interface.py`), on its base `OpfFdia`
-(`engine/attacks/opf.py`).
-
-- The target is a transmission interface: a set of branches whose summed flow the operator
-  limits. `Interface` (`systems/interfaces.py`) holds its branches with its real hourly limit
-  and flow.
-- An onset is allowed only where, in the hour of the window's last rise scan, an interface's
-  real flow is at least 0.9 of its real limit (`onset_mask`).
-- The goal adds that hour's real headroom to the model's interface flow.
-- `NewYorkSource.production` uses a window of 32 scans: 16 to rise, then 16 to unwind. On the
-  unwind each load bus moves by at most its natural five-minute step (`natural_steps`).
-- Each false state is a local AC OPF solved by Ipopt. The search tries supports grown from the
-  interface's end buses, smallest first, at most 32 per search (`SUPPORT_BUDGET`).
-- The bounds keep the false state plausible: a shown load changes by at most 0.1 of its true
-  value; a unit moves within its five-minute ramp and within 3 % of its upper limit around its
-  dispatched output; reactive output stays within the unit's capability.
-- The design kept is the one that tampers the fewest meters.
-
-A design that finds no attack says why (`design_explained`): `no_target`, `infeasible` or
-`solver_error` ([Troubleshooting](../guides/troubleshooting.md#the-timeline)).
-
-The attacker's area may span utilities, and the attack vector is written on every meter it
-moves, whoever owns it. `Episode.clients` records the owners of those meters.
+A design that finds no attack can say why (`design_explained`): a reason the family sets in
+`last_miss`, `solver_error` when the family counted a failed solve, else `infeasible`.
+[Add a design family, an alarm rule or a test system](../guides/extending.md) has the steps.
 
 ## Labels and the tamper masks
 
@@ -187,13 +154,15 @@ moves, whoever owns it. `Episode.clients` records the owners of those meters.
 | `attack/pmu_i_tamper` | as the currents | 1 at a tampered PMU current |
 | `episodes/` | one row per episode | onset, length, family, buses |
 
-What a 1 in a tamper mask means is declared in the file, in the attribute `tamper` of
-`attack/`. It differs between the two sources today.
+What a 1 in a tamper mask means depends on the family that designed the episode.
 
-| Source | A meter is tampered | A bus is attacked |
+| Family | A meter is tampered | A bus is attacked |
 |---|---|---|
-| `SearchSource` | where the attack changed the stored reading | at the buses the design names |
-| `NewYorkSource` | where the attack moves the reading by more than the meter's accuracy class | where a tampered meter sits at the bus |
+| `SearchRamp`, `SearchOverload` | where the attack changed the stored reading | at the buses the design names |
+| a family of your own that designs an attack vector | where the vector moves the reading by more than the meter's accuracy class | where a tampered meter sits at the bus |
+
+The file's attribute `tamper`, on `attack/`, states the rule of the package's own families, and
+both rules when the source was given a family of your own.
 
 In every file the observed scan minus the benign scan is the attack, exactly
 ([Layers and labels](layers.md)).
@@ -232,7 +201,7 @@ every voltmeter bus and no PMU currents ([Meters and noise](meters.md)).
 
 | File | Holds |
 |---|---|
-| `engine/attacks/family.py` | `EpisodeFamily`, `AttackFamily`, `DesignedEpisode`: the interface |
+| `engine/attacks/family.py` | `EpisodeFamily`, `AttackFamily`, `DesignedEpisode`, `VectorEpisode`: what every family answers |
 | `engine/attacks/search.py` | `SearchRamp`, `SearchOverload` and their episodes |
 | `engine/attacks/episodes.py` | `ramp_design`, `am_overload_design` |
 | `engine/attacks/area.py` | the attacker's area and its boundary |
@@ -241,10 +210,6 @@ every voltmeter bus and no PMU currents ([Meters and noise](meters.md)).
 | `engine/attacks/overload.py` | the overload goal, the ratings, the eligible lines |
 | `engine/attacks/minimize.py` | the fewest-tamper search |
 | `engine/attacks/rref.py` | the support by row reduction |
-| `engine/attacks/attacker.py` | `Attacker`, and the unit ramps and bands it bounds by |
-| `engine/attacks/ramp.py` | `Ramp` |
-| `engine/attacks/opf.py` | `OpfFdia`: the support search and the local OPF |
-| `engine/attacks/interface.py` | `InterfaceFdia`: the goal against an interface |
 
 To add a family of your own, see
 [Add a design family, an alarm rule or a test system](../guides/extending.md).

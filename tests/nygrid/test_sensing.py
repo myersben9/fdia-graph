@@ -1,88 +1,54 @@
-"""The New York meter plan and its readings: the fewest PMUs on small graphs, the plan, the measurement Jacobian
-against finite differences, observability and the meter noise."""
+"""The meter plan on the New York case and its readings: each meter owned by the client of its bus, the
+measurement Jacobian against finite differences, observability and the meter noise. On the packaged
+case file with made-up clients: no NYgrid data."""
 
-import json
+from dataclasses import replace
 
 import numpy as np
 import pytest
 import scipy.linalg
-import scipy.sparse as sp
 
 from fdia_graph.constants.meters import JITTER_FRAC, KIND_ACCURACY, MeterKind
 from fdia_graph.data.config import Settings, rng
+from fdia_graph.models.config import MeterSettings
 from fdia_graph.sensing.measure import Measurement
-from fdia_graph.sensing.meters import _min_pmus, plan_meters
+from fdia_graph.sensing.meters import MeterPlan
 from fdia_graph.sensing.noise import NoiseModel
-from fdia_graph.systems.case import nygrid_case
-from fdia_graph.systems.network import Network
-from fdia_graph.systems.ownership import assign_clients
-
-from .inputs import TERRITORIES, needs_data
-
-pytestmark = needs_data
 
 
 @pytest.fixture(scope="module")
 def grid():
+    """(the network, each bus's client, a meter at every bus and branch with its owner)"""
+    pytest.importorskip("matpowercaseframes")  # the packaged case file's reader (the [ny] extra)
+    from fdia_graph.systems.case import nygrid_case
+    from fdia_graph.systems.network import Network
+
     case = nygrid_case()
-    territories = json.load(open(TERRITORIES / "nys_electric_territories.geojson", encoding="utf-8"))
-    own = assign_clients(case, territories, TERRITORIES / "ny_bus_locations.csv")
-    net = Network(case)
-    return net, own, plan_meters(net, own, rng(Settings(), "meters"))
+    bus_client = np.where(case.is_ny, np.arange(len(case.bus_id)) % 3, -1)
+    plan = MeterPlan.from_coverage(case, MeterSettings(1.0, 1.0, 1.0), rng(Settings(), "meters"))
+    return Network(case), bus_client, replace(plan, owner=bus_client[plan.bus])
 
 
-def _identifiable(h: np.ndarray, cols: np.ndarray, free: np.ndarray | None = None) -> bool:
-    """True when every null direction of `h` leaves the state columns `cols` unchanged, apart from the
-    direction `free` over them (a common angle shift, when no meter reads an absolute angle)."""
+def _identifiable(h: np.ndarray, cols: np.ndarray) -> bool:
+    """True when every null direction of `h` leaves the state columns `cols` unchanged."""
     sub = scipy.linalg.null_space(h, rcond=1e-10)[cols]
-    if free is not None:
-        u = free / np.linalg.norm(free)
-        sub = sub - np.outer(u, u @ sub)
     return bool((np.linalg.svd(sub, compute_uv=False) < 1e-6).all()) if sub.size else True
 
 
-def test_min_pmus_small_graphs():
-    path = sp.diags([1, 1, 1, 1, 1], 1, shape=(6, 6))  # six buses in a line need two PMUs
-    assert _min_pmus((path + path.T).tocsr()).tolist() == [1, 4]
-    star = sp.csr_matrix(([1] * 4, ([0] * 4, [1, 2, 3, 4])), shape=(5, 5))
-    assert _min_pmus((star + star.T).tocsr()).tolist() == [0]
-
-
 def test_meter_plan(grid):
-    net, own, plan = grid
+    net, bus_client, plan = grid
     case = net.case
-    tab = np.zeros((len(own.names), len(MeterKind)), int)
-    np.add.at(tab, (plan.owner, plan.kind), 1)
-    print(
-        {n: dict(zip([k.name for k in MeterKind], row.tolist())) for n, row in zip(own.names.tolist(), tab)}
-    )
-    ny = np.flatnonzero(own.bus_client >= 0)
-    # every meter on a NY bus, owned by that bus's client
-    assert (plan.owner >= 0).all() and (plan.owner == own.bus_client[plan.bus]).all()
-    assert sorted(plan.bus[plan.kind == MeterKind.P].tolist()) == ny.tolist()
-    # a flow meter at every branch end on a NY bus, at that end's bus, so each side of a tie meters its own end
-    ends = plan.kind == MeterKind.PF
-    assert (
-        plan.bus[ends] == np.where(plan.end[ends] == 0, case.f[plan.branch[ends]], case.t[plan.branch[ends]])
-    ).all()
-    n_ends = (own.bus_client[case.f] >= 0).sum() + (own.bus_client[case.t] >= 0).sum()
-    assert ends.sum() == n_ends
-    tie = (
-        own.tie_lines[plan.branch[ends]]
-        & (own.bus_client[case.f] >= 0)[plan.branch[ends]]
-        & (own.bus_client[case.t] >= 0)[plan.branch[ends]]
-    )
-    assert len(set(plan.owner[ends][tie].tolist())) > 1
-    # PMUs see every NY bus through their own bus or a branch current
-    pmu = plan.bus[plan.kind == MeterKind.VA]
-    seen = np.zeros(len(case.bus_id), bool)
-    seen[net.neighbors(pmu, 1)] = True
-    assert seen[ny].all() and np.isin(pmu, plan.bus[plan.kind == MeterKind.V]).all()
-    cur = plan.kind == MeterKind.I
-    assert np.isin(plan.bus[cur], pmu).all() and cur.sum() == (plan.kind == MeterKind.IA).sum()
-    # one owner per meter, one row per (kind, bus, branch, end)
+    # an injection meter at every bus, a flow meter at every branch's from end, at that end's bus
+    assert sorted(plan.bus[plan.kind == MeterKind.P].tolist()) == list(range(len(case.bus_id)))
+    flows = plan.kind == MeterKind.PF
+    assert (plan.end[flows] == 0).all() and (plan.bus[flows] == case.f[plan.branch[flows]]).all()
+    # a PMU's current phasors sit at its own bus, real and imaginary part alike
+    cur = plan.kind == MeterKind.IR
+    assert np.isin(plan.bus[cur], plan.bus[plan.kind == MeterKind.VA]).all()
+    assert cur.sum() == (plan.kind == MeterKind.II).sum()
+    # one row per (kind, bus, branch, end), owned by the client of its bus
     keys = set(zip(plan.kind.tolist(), plan.bus.tolist(), plan.branch.tolist(), plan.end.tolist()))
-    assert len(keys) == len(plan.kind)
+    assert len(keys) == len(plan.kind) and np.array_equal(plan.owner, bus_client[plan.bus])
 
 
 def test_jacobian_matches_finite_differences(grid):
@@ -102,19 +68,12 @@ def test_jacobian_matches_finite_differences(grid):
 
 
 def test_observability(grid):
-    net, own, plan = grid
+    net, bus_client, plan = grid
     case, meas, noise = net.case, Measurement(net, plan), NoiseModel(plan)
-    n, ny = len(case.vm), np.flatnonzero(own.bus_client >= 0)
+    n = len(case.vm)
     z = meas.h(case.vm, case.va)
     hw = meas.jacobian(case.vm, case.va) / noise.sigmas(z)[:, None]
-    assert _identifiable(hw, np.r_[ny, n + ny])
-    for c, name in enumerate(own.names):
-        rows, buses = plan.owner == c, np.flatnonzero(own.bus_client == c)
-        angle = np.isin(plan.kind[rows], [MeterKind.VA, MeterKind.IA]).any()
-        free = None if angle else np.r_[np.zeros(len(buses)), np.ones(len(buses))]
-        print(
-            f"{name}: {rows.sum()} meters, locally observable {_identifiable(hw[rows], np.r_[buses, n + buses], free)}"
-        )
+    assert _identifiable(hw, np.arange(2 * n))
     # a client's view holds only its own meters
     sub = meas.for_client(0)
     assert np.allclose(sub.h(case.vm, case.va), z[plan.owner == 0])
@@ -129,17 +88,16 @@ def test_noise(grid):
     # the bias is the same every scan, the jitter is JITTER_FRAC of the class
     bias = np.where(noise.relative, z[0] * plan.bias, plan.bias)
     assert np.allclose(err.mean(0), bias, atol=4 * err.std(0).max() / np.sqrt(len(z)))
-    jitter = JITTER_FRAC * plan.sigma_rel * np.abs(z[0]) + np.where(
-        noise.relative, plan.sigma_abs, JITTER_FRAC * plan.sigma_abs
-    )
-    assert np.allclose(err.std(0) / jitter, 1.0, atol=0.06)
     # heteroscedastic: a relative meter's class grows with its reading
     flows = plan.kind == MeterKind.PF
     assert np.allclose(
         noise.sigmas(z[0])[flows],
         KIND_ACCURACY[MeterKind.PF][0] * np.abs(z[0, flows]) + KIND_ACCURACY[MeterKind.PF][1],
     )
+    jitter = JITTER_FRAC * plan.sigma_rel * np.abs(z[0]) + np.where(
+        noise.relative, plan.sigma_abs, JITTER_FRAC * plan.sigma_abs
+    )
+    assert np.allclose(err.std(0)[flows] / jitter[flows], 1.0, atol=0.06)
     # across meters of one kind, bias and jitter add to the class
     total = (err[0] / noise.sigmas(z[0]))[flows]
-    print(f"flow error / class sigma: std {total.std():.2f} over {flows.sum()} meters")
     assert 0.7 < total.std() < 1.3

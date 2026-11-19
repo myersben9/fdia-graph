@@ -12,7 +12,7 @@ timeline (`order="time"`).
 |---|---|---|---|
 | `node_x` | `[N,4]` | <code>&#124;V&#124;</code>, `P_inj`, `Q_inj`, `theta` | bus meter readings |
 | `node_m` | `[N,4]` | same columns | 1 metered, 0 not (value zero-filled) |
-| `edge_x` | `[E,2]` (New York `[E,4]`) | `P_from`, `Q_from` (New York: then `P_to`, `Q_to`) | power leaving the branch (sign = direction) |
+| `edge_x` | `[E,2]` (`[E,4]` in a file with both branch ends) | `P_from`, `Q_from` (then `P_to`, `Q_to`) | power leaving the branch (sign = direction) |
 | `edge_m` | as `edge_x` | same columns | 1 metered, 0 not |
 | `edge_index` | `[2,E]` | row 0 `from_bus`, row 1 `to_bus` | connectivity |
 | `edge_attr` | `[E,8]` | `r`, `x`, `b`, `g`, `gs`, `bs`, `tap`, `shift` | static branch electrical properties |
@@ -26,13 +26,15 @@ timeline (`order="time"`).
 | `edge_clean` | `[E,2]` | same as `edge_x` | noiseless true flows, unmetered branches zeroed |
 | `edge_clean_full` | `[E,2]` | same as `edge_x` | noiseless true flows on every branch, metered or not (computed from `clean` through `yf` on load; equals `edge_clean` where a flow meter exists) |
 
-**A New York file** has the same layout, and declares in its attributes what its meters change: the flow
-layers (`edge_x`, `edge_m`, `edge_benign`, `edge_clean` and the tamper mask) are `[E,4]`, both branch ends
-(`attrs["edge_feat"]` is `P_from,Q_from,P_to,Q_to`); `pmu_i` holds magnitude and angle
-(`attrs["current_form"]` is `polar`); it has no `temporal_delta` and no `swing`. Only it carries `data/time`
-(int64 seconds, NYISO's local clock), `episodes/target_branch`, `graph/bus_client` with the attribute
-`client_names`, and `graph/edge_rating` (MVA).
-[Layers and labels](../concepts/layers.md#what-a-new-york-file-declares) lists what such a file declares.
+**What the layout also allows.** A file declares in its attributes how its layers read. The flow layers
+(`edge_x`, `edge_m`, `edge_benign`, `edge_clean` and the tamper mask) can be `[E,4]`, both branch ends
+(`attrs["edge_feat"]` is then `P_from,Q_from,P_to,Q_to`); `pmu_i` can hold magnitude and angle
+(`attrs["current_form"]` is then `polar`); and a file can lack `temporal_delta` and `swing`. The readers
+accept such files. The package's own source writes from-end flows `[E,2]`, currents as real and imaginary
+parts, and both temporal features, on every test system. A file built from a pool with times carries
+`data/time` (int64 seconds), and one built with the owners of its buses carries `graph/bus_client` with the
+attribute `client_names`.
+[Layers and labels](../concepts/layers.md#what-the-layout-allows) says more.
 
 ## Labels: `y` says which buses, `family` says which attack
 
@@ -78,9 +80,8 @@ ds.export(["clean"]).clean[..., NodeChannel.V]  # any [..., 4] array, a split's 
 
 Sign of `P_inj`/`Q_inj`: `+` = net consumption (load), `−` = net injection (gen). This is pandapower's
 `res_bus` convention. Example (case14): the slack bus reads ≈ −235 MW, a 94 MW load bus reads ≈ +93 MW.
-That is the sign of an IEEE file, whose pool stores its injections so. A New York file has the other
-sign, `+` = net injection (generation minus load): its injections are computed from the voltages
-(`Measurement.h`, a meter of kind `MeterKind.P` or `MeterKind.Q`).
+Every file the package's source writes has this sign, a New York file too: `SearchSource.for_pool` turns
+the pool's injections to it.
 
 ## `edge_attr` `[E,8]`: static branch properties (per-unit, never change)
 
@@ -110,8 +111,8 @@ sign, `+` = net injection (generation minus load): its injections are computed f
 | PyG `Data` or `DataBatch` (`format="pyg"`) | `.edge_attr` or `.edge_x` | `.edge_mask` | `.edge_phys` |
 | `ds.export()` | `["edge_x"]` `[n,E,2]` | `["edge_m"]` | `ds.edge_attr` |
 
-On a New York file the flows and their mask are `[E,4]`, and the pandas export adds the columns `P_to_e{n}`
-and `Q_to_e{n}`.
+On a file with both branch ends the flows and their mask are `[E,4]`, and the pandas export adds the columns
+`P_to_e{n}` and `Q_to_e{n}`.
 
 One name to watch: the static table's `graph/edge_x` is the per-unit series reactance of each branch
 (`ds.branch_x`), unrelated to the per-record flow layer `edge_x` above; the on-disk name changes at
@@ -130,7 +131,7 @@ physics live on the dataset as `ds.edge_attr` `[E,8]` and one column each as `ds
 
 | field | shape | meaning |
 |---|---|---|
-| `edge_x` | `[E,2]` | `[P_from, Q_from]`, power leaving the from-end (sign = direction). MW/MVAr or pu. `[E,4]` on a New York file: then `[P_to, Q_to]`, power leaving the to-end. |
+| `edge_x` | `[E,2]` | `[P_from, Q_from]`, power leaving the from-end (sign = direction). MW/MVAr or pu. `[E,4]` on a file with both branch ends: then `[P_to, Q_to]`, power leaving the to-end. |
 | `node_m`, `edge_m` | `[N,4]`, as `edge_x` | `1` metered, `0` not. Metering is sparse: read the mask. |
 | `edge_index` | `[2,E]` | row 0 from-bus, row 1 to-bus |
 | `y`, `family` | `[N]`, scalar | see Labels above (Aq = paper `A_o`) |
@@ -190,10 +191,10 @@ columns of `pmu_i` are defined in `fdia_graph.constants.channels.CurrentChannel`
 `RE_TO`, `IM_TO`): the real and imaginary part of `I_from = Y_f V` and `I_to = Y_t V` in per unit on the base
 current, the same on a `units="pu"` or `"physical"` view, zero where no PMU reads that end
 (`pmu_i_m` is 0 there). `pmu_i_benign` is the attack-removed twin and `pmu_i_tamper` marks the
-channels the attacker wrote. A New York file stores each current as magnitude (per unit) and angle
-(degrees) instead (`PolarCurrentChannel`: `MAG_FROM`, `ANGLE_FROM`, `MAG_TO`, `ANGLE_TO`), and says so
-(`attrs["current_form"]` is `polar`); a `units="pu"` view gives those
-angles in radians. A file without these datasets (every released file) loads unchanged
+channels the attacker wrote. The layout also allows each current as magnitude (per unit) and angle
+(degrees) (`PolarCurrentChannel`: `MAG_FROM`, `ANGLE_FROM`, `MAG_TO`, `ANGLE_TO`); such a file says so
+(`attrs["current_form"]` is `polar`), and a `units="pu"` view gives those
+angles in radians. The package's own source writes real and imaginary parts. A file without these datasets (every released file) loads unchanged
 and its records carry no `pmu_i`. `export(["prev_pmu_i"])` gives the previous emitted frame's
 currents on a hybrid-meter timeline, like `prev_node_x`.
 

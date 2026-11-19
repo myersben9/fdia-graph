@@ -24,15 +24,16 @@ and it runs these steps in this order.
 ![Eight boxes, top to bottom. A test system and its pool: one AC state per frame. 1. Open: the file, under a .part name. 2. Cut the splits: blocks in time order, or whole weeks. 3. Place: a split's episodes, whole, at random onsets. 4. Design: each episode. 5. Walk: the frames, in time order; an arrow labelled next split goes back to Place. 6. Finish: the episode table. Last, one timeline file: observed, benign, clean.](../figures/diagrams/generation_flow.png)
 
 A source is a subclass of `TimelineSource`. It builds the generator, the pool and the designer
-of its attack families, and it says what its files record. There are two.
+of its attack families, and it says what its files record. The package has one, in three
+spellings.
 
 | Source | File | Built on |
 |---|---|---|
 | `SearchSource` | `generation/search.py` | a `Network` and a pool array |
-| `NewYorkSource` | `generation/newyork.py` | the New York pool file |
+| `IeeeSource` | `generation/ieee.py` | an IEEE case by its name, and its pool array |
+| `SearchSource.for_pool` | `generation/search.py` | a `Network` and a pool file, as the New York case has |
 
-`IeeeSource` (`generation/ieee.py`) is a `SearchSource` for an IEEE case by its name.
-`SearchSource.for_pool` is a `SearchSource` on a New York pool file
+`IeeeSource` and `for_pool` build a `SearchSource`
 ([The original generator on the New York case](#the-original-generator-on-the-new-york-case)).
 
 ### 1. Open
@@ -52,14 +53,11 @@ The train, validation and test splits are cut before any episode is placed, so n
 by a split. The setting `split_by` chooses how.
 
 - `"time"`: three blocks in time order.
-- `"week"`: whole weeks, drawn into the three splits. This needs each frame's time. The weeks
-  are ranked by how many allowed onsets they hold and drawn in strata of 20 weeks
-  (`split_weeks`). Where no family limits its onsets, as on a `SearchSource`, the order is
-  random.
+- `"week"`: whole weeks, drawn at random into the three splits, in strata of 20 weeks
+  (`split_weeks`). This needs each frame's time.
 
-Just before the cut the source runs `prepare`. It does nothing on a `SearchSource`. A
-`NewYorkSource` finds there the onsets its families may take (see
-[the New York settings](#the-new-york-settings)).
+Just before the cut the source runs `prepare`. It does nothing on a `SearchSource`; a subclass
+can work out there what it needs before the splits are cut.
 
 ### 3. Place
 
@@ -128,7 +126,7 @@ built, and a value it does not allow raises `ConfigError`.
 
 ### `TimelineSettings`
 
-The settings of a `SearchSource`, so of every IEEE timeline.
+The settings of a `SearchSource`, so of every timeline the package generates.
 
 | Field | Default | Meaning |
 |---|---|---|
@@ -228,76 +226,33 @@ A design picks its targets among the grid's own buses (`Case.own_bus`). On an IE
 every bus. On the New York case it is the 46 New York buses; the other 94 stand for the
 neighbouring grids.
 
-### The New York settings
+## What differs between the IEEE cases and the New York case
 
-`NewYorkSettings` holds the settings of a `NewYorkSource`.
-
-| Field | Default | Meaning |
-|---|---|---|
-| `length` | 16 | frames per episode, or `{family: frames}` |
-| `attacked_frac` | 0.2 | share of each split's frames under an episode |
-| `split` | `SplitSettings((0.7, 0.15, 0.15))` | train, validation, test |
-| `split_by` | `"week"` | how the splits are cut |
-| `workers` | 1 | processes that design the episodes |
-| `verbose` | `False` | print progress |
-| `survey` | 0 | frames between surveyed onsets; 0 is off |
-| `survey_cache` | `None` | folder that keeps the survey by chunk |
-
-The overload family of the New York case waits for a loaded grid: it may start only where an
-interface is near its limit. `prepare` asks each family for its `onset_mask`. With `survey` on,
-it also designs every allowed onset on that grid of frames first, and then places episodes only
-at onsets where an attack was found. A survey saved under `survey_cache` lets a stopped build
-resume.
-
-`NewYorkRelease` holds what `NewYorkSource.production` builds its source from.
-
-| Field | Default | Meaning |
-|---|---|---|
-| `families` | `("Am", "At")` | the families built |
-| `interfaces` | `("SPR/DUN-SOUTH",)` | the interfaces `Am` targets |
-| `workers` | 12 | processes that design the episodes |
-| `survey` | 12 | the survey's grid in frames; 0 is off |
-| `survey_cache` | `None` | folder that keeps the survey by chunk |
-| `root` | `"."` | folder whose `data/` holds the inputs |
-| `hold_external` | `False` | keep every bus outside New York true |
-| `v_margin` | 0.0 | widens the attacker's voltage limits (p.u.) |
-| `gen_v_tol` | `None` | holds generator voltages near schedule (p.u.) |
-| `load_cap` | `None` | cap on a shown load change; `None` keeps 0.1 |
-| `band` | `None` | basepoint band's share; `None` keeps 0.03 |
-
-`production` sets the episode lengths itself: 32 frames for `Am` and 16 for `At`.
-
-## What differs between the IEEE cases and the New York case today
-
-Every row is a difference in settings or in data. The steps above are the same.
+One source generates both. Every row is a difference in data or in a setting. The steps above
+are the same.
 
 | Item | IEEE cases | New York case |
 |---|---|---|
 | Case | `Case.from_ieee(n)`, the case pandapower ships | `nygrid_case()`, a MATPOWER file in the package |
 | Load data | one system load profile scales every bus | a load per bus, from `LoadModel` |
 | Pool solve | one power flow per step, in pandapower | one OPF per frame in Ipopt, then one power flow |
-| A step that does not solve | dropped from the pool | kept in place, with an empty state |
+| A step that does not solve | dropped from the pool | kept in the pool, with an empty state; `for_pool` leaves it out of the timeline |
 | Frame times | not stored in the pool | stored in the pool |
-| Meter placement | `MeterPlan.from_coverage`: random shares | `plan_meters`: every bus and branch end a utility owns |
-| Design family | `SearchRamp`, `SearchOverload` | `Ramp`, `InterfaceFdia` |
-| Episode lengths | 60 frames, both families | 16 frames; `NewYorkSource.production` uses 32 for `Am` |
-| Attacked share | 0.5 | 0.2 |
-| Split default | `"time"`, 0.6 / 0.2 / 0.2 | `"week"`, 0.7 / 0.15 / 0.15 |
-| Allowed onsets | any onset of the split | `Am` only where an interface is near its limit |
-| Temporal features | `temporal_delta` and `swing` are written | not written |
-| Entry point | `fg.generate` | `pipelines/newyork/build_timeline.py` |
+| `loads` | `"scaled"` | `"net"`, set by `for_pool` |
+| Buses a design may target | every bus | the 46 New York buses |
+| Source | `IeeeSource`, through `fg.generate` | `SearchSource.for_pool` |
 | Released data | a pool and a timeline per system | none; you build both |
 
-The design family row is the default of each entry point, not a limit: the search-based designs
-run on the New York case too (next section). Two of these rows are still tied together. The search-based designs read the meters that
-`MeterPlan.from_coverage` places, and the New York designs read the meters that `plan_meters`
-places. So the meter placement and the design family both follow the source. Neither is a
-setting of its own. [The attack families](../concepts/attacks.md) says what each design does.
+The meter placement, the design families, the file layout and the defaults of `TimelineSettings`
+are the same on both. [The attack families](../concepts/attacks.md) says what each design does.
 
 ## The original generator on the New York case
 
 The New York case is a test case of `SearchSource` like an IEEE case: coverage meters, the
-search-based ramp and overload, and the settings of `TimelineSettings`.
+search-based ramp and overload, and the settings of `TimelineSettings`. Reading the case file
+needs the `[ny]` extra. The pool is one you build
+([Build the operating points](operating_points.md)); the repository has a pool of two days
+for its tests.
 
 ```python
 from fdia_graph.data.pool import read_pool
@@ -315,7 +270,7 @@ SearchSource.for_pool(net, pool, settings, seed=5).generate("out/ny_search.h5")
 
 `for_pool` hands the generator the pool as it reads one: the solved frames only, with their
 times, injections positive for load, and `loads="net"`. The file has the layout of an IEEE file:
-a flow at the from end, currents as real and imaginary parts, one client.
+a flow at the from end, currents as real and imaginary parts, and the two temporal features.
 
 | | On this case |
 |---|---|
@@ -327,6 +282,93 @@ a flow at the from end, currents as real and imaginary parts, one client.
 
 `tests/nygrid/test_any_case.py` runs this on the two checked-in days and checks that every
 labelled bus is New York's.
+
+## A design family of your own
+
+`SearchSource`, `IeeeSource` and `SearchSource.for_pool` take `families=`, a dictionary from a
+family's name to a family object. The object takes the place of the search family of that name,
+`"At"` or `"Am"`. Its episodes are placed like that family's: the name must be in the settings'
+`families`, and the episode length is that name's (`ramp_len` for `"At"`).
+
+```python
+from fdia_graph.generation.ieee import IeeeSource
+from fdia_graph.models.config import TimelineSettings
+
+# X: a pool array [T, 14, 4]; MyFamily: a subclass of AttackFamily
+settings = TimelineSettings.of(families=("At",), ramp_len=10, attacked_frac=0.3)
+source = IeeeSource(14, X, settings, seed=5, families={"At": MyFamily()})
+source.generate("out/own.h5")
+```
+
+A family that subclasses `AttackFamily` (`engine/attacks/family.py`) designs one attack vector
+per window, a value for every meter of the source's plan on every frame
+([Add a design family](extending.md#a-design-family)). Such an episode is designed before
+its split is walked. The file records it under the code of the family name its `Episode`
+carries. A meter is marked tampered where the vector moves its reading by more than the meter's
+accuracy class, and a bus is labelled where a tampered meter sits.
+
+The designs of several workers run in spawned processes, so with `workers` above 1 the family
+object must pickle. `tests/test_any_case.py` runs a family of its own on IEEE-14.
+
+## A timeline read as clients
+
+`SearchSource` and `SearchSource.for_pool` take `own=`, an `Ownership`
+(`systems/ownership.py`): the clients' names and the client of each bus, -1 for a bus that
+belongs to none. Each meter then belongs to the client of its bus. The file records the names
+in the attribute `client_names` and each bus's client in `graph/bus_client`. The designs do not
+read the owners, so the attacks are the same with and without them.
+
+```python
+import numpy as np
+
+from fdia_graph.systems.ownership import Ownership
+
+# net, pool, settings: as in the New York snippet above
+case = net.case
+bus_client = np.where(case.is_ny, np.arange(len(case.bus_id)) % 3, -1)  # three made-up clients
+ties = bus_client[case.f] != bus_client[case.t]
+own = Ownership(np.array(["a", "b", "c"]), bus_client, ties)
+SearchSource.for_pool(net, pool, settings, seed=5, own=own).generate("out/ny_clients.h5")
+```
+
+`assign_clients` in `systems/ownership.py` builds the `Ownership` of the New York case from the
+utility territories and the bus locations among the build's inputs: each New York bus goes to
+the utility whose territory holds it.
+
+The file opens with `fg.FdiaGraph(path)` like any timeline. `Dataset` (`dataset/clients.py`) is
+a second view of it, by meter and by client:
+
+```python
+from fdia_graph.dataset.clients import Dataset
+
+ds = Dataset("out/ny_clients.h5")
+a = ds.client("a", split="train")
+x = a.node_features()           # [T, N_c, 4]
+op = ds.operator(split="test")  # every meter
+```
+
+A client sees only its own meters and the labels of its own buses. The operator view is the full
+scan. `ds.clients` lists the clients' names.
+
+| On a `ClientView` | Shape | Holds |
+|---|---|---|
+| `z` | `[T, M_c]` | its observed scans, one column per meter it owns |
+| `labels` | `[T, N_c]` | the attack labels of its buses |
+| `meters` | | its rows of the meter table |
+| `buses` | `[N_c]` | the positions of the buses it owns |
+| `frames` | `[T]` | the frames selected; a week split has gaps |
+| `node_features()` | `[T, N_c, 4]` | voltage, angle, P, Q per bus; NaN where not metered |
+| `temporal()` | `[T, M_c]` | the change from the frame before |
+
+| On the `Dataset` | Holds |
+|---|---|
+| `ds.plan` | the meter table, rebuilt from the file's masks (`MeterPlan.from_masks`) |
+| `ds.z(frames)` | the flat reading vector of that table |
+| `ds.z(frames, benign=True)` | the same scans without the attack |
+| `ds.tampered(frames)` | the tampered meters |
+
+`Dataset` refuses a file that does not record its clients with `NotATimeline`.
+`tests/nygrid/test_dataset.py` writes such a file and reads it back.
 
 ## Entry point: an IEEE case
 
@@ -391,117 +433,6 @@ timeline (experiment `generation.parallel_design`):
 | 16 | 253 | 3.0x | 25 | yes |
 <!-- /results -->
 
-## Entry point: the New York case
-
-The build scripts are in the repository's `pipelines/newyork/`, not in the wheel, so work from a
-checkout. You need the `[ny]` extra, Ipopt, the inputs and the pool
-([Build the operating points](operating_points.md)).
-
-Run from the work folder whose `data/` holds the inputs:
-
-```bash
-python $FG/pipelines/newyork/build_timeline.py \
-    out/timeline_2019.h5 --pool out/pool_2019_v3.h5 --workers 4
-```
-
-| Option | Default | Meaning |
-|---|---|---|
-| `--pool` | `out/pool_2019_v3.h5` | the pool file |
-| `--families` | `Am,At` | the families built |
-| `--interface` | `SPR/DUN-SOUTH` | the interfaces `Am` targets |
-| `--workers` | 12 | processes that design the episodes |
-| `--survey` | 12 | the survey's grid in frames; 0 is off |
-| `--survey-cache` | none | folder that keeps the survey by chunk |
-| `--fetch` | | download the inputs into the work folder and stop |
-
-The script writes a summary beside the file, as JSON. In Python the same build is:
-
-```python
-from fdia_graph.generation.newyork import NewYorkSource
-from fdia_graph.models.config import NewYorkRelease
-
-if __name__ == "__main__":
-    release = NewYorkRelease(workers=4)
-    pool = "out/pool_2019_v3.h5"
-    source = NewYorkSource.production(pool, release)
-    source.generate("out/timeline_2019.h5")
-    print(source.summary()["built"])
-```
-
-`production` reads the case, assigns each New York bus to its utility, rates each unrated branch
-at its peak flow over the pool, places the meters and builds the two families. `summary()` then
-counts, per split and family, the slots placed, the moves, the episodes built and the slots given
-up. [Troubleshooting](troubleshooting.md#the-timeline) explains its miss reasons.
-
-### One episode alone
-
-`pipelines/newyork/build_single_episodes.py` writes the whole day of one onset with a single
-`Am` episode in it:
-
-```bash
-python $FG/pipelines/newyork/build_single_episodes.py OUT_DIR \
-    --pool out/pool_2019_v3.h5 --onset 2019-07-05T10:30:00
-```
-
-It uses `SingleEpisodeSource` (`generation/newyork.py`), a `NewYorkSource` with one episode
-placed by hand:
-
-```python
-import numpy as np
-
-from fdia_graph.generation.newyork import SingleEpisodeSource
-
-# source: the NewYorkSource built above, with workers=1
-when = np.datetime64("2019-07-05T10:30:00")
-times = source.pool.time.astype("datetime64[s]")
-onset = int(np.flatnonzero(times == when)[0])
-one = SingleEpisodeSource(source, onset, family="Am")
-one.generate("one.h5")
-```
-
-`onset` is a frame of the pool. The snippet finds the frame of the same time the command above
-names.
-
-`lo` and `hi` set the pool frames the file covers. `using=` designs the episode with a variant
-of the family, such as `InterfaceFdia.with_overshoot(mw)`. `lag=` designs it on the window that
-many frames earlier.
-
-### Reading the file by utility
-
-A New York timeline opens with `fg.FdiaGraph(path)` like any timeline. `Dataset`
-(`dataset/clients.py`) is a second view of it, by meter and by utility:
-
-```python
-from fdia_graph.dataset.clients import Dataset
-
-ds = Dataset("out/timeline_2019.h5")
-con_ed = ds.client("ConEd", split="train")
-x = con_ed.node_features()      # [T, N_c, 4]
-op = ds.operator(split="test")  # every meter
-```
-
-A client sees only its own meters and the labels of its own buses. The operator view is the full
-scan. `ds.clients` lists the utility names.
-
-| On a `ClientView` | Shape | Holds |
-|---|---|---|
-| `z` | `[T, M_c]` | its observed scans, one column per meter it owns |
-| `labels` | `[T, N_c]` | the attack labels of its buses |
-| `meters` | | its rows of the meter table |
-| `buses` | `[N_c]` | the positions of the buses it owns |
-| `frames` | `[T]` | the frames selected; a week split has gaps |
-| `node_features()` | `[T, N_c, 4]` | voltage, angle, P, Q per bus; NaN where not metered |
-| `temporal()` | `[T, M_c]` | the change from the frame before |
-
-| On the `Dataset` | Holds |
-|---|---|
-| `ds.plan` | the meter table |
-| `ds.z(frames)` | the flat reading vector of that table |
-| `ds.z(frames, benign=True)` | the same scans without the attack |
-| `ds.tampered(frames)` | the tampered meters |
-
-`Dataset` refuses a file that is not a New York timeline with `NotATimeline`.
-
 ## Where the code is
 
 | File | Holds |
@@ -509,7 +440,6 @@ scan. `ds.clients` lists the utility names.
 | `generation/source.py` | `TimelineSource`: the steps, written once |
 | `generation/search.py` | `SearchSource`: coverage meters, search-based designs |
 | `generation/ieee.py` | `IeeeSource`: a `SearchSource` for an IEEE case by name |
-| `generation/newyork.py` | `NewYorkSource`, `SingleEpisodeSource`, `Survey` |
 | `generation/plan.py` | the splits, the episode counts, the placement |
 | `generation/design.py` | `Designer`, `SplitDesign`, the design processes |
 | `generation/emit.py` | `Walk`: the frames, in time order |
