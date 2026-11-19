@@ -74,19 +74,23 @@ def _devices(g, window, k, goal, support) -> tuple[set[str], float]:
             )
             worst = max(worst, float(mag[b, c]))
         for e, c in zip(*np.nonzero(edge)):
-            names.add(f"SCADA {number[g.ei[0, e]]}")
+            names.add(f"SCADA {number[g.edge_index[0, e]]}")
             worst = max(worst, abs(float(prev.edge[e, c])) / g.case.base_mva)
         for e, c in zip(*np.nonzero(cur)) if cur is not None else ():
-            end = g.ei[0, e] if c in (CurrentChannel.RE_FROM, CurrentChannel.IM_FROM) else g.ei[1, e]
+            end = (
+                g.edge_index[0, e]
+                if c in (CurrentChannel.RE_FROM, CurrentChannel.IM_FROM)
+                else g.edge_index[1, e]
+            )
             names.add(f"PMU {number[end]}")
             worst = max(worst, abs(float(prev.current[e, c])))
     return names, worst
 
 
 def _reaches_both_ratings(g, window, k, goal, support) -> None:
-    Xa = g.minimizer.goal_state(goal, len(window) - 1, window[-1], support, k)
-    assert Xa is not None
-    flows = g.emitter.clean_flows_from_states(Xa[None])[0, list(goal.lines)]
+    x_false = g.minimizer.goal_state(goal, len(window) - 1, window[-1], support, k)
+    assert x_false is not None
+    flows = g.emitter.clean_flows_from_states(x_false[None])[0, list(goal.lines)]
     ratings = g.overload.line_ratings()[list(goal.lines)]
     assert np.allclose(np.hypot(flows[:, 0], flows[:, 1]), ratings, rtol=1e-6)
 
@@ -98,7 +102,7 @@ def test_the_scenario_table_maps_to_our_branches_and_buses():
             for a, b in scenario:
                 e = case_studies.branch(g, a, b)
                 number = g.case.bus_id
-                assert {int(number[g.ei[0, e]]), int(number[g.ei[1, e]])} == {a, b}
+                assert {int(number[g.edge_index[0, e]]), int(number[g.edge_index[1, e]])} == {a, b}
     assert len(case_studies.PMUS[14]) == 4 and len(case_studies.PMUS[118]) == 11
     assert set(case_studies.PMUS[118]) <= set(
         case_studies.ATTACK_AREA[118]

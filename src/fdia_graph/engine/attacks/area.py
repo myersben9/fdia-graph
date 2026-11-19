@@ -40,7 +40,7 @@ class AttackArea(Part):
         (the estimator pins it), grown over zero-injection boundary buses (they cannot absorb the changed
         power), with `hops` reduced until a boundary exists. None when the seeds alone leave no boundary."""
         for h in range(hops, -1, -1):
-            interior, _ = subnetwork(self.g.ei, seeds, h, self.g.C)
+            interior, _ = subnetwork(self.g.edge_index, seeds, h, self.g.n_bus)
             interior, boundary = self.grow_over_zero_injection(interior[interior != self.g.slack_bus])
             if len(interior) and len(boundary):
                 return interior
@@ -51,8 +51,8 @@ class AttackArea(Part):
         window."""
         cached = getattr(self, "_adjacency_cache", None)
         if cached is None:
-            adj: list[set[int]] = [set() for _ in range(self.g.C)]
-            for a, b in self.g.ei.T:
+            adj: list[set[int]] = [set() for _ in range(self.g.n_bus)]
+            for a, b in self.g.edge_index.T:
                 adj[int(a)].add(int(b))
                 adj[int(b)].add(int(a))
             cached = [frozenset(n) for n in adj]
@@ -133,7 +133,7 @@ class AttackArea(Part):
             min(1.0, float(np.abs(spread[lines][:, buses]).mean())) if spread is not None else 0.0,
             float(1.0 / (1.0 + cv.mean())) if len(cv) else 0.0,
             float(min(1.0, per_bus[buses].mean() / max(per_bus.mean(), 1e-9) / 2)),
-            len(buses) / self.g.C,
+            len(buses) / self.g.n_bus,
         )
 
     def _connected(self, buses: np.ndarray) -> bool:

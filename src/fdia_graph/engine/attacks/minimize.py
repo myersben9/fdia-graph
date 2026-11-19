@@ -75,49 +75,49 @@ class Minimizer(Part):
         self,
         states: list[np.ndarray],
         goal: Goal,
-        k: FrameKnobs,
+        knobs: FrameKnobs,
         prev: Optional[AttackVector] = None,
         trust: Optional[TrustSchedule] = None,
     ) -> Optional[MinimizerResult]:
         """The cheapest support found for the window of `states` (one [N, 4] true state per snapshot) and
         `goal`, or None when the goal's buses have no area. `prev` is the attack vector of the frame before
         the window (At's stealth bound starts from it); `trust` the trusted-PMU schedule [WU26 eqs. 26-32].
-        With `k.support_method` "rref" a flow goal takes its support from `rref.RrefSupport` instead."""
+        With `knobs.support_method` "rref" a flow goal takes its support from `rref.RrefSupport` instead."""
         if trust is not None:  # refused before the search runs: every trusted bus carries a PMU
-            TrustablePmus(trust.buses, frozenset(self.g.pmu_buses.tolist()), self.g.C)
+            TrustablePmus(trust.buses, frozenset(self.g.pmu_buses.tolist()), self.g.n_bus)
         with _one_blas_thread():
-            if k.support_method == SupportMethod.RREF.value and goal.kind == "flow":
+            if knobs.support_method == SupportMethod.RREF.value and goal.kind == "flow":
                 from .rref import RrefSupport
 
-                return RrefSupport(self.g).rref_support(states, cast(FlowGoal, goal), k, prev, trust)
-            return self._min_tamper(states, goal, k, prev, trust)
+                return RrefSupport(self.g).rref_support(states, cast(FlowGoal, goal), knobs, prev, trust)
+            return self._min_tamper(states, goal, knobs, prev, trust)
 
-    def window_area(self, states: list[np.ndarray], goal: Goal, k: FrameKnobs) -> Optional[np.ndarray]:
-        """The attacker's area for the window [WU26] Sec. III-A: `k.area` when the caller gives one,
-        else `attack_area` around the goal's buses (`k.hops`, or the rules with `k.area_rule`)."""
-        if k.area is not None:
-            return self.g.area.explicit_area(np.asarray(k.area, np.int64))
+    def window_area(self, states: list[np.ndarray], goal: Goal, knobs: FrameKnobs) -> Optional[np.ndarray]:
+        """The attacker's area for the window [WU26] Sec. III-A: `knobs.area` when the caller gives one,
+        else `attack_area` around the goal's buses (`knobs.hops`, or the rules with `knobs.area_rule`)."""
+        if knobs.area is not None:
+            return self.g.area.explicit_area(np.asarray(knobs.area, np.int64))
         seeds, _, _ = self._goal_seeds(goal)
         lines = list(cast(FlowGoal, goal).lines) if goal.kind == "flow" else []
-        return self.g.area.attack_area(seeds, k.hops, k.area_rule, (lines, np.stack(states)))
+        return self.g.area.attack_area(seeds, knobs.hops, knobs.area_rule, (lines, np.stack(states)))
 
     def _min_tamper(
         self,
         states: list[np.ndarray],
         goal: Goal,
-        k: FrameKnobs,
+        knobs: FrameKnobs,
         prev: Optional[AttackVector],
         trust: Optional[TrustSchedule] = None,
     ) -> Optional[MinimizerResult]:
         """`min_tamper`'s candidate loop (module docstring), on whatever BLAS threads the caller set."""
-        area = self.window_area(states, goal, k)
+        area = self.window_area(states, goal, knobs)
         if area is None:
             return None
         _, starts, must_hold = self._goal_seeds(goal)
         starts = _starts_in_area(starts, area, must_hold)
-        window = AttackWindow(self.g, states, goal, k, prev=prev, trust=trust)
+        window = AttackWindow(self.g, states, goal, knobs, prev=prev, trust=trust)
         later = (S for S in self._supports(starts, area, must_hold) if not np.array_equal(S, area))
-        best, evaluated = _cheapest(window, itertools.chain([area], later), area, k.min_budget)
+        best, evaluated = _cheapest(window, itertools.chain([area], later), area, knobs.min_budget)
         if best is None:  # no candidate meets every constraint: say so, keep the area
             return MinimizerResult(area, -1, -1, evaluated)
         devices, channels = window.counts(best[0])
@@ -131,51 +131,56 @@ class Minimizer(Part):
             buses = np.unique(self.g.load_bus[cast(LoadGoal, goal).designs[0].targets])
             return buses, [frozenset(int(b) for b in buses)], None
         lines = list(cast(FlowGoal, goal).lines)
-        ends = np.unique(self.g.ei[:, lines])
-        ends_of = [self.g.ei[:, ln] for ln in lines]  # one end of each target line per choice
+        ends = np.unique(self.g.edge_index[:, lines])
+        ends_of = [self.g.edge_index[:, ln] for ln in lines]  # one end of each target line per choice
         choices = [frozenset(int(b) for b in combo) for combo in itertools.product(*ends_of)]
         starts = list(dict.fromkeys(choices))  # each set once, in a fixed order
         return ends, starts, frozenset(int(b) for b in self.g.false_state.free_injection_buses())
 
     def goal_state(
-        self, goal: Goal, t: int, Xt: np.ndarray, S: np.ndarray, k: FrameKnobs
+        self, goal: Goal, t: int, x_true: np.ndarray, S: np.ndarray, knobs: FrameKnobs
     ) -> Optional[np.ndarray]:
         """The false state of snapshot t on support S that meets the goal inside the operating limits, or
         None. Unknowns: |V| and theta of S, every other voltage held true. A load goal is the square local
         power flow; a flow goal frees S's loads and generators (`solve_flow_local`, [WU26 eqs. 13-25])."""
         if goal.kind == "flow":
-            return self._flow_goal_state(cast(FlowGoal, goal), t, Xt, S, k)
-        return self._load_goal_state(cast(LoadGoal, goal), t, Xt, S, k)
+            return self._flow_goal_state(cast(FlowGoal, goal), t, x_true, S, knobs)
+        return self._load_goal_state(cast(LoadGoal, goal), t, x_true, S, knobs)
 
     def _flow_goal_state(
-        self, goal: FlowGoal, t: int, Xt: np.ndarray, S: np.ndarray, k: FrameKnobs
+        self, goal: FlowGoal, t: int, x_true: np.ndarray, S: np.ndarray, knobs: FrameKnobs
     ) -> Optional[np.ndarray]:
-        Xa, _, dload = self.g.false_state.solve_flow_local(
-            Xt, S, goal.lines, goal.targets_at(t), k.limits, k.load_cap
+        x_false, _, dload = self.g.false_state.solve_flow_local(
+            x_true, S, goal.lines, goal.targets_at(t), knobs.limits, knobs.load_cap
         )
-        if Xa is None:
+        if x_false is None:
             return None
-        if k.limits is not None:  # every generator the attack moves, on S's edge too
-            gen = self.g.split.generation(Xt)
-            if not within_limits(Xa, Xt, gen, dload, k.limits, self.g.false_state.touched_buses(S)):
+        if knobs.limits is not None:  # every generator the attack moves, on S's edge too
+            gen = self.g.split.generation(x_true)
+            if not within_limits(
+                x_false, x_true, gen, dload, knobs.limits, self.g.false_state.touched_buses(S)
+            ):
                 return None
-        return Xa
+        return x_false
 
     def _load_goal_state(
-        self, goal: LoadGoal, t: int, Xt: np.ndarray, S: np.ndarray, k: FrameKnobs
+        self, goal: LoadGoal, t: int, x_true: np.ndarray, S: np.ndarray, knobs: FrameKnobs
     ) -> Optional[np.ndarray]:
         design = goal.designs[t]
-        Lp_true, Lq = self.g.scan_loads.true_load(Xt), self.g.scan_loads.true_reactive_load(Xt)
-        Lp = Lp_true.copy()
-        Lp[design.targets] *= design.mult
-        Xa = self.g.false_state.solve_local(Xt, S, Lp, Lq)
-        if Xa is None:
+        p_load_true, q_load = (
+            self.g.scan_loads.true_load(x_true),
+            self.g.scan_loads.true_reactive_load(x_true),
+        )
+        p_load = p_load_true.copy()
+        p_load[design.targets] *= design.mult
+        x_false = self.g.false_state.solve_local(x_true, S, p_load, q_load)
+        if x_false is None:
             return None
-        if k.limits is not None and not self.g.false_state.state_within_limits(
-            Xa, Xt, Lp - Lp_true, k.limits, S
+        if knobs.limits is not None and not self.g.false_state.state_within_limits(
+            x_false, x_true, p_load - p_load_true, knobs.limits, S
         ):
             return None
-        return Xa
+        return x_false
 
     def _supports(
         self, starts: list[frozenset[int]], area: np.ndarray, must_hold: Optional[frozenset[int]] = None
@@ -202,7 +207,7 @@ class Minimizer(Part):
     def _area_adjacency(self, allowed: set[int]) -> dict[int, set[int]]:
         """The branches between buses of the area, as neighbour sets."""
         adj: dict[int, set[int]] = {b: set() for b in allowed}
-        for a, b in self.g.ei.T:
+        for a, b in self.g.edge_index.T:
             if int(a) in allowed and int(b) in allowed:
                 adj[int(a)].add(int(b))
                 adj[int(b)].add(int(a))

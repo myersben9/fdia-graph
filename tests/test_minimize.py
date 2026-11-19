@@ -88,7 +88,7 @@ def test_the_emitter_draws_with_the_shared_noise_rule(case):
     cur = cur + CURRENT_FLOOR_PU
     jitter = {k: JITTER_FRAC * c for k, c in ACCURACY_CLASS.items()}
     expected = []
-    for b in range(g.C):
+    for b in range(g.n_bus):
         if scan.node_m[b, N.V]:
             expected.append(jitter["v"])
         if scan.node_m[b, N.THETA]:  # the hybrid meters: an angle at the PMU buses only
@@ -96,7 +96,7 @@ def test_the_emitter_draws_with_the_shared_noise_rule(case):
         if scan.node_m[b, N.P_INJ]:
             expected.append(abs(x[b, N.P_INJ]) * jitter["pi"] + POWER_NOISE_FLOOR_MW)
             expected.append(abs(x[b, N.Q_INJ]) * jitter["qi"] + POWER_NOISE_FLOOR_MW)
-    for e in range(g.E):
+    for e in range(g.n_branch):
         if scan.edge_m[e, 0]:
             expected.append(abs(flows[e, 0]) * jitter["pf"] + POWER_NOISE_FLOOR_MW)
             expected.append(abs(flows[e, 1]) * jitter["qf"] + POWER_NOISE_FLOOR_MW)
@@ -133,14 +133,14 @@ def test_the_search_counts_against_the_calibrations_accuracy_sigma(case):
     # the calibration's rule, in its units (per unit on baseMVA, radians), on the same readings
     pu_p = accuracy_class_sigma(
         np.abs(x[:, NodeChannel.P_INJ]) / base,
-        np.full(g.C, ACCURACY_CLASS["pi"]),
-        np.ones(g.C, bool),
+        np.full(g.n_bus, ACCURACY_CLASS["pi"]),
+        np.ones(g.n_bus, bool),
         1e-3 / base,
     )
     va = accuracy_class_sigma(
         np.abs(np.radians(x[:, NodeChannel.THETA])),
-        np.full(g.C, ACCURACY_CLASS["va"]),
-        np.zeros(g.C, bool),
+        np.full(g.n_bus, ACCURACY_CLASS["va"]),
+        np.zeros(g.n_bus, bool),
         1e-3 / base,
     )
     assert np.allclose(sig[:, NodeChannel.P_INJ], pu_p * base) and np.allclose(
@@ -193,7 +193,7 @@ def test_supports_keep_the_region_rules(case):
     rules `local_region` applies to the region."""
     g, _, k = case
     zero = set(int(b) for b in g.zero_inj) - {g.slack_bus}
-    edges = g.ei
+    edges = g.edge_index
     for _, _, d in windows(case, 2):
         buses = np.unique(g.load_bus[d.targets])
         area = g.area.local_region(buses, k.hops)
@@ -265,13 +265,14 @@ def test_the_onset_is_bounded_against_the_frame_before(case):
     for states, _, d in windows(case, 1, held=False):
         area = np.asarray(g.area.local_region(np.unique(g.load_bus[d.targets]), k.hops))
         held = LoadGoal(tuple(AttackDesign(d.targets, 1.15) for _ in states))
-        Xa = g.minimizer.goal_state(held, 0, states[0], area, k)
-        assert Xa is not None
+        x_false = g.minimizer.goal_state(held, 0, states[0], area, k)
+        assert x_false is not None
         # the frame before carried the same step, its branch currents included (hybrid meters)
         from fdia_graph.models.frames import AttackVector
 
         before = AttackVector(
-            *g.attack_frames.attack_vector(Xa, states[0]), g.attack_frames.current_attack(Xa, states[0])
+            *g.attack_frames.attack_vector(x_false, states[0]),
+            g.attack_frames.current_attack(x_false, states[0]),
         )
         assert AttackWindow(g, states, held, k).cost(area, None) is None
         assert AttackWindow(g, states, held, k, prev=before).cost(area, None) is not None

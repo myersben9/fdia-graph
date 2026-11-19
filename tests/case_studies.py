@@ -43,24 +43,24 @@ def buses(g: FdiaGenerator, numbers: tuple[int, ...] | list[int]) -> np.ndarray:
 def branch(g: FdiaGenerator, a: int, b: int) -> int:
     """The generator's branch between the MATPOWER buses a and b (either order): the first match."""
     number = _numbers(g)
-    ends = [{int(number[f]), int(number[t])} for f, t in g.ei.T]
+    ends = [{int(number[f]), int(number[t])} for f, t in g.edge_index.T]
     return next(e for e, pair in enumerate(ends) if pair == {a, b})
 
 
 def area(g: FdiaGenerator) -> tuple[int, ...]:
     """The attacker's area the paper states, as bus positions: IEEE-14's whole system but the slack ("knowledge
     of the system's global generation and load forecasts", p. 659), IEEE-118's local network of Fig. 9."""
-    if g.C == 14:
-        return tuple(int(b) for b in range(g.C) if b != g.slack_bus)
-    return tuple(int(b) for b in buses(g, ATTACK_AREA[g.C]))
+    if g.n_bus == 14:
+        return tuple(int(b) for b in range(g.n_bus) if b != g.slack_bus)
+    return tuple(int(b) for b in buses(g, ATTACK_AREA[g.n_bus]))
 
 
 def paper_metering(g: FdiaGenerator, pmu_numbers: tuple[int, ...], flow: np.ndarray) -> FdiaGenerator:
     """The generator of `g`'s case and seed (`g` at the default coverage) metered as the paper does: PMUs at
     the MATPOWER buses `pmu_numbers`, flow meters on the branches `flow` [E] bool, and `g`'s own voltmeters
     and biases (the plan is drawn again from `g`'s seed, with the paper's places standing in)."""
-    pmu = np.zeros(g.C, bool)
+    pmu = np.zeros(g.n_bus, bool)
     pmu[buses(g, pmu_numbers)] = True
     stream = np.random.default_rng(g.seed)
     plan = MeterPlan.from_coverage(g.case, MeterSettings(), stream, pmu_at=pmu, flow_at=flow)
-    return FdiaGenerator(Network.from_ieee(g.C), g.seed, plan=plan)
+    return FdiaGenerator(Network.from_ieee(g.n_bus), g.seed, plan=plan)

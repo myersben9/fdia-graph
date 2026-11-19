@@ -5,6 +5,20 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- **Names in the attack code say what the thing is (no change in behaviour).** `Xt` and `Xa` are
+  `x_true` and `x_false`; `Lp` and `Lq` are `p_load` and `q_load`; the attack knobs a function takes
+  are `knobs`, not `k` (so `AttackWindow.k` is `AttackWindow.knobs`). On the generator, `C`, `E` and
+  `ei` are `n_bus`, `n_branch` and `edge_index`. The parameters of `formulas.attacks.within_limits`
+  and of the `ScanLoads` methods are renamed with them, so a call that passed `Xt=`, `Xa=`, `Lp=`,
+  `Lq=` or `k=` by keyword must use the new name. Every IEEE timeline is byte for byte what it was.
+  The attacks page and the glossary are corrected where they said something the code does not do: a
+  ramp's targets need not be neighbours; a ramp stays one step away from the true load after its return
+  and can end before the return is complete; the search tries the whole area first; a ramp checks the
+  generator limits inside the buses it re-solves and not on the buses one branch outside, where an
+  overload does; the third rating source `"delta"`; the tamper threshold is the rated accuracy for
+  `At` and the paper noise for `Am`; the designs are methods of `EpisodeDesigns`; and a search that
+  finds no support records `-1` devices and the ramp runs on its whole area.
+
 - **One file layout.** A timeline has flows at the from end of a branch and PMU currents as real and
   imaginary part, on every test system; nothing in the package wrote any other form since the New York
   source left, so the other form is gone from the package.

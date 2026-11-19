@@ -40,18 +40,18 @@ class RrefSupport:
         self,
         states: list[np.ndarray],
         goal: FlowGoal,
-        k: FrameKnobs,
+        knobs: FrameKnobs,
         prev: Optional[AttackVector] = None,
         trust: Optional[TrustSchedule] = None,
     ) -> Optional[MinimizerResult]:
         """The support the row reduction gives the window of `states` and the flow `goal`, grown until
         the AC solve reaches the goal; None when the goal has no area. `evaluated` counts the supports
         solved, and `devices` is -1 when none reaches the goal."""
-        region = self.g.minimizer.window_area(states, goal, k)
+        region = self.g.minimizer.window_area(states, goal, knobs)
         if region is None:
             return None
         area = np.asarray(region)
-        window = AttackWindow(self.g, states, goal, k, prev=prev, trust=trust)
+        window = AttackWindow(self.g, states, goal, knobs, prev=prev, trust=trust)
         ladders = [self.ladder(window, t, area) for t in range(len(states))]
         levels = max((len(ladder) for ladder in ladders), default=0)
         tried: set[bytes] = set()
@@ -127,15 +127,15 @@ class RrefSupport:
         """The device of every channel `_scaled_channels` lists, in its order (the SCADA terminal of bus b
         is b, its PMU N + b): |V| and angle belong to the bus's PMU when it has one, injections and flows
         to its SCADA terminal, a branch current to the PMU at that end."""
-        N, pmu, ei = self.g.C, window.pmu, self.g.ei
+        n_bus, pmu, edge_index = self.g.n_bus, window.pmu, self.g.edge_index
         b, c = np.nonzero(window.node_m > 0)
         at_pmu = np.isin(c, (NodeChannel.V, NodeChannel.THETA)) & pmu[b]
         e, ce = np.nonzero(window.i_m > 0)
         at_from = np.isin(ce, (CurrentChannel.RE_FROM, CurrentChannel.IM_FROM))
         parts = [
-            np.where(at_pmu, N + b, b),
-            ei[0, np.nonzero(window.edge_m > 0)[0]],
-            N + np.where(at_from, ei[0, e], ei[1, e]),
+            np.where(at_pmu, n_bus + b, b),
+            edge_index[0, np.nonzero(window.edge_m > 0)[0]],
+            n_bus + np.where(at_from, edge_index[0, e], edge_index[1, e]),
         ]
         return np.concatenate(parts).astype(np.int64)
 

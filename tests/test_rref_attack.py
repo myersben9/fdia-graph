@@ -66,13 +66,14 @@ def _reaches_the_goal(g, window, k, goal, result, trust=None) -> None:
     w = AttackWindow(g, window, goal, k, trust=trust)
     for t in range(len(window)):
         S = w.support_at(t, result.support)
-        Xa = g.minimizer.goal_state(goal, t, window[t], S, k)
-        assert Xa is not None, f"no false state at snapshot {t}"
+        x_false = g.minimizer.goal_state(goal, t, window[t], S, k)
+        assert x_false is not None, f"no false state at snapshot {t}"
         for b in w.pinned[t]:
             assert np.array_equal(
-                Xa[b, [NodeChannel.V, NodeChannel.THETA]], window[t][b, [NodeChannel.V, NodeChannel.THETA]]
+                x_false[b, [NodeChannel.V, NodeChannel.THETA]],
+                window[t][b, [NodeChannel.V, NodeChannel.THETA]],
             )
-    flows = g.emitter.clean_flows_from_states(Xa[None])[0, list(goal.lines)]
+    flows = g.emitter.clean_flows_from_states(x_false[None])[0, list(goal.lines)]
     ratings = g.overload.line_ratings()[list(goal.lines)]
     assert np.allclose(np.hypot(flows[:, 0], flows[:, 1]), ratings, rtol=1e-6)
 

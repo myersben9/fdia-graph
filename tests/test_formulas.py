@@ -95,7 +95,7 @@ def test_flow_sensitivities_match_a_resolved_power_flow():
     slack = g.slack_bus
     keep = np.flatnonzero(np.arange(len(V0)) != slack)
     sens = flow_sensitivities(V0, Y, F, g.case.f, slack)
-    assert sens.shape == (g.E, len(V0)) and not sens[:, slack].any()
+    assert sens.shape == (g.n_branch, len(V0)) and not sens[:, slack].any()
 
     def state(x: np.ndarray) -> np.ndarray:
         th, vm = np.angle(V0).copy(), np.abs(V0).copy()
@@ -130,7 +130,7 @@ def test_bias_and_jitter_keep_the_class_total():
     from tests.helpers import FixedDraws
 
     g = FdiaGenerator(Network.from_ieee(14), seed=1)
-    everywhere = (np.ones(g.C, bool), np.ones(g.C, bool), np.ones(g.E, bool))
+    everywhere = (np.ones(g.n_bus, bool), np.ones(g.n_bus, bool), np.ones(g.n_branch, bool))
     # every bias one standard deviation of its draw, so `plan.bias` is each meter's bias std
     plan = MeterPlan.from_placement(g.case, *everywhere, FixedDraws(1.0))  # type: ignore[arg-type]
     noise = NoiseModel(plan)

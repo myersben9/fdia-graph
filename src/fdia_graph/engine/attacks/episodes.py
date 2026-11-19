@@ -56,11 +56,11 @@ class EpisodeDesigns(Part):
         X: States,
         t: int,
         shape: tuple[int, float],
-        k: FrameKnobs,
+        knobs: FrameKnobs,
         prev: Optional[AttackVector] = None,
     ) -> Optional[RampDesign]:
         """The slow ramp At starting at t whose every frame has a stealthy state; `shape` = (ramp_len,
-        ramp_rate). Redrawn up to ONSET_DRAWS times, None when no draw has one. With `k.min_tamper` it
+        ramp_rate). Redrawn up to ONSET_DRAWS times, None when no draw has one. With `knobs.min_tamper` it
         carries the fewest-tamper support [WU26 eq. 12]; `prev` is the attack vector of the frame before t."""
         # the fewest-tamper search spends no random draw
         ramp_len, rate = shape
@@ -68,9 +68,14 @@ class EpisodeDesigns(Part):
             design = draw_ramp(self.g.rng, self.g.stealthy_pos, ramp_len)  # At is stealthy: no generator bus
             frames = probe_frames(len(X), t, ramp_len)
             if all(
-                self.g.false_state.is_feasible(X[u], self.ramp_step(design, u - t, rate), k) for u in frames
+                self.g.false_state.is_feasible(X[u], self.ramp_step(design, u - t, rate), knobs)
+                for u in frames
             ):
-                return self._fewest_tamper(design, X, (frames, t, rate), k, prev) if k.min_tamper else design
+                return (
+                    self._fewest_tamper(design, X, (frames, t, rate), knobs, prev)
+                    if knobs.min_tamper
+                    else design
+                )
         return None
 
     def _fewest_tamper(
@@ -78,34 +83,34 @@ class EpisodeDesigns(Part):
         design: RampDesign,
         X: States,
         window: tuple[range, int, float],
-        k: FrameKnobs,
+        knobs: FrameKnobs,
         prev: Optional[AttackVector],
     ) -> RampDesign:
         """The accepted ramp with the fewest-tamper support of its window and the search's result;
         unchanged when the search finds none."""
         frames, t, rate = window
         goal = LoadGoal(tuple(self.ramp_step(design, u - t, rate) for u in frames))
-        result = self.g.minimizer.min_tamper([X[u] for u in frames], goal, k, prev)
+        result = self.g.minimizer.min_tamper([X[u] for u in frames], goal, knobs, prev)
         if result is None:
             return design
         held = result.support if result.devices >= 0 else None  # -1: no held support met the constraints
         return design._replace(support=held, tamper=result)
 
     def am_overload_design(
-        self, X: np.ndarray, t: int, length: int, k: FrameKnobs, rng: Optional[np.random.Generator] = None
+        self, X: np.ndarray, t: int, length: int, knobs: FrameKnobs, rng: Optional[np.random.Generator] = None
     ) -> Optional[AmOverloadDesign]:
         """One Am episode starting at t: the first target set, in a random order of the eligible branches,
         whose support meets the goal at every snapshot [WU26 eqs. 24-25] inside the limits [WU26 eqs. 21-23]
         and moves a device beyond noise; None when no set does. One draw from `rng` (None: the generator's
         own stream), if a branch exists."""
         window = [X[u] for u in range(t, min(t + length, len(X)))]
-        lines = self.g.overload.eligible_lines(window, k.hops)
+        lines = self.g.overload.eligible_lines(window, knobs.hops)
         if len(lines) == 0:
             return None
         order = (self.g.rng if rng is None else rng).permutation(lines)
-        for targets in self.g.overload.target_sets(order, k.n_lines, k.hops):
+        for targets in self.g.overload.target_sets(order, knobs.n_lines, knobs.hops):
             goal = self.g.overload.overload_goal(window, *targets)
-            result = self.g.minimizer.min_tamper(window, goal, k)
+            result = self.g.minimizer.min_tamper(window, goal, knobs)
             if result is not None and result.devices >= 1:
                 # eq. 25: S_max at the end
                 ratings = tuple(float(s) for s in goal.targets_at(len(window) - 1))

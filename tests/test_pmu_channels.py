@@ -34,7 +34,7 @@ def pool():
 def test_a_scada_voltmeter_reads_no_angle_under_the_hybrid_model(gens):
     g = gens
     nm = g.masks.node
-    pmu = np.zeros(g.C, bool)
+    pmu = np.zeros(g.n_bus, bool)
     pmu[g.pmu_buses] = True
     assert (nm[:, NodeChannel.THETA].astype(bool) == pmu).all()  # the angle is a PMU channel
     assert (nm[:, NodeChannel.V].astype(bool) >= pmu).all() and nm[
@@ -45,10 +45,10 @@ def test_a_scada_voltmeter_reads_no_angle_under_the_hybrid_model(gens):
 def test_the_current_mask_follows_the_pmus(gens):
     g = gens
     cm = g.masks.current
-    pmu = np.zeros(g.C, bool)
+    pmu = np.zeros(g.n_bus, bool)
     pmu[g.pmu_buses] = True
-    assert (cm[:, CurrentChannel.RE_FROM].astype(bool) == pmu[g.ei[0]]).all()
-    assert (cm[:, CurrentChannel.IM_TO].astype(bool) == pmu[g.ei[1]]).all()
+    assert (cm[:, CurrentChannel.RE_FROM].astype(bool) == pmu[g.edge_index[0]]).all()
+    assert (cm[:, CurrentChannel.IM_TO].astype(bool) == pmu[g.edge_index[1]]).all()
 
 
 def test_emitted_currents_sit_within_their_accuracy_class(gens, pool):
@@ -70,9 +70,9 @@ def test_the_exact_currents_carry_the_exact_flows(gens, pool):
     flows = g.emitter.clean_flows_from_states(X)  # [T, E, 2] MW/MVAr, unmetered zeroed
     both = (g.masks.current[:, CurrentChannel.RE_FROM] > 0) & (flows[0, :, 0] != 0)
     th = np.deg2rad(X[:, :, NodeChannel.THETA])
-    Vf = (X[:, :, NodeChannel.V] * np.exp(1j * th))[:, g.ei[0]]
+    v_from = (X[:, :, NodeChannel.V] * np.exp(1j * th))[:, g.edge_index[0]]
     S = (
-        Vf
+        v_from
         * np.conj(cur[..., CurrentChannel.RE_FROM] + 1j * cur[..., CurrentChannel.IM_FROM])
         * g.case.base_mva
     )
@@ -85,12 +85,12 @@ def test_a_false_state_writes_its_currents(gens, pool):
     # [WU26 eqs. 19-20]
     """a = h(x^a) - h(x) on the current channels, on exactly the PMU-read ends."""
     g = gens
-    Xt = np.asarray(pool[5], float)
-    Xa = Xt.copy()
-    Xa[3, NodeChannel.THETA] += 0.05
-    scan = g.emitter.emit_from_state(Xt)
-    a = g.attack_frames.current_attack(Xa, Xt)
-    ix, tamper = g.attack_frames.currents_with_attack(scan, Xa, Xt)
+    x_true = np.asarray(pool[5], float)
+    x_false = x_true.copy()
+    x_false[3, NodeChannel.THETA] += 0.05
+    scan = g.emitter.emit_from_state(x_true)
+    a = g.attack_frames.current_attack(x_false, x_true)
+    ix, tamper = g.attack_frames.currents_with_attack(scan, x_false, x_true)
     assert a is not None and ix is not None and tamper is not None and scan.i_x is not None
     moved = (np.abs(a) > 1e-9) & (scan.i_m > 0)
     np.testing.assert_allclose(ix[moved] - scan.i_x[moved], a[moved], atol=1e-6)

@@ -60,7 +60,7 @@ class Overload(Part):
             self.rating_delta = settings.rating_delta * self.g.case.base_mva
             self.ratings = None  # `window_ratings` rates each window from its own flows
             return
-        peak = np.zeros(self.g.E)
+        peak = np.zeros(self.g.n_branch)
         for a in range(0, len(X), 4096):  # the pool in slabs: a 72k-state pool is one pass
             peak = np.maximum(peak, np.abs(self.g.emitter.all_flows_from_states(X[a : a + 4096])).max(axis=0))
         self.ratings = settings.rating_margin * peak
@@ -71,14 +71,14 @@ class Overload(Part):
         no PGLib-OPF ratings for."""
         if self.ratings is not None:
             return self.ratings
-        rows = pglib_branches(self.g.C)
+        rows = pglib_branches(self.g.n_bus)
         if rows is None:
             raise NoLineRatings(
-                f"IEEE-{self.g.C} has no line ratings (the overload attack Am needs PGLib-OPF ratings, "
+                f"IEEE-{self.g.n_bus} has no line ratings (the overload attack Am needs PGLib-OPF ratings, "
                 "held for IEEE-14, 118 and 300); generate without Am, e.g. families=('At',)"
             )
         number = self.g.case.bus_id  # MATPOWER's bus numbers
-        ends = [(int(number[a]), int(number[b])) for a, b in self.g.ei.T]
+        ends = [(int(number[a]), int(number[b])) for a, b in self.g.edge_index.T]
         self.ratings = branch_ratings(ends, rows)
         return self.ratings
 
@@ -91,14 +91,14 @@ class Overload(Part):
         # [E] the window's largest true flow
         S = np.hypot(flows[..., EdgeChannel.P_FROM], flows[..., EdgeChannel.Q_FROM]).max(axis=0)
         ok = np.isfinite(rating) & self.g.flow_metered & (S < np.nan_to_num(rating, nan=-np.inf))
-        ok &= self.g.case.own_bus[self.g.ei].all(axis=0)  # both ends in the grid itself
+        ok &= self.g.case.own_bus[self.g.edge_index].all(axis=0)  # both ends in the grid itself
         free = set(self.g.false_state.free_injection_buses().tolist())
         lines = [int(b) for b in np.flatnonzero(ok) if self._acts_on(int(b), free, hops)]
         return np.array(lines, dtype=np.int64)
 
     def _acts_on(self, line: int, free: set[int], hops: int) -> bool:
         """Whether the area within `hops` of the branch's ends holds a free injection to pretend."""
-        area = self.g.area.local_region(np.unique(self.g.ei[:, line]), hops)
+        area = self.g.area.local_region(np.unique(self.g.edge_index[:, line]), hops)
         return area is not None and bool(free & {int(b) for b in area})
 
     def overload_goal(self, window: list[np.ndarray], line: int, *more: int) -> FlowGoal:
@@ -135,45 +135,45 @@ class Overload(Part):
     def _partner(self, a: int, order: np.ndarray, hops: int) -> Optional[int]:
         """The first branch of `order` other than a whose two ends lie inside a's attack area (the
         buses within `hops` of a's ends), or None."""
-        area = self.g.area.local_region(np.unique(self.g.ei[:, a]), hops)
+        area = self.g.area.local_region(np.unique(self.g.edge_index[:, a]), hops)
         if area is None:
             return None
         inside = set(area.tolist())
         for b in order.tolist():
-            if b != a and set(self.g.ei[:, b].tolist()) <= inside:
+            if b != a and set(self.g.edge_index[:, b].tolist()) <= inside:
                 return b
         return None
 
     def overload_step(
-        self, design: AmOverloadDesign, Xt: np.ndarray, i: int, k: FrameKnobs
+        self, design: AmOverloadDesign, x_true: np.ndarray, i: int, knobs: FrameKnobs
     ) -> tuple[Optional[Frame], np.ndarray]:
-        """Frame i of the episode on its state `Xt`: the false state on the held support that reaches the
+        """Frame i of the episode on its state `x_true`: the false state on the held support that reaches the
         goal's flow, emitted on the true scan; and the noiseless apparent flow it reaches on each target
         branch (MVA, `goal.lines` order). (None, NaN) when the frame cannot be built."""
-        Xa = self.g.minimizer.goal_state(design.goal, i, Xt, design.support, k)
-        if Xa is None:
+        x_false = self.g.minimizer.goal_state(design.goal, i, x_true, design.support, knobs)
+        if x_false is None:
             return None, np.full(len(design.goal.lines), np.nan)
         # the labels: the free injections of the support, the loads and generator outputs it pretends
         free = np.intersect1d(design.support, self.g.false_state.free_injection_buses())
-        dev = self.pretended_change(Xt, Xa, free)
-        frame = self.g.attack_frames.frame_from_state(Xt, Xa, free, dev.astype(float))
-        flow = self.g.emitter.clean_flows_from_states(Xa[None])[0, list(design.goal.lines)]
+        dev = self.pretended_change(x_true, x_false, free)
+        frame = self.g.attack_frames.frame_from_state(x_true, x_false, free, dev.astype(float))
+        flow = self.g.emitter.clean_flows_from_states(x_false[None])[0, list(design.goal.lines)]
         return frame, np.hypot(flow[:, 0], flow[:, 1])
 
-    def pretended_change(self, Xt: np.ndarray, Xa: np.ndarray, buses: np.ndarray) -> np.ndarray:
+    def pretended_change(self, x_true: np.ndarray, x_false: np.ndarray, buses: np.ndarray) -> np.ndarray:
         """The relative change the false state pretends at each bus of `buses`: at a generator bus (with
         or without a load) |dP + j dQ| / |P_gen + j Q_gen|; at a load bus |dP| / |P_load|."""
-        gen = self.g.split.generation(Xt)  # [N, 2] MW, MVAr
-        load = self.true_load_by_bus(Xt)
-        dP = Xa[:, NodeChannel.P_INJ] - Xt[:, NodeChannel.P_INJ]
-        dQ = Xa[:, NodeChannel.Q_INJ] - Xt[:, NodeChannel.Q_INJ]
+        gen = self.g.split.generation(x_true)  # [N, 2] MW, MVAr
+        load = self.true_load_by_bus(x_true)
+        dP = x_false[:, NodeChannel.P_INJ] - x_true[:, NodeChannel.P_INJ]
+        dQ = x_false[:, NodeChannel.Q_INJ] - x_true[:, NodeChannel.Q_INJ]
         is_gen = np.isin(buses, self.g.false_state.generator_buses())
         change = np.where(is_gen, np.hypot(dP[buses], dQ[buses]), np.abs(dP[buses]))
         base = np.where(is_gen, np.hypot(gen[buses, 0], gen[buses, 1]), np.abs(load[buses]))
         return (change / np.maximum(base, 1e-6)).astype(float)
 
-    def true_load_by_bus(self, Xt: np.ndarray) -> np.ndarray:
+    def true_load_by_bus(self, x_true: np.ndarray) -> np.ndarray:
         """[N] the scan's active load per bus (MW), summed over the load elements at each bus."""
-        load = np.zeros(self.g.C)
-        np.add.at(load, self.g.load_bus, self.g.scan_loads.true_load(Xt))
+        load = np.zeros(self.g.n_bus)
+        np.add.at(load, self.g.load_bus, self.g.scan_loads.true_load(x_true))
         return load

@@ -50,7 +50,7 @@ def test_the_file_records_the_clients_and_the_meter_table_comes_back(written):
     assert np.array_equal(ds.plan.owner, own.bus_client[ds.plan.bus])
     # and its flat vector is the file's layers, meter by meter
     frames = np.arange(3)
-    back = ds.plan.scatter(ds.z(frames), len(own.bus_client), source.g.E)
+    back = ds.plan.scatter(ds.z(frames), len(own.bus_client), source.g.n_branch)
     assert np.array_equal(back.node, ds.h[schema.NODE_X][:3])
     assert np.array_equal(back.edge[..., :2], ds.h[schema.EDGE_X][:3])
     assert np.array_equal(back.current, ds.h[schema.PMU_I][:3])

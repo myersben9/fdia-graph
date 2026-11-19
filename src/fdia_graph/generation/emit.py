@@ -60,7 +60,7 @@ class Walk:
         (`DesignedEpisode.frame`; a scan it cannot build is stored benign), then record it. Returns
         the next free timestep."""
         g, onset, sid = self.g, t, len(self.writer.episodes)
-        buses = np.zeros(g.C, np.uint8)
+        buses = np.zeros(g.n_bus, np.uint8)
         for i in range(length):
             g.scan_key = self.first + t
             self.store(t, designed.code, designed.frame(g, self.X[t], i), sid, buses)
