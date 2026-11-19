@@ -1,10 +1,11 @@
-"""The search-based families: the slow ramp At and the overload Am [WU26].
+"""At and Am as families: how `EpisodeDesigns`, `RampFrames` and `Overload` are called frame by frame.
 
-Both re-solve the attacker's local false state on every scan of an episode (`RampEpisode`,
-`OverloadEpisode`), where a family of your own stores one attack vector for its window
-(`family.VectorEpisode`). An overload is designed from its window alone, before its split is walked.
-A ramp is designed as the walk reaches its onset (`RampEpisode.begin`): its stealth bound reads the
-frame written just before, and its draws come from the generator's own stream at that moment.
+`generation.design` builds `SearchRamp` and `SearchOverload`, which answer the design stage
+(`family.EpisodeFamily`); `RampEpisode` and `OverloadEpisode` re-solve the false state on every frame
+of an episode. A family of your own stores one attack vector for its window instead
+(`family.VectorEpisode`). An overload is designed from its window alone. A ramp is designed as the
+walk reaches its onset (`RampEpisode.begin`): its stealth bound reads the frame written just before,
+and its draws come from the generator's own stream.
 """
 
 from __future__ import annotations

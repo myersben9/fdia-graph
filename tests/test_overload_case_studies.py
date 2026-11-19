@@ -51,16 +51,16 @@ def _scenario(system: int, scenario: tuple) -> tuple:
     g = case_studies.paper_metering(g, case_studies.PMUS[system], flow)
     window = list(X[:WINDOW])
     g.overload.use_line_ratings(OverloadSettings(rating_margin=MARGIN), np.stack(window))
-    k = FrameKnobs(2, g.false_state.operating_limits(X), True, 4096, 1.0, 0.5, 2)
+    knobs = FrameKnobs(2, g.false_state.operating_limits(X), True, 4096, 1.0, 0.5, 2)
     goal = g.overload.overload_goal(window, *lines)
-    return g, window, k, goal, g.minimizer.min_tamper(window, goal, k)
+    return g, window, knobs, goal, g.minimizer.min_tamper(window, goal, knobs)
 
 
-def _devices(g, window, k, goal, support) -> tuple[set[str], float]:
+def _devices(g, window, knobs, goal, support) -> tuple[set[str], float]:
     """The devices the held support tampers over the window, named as the paper does ("SCADA 3",
     "PMU 4", MATPOWER numbers), and the largest change on one of their channels (pu, angles in rad)."""
     number = g.case.bus_id
-    w = AttackWindow(g, window, goal, k)
+    w = AttackWindow(g, window, goal, knobs)
     prev, names, worst = w.prev, set(), 0.0
     for t in range(len(window)):
         (node, edge, cur), prev = w._snapshot(t, support, prev)
@@ -87,8 +87,8 @@ def _devices(g, window, k, goal, support) -> tuple[set[str], float]:
     return names, worst
 
 
-def _reaches_both_ratings(g, window, k, goal, support) -> None:
-    x_false = g.false_state.goal_state(goal, len(window) - 1, window[-1], support, k)
+def _reaches_both_ratings(g, window, knobs, goal, support) -> None:
+    x_false = g.false_state.goal_state(goal, len(window) - 1, window[-1], support, knobs)
     assert x_false is not None
     flows = g.emitter.clean_flows_from_states(x_false[None])[0, list(goal.lines)]
     ratings = g.overload.line_ratings()[list(goal.lines)]
@@ -112,10 +112,10 @@ def test_the_scenario_table_maps_to_our_branches_and_buses():
 
 @pytest.mark.parametrize("scenario", case_studies.SCENARIOS[14])
 def test_the_ieee14_scenarios_match_the_paper_in_kind(scenario):
-    g, window, k, goal, result = _scenario(14, scenario)
+    g, window, knobs, goal, result = _scenario(14, scenario)
     assert result is not None and result.devices >= 1, "no stealthy two-line overload"
-    _reaches_both_ratings(g, window, k, goal, result.support)
-    names, worst = _devices(g, window, k, goal, result.support)
+    _reaches_both_ratings(g, window, knobs, goal, result.support)
+    names, worst = _devices(g, window, knobs, goal, result.support)
     scada, pmu, _ = PAPER[scenario]
     paper = {f"SCADA {b}" for b in scada} | {f"PMU {b}" for b in pmu}
     assert paper - KNOWN_DIFFERENCES.get(scenario, set()) <= names
@@ -124,6 +124,6 @@ def test_the_ieee14_scenarios_match_the_paper_in_kind(scenario):
 
 @pytest.mark.skipif(not os.environ.get("FDIA_SLOW"), reason="set FDIA_SLOW=1: a minutes-long IEEE-118 search")
 def test_the_ieee118_scenario_is_feasible_and_reaches_both_ratings():
-    g, window, k, goal, result = _scenario(118, case_studies.SCENARIOS[118][0])
+    g, window, knobs, goal, result = _scenario(118, case_studies.SCENARIOS[118][0])
     assert result is not None and result.devices >= 1, "no stealthy two-line overload"
-    _reaches_both_ratings(g, window, k, goal, result.support)
+    _reaches_both_ratings(g, window, knobs, goal, result.support)

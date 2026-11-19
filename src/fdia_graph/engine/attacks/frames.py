@@ -1,9 +1,10 @@
-"""An attack written onto a scan: the attack vector a = h(x_false) - h(x_true) of a false state, and
-the frame that carries it.
+"""Given a true and a false state, the attack vector a = h(x_false) - h(x_true) and the frame that adds
+it to the true scan.
 
-`frame_from_state` takes a local false state (the search-based families), `frame_from_vector` an
-attack vector over the meters (a family of your own). Either way the frame is the true scan, with
-every meter's own noise draw, plus the attack on the meters it moves."""
+`frame_from_state` takes a false state; `frame_from_vector` takes an attack vector over the meters.
+Both call `Emitter` for the true scan and the exact readings; `frame_from_vector` asks
+`NoiseModel.tampered` which meters the vector moves. The frame is the true scan, with every meter's own
+noise draw, plus the attack on the meters it moves."""
 
 from __future__ import annotations
 

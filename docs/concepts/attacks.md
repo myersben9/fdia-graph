@@ -219,6 +219,7 @@ every voltmeter bus and no PMU currents ([Meters and noise](meters.md)).
 | `engine/attacks/ramp_frames.py` | one scan of `At`: a false state added to the true scan |
 | `engine/attacks/overload.py` | the overload goal, the ratings, the eligible lines |
 | `engine/attacks/minimize.py` | the fewest-tamper search |
+| `engine/attacks/blas.py` | one BLAS thread for the length of a search |
 | `engine/attacks/window.py` | one attack window, and what a support costs over it |
 | `engine/attacks/rref.py` | the support by row reduction |
 

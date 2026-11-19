@@ -1,16 +1,17 @@
-"""Every attack the generator builds. Seven files each hold one part of the generator; four hold what
-serves or uses the parts.
+"""Every attack the generator builds, one line per file.
 
-area.py         `AttackArea`: where a stealthy attack may act, the area and the boundary around it
-false_state.py  `FalseState`: the local false state of a load goal or a flow goal, inside its operating limits
-frames.py       `AttackFrames`: the attack vector a = h(x_false) - h(x_true), written onto the true scan
-ramp_frames.py  `RampFrames`: the frames of the ramp At
-minimize.py     `Minimizer`: the fewest-tamper support of an attack window [WU26 eq. 12], behind `min_tamper`
-overload.py     `Overload`: Am, the overload attack of [WU26]: ratings, target branches, flow goal, frames
-episodes.py     `EpisodeDesigns`: what an episode attacks, `ramp_design` for At and `am_overload_design` for Am
+area.py         `AttackArea`: given seed buses, the attacker's area and the boundary of any set of buses
+false_state.py  `FalseState`: the false state of a true state, a support and a goal, inside the limits
+frames.py       `AttackFrames`: the attack vector a = h(x_false) - h(x_true), added to the true scan
+ramp_frames.py  `RampFrames`: one At frame, the false state of its `AttackDesign` written as a frame
+overload.py     `Overload`: Am's ratings, eligible lines, flow schedule [WU26 eqs. 24-25] and one frame
+window.py       `AttackWindow`: what one candidate support costs over a window
+blas.py         one BLAS thread for the length of a search
+minimize.py     `Minimizer`: the search for the cheapest support [WU26 eq. 12], behind `min_tamper`
+rref.py         `RrefSupport`: the other way to choose a support, [WU26]'s row reduction
+episodes.py     `EpisodeDesigns`: the design of one episode, `ramp_design` for At, `am_overload_design` for Am
+family.py       what the timeline asks of any family, and the base of a family of your own
+search.py       At and Am as families: `EpisodeDesigns`, `RampFrames` and `Overload` called frame by frame
 
-window.py       `AttackWindow`: one attack window, and what a candidate support costs over it
-rref.py         `RrefSupport`: [WU26]'s row reduction as the minimizer's other choice of a support
-search.py       the two families as the design stage asks them, and their episodes as the walk emits them
-family.py       the interface every family shares, and the base of a family of your own
+This is the order to read the files in. `minimize.py` and `rref.py` call each other.
 """

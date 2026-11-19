@@ -10,11 +10,13 @@ from enum import IntEnum
 
 
 class NodeChannel(IntEnum):
-    """The four columns of the bus layers `node_x`, `node_m`, `benign`, `clean` and `node_tamper`."""
+    """The four columns of the bus layers `node_x`, `node_m`, `benign`, `clean` and `node_tamper`, and of
+    a stored pool state [N, 4]. `P_INJ` and `Q_INJ` are load-positive, in a pool state and in the layers
+    emitted from it: the load at the bus minus its generation, a shunt's draw left out (MW and MVAr)."""
 
     V = 0  # voltage magnitude (pu)
-    P_INJ = 1  # active injection (MW, or pu on baseMVA)
-    Q_INJ = 2  # reactive injection (MVAr, or pu)
+    P_INJ = 1  # active injection (MW, or pu on baseMVA); load-positive
+    Q_INJ = 2  # reactive injection (MVAr, or pu); load-positive
     THETA = 3  # voltage angle (degrees, or radians on a per-unit view)
 
 

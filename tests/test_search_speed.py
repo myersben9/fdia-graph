@@ -79,18 +79,18 @@ def _goal(g, pool, kind, t, which):
 def test_exhaustive_searches_return_their_pinned_answers(model, gen, pool):
     """The cheapest support (support, devices, channels) and how many candidates were solved, the search
     running to completion. The overload
-    cases cover the D16 bounds (generator limits on the support's edge, the load cap) and two-line
+    cases cover the D16 bounds (generator limits on the support's boundary, the load cap) and two-line
     goals."""
     cases = {key: want for key, want in PINNED.items() if key[0] == model}
     for (_, cap, kind, t, which), want in cases.items():
-        k = _knobs(gen, pool, cap)
+        knobs = _knobs(gen, pool, cap)
         window, goal = _goal(gen, pool, kind, t, which)
         if kind == "Am":
             assert set(which) <= set(gen.overload.eligible_lines(window, 2).tolist())
-        r = gen.minimizer.min_tamper(window, goal, k)
+        r = gen.minimizer.min_tamper(window, goal, knobs)
         got = (r.support.tolist(), r.devices, r.channels, r.evaluated)
         assert got == want, (cap, kind, t, which)
-        assert r.evaluated < k.min_budget  # exhaustive: the answer is the search's full optimum
+        assert r.evaluated < knobs.min_budget  # exhaustive: the answer is the search's full optimum
 
 
 def test_the_cached_boundary_is_the_subnetwork_boundary(gen):
@@ -116,15 +116,15 @@ def test_the_row_block_product_equals_the_full_one(gen, pool):
 
 def test_the_reused_blocks_solve_as_the_fresh_ones(gen, pool):
     """`local_flow_solve` with the blocks a caller cut once, for a larger set of holdable rows (the
-    support and its edge), returns bit for bit the voltages it returns cutting them itself, with an
-    edge bus held as well as support ones."""
+    support and its boundary), returns bit for bit the voltages it returns cutting them itself, with a
+    boundary bus held as well as support ones."""
     x_true = pool[0]
     V = complex_voltages(x_true[:, NodeChannel.V], x_true[:, NodeChannel.THETA])
     Yb, Yf = gen.false_state._dense_admittances()
-    line, S = 4, np.array([2, 3, 4, 8])
-    reach = gen.false_state.reach(S)
-    edge = np.setdiff1d(reach, np.r_[S, gen.slack_bus])  # the slack's injection is the balance
-    support, fixed = S, np.r_[S[:2], edge[:1]]
+    line, support = 4, np.array([2, 3, 4, 8])
+    reach = gen.false_state.reach(support)
+    boundary = np.setdiff1d(reach, np.r_[support, gen.slack_bus])  # the slack's injection is the balance
+    fixed = np.r_[support[:2], boundary[:1]]
     S0 = bus_injections(V, Yb)
     f = int(gen.case.f[line])
     flow0 = abs(V[f] * np.conj(Yf[line] @ V))
@@ -141,13 +141,13 @@ def test_the_support_attack_vector_equals_the_full_one(gen, pool):
     `current_attack` over every branch (float32 flows: to their rounding)."""
     from fdia_graph.engine.attacks.window import AttackWindow
 
-    k = _knobs(gen, pool, None)
+    knobs = _knobs(gen, pool, None)
     window, goal = _goal(gen, pool, "Am", 150, (1,))
-    win = AttackWindow(gen, window, goal, k)
-    S = np.array([4, 5])
-    x_false = gen.false_state.goal_state(goal, 0, window[0], S, k)
+    win = AttackWindow(gen, window, goal, knobs)
+    support = np.array([4, 5])
+    x_false = gen.false_state.goal_state(goal, 0, window[0], support, knobs)
     assert x_false is not None
-    near = win.near(S)
+    near = win.near(support)
     a_edge, a_cur = win._branch_attack(0, x_false, near)
     _, want_edge = gen.attack_frames.attack_vector(x_false, window[0])
     assert np.allclose(a_edge, want_edge, rtol=1e-5, atol=1e-4)
@@ -172,7 +172,7 @@ def test_search_holds_blas_to_one_thread_and_restores_it(monkeypatch):
         pytest.skip("no BLAS pool loaded")
     seen: list[list[int]] = []
 
-    def search(self, states, goal, k, prev, trust=None):
+    def search(self, states, goal, knobs, prev, trust=None):
         seen.append(blas())
         return "answer"
 
@@ -189,7 +189,7 @@ def test_overlapping_searches_share_one_blas_limit():
     """Two searches that overlap (A enters, B enters, A leaves first) both run on one thread, and the
     caller's setting comes back only when the last one leaves, not when the first does."""
     threadpoolctl = pytest.importorskip("threadpoolctl")
-    from fdia_graph.engine.attacks.minimize import _one_blas_thread
+    from fdia_graph.engine.attacks.blas import one_blas_thread
 
     def blas() -> list[int]:
         return [p["num_threads"] for p in threadpoolctl.threadpool_info() if p["user_api"] == "blas"]
@@ -198,7 +198,7 @@ def test_overlapping_searches_share_one_blas_limit():
         pytest.skip("no BLAS pool loaded")
     with threadpoolctl.threadpool_limits(limits=2, user_api="blas"):
         outside = blas()
-        a, b = _one_blas_thread(), _one_blas_thread()
+        a, b = one_blas_thread(), one_blas_thread()
         a.__enter__()
         b.__enter__()
         a.__exit__(None, None, None)

@@ -108,25 +108,25 @@ WINDOW = 6  # snapshots per test window: a ramp's loads move above their noise b
 
 
 def windows(case, n, held=True):
-    """n ramp windows accepted on today's region, each with its goal (one design per snapshot) from the
+    """n ramp windows accepted on the area, each with its goal (one design per snapshot) from the
     ramp's first frame; with `held`, only windows where some support held for the window meets every
     constraint (the stealth bound rejects most: a reactive flow near zero has a noise floor of 1e-3).
     `case` is the fixture of that name."""
     from fdia_graph.engine.attacks.episodes import probe_frames
     from fdia_graph.models.frames import LoadGoal
 
-    g, X, k = case
+    g, X, knobs = case
     rng = np.random.default_rng(3)
     out = []
     while len(out) < n:
         t = int(rng.integers(0, len(X) - WINDOW))
-        d = g.episode_designs.ramp_design(X, t, (WINDOW, 0.002), k._replace(min_tamper=False))
+        d = g.episode_designs.ramp_design(X, t, (WINDOW, 0.002), knobs._replace(min_tamper=False))
         if d is None:
             continue
         frames = probe_frames(len(X), t, WINDOW)
         goal = LoadGoal(tuple(g.episode_designs.ramp_step(d, u - t, 0.002) for u in frames))
         states = [X[u] for u in frames]
-        if held and g.minimizer.min_tamper(states, goal, k).devices <= 0:
+        if held and g.minimizer.min_tamper(states, goal, knobs).devices <= 0:
             continue  # no held support, or nothing moves above noise: nothing for the search to choose
         out.append((states, goal, d))
     return out

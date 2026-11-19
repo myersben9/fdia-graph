@@ -51,9 +51,9 @@ def _irls_support(g, states, goal, area, iters=20):
         change = np.array([np.hypot(P[b, cols] @ x, Q[b, cols] @ x) for b in others])
         w = 1.0 / (change + 1e-6)
     move = np.abs(x[: len(area)]) + np.abs(x[len(area) :])
-    S = np.union1d(area[move > 5e-2 * move.max()], targets)
-    S, _ = g.area.grow_over_zero_injection(S)  # the region's rule, as every candidate follows it
-    return S
+    support = np.union1d(area[move > 5e-2 * move.max()], targets)
+    support, _ = g.area.grow_over_zero_injection(support)  # the area's rule, as every candidate follows it
+    return support
 
 
 def test_reweighted_l1_never_beats_the_search(case):
@@ -62,19 +62,19 @@ def test_reweighted_l1_never_beats_the_search(case):
     bound, so both sides are costed without it."""
     from fdia_graph.engine.attacks.window import AttackWindow
 
-    g, _, k = case
+    g, _, knobs = case
     compared = 0
     for states, goal, d in windows(case, 3, held=False):
         buses = np.unique(g.load_bus[d.targets])
-        area = g.area.hop_area(buses, k.hops)
-        window = AttackWindow(g, states, goal, k, stealth_bound=False)
+        area = g.area.hop_area(buses, knobs.hops)
+        window = AttackWindow(g, states, goal, knobs, stealth_bound=False)
         costs = [
             c
-            for S in g.minimizer._supports([frozenset(int(b) for b in buses)], area)
-            if (c := window.cost(S, None)) is not None
+            for support in g.minimizer._supports([frozenset(int(b) for b in buses)], area)
+            if (c := window.cost(support, None)) is not None
         ]
-        S = _irls_support(g, states, goal, np.asarray(area))
-        cost = window.cost(S, None)
+        support = _irls_support(g, states, goal, np.asarray(area))
+        cost = window.cost(support, None)
         if costs and cost is not None:
             compared += 1
             assert cost >= min(costs)

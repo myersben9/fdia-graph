@@ -64,22 +64,23 @@ What every folder of the repository holds, then what every Python file does, in 
 | `dataset.sequence` | The timeline as sequences: sliding windows over a time-ordered view, and the episode table. |
 | `download` | Fetch the built-in datasets from the GitHub Release and cache them under ~/.cache/fdia_graph. |
 | `engine` | The generation engine — the math/physics/theory half of the SDK, behind fg.generate(). |
-| `engine.attacks` | Every attack the generator builds. Seven files each hold one part of the generator; four hold what serves or uses the parts. |
-| `engine.attacks.area` | The attacker's area: the buses a stealthy attack may act in, and the boundary around a set of buses. |
-| `engine.attacks.episodes` | What one episode attacks: its design, drawn at onset (`EpisodeDesigns`). |
-| `engine.attacks.false_state` | The local false state of a stealthy attack: the attacker's area re-solved under false loads with the boundary held true, and checked against the operating limits. `frames.py` writes its attack vector onto a scan. |
-| `engine.attacks.family` | The interface the attack families share. The design stage asks a family one thing, the episode of a window (`EpisodeFamily.designed`), and the walk emits what it gets (`DesignedEpisode`), whichever family made it. A family of your own (`AttackFamily`) designs one `Episode` (`models.plan`), an attack vector over its window, or a miss. |
-| `engine.attacks.frames` | An attack written onto a scan: the attack vector a = h(x_false) - h(x_true) of a false state, and the frame that carries it. |
-| `engine.attacks.minimize` | The cheapest support of an attack window [WU26 eq. 12]. |
-| `engine.attacks.overload` | `Am`, the multi-snapshot overload attack of [WU26]: the reported flows of its target branches (one or two, `OverloadSettings.n_lines`) driven to their ratings S_max (`use_line_ratings`) over the window, with the fewest devices tampered. |
-| `engine.attacks.ramp_frames` | The stealthy ramp At: one scan at a time, a local false state added to the true scan. |
-| `engine.attacks.rref` | [WU26]'s construction of the attack's support: row reduction of the transposed area Jacobian. |
-| `engine.attacks.search` | The search-based families: the slow ramp At and the overload Am [WU26]. |
-| `engine.attacks.window` | One attack window as the fewest-tamper search sees it: the snapshots, the goal, and what a candidate support costs over them (`AttackWindow.cost`). |
+| `engine.attacks` | Every attack the generator builds, one line per file. |
+| `engine.attacks.area` | Given seed buses, the attacker's area and the boundary of any set of buses. |
+| `engine.attacks.blas` | One BLAS thread for the length of a search (`one_blas_thread`). |
+| `engine.attacks.episodes` | The design of one episode (`EpisodeDesigns`): At's drawn at its onset, Am's from its window. |
+| `engine.attacks.false_state` | Given a true state, a support and a goal, the false state: the support's voltages re-solved with every other voltage true, inside the limits. |
+| `engine.attacks.family` | What the timeline asks of any family, and the base of a family of your own. |
+| `engine.attacks.frames` | Given a true and a false state, the attack vector a = h(x_false) - h(x_true) and the frame that adds it to the true scan. |
+| `engine.attacks.minimize` | The search: the area first, then supports grown from the goal's buses, smallest first, the cheapest of at most `min_budget` [WU26 eq. 12]. |
+| `engine.attacks.overload` | Am's inputs and frames: ratings, eligible lines, the flow schedule of [WU26 eqs. 24-25], one frame. |
+| `engine.attacks.ramp_frames` | One At frame: the false state of the frame's `AttackDesign`, written as a frame. |
+| `engine.attacks.rref` | The other way to choose a support: [WU26]'s row reduction of the transposed area Jacobian. |
+| `engine.attacks.search` | At and Am as families: how `EpisodeDesigns`, `RampFrames` and `Overload` are called frame by frame. |
+| `engine.attacks.window` | What one candidate support costs over a window (`AttackWindow.cost`). |
 | `engine.base` | A part of the generator: one job (emitting scans, choosing an area, solving a false state, ...) as one class that holds the generator it belongs to. |
-| `engine.core` | The dataset generation engine: attack simulation and realistic meter readings on a test system. |
-| `engine.measurement` | Measurement emission: the generator's meter readings of a stored state, as a file's layers. |
-| `engine.physics` | A scan's load and generation, read from its stored state. |
+| `engine.core` | The generator: the grid, the meter plan, the load table, the case limits, and one object per part. |
+| `engine.measurement` | The readings of a stored state: exact, then with bias and jitter, laid out per bus and per branch. |
+| `engine.physics` | How a stored load-positive injection divides into load and generation. |
 | `errors` | Every error the package raises on purpose, defined in this one module. |
 | `formulas` | The mathematics of the generation toolkit as named, pure functions: numpy in, numpy out, no files, no dataset objects, no torch. Each function carries its equation and a source key from docs/reference/REFERENCES.md; docs/reference/FORMULAS.md is the catalogue. Import a formula from its module (`formulas.network`, `formulas.noise`, `formulas.attacks`, `formulas.temporal`, `formulas.trust`). The formulas of estimation, localization, federated training and trust selection are the analysis toolkit's (`fdia_analysis.formulas`). |
 | `formulas.attacks` | Attack shapes defined by the dataset [DAT26] that are pure functions of their parameters. |
@@ -102,7 +103,7 @@ What every folder of the repository holds, then what every Python file does, in 
 | `models.config` | The settings every consumer accepts, one model each, checked when built (`models.validation`). |
 | `models.data` | What a user gets back: one record, a batch, a whole split, a summary and the episode table. Each is a Bundle, so it is also a dict. |
 | `models.fields` | The fields the record bundles share, each one's meaning written once. |
-| `models.frames` | What the generator passes around per scan: a measurement scan, the emitted frame with its labels, the run's attack knobs, the design of an At ramp and of an Am overload episode, and what the fewest-tamper search returns. |
+| `models.frames` | The records the attack code passes around: a scan, a frame, an attack vector, a goal, a design, the operating limits, a search result. |
 | `models.grid` | The static description of a system (the per-branch pi model and the admittance matrices built from it, which never change from one scan to the next) and one solved operating point of it. |
 | `models.inputs` | What the formulas and the parsers accept, one model each, checked when built (`models.validation`). |
 | `models.plan` | The records of a timeline's plan and design stages: a placed episode (`Slot`), a split and its frames (`SplitSpan`), a placed episode on its way through the design stage (`Planned`), the attack as it is written (`Episode`, `EpisodeRecord`), what the placement asked for and got (`Placement`), and what a design worker rebuilds its generator from (`GeneratorSpec`). |
@@ -211,7 +212,7 @@ What every folder of the repository holds, then what every Python file does, in 
 | `tests/nygrid/test_solvers.py` | The checked Ipopt every OPF of the New York grid runs on: a solver that is missing, or found but unable to start, raises `SolverUnavailable` with the fix, instead of reading as an infeasible model downstream. |
 | `tests/nygrid/test_tables.py` | The input tables are read whole and closed: no ResourceWarning, a byte-order mark dropped (no data needed). |
 | `tests/test_any_case.py` | The per-case choices are settings of the one source: each works on any case whose data allows it, and is refused with the reason where the data is missing. The New York grid's side of these tests is in tests/nygrid/test_any_case.py. |
-| `tests/test_attack_area.py` | The attacker's area [WU26] Sec. III-A and the window ratings of the overload attack: the paper's own area where it states one, the region its four principles pick otherwise (rules 1 and 2 as checks, 3 and 4 as a score of ours), the "delta" ratings matched to its Fig. 4 magnitudes, and the validity of every attack the search returns (the goal met, every untampered channel within its noise, trusted buses true). |
+| `tests/test_attack_area.py` | The attacker's area [WU26] Sec. III-A and the window ratings of the overload attack: the paper's own area where it states one, the area its four principles pick otherwise (rules 1 and 2 as checks, 3 and 4 as a score of ours), the "delta" ratings matched to its Fig. 4 magnitudes, and the validity of every attack the search returns (the goal met, every untampered channel within its noise, trusted buses true). |
 | `tests/test_edges.py` | The public edges: wrong arguments fail early with a message naming what is allowed, and the filters mean what the docs say. The other test files prove the happy path; this file is the rest. |
 | `tests/test_formulas.py` | The generation toolkit's formulas: each function on a case small enough to check by hand. The analysis toolkit's formulas, and the estimator's torch measurement function pinned to the numpy kernel here, are checked in analysis/tests/test_formulas.py. |
 | `tests/test_ieee_case.py` | An IEEE case as a `Case`: `Case.from_pandapower` against the pandapower net it reads, what it refuses, and the `Network` admittances against pandapower's `makeYbus` on the same net. |

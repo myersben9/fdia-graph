@@ -1,22 +1,20 @@
-"""The cheapest support of an attack window [WU26 eq. 12].
+"""The search: the area first, then supports grown from the goal's buses, smallest first, the cheapest of
+at most `min_budget` [WU26 eq. 12].
 
-[WU26] minimizes the tampered measurements, a change under a meter's noise not counted, subject to the
-AC model and the operating limits. Here every tampered reading comes from a local false state, so the
-support (the buses whose voltages the false state frees) sets which meters move. The candidates are
-the area (`window_area`), then the goal's buses grown one adjacent area bus at a time, smallest first,
-at most `FrameKnobs.min_budget`. Each is solved at every snapshot and its tampered devices and channels
-counted over the window [WU26 eq. 28]. The cheapest found wins; nothing is claimed about optimality.
-A trusted PMU (`TrustSchedule`, [WU26 eqs. 27, 29]) holds its bus true from its slot on. A support
-that moves no device beyond noise is not an attack and is skipped."""
+`EpisodeDesigns` (episodes.py) calls `Minimizer.min_tamper`. It calls `AttackArea` for the area
+(`window_area`), `FalseState.free_injection_buses` for the buses a flow goal's support must hold one
+of, `AttackWindow.cost` (window.py) for each candidate, and `RrefSupport` (rref.py) when a flow goal
+asks for row reduction. A candidate grows by one adjacent area bus at a time. Each is solved at every
+snapshot and its tampered devices and channels counted over the window [WU26 eq. 28]. The cheapest
+found wins; nothing is claimed about optimality. A trusted PMU (`TrustSchedule`, [WU26 eqs. 27, 29])
+holds its bus true from its slot on. A support that moves no device beyond noise is skipped."""
 
 from __future__ import annotations
 
-import contextlib
 import heapq
 import itertools
-import threading
 from collections.abc import Iterator
-from typing import TYPE_CHECKING, Optional, cast
+from typing import Optional, cast
 
 import numpy as np
 
@@ -25,46 +23,8 @@ from ...models.config import TrustSchedule
 from ...models.frames import AttackVector, FlowGoal, FrameKnobs, Goal, LoadGoal, MinimizerResult, SupportCost
 from ...models.inputs import TrustablePmus
 from ..base import Part
+from .blas import one_blas_thread
 from .window import AttackWindow
-
-if TYPE_CHECKING:
-    from threadpoolctl import ThreadpoolController
-
-
-_blas_pools: list[Optional[ThreadpoolController]] = []  # the process's BLAS pools, found on the first search
-# BLAS limits are process-wide, so concurrent searches share one limit: the first to enter sets it,
-# the last to leave restores the caller's setting
-_blas_lock = threading.Lock()
-_blas_held: list[contextlib.AbstractContextManager[object]] = []  # the active limit, while any search runs
-_blas_users = [0]  # searches currently inside the limit
-
-
-@contextlib.contextmanager
-def _one_blas_thread() -> Iterator[None]:
-    """Hold the BLAS pools to one thread for a search, restored after the last concurrent search leaves:
-    the search's products are small, so starting BLAS threads costs more than the arithmetic. Without
-    threadpoolctl (the `generate` extra installs it) nothing is changed."""
-    with _blas_lock:
-        if not _blas_pools:
-            try:
-                from threadpoolctl import ThreadpoolController
-
-                _blas_pools.append(ThreadpoolController())
-            except ImportError:
-                _blas_pools.append(None)
-        controller = _blas_pools[0]
-        if controller is not None and _blas_users[0] == 0:
-            held = controller.limit(limits=1, user_api="blas")
-            held.__enter__()
-            _blas_held.append(held)
-        _blas_users[0] += 1
-    try:
-        yield
-    finally:
-        with _blas_lock:
-            _blas_users[0] -= 1
-            if _blas_users[0] == 0 and _blas_held:
-                _blas_held.pop().__exit__(None, None, None)
 
 
 class Minimizer(Part):
@@ -84,7 +44,7 @@ class Minimizer(Part):
         With `knobs.support_method` "rref" a flow goal takes its support from `rref.RrefSupport` instead."""
         if trust is not None:  # refused before the search runs: every trusted bus carries a PMU
             TrustablePmus(trust.buses, frozenset(self.g.pmu_buses.tolist()), self.g.n_bus)
-        with _one_blas_thread():
+        with one_blas_thread():
             if knobs.support_method == SupportMethod.RREF.value and goal.kind == "flow":
                 from .rref import RrefSupport
 

@@ -1,6 +1,12 @@
-"""The local false state of a stealthy attack: the attacker's area re-solved under false loads with
-the boundary held true, and checked against the operating limits. `frames.py` writes its attack
-vector onto a scan."""
+"""Given a true state, a support and a goal, the false state: the support's voltages re-solved with every
+other voltage true, inside the limits.
+
+`goal_state` solves one snapshot of a goal: a load goal scales the target loads (`load_goal_state`), a
+flow goal drives each target branch to its flow (`flow_goal_state`). This part calls the local solvers
+of `formulas.network` (`local_ac_solve`, `local_flow_solve`), the limit checks of `formulas.attacks`,
+`AttackArea` for an area and a boundary, and `ScanLoads` and the generator's `LoadSplit`
+(`self.g.split`) for a scan's load and generation. `frames.py` writes the attack vector of the result
+onto a scan."""
 
 from __future__ import annotations
 

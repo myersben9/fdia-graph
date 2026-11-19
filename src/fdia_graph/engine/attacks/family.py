@@ -1,10 +1,10 @@
-"""The interface the attack families share. The design stage asks a family one thing, the episode of
-a window (`EpisodeFamily.designed`), and the walk emits what it gets (`DesignedEpisode`), whichever
-family made it. A family of your own (`AttackFamily`) designs one `Episode` (`models.plan`), an
-attack vector over its window, or a miss.
+"""What the timeline asks of any family, and the base of a family of your own.
 
-Why a design found no attack is a miss reason, kept in `last_miss` and in the design stage's log
-(`Designer.log`):
+The design stage asks a family for the episode of a window (`EpisodeFamily.designed`), and the walk
+emits what it gets (`DesignedEpisode`): `generation.design` asks `designed`; `generation.emit.Walk`
+calls `begin`, `frame` and `record`. A family of your own (`AttackFamily`) designs one `Episode`
+(`models.plan`), an attack vector over its window (`VectorEpisode` adds it to each true scan with
+`AttackFrames.frame_from_vector`), or a miss. A miss reason is kept in `last_miss`:
 "no_target"    nothing to attack in the window;
 "infeasible"   targets existed but no design met every bound;
 "solver_error" a solver the family runs stopped abnormally, so "infeasible" may be wrong.

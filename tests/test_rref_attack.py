@@ -60,13 +60,13 @@ def test_the_support_method_is_a_validated_choice():
 
 
 # ---- the IEEE-14 case studies ------------------------------------------------------------------------
-def _reaches_the_goal(g, window, k, goal, result, trust=None) -> None:
+def _reaches_the_goal(g, window, knobs, goal, result, trust=None) -> None:
     """Every snapshot has its false state on the support (the goal met inside the limits and the D16
     bounds, `goal_state`), the last one at both ratings, and a trusted PMU's bus is true from its slot."""
-    w = AttackWindow(g, window, goal, k, trust=trust)
+    w = AttackWindow(g, window, goal, knobs, trust=trust)
     for t in range(len(window)):
-        S = w.support_at(t, result.support)
-        x_false = g.false_state.goal_state(goal, t, window[t], S, k)
+        support = w.support_at(t, result.support)
+        x_false = g.false_state.goal_state(goal, t, window[t], support, knobs)
         assert x_false is not None, f"no false state at snapshot {t}"
         for b in w.pinned[t]:
             assert np.array_equal(
@@ -81,11 +81,11 @@ def _reaches_the_goal(g, window, k, goal, result, trust=None) -> None:
 def test_the_reduction_names_buses_3_and_11_for_lines_3_4_and_6_11():
     """The sparsest attacks that move lines 3-4 and 6-11 act at buses 3 and 11 (MATPOWER numbers), at
     every snapshot: the paper's reduction, before our fallback grows the support."""
-    g, window, k, goal = _setup(0, 1.1)
+    g, window, knobs, goal = _setup(0, 1.1)
     number = g.case.bus_id
     seeds, _, _ = g.minimizer._goal_seeds(goal)
-    area = np.asarray(g.area.hop_area(seeds, k.hops))
-    w = AttackWindow(g, window, goal, k)
+    area = np.asarray(g.area.hop_area(seeds, knobs.hops))
+    w = AttackWindow(g, window, goal, knobs)
     for t in (0, 7, 19):
         assert sorted(int(number[b]) for b in RrefSupport(g).ladder(w, t, area)[0]) == [3, 11]
 
@@ -97,23 +97,23 @@ def test_the_reduction_names_buses_3_and_11_for_lines_3_4_and_6_11():
 def test_the_rref_attack_is_feasible_and_pinned(scenario, margin, trusted, counts):
     """The row-reduction attack reaches both ratings at every snapshot inside the limits, with and
     without the paper's trust schedule, and its device and channel counts are pinned."""
-    g, window, k, goal = _setup(scenario, margin)
+    g, window, knobs, goal = _setup(scenario, margin)
     trust = (
         TrustSchedule([int(b) for b in case_studies.buses(g, ORDER[scenario])], SLOTS) if trusted else None
     )
-    k = k._replace(support_method="rref")
-    r = g.minimizer.min_tamper(window, goal, k, trust=trust)
+    knobs = knobs._replace(support_method="rref")
+    r = g.minimizer.min_tamper(window, goal, knobs, trust=trust)
     assert (r.devices, r.channels) == counts
-    _reaches_the_goal(g, window, k, goal, r, trust)
+    _reaches_the_goal(g, window, knobs, goal, r, trust)
 
 
 @pytest.mark.parametrize("scenario", [0, 1])
 def test_the_schedule_stops_the_rref_attack_at_k_1_2(scenario):
     """At k = 1.2 no support the reduction ranks reaches both ratings with the four PMUs trusted, as for
     the search."""
-    g, window, k, goal = _setup(scenario, 1.2)
+    g, window, knobs, goal = _setup(scenario, 1.2)
     trust = TrustSchedule([int(b) for b in case_studies.buses(g, ORDER[scenario])], SLOTS)
-    r = g.minimizer.min_tamper(window, goal, k._replace(support_method="rref"), trust=trust)
+    r = g.minimizer.min_tamper(window, goal, knobs._replace(support_method="rref"), trust=trust)
     assert r.devices == -1
 
 
@@ -124,8 +124,8 @@ def test_a_line_no_free_bus_moves_leaves_the_snapshot_nothing_to_rank(monkeypatc
 
     assert sparsest_rows(np.eye(3), eligible=lambda r: False).shape == (0, 3)
     monkeypatch.setattr(rref, "_moved_lines", lambda G, c: set())
-    g, window, k, goal = _setup(0, 1.1)
+    g, window, knobs, goal = _setup(0, 1.1)
     seeds, _, _ = g.minimizer._goal_seeds(goal)
-    area = np.asarray(g.area.hop_area(seeds, k.hops))
-    assert RrefSupport(g).ladder(AttackWindow(g, window, goal, k), 0, area) == []
-    assert g.minimizer.min_tamper(window, goal, k._replace(support_method="rref")).devices == -1
+    area = np.asarray(g.area.hop_area(seeds, knobs.hops))
+    assert RrefSupport(g).ladder(AttackWindow(g, window, goal, knobs), 0, area) == []
+    assert g.minimizer.min_tamper(window, goal, knobs._replace(support_method="rref")).devices == -1

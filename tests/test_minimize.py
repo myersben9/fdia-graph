@@ -15,16 +15,16 @@ def test_a_window_with_no_held_support_says_so(case):
     """Brute force finds no feasible support exactly when the search reports -1."""
     from fdia_graph.engine.attacks.window import AttackWindow
 
-    g, _, k = case
+    g, _, knobs = case
     for states, goal, d in windows(case, 4, held=False):
-        result = g.minimizer.min_tamper(states, goal, k)
+        result = g.minimizer.min_tamper(states, goal, knobs)
         buses = np.unique(g.load_bus[d.targets])
-        area = g.area.hop_area(buses, k.hops)
-        window = AttackWindow(g, states, goal, k)
+        area = g.area.hop_area(buses, knobs.hops)
+        window = AttackWindow(g, states, goal, knobs)
         feasible = [
             c
-            for S in g.minimizer._supports([frozenset(int(b) for b in buses)], area)
-            if (c := window.cost(S, None)) is not None
+            for support in g.minimizer._supports([frozenset(int(b) for b in buses)], area)
+            if (c := window.cost(support, None)) is not None
         ]
         assert (result.devices < 0) == (not feasible and window.cost(area, None) is None)
 
@@ -32,15 +32,15 @@ def test_a_window_with_no_held_support_says_so(case):
 def test_the_search_equals_brute_force(case):
     from fdia_graph.engine.attacks.window import AttackWindow
 
-    g, _, k = case
+    g, _, knobs = case
     for states, goal, d in windows(case, 3):
-        result = g.minimizer.min_tamper(states, goal, k)
+        result = g.minimizer.min_tamper(states, goal, knobs)
         buses = np.unique(g.load_bus[d.targets])
-        area = g.area.hop_area(buses, k.hops)
-        window = AttackWindow(g, states, goal, k)
+        area = g.area.hop_area(buses, knobs.hops)
+        window = AttackWindow(g, states, goal, knobs)
         feasible = []
-        for S in [*g.minimizer._supports([frozenset(int(b) for b in buses)], area), np.asarray(area)]:
-            c = window.cost(S, None)
+        for support in [*g.minimizer._supports([frozenset(int(b) for b in buses)], area), np.asarray(area)]:
+            c = window.cost(support, None)
             if c is not None:
                 feasible.append(c)
         # every candidate solved within the budget: the search's answer is the cheapest of them
@@ -52,15 +52,15 @@ def test_the_search_minimises_channels_first_when_that_is_the_objective(case):
     its answer is the cheapest candidate in that order."""
     from fdia_graph.engine.attacks.window import AttackWindow
 
-    g, _, k = case
-    by_channels = k._replace(objective="channels")
+    g, _, knobs = case
+    by_channels = knobs._replace(objective="channels")
     for states, goal, d in windows(case, 4):
         result = g.minimizer.min_tamper(states, goal, by_channels)
         buses = np.unique(g.load_bus[d.targets])
-        area = g.area.hop_area(buses, k.hops)
+        area = g.area.hop_area(buses, knobs.hops)
         window = AttackWindow(g, states, goal, by_channels)
         candidates = [*g.minimizer._supports([frozenset(int(b) for b in buses)], area), np.asarray(area)]
-        feasible = [c for S in candidates if (c := window.cost(S, None)) is not None]
+        feasible = [c for support in candidates if (c := window.cost(support, None)) is not None]
         want = min(c.key(True) for c in feasible)
         assert (result.channels, result.devices, len(result.support)) == want
 
@@ -197,7 +197,7 @@ def test_devices_group_channels_by_bus_terminal_and_pmu():
 
 def test_new_generation_searches_by_default():
     """New generation holds every At episode on its fewest-tamper support the frame
-    knobs default off, so a walk with min_tamper=False holds the region within `hops`."""
+    knobs default off, so a walk with min_tamper=False holds the area within `hops`."""
     from fdia_graph.models.config import TimelineSettings
     from fdia_graph.models.frames import FrameKnobs, RampDesign
 
@@ -206,18 +206,20 @@ def test_new_generation_searches_by_default():
     assert RampDesign(np.array([0]), 1.0, 1, 0).support is None
 
 
-def test_supports_keep_the_region_rules(case):
+def test_supports_keep_the_area_rules(case):
     """Every candidate excludes the slack and takes in the zero-injection buses of its boundary, the
-    rules `hop_area` applies to the region."""
-    g, _, k = case
+    rules `hop_area` applies to the area."""
+    g, _, knobs = case
     zero = set(int(b) for b in g.zero_inj) - {g.slack_bus}
     edges = g.edge_index
     for _, _, d in windows(case, 2):
         buses = np.unique(g.load_bus[d.targets])
-        area = g.area.hop_area(buses, k.hops)
-        for S in g.minimizer._supports([frozenset(int(b) for b in buses)], area):
-            assert g.slack_bus not in S
-            boundary = set(np.unique(edges[:, np.isin(edges, S).any(axis=0)]).tolist()) - set(S.tolist())
+        area = g.area.hop_area(buses, knobs.hops)
+        for support in g.minimizer._supports([frozenset(int(b) for b in buses)], area):
+            assert g.slack_bus not in support
+            boundary = set(np.unique(edges[:, np.isin(edges, support).any(axis=0)]).tolist()) - set(
+                support.tolist()
+            )
             assert not boundary & zero
 
 
@@ -248,14 +250,14 @@ def test_the_stealth_bound_covers_the_onset(case):
     from fdia_graph.engine.attacks.window import AttackWindow
     from fdia_graph.models.frames import AttackDesign, LoadGoal
 
-    g, X, k = case
+    g, X, knobs = case
     for states, _, d in windows(case, 1, held=False):
-        area = np.asarray(g.area.hop_area(np.unique(g.load_bus[d.targets]), k.hops))
+        area = np.asarray(g.area.hop_area(np.unique(g.load_bus[d.targets]), knobs.hops))
         jump = LoadGoal(
             tuple(AttackDesign(d.targets, 1.15) for _ in states)
         )  # held at 1.15: only the onset jumps
-        assert AttackWindow(g, states, jump, k, stealth_bound=False).cost(area, None) is not None
-        assert AttackWindow(g, states, jump, k).cost(area, None) is None
+        assert AttackWindow(g, states, jump, knobs, stealth_bound=False).cost(area, None) is not None
+        assert AttackWindow(g, states, jump, knobs).cost(area, None) is None
 
 
 def test_a_support_within_noise_is_not_an_attack(case):
@@ -264,12 +266,12 @@ def test_a_support_within_noise_is_not_an_attack(case):
     from fdia_graph.engine.attacks.window import AttackWindow
     from fdia_graph.models.frames import AttackDesign, LoadGoal
 
-    g, _, k = case
+    g, _, knobs = case
     for states, _, d in windows(case, 1, held=False):
-        area = np.asarray(g.area.hop_area(np.unique(g.load_bus[d.targets]), k.hops))
+        area = np.asarray(g.area.hop_area(np.unique(g.load_bus[d.targets]), knobs.hops))
         still = LoadGoal(tuple(AttackDesign(d.targets, 1.0 + 1e-9) for _ in states))
-        assert AttackWindow(g, states, still, k).cost(area, None) is None
-        assert g.minimizer.min_tamper(states, still, k).devices == -1
+        assert AttackWindow(g, states, still, knobs).cost(area, None) is None
+        assert g.minimizer.min_tamper(states, still, knobs).devices == -1
 
 
 def test_the_onset_is_bounded_against_the_frame_before(case):
@@ -279,11 +281,11 @@ def test_the_onset_is_bounded_against_the_frame_before(case):
     from fdia_graph.engine.attacks.window import AttackWindow
     from fdia_graph.models.frames import AttackDesign, LoadGoal
 
-    g, _, k = case
+    g, _, knobs = case
     for states, _, d in windows(case, 1, held=False):
-        area = np.asarray(g.area.hop_area(np.unique(g.load_bus[d.targets]), k.hops))
+        area = np.asarray(g.area.hop_area(np.unique(g.load_bus[d.targets]), knobs.hops))
         held = LoadGoal(tuple(AttackDesign(d.targets, 1.15) for _ in states))
-        x_false = g.false_state.goal_state(held, 0, states[0], area, k)
+        x_false = g.false_state.goal_state(held, 0, states[0], area, knobs)
         assert x_false is not None
         # the frame before carried the same step, its branch currents included (hybrid meters)
         from fdia_graph.models.frames import AttackVector
@@ -292,8 +294,8 @@ def test_the_onset_is_bounded_against_the_frame_before(case):
             *g.attack_frames.attack_vector(x_false, states[0]),
             g.attack_frames.current_attack(x_false, states[0]),
         )
-        assert AttackWindow(g, states, held, k).cost(area, None) is None
-        assert AttackWindow(g, states, held, k, prev=before).cost(area, None) is not None
+        assert AttackWindow(g, states, held, knobs).cost(area, None) is None
+        assert AttackWindow(g, states, held, knobs, prev=before).cost(area, None) is not None
 
 
 def test_the_search_stops_early_only_once_a_smaller_support_is_the_cheapest():
@@ -306,8 +308,8 @@ def test_the_search_stops_early_only_once_a_smaller_support_is_the_cheapest():
     costs = {13: SupportCost(1, 1, 13), 9: None, 7: SupportCost(1, 1, 7)}
 
     class Table:
-        def cost(self, S, beat):
-            c = costs[len(S)]
+        def cost(self, support, beat):
+            c = costs[len(support)]
             return c if c is not None and (beat is None or c.key(False) < beat.key(False)) else None
 
     best, evaluated = _cheapest(Table(), iter([area, failing, small]), area, 256)  # type: ignore[arg-type]

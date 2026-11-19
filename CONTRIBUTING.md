@@ -85,7 +85,8 @@ listed in `NOT_YET_PLAIN` in `tools/prereview.py`, each with its reason. `CHANGE
 Docstrings are short, and say what the signature does not:
 
 - a module docstring is at most about 10 lines: what the module is for and where it fits, no history;
-- a class docstring is at most about 6 lines: what the class represents;
+- a class docstring is at most about 6 lines: what the class represents (a class whose docstring is the
+  table of its attributes, as `FdiaGenerator`'s, may be longer);
 - a function or method docstring is 1 to 3 lines (a few more when an equation or an argument table needs them): what it returns or does, the units, the equation with its source key, and the one thing a caller would not guess.
 
 ## The pull request
