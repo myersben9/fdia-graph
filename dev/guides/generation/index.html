@@ -3159,15 +3159,15 @@ timeline (experiment <code>generation.parallel_design</code>):</p>
 </tr>
 <tr>
 <td><code>engine/base.py</code></td>
-<td><code>GridBase</code>: the attributes the generator's parts share</td>
+<td><code>Part</code>: one job of the generator, a class that holds the generator</td>
 </tr>
 <tr>
 <td><code>engine/measurement.py</code></td>
-<td><code>MeasurementMixin</code>: a scan from a stored state</td>
+<td><code>Emitter</code>: a scan from a stored state</td>
 </tr>
 <tr>
 <td><code>engine/physics.py</code></td>
-<td>a scan's load and generation, read from its state</td>
+<td><code>ScanLoads</code> and <code>LoadSplit</code>: a scan's load and generation, read from its state</td>
 </tr>
 </tbody>
 </table>

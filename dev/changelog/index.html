@@ -1988,6 +1988,66 @@
 the public API, the generated files and the numbers are the same as the previous release.</p>
 <h2 id="unreleased">Unreleased<a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
 <ul>
+<li><strong>The generator is made of parts, not mixins.</strong> <code>FdiaGenerator</code> held every method through a stack of
+  mixins; it now holds one object per job, named after its class, so a call names the class its method
+  is in.</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>Part</th>
+<th>On the generator</th>
+<th>Was</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Emitter</code> (<code>engine/measurement.py</code>)</td>
+<td><code>g.emitter</code></td>
+<td><code>MeasurementMixin</code></td>
+</tr>
+<tr>
+<td><code>ScanLoads</code> (<code>engine/physics.py</code>)</td>
+<td><code>g.scan_loads</code></td>
+<td><code>PhysicsMixin</code></td>
+</tr>
+<tr>
+<td><code>AttackArea</code> (<code>engine/attacks/area.py</code>)</td>
+<td><code>g.area</code></td>
+<td><code>AreaMixin</code></td>
+</tr>
+<tr>
+<td><code>FalseState</code> (<code>engine/attacks/false_state.py</code>)</td>
+<td><code>g.false_state</code></td>
+<td><code>FalseStateMixin</code></td>
+</tr>
+<tr>
+<td><code>RampFrames</code> (<code>engine/attacks/ramp_frames.py</code>)</td>
+<td><code>g.ramp_frames</code></td>
+<td><code>StealthyMixin</code>, and <code>AttackMixin.attack_frame</code></td>
+</tr>
+<tr>
+<td><code>Minimizer</code> (<code>engine/attacks/minimize.py</code>)</td>
+<td><code>g.minimizer</code></td>
+<td><code>MinimizeMixin</code></td>
+</tr>
+<tr>
+<td><code>Overload</code> (<code>engine/attacks/overload.py</code>)</td>
+<td><code>g.overload</code></td>
+<td><code>OverloadMixin</code></td>
+</tr>
+<tr>
+<td><code>EpisodeDesigns</code> (<code>engine/attacks/episodes.py</code>)</td>
+<td><code>g.episode_designs</code></td>
+<td><code>EpisodeDesignMixin</code></td>
+</tr>
+</tbody>
+</table>
+<p>A method keeps its name and moves to its part: <code>g.benign_frame(X)</code> is <code>g.emitter.benign_frame(X)</code>,
+  <code>g.solve_flow_local(...)</code> is <code>g.false_state.solve_flow_local(...)</code>, and so on. <code>GridBase</code> and
+  <code>AttackMixin</code> are gone; a part is an <code>engine.base.Part</code>. No method's code changed, and every IEEE
+  timeline is byte for byte what it was.</p>
+<ul>
 <li>
 <p><strong>Docs: a page that maps each claim of the package to the test that checks it (no change to the
   packages).</strong> <code>docs/guides/verify.md</code>, "Check the package yourself": the set-up, the command for one

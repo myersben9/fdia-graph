@@ -1953,19 +1953,19 @@ Paths are under <code>src/fdia_graph/</code>; <code>se/</code> and <code>localiz
 <h2 id="one-record-start-to-finish">One record, start to finish<a class="headerlink" href="#one-record-start-to-finish" title="Permanent link">&para;</a></h2>
 <p><img alt="one record of a timeline, top to bottom: the operating state, one frame of the pool; the clean layer, clean and edge_clean, Measurement.h with no noise; plus meter noise, the benign layer, benign and edge_benign, from emit_from_state; plus the attack, the observed layer, node_x and edge_x, from frame_from_state; the labels y, family, seq_id and the tamper masks; TimelineWriter.store writes the record" src="../../figures/diagrams/concepts_one_record.png" /></p>
 <p>Each frame of a timeline is one record. Its operating state is one frame of the pool. The clean
-layer is <code>Measurement.h</code> of that state with no noise (<code>MeasurementMixin.exact</code>); the node layer
-<code>clean</code> is the state itself. <code>MeasurementMixin.emit_from_state</code> adds each meter's bias and the
+layer is <code>Measurement.h</code> of that state with no noise (<code>Emitter.exact</code>); the node layer
+<code>clean</code> is the state itself. <code>Emitter.emit_from_state</code> adds each meter's bias and the
 scan's jitter (<code>NoiseModel</code>), which gives the benign layer. On an attacked frame
-<code>FalseStateMixin.frame_from_state</code> adds the attack vector on the meters it moves, which gives the
+<code>FalseState.frame_from_state</code> adds the attack vector on the meters it moves, which gives the
 observed layer; on a benign frame the observed layer is the benign one. <code>TimelineWriter.store</code>
 writes the three layers with the labels <code>y</code>, <code>family</code> and <code>seq_id</code> and the tamper masks.
 An episode designed as a vector over the meters (<code>VectorEpisode</code>) uses
-<code>FalseStateMixin.frame_from_vector</code> instead.
+<code>FalseState.frame_from_vector</code> instead.
 <a href="../../concepts/layers/">Layers and labels</a> says what each layer and label is for.</p>
-<p>Every attack is built in <code>engine.attacks</code>, the generator's <code>AttackMixin</code>: a local false state
+<p>Every attack is built in <code>engine.attacks</code>, by the parts the generator holds: a local false state
 (<code>engine.attacks.false_state</code>) designed per episode (<code>ramp_design</code> for At, <code>am_overload_design</code> for
 Am, <code>engine.attacks.episodes</code>) on a support the search or [WU26]'s row reduction chooses
-(<code>MinimizeMixin.min_tamper</code>, <code>RrefSupport</code>); <code>FalseStateMixin.frame_from_state</code> adds the attack vector to the
+(<code>Minimizer.min_tamper</code>, <code>RrefSupport</code>); <code>FalseState.frame_from_state</code> adds the attack vector to the
 benign scan.</p>
 <h2 id="modules">Modules<a class="headerlink" href="#modules" title="Permanent link">&para;</a></h2>
 <p>The paper's math lives in <code>engine/</code>. <code>generation/</code> drives it in stages (<code>TimelineSource.generate</code>
@@ -1983,7 +1983,7 @@ to its function.</p>
 <tbody>
 <tr>
 <td><code>core.py</code></td>
-<td><code>FdiaGenerator</code>: grid + noise setup (<code>__init__</code>), attack targeting; composes the measurement, physics and attack mixins</td>
+<td><code>FdiaGenerator</code>: grid + noise setup (<code>__init__</code>), attack targeting; holds one object of each part (measurement, loads, the attacks)</td>
 </tr>
 <tr>
 <td><code>measurement.py</code></td>
@@ -2053,13 +2053,13 @@ and converts them on load.</p>
 <td>At</td>
 <td><code>A_t</code></td>
 <td>slow ramp, 0.2 percent per frame, a local false state per frame</td>
-<td><code>engine/attacks/episodes.EpisodeDesignMixin.ramp_design</code> + <code>EpisodeDesignMixin.ramp_step</code></td>
+<td><code>engine/attacks/episodes.EpisodeDesigns.ramp_design</code> + <code>EpisodeDesigns.ramp_step</code></td>
 </tr>
 <tr>
 <td>Am</td>
 <td><code>A_m</code></td>
 <td>the overload attack of [WU26]: a line's reported flow driven to its rating over the window, the fewest devices tampered</td>
-<td><code>engine/attacks/episodes.EpisodeDesignMixin.am_overload_design</code> + <code>overload.overload_step</code></td>
+<td><code>engine/attacks/episodes.EpisodeDesigns.am_overload_design</code> + <code>overload.overload_step</code></td>
 </tr>
 </tbody>
 </table>
@@ -2075,8 +2075,8 @@ and converts them on load.</p>
   (<code>../concepts/attacks.md</code>). The single-snapshot families of older releases (<code>Aq</code>,
   <code>Al</code>, and the in-place <code>Ad</code>, <code>As</code>, <code>Ar</code>) are read-only: fdia-graph 0.20 generates them.</li>
 <li>With <code>min_tamper=True</code> an At episode is held on the support that tampers the fewest devices over
-  the episode, the objective of [WU26, eq. 12] (<code>engine/attacks/minimize.MinimizeMixin.min_tamper</code>,
-  called by <code>engine/attacks/episodes.EpisodeDesignMixin.ramp_design</code>).</li>
+  the episode, the objective of [WU26, eq. 12] (<code>engine/attacks/minimize.Minimizer.min_tamper</code>,
+  called by <code>engine/attacks/episodes.EpisodeDesigns.ramp_design</code>).</li>
 <li>The At ramp moves in per-frame steps under the noise floor, by design.</li>
 </ul>
 <h2 id="temporal-feature">Temporal feature<a class="headerlink" href="#temporal-feature" title="Permanent link">&para;</a></h2>

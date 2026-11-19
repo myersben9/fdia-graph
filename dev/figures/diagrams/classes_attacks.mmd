@@ -1,12 +1,14 @@
 classDiagram
-    class AreaMixin {
+    class AttackArea {
         +local_region()
+        +boundary()
+        +grow_over_zero_injection()
         +attack_area()
         +explicit_area()
         +rule_area()
         +area_score()
     }
-    class FalseStateMixin {
+    class FalseState {
         +operating_limits()
         +solve_local()
         +free_load_buses()
@@ -15,33 +17,33 @@ classDiagram
         +solve_flow_local()
         +touched_buses()
         +frame_from_state()
-        ... and 4 more
+        ... and 5 more
     }
-    class MinimizeMixin {
+    class Minimizer {
         +min_tamper()
         +window_area()
         +goal_state()
+        +zero_closed()
     }
-    class OverloadMixin {
+    class Overload {
         +use_line_ratings()
         +line_ratings()
         +eligible_lines()
         +overload_goal()
         +window_ratings()
+        +target_sets()
         +overload_step()
         +pretended_change()
-        +true_load_by_bus()
+        ... and 1 more
     }
-    class StealthyMixin {
+    class RampFrames {
+        +attack_frame()
     }
-    class EpisodeDesignMixin {
+    class EpisodeDesigns {
         +target_counts()
         +ramp_step()
         +ramp_design()
         +am_overload_design()
-    }
-    class AttackMixin {
-        +attack_frame()
     }
     class AmOverloadDesign {
         <<models>>
@@ -67,9 +69,6 @@ classDiagram
     class LoadGoal {
         <<models>>
     }
-    class MeasurementMixin {
-        <<engine>>
-    }
     class MeterLayers {
         <<models>>
     }
@@ -85,7 +84,7 @@ classDiagram
     class OverloadSettings {
         <<models>>
     }
-    class PhysicsMixin {
+    class Part {
         <<engine>>
     }
     class RampDesign {
@@ -106,47 +105,40 @@ classDiagram
     class TrustablePmus {
         <<models>>
     }
-    AreaMixin <|-- FalseStateMixin
-    EpisodeDesignMixin <|-- AttackMixin
-    FalseStateMixin <|-- MinimizeMixin
-    FalseStateMixin <|-- StealthyMixin
-    MeasurementMixin <|-- AreaMixin
-    MinimizeMixin <|-- OverloadMixin
-    OverloadMixin <|-- AttackMixin
-    OverloadMixin <|-- EpisodeDesignMixin
-    PhysicsMixin <|-- FalseStateMixin
-    StealthyMixin <|-- AttackMixin
-    AreaMixin ..> AreaScore : uses
-    AttackMixin ..> AttackDesign : uses
-    AttackMixin ..> Frame : uses
-    AttackMixin ..> FrameKnobs : uses
-    EpisodeDesignMixin ..> AmOverloadDesign : uses
-    EpisodeDesignMixin ..> AttackDesign : uses
-    EpisodeDesignMixin ..> AttackVector : uses
-    EpisodeDesignMixin ..> FrameKnobs : uses
-    EpisodeDesignMixin ..> LoadGoal : uses
-    EpisodeDesignMixin ..> RampDesign : uses
-    FalseStateMixin ..> AttackDesign : uses
-    FalseStateMixin ..> Frame : uses
-    FalseStateMixin ..> FrameKnobs : uses
-    FalseStateMixin ..> MeterLayers : uses
-    FalseStateMixin ..> OperatingLimits : uses
-    FalseStateMixin ..> Scan : uses
-    MinimizeMixin ..> AttackVector : uses
-    MinimizeMixin ..> FlowGoal : uses
-    MinimizeMixin ..> FrameKnobs : uses
-    MinimizeMixin ..> LoadGoal : uses
-    MinimizeMixin ..> MinimizerResult : uses
-    MinimizeMixin ..> RrefSupport : uses
-    MinimizeMixin ..> SupportMethod : uses
-    MinimizeMixin ..> TrustSchedule : uses
-    MinimizeMixin ..> TrustablePmus : uses
-    OverloadMixin ..> AmOverloadDesign : uses
-    OverloadMixin ..> FlowGoal : uses
-    OverloadMixin ..> Frame : uses
-    OverloadMixin ..> FrameKnobs : uses
-    OverloadMixin ..> NoLineRatings : uses
-    OverloadMixin ..> OverloadSettings : uses
-    StealthyMixin ..> AttackDesign : uses
-    StealthyMixin ..> Frame : uses
-    StealthyMixin ..> FrameKnobs : uses
+    Part <|-- AttackArea
+    Part <|-- EpisodeDesigns
+    Part <|-- FalseState
+    Part <|-- Minimizer
+    Part <|-- Overload
+    Part <|-- RampFrames
+    AttackArea ..> AreaScore : uses
+    EpisodeDesigns ..> AmOverloadDesign : uses
+    EpisodeDesigns ..> AttackDesign : uses
+    EpisodeDesigns ..> AttackVector : uses
+    EpisodeDesigns ..> FrameKnobs : uses
+    EpisodeDesigns ..> LoadGoal : uses
+    EpisodeDesigns ..> RampDesign : uses
+    FalseState ..> AttackDesign : uses
+    FalseState ..> Frame : uses
+    FalseState ..> FrameKnobs : uses
+    FalseState ..> MeterLayers : uses
+    FalseState ..> OperatingLimits : uses
+    FalseState ..> Scan : uses
+    Minimizer ..> AttackVector : uses
+    Minimizer ..> FlowGoal : uses
+    Minimizer ..> FrameKnobs : uses
+    Minimizer ..> LoadGoal : uses
+    Minimizer ..> MinimizerResult : uses
+    Minimizer ..> RrefSupport : uses
+    Minimizer ..> SupportMethod : uses
+    Minimizer ..> TrustSchedule : uses
+    Minimizer ..> TrustablePmus : uses
+    Overload ..> AmOverloadDesign : uses
+    Overload ..> FlowGoal : uses
+    Overload ..> Frame : uses
+    Overload ..> FrameKnobs : uses
+    Overload ..> NoLineRatings : uses
+    Overload ..> OverloadSettings : uses
+    RampFrames ..> AttackDesign : uses
+    RampFrames ..> Frame : uses
+    RampFrames ..> FrameKnobs : uses

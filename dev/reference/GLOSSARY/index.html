@@ -1923,7 +1923,7 @@ the data terms is in <a href="../../guides/generation/"><code>../guides/generati
 <tr>
 <td>scan</td>
 <td>One emission of every meter in the plan from one grid state: readings and masks.</td>
-<td><code>models.frames.Scan</code>, <code>engine.measurement.MeasurementMixin.emit_from_state</code></td>
+<td><code>models.frames.Scan</code>, <code>engine.measurement.Emitter.emit_from_state</code></td>
 </tr>
 <tr>
 <td>frame</td>
@@ -1983,7 +1983,7 @@ the data terms is in <a href="../../guides/generation/"><code>../guides/generati
 <tr>
 <td>support</td>
 <td>The buses whose voltages a local false state moves; only meters that depend on them can change. The fewest-tamper search chooses it.</td>
-<td><code>engine.attacks.minimize.MinimizeMixin.min_tamper</code></td>
+<td><code>engine.attacks.minimize.Minimizer.min_tamper</code></td>
 </tr>
 <tr>
 <td>device</td>
@@ -2003,22 +2003,22 @@ the data terms is in <a href="../../guides/generation/"><code>../guides/generati
 <tr>
 <td>overload attack</td>
 <td><code>Am</code> in new generation: the apparent flow of two lines at once by default (<code>OverloadSettings.n_lines</code>; <code>FlowGoal.more</code>), as the tampered measurements carry it before noise, driven snapshot by snapshot to the line's rating over the window, on the support that tampers the fewest devices, its attackable loads and generators free inside the limits [WU26, eqs. 12-25].</td>
-<td><code>engine.attacks.overload.OverloadMixin</code></td>
+<td><code>engine.attacks.overload.Overload</code></td>
 </tr>
 <tr>
 <td>free injection</td>
 <td>A bus whose injection a flow-goal attacker may change: an attackable load or a generator (the latter inside its limits, [WU26, eqs. 22-23]); a zero-injection bus is held at zero.</td>
-<td><code>engine.attacks.false_state.FalseStateMixin.free_injection_buses</code></td>
+<td><code>engine.attacks.false_state.FalseState.free_injection_buses</code></td>
 </tr>
 <tr>
 <td>load cap</td>
 <td>The overload attack's load-plausibility bound tau: every load bus the attack moves, in its support or on the support's edge, shows an active change of at most tau times its true load [YUA11]; 0.5 by default.</td>
-<td><code>models.config.OverloadSettings.load_cap</code>, <code>generate_timeline(..., am_attack={"load_cap": ...})</code>, <code>engine.attacks.false_state.FalseStateMixin.solve_flow_local</code></td>
+<td><code>models.config.OverloadSettings.load_cap</code>, <code>generate_timeline(..., am_attack={"load_cap": ...})</code>, <code>engine.attacks.false_state.FalseState.solve_flow_local</code></td>
 </tr>
 <tr>
 <td>line rating</td>
 <td>A branch's thermal limit S_max in MVA: by default <code>rating_margin</code> (1.25) times its peak true apparent flow over the operating pool, or on request the PGLib-OPF <code>rate_a</code> matched by end buses (<code>generate_timeline(..., am_attack={"rating_source": "pglib"})</code>, the margin as <code>am_attack={"rating_margin": ...}</code>, both through <code>models.config.OverloadSettings</code>); the IEEE cases pandapower ships carry only a 9,900 MVA placeholder.</td>
-<td><code>engine.attacks.overload.OverloadMixin.use_line_ratings</code>, <code>models.config.OverloadSettings</code>, <code>fdia_graph.ratings</code>, <code>formulas.attacks.branch_ratings</code></td>
+<td><code>engine.attacks.overload.Overload.use_line_ratings</code>, <code>models.config.OverloadSettings</code>, <code>fdia_graph.ratings</code>, <code>formulas.attacks.branch_ratings</code></td>
 </tr>
 <tr>
 <td>stealth scale</td>
@@ -2048,7 +2048,7 @@ the data terms is in <a href="../../guides/generation/"><code>../guides/generati
 <tr>
 <td>local false state</td>
 <td>A state in which only a subnetwork around the targets is re-solved under false loads, boundary voltages held true, and the attack vector <code>h(x_false) - h(x_true)</code> is added to the true scan; it meets constraints (13)-(18) and (21)-(23) of [WU26], and in new generation the branch-current phasors (19)-(20); new generation also holds it on the fewest-device support of eq. (12).</td>
-<td><code>engine.attacks.stealthy.StealthyMixin._stealthy_frame</code>, <code>engine.attacks.false_state.FalseStateMixin.solve_local</code>, <code>engine.attacks.area.AreaMixin.local_region</code></td>
+<td><code>engine.attacks.ramp_frames.RampFrames._stealthy_frame</code>, <code>engine.attacks.false_state.FalseState.solve_local</code>, <code>engine.attacks.area.AttackArea.local_region</code></td>
 </tr>
 <tr>
 <td>theta_ref</td>

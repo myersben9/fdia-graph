@@ -2245,7 +2245,7 @@
 </tr>
 <tr>
 <td><code>engine.attacks</code></td>
-<td>Every attack the generator builds, behind one mixin: <code>AttackMixin</code>, mixed into FdiaGenerator.</td>
+<td>Every attack the generator builds. Six files each hold one part of the generator; three hold what serves or uses the parts.</td>
 </tr>
 <tr>
 <td><code>engine.attacks.area</code></td>
@@ -2253,7 +2253,7 @@
 </tr>
 <tr>
 <td><code>engine.attacks.episodes</code></td>
-<td>What one episode attacks: its design, drawn at onset (<code>EpisodeDesignMixin</code>).</td>
+<td>What one episode attacks: its design, drawn at onset (<code>EpisodeDesigns</code>).</td>
 </tr>
 <tr>
 <td><code>engine.attacks.false_state</code></td>
@@ -2272,6 +2272,10 @@
 <td><code>Am</code>, the multi-snapshot overload attack of [WU26]: the reported flows of its target branches (one or two, <code>OverloadSettings.n_lines</code>) driven to their ratings S_max (<code>use_line_ratings</code>) over the window, with the fewest devices tampered.</td>
 </tr>
 <tr>
+<td><code>engine.attacks.ramp_frames</code></td>
+<td>The stealthy ramp At: one scan at a time, a local false state added to the true scan.</td>
+</tr>
+<tr>
 <td><code>engine.attacks.rref</code></td>
 <td>[WU26]'s construction of the attack's support: row reduction of the transposed area Jacobian.</td>
 </tr>
@@ -2280,12 +2284,8 @@
 <td>The search-based families: the slow ramp At and the overload Am [WU26].</td>
 </tr>
 <tr>
-<td><code>engine.attacks.stealthy</code></td>
-<td>The stealthy ramp At: one scan at a time, a local false state added to the true scan.</td>
-</tr>
-<tr>
 <td><code>engine.base</code></td>
-<td>The state FdiaGenerator's mixins share: attribute annotations only.</td>
+<td>A part of the generator: one job (emitting scans, choosing an area, solving a false state, ...) as one class that holds the generator it belongs to.</td>
 </tr>
 <tr>
 <td><code>engine.core</code></td>
