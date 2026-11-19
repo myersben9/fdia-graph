@@ -16,8 +16,8 @@ classDiagram
         +free_injection_buses()
         +solve_flow_local()
         +reach()
-        +stealthy_state()
-        ... and 3 more
+        +goal_state()
+        ... and 6 more
     }
     class AttackFrames {
         +frame_from_state()
@@ -29,7 +29,6 @@ classDiagram
     class Minimizer {
         +min_tamper()
         +window_area()
-        +goal_state()
         +zero_closed()
     }
     class AttackWindow {
@@ -51,7 +50,7 @@ classDiagram
         ... and 1 more
     }
     class RampFrames {
-        +attack_frame()
+        +ramp_frame()
     }
     class EpisodeDesigns {
         +target_counts()
@@ -148,7 +147,9 @@ classDiagram
     EpisodeDesigns ..> LoadGoal : uses
     EpisodeDesigns ..> RampDesign : uses
     FalseState ..> AttackDesign : uses
+    FalseState ..> FlowGoal : uses
     FalseState ..> FrameKnobs : uses
+    FalseState ..> LoadGoal : uses
     FalseState ..> OperatingLimits : uses
     Minimizer ..> AttackVector : uses
     Minimizer ..> AttackWindow : uses

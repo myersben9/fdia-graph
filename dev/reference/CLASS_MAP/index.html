@@ -2035,7 +2035,7 @@ designed episode (<code>engine/attacks/family.py</code>, <code>DesignedEpisode</
 (<code>g.attack_frames</code>) writes the attack vector onto the true scan, <code>RampFrames</code> (<code>g.ramp_frames</code>) builds the ramp frames, <code>Minimizer</code> (<code>g.minimizer</code>) finds the support that tampers
 the fewest devices over an attack window [WU26, eq. 12] (<code>AttackWindow</code>, <code>window.py</code>, counts what a
 support costs), <code>Overload</code> (<code>g.overload</code>) builds the overload <code>Am</code>,
-and <code>EpisodeDesigns</code> (<code>g.episode_designs</code>) designs what an <code>At</code> or an <code>Am</code> episode attacks. <code>RampFrames.attack_frame</code>
+and <code>EpisodeDesigns</code> (<code>g.episode_designs</code>) designs what an <code>At</code> or an <code>Am</code> episode attacks. <code>RampFrames.ramp_frame</code>
 is the one entry for an attacked <code>At</code> scan; an <code>Am</code> frame comes from <code>overload_step</code>. The walk reaches
 both through a designed episode (<code>engine/attacks/search.py</code>: <code>RampEpisode</code>, <code>OverloadEpisode</code>).</p>
 <p><a href="../../figures/diagrams/classes_attacks.png"><img alt="Class diagram of the attack package: AttackArea, FalseState, AttackFrames, RampFrames, Minimizer, Overload and EpisodeDesigns, each a Part that holds the generator, and AttackWindow, which the Minimizer builds; they use AttackDesign, RampDesign, LoadGoal, FlowGoal, MinimizerResult, Frame, FrameKnobs, OperatingLimits, MeterLayers, CostUnit and Scan" src="../../figures/diagrams/classes_attacks.png" /></a></p>
