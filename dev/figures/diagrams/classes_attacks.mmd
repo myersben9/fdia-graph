@@ -34,8 +34,6 @@ classDiagram
     class AttackWindow {
         +cost()
         +support_at()
-        +rank()
-        +counts()
         +near()
     }
     class Overload {
@@ -115,6 +113,9 @@ classDiagram
     class Scan {
         <<models>>
     }
+    class SupportCost {
+        <<models>>
+    }
     class SupportMethod {
         <<models>>
     }
@@ -139,6 +140,8 @@ classDiagram
     AttackWindow ..> CostUnit : uses
     AttackWindow ..> FdiaGenerator : uses
     AttackWindow ..> FrameKnobs : uses
+    AttackWindow ..> MeterLayers : uses
+    AttackWindow ..> SupportCost : uses
     AttackWindow ..> TrustSchedule : uses
     EpisodeDesigns ..> AmOverloadDesign : uses
     EpisodeDesigns ..> AttackDesign : uses

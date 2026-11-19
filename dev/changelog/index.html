@@ -1989,6 +1989,16 @@ the public API, the generated files and the numbers are the same as the previous
 <h2 id="unreleased">Unreleased<a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
 <ul>
 <li>
+<p><strong>The search's cost and a snapshot's moved channels are named records (the search finds the same
+  supports; the cost's layout under the <code>"channels"</code> objective changes).</strong>
+  <code>AttackWindow.cost</code> returns a <code>SupportCost(devices, channels, size)</code> (<code>models/frames.py</code>) where it
+  returned a bare tuple whose first two slots swapped with the objective, so under <code>"channels"</code> a
+  caller reading <code>cost[0]</code> now gets the devices; <code>SupportCost.key</code> gives the order the search compares, and <code>AttackWindow.rank</code> and <code>counts</code>, which packed and unpacked the
+  tuple, are gone. The channels a snapshot moves beyond noise are a <code>MeterLayers</code> of masks (<code>node</code>,
+  <code>edge</code>, <code>current</code>), where they were three positional arrays. Every IEEE timeline is byte for byte
+  what it was.</p>
+</li>
+<li>
 <p><strong>The false state of a goal has one entry point, in <code>FalseState</code> (no change in behaviour).</strong>
   <code>goal_state</code> moves from <code>Minimizer</code> to <code>FalseState</code> (<code>g.false_state.goal_state</code>), with
   <code>load_goal_state</code> and <code>flow_goal_state</code> beside it. The load goal's solve was written twice (once for
