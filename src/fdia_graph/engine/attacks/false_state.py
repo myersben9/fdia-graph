@@ -25,14 +25,17 @@ from ..base import Part
 
 
 def _voltages_out_of_range(
-    Xa: np.ndarray, Xt: np.ndarray, S: np.ndarray, limits: OperatingLimits, held: dict[int, float]
+    x_false: np.ndarray, x_true: np.ndarray, S: np.ndarray, limits: OperatingLimits, held: dict[int, float]
 ) -> dict[int, float]:
     """The buses of S whose false |V| left its limit [WU26 eq. 21], each with the limit to hold it at.
     A bus already outside its limit is bounded by its true value, as in `within_limits`."""
-    lo, hi = np.minimum(limits.v_lo, Xt[:, NodeChannel.V]), np.maximum(limits.v_hi, Xt[:, NodeChannel.V])
+    lo, hi = (
+        np.minimum(limits.v_lo, x_true[:, NodeChannel.V]),
+        np.maximum(limits.v_hi, x_true[:, NodeChannel.V]),
+    )
     out: dict[int, float] = {}
     for b in np.asarray(S, int):
-        v = Xa[b, NodeChannel.V]
+        v = x_false[b, NodeChannel.V]
         if int(b) not in held and (v < lo[b] or v > hi[b]):
             out[int(b)] = float(np.clip(v, lo[b], hi[b]))
     return out
@@ -83,35 +86,36 @@ class FalseState(Part):
         return operating_limits(self.g.v_case, self.g.p_lim, self.g.q_lim, self.g.split.generation(X))
 
     def solve_local(
-        self, Xt: np.ndarray, interior: np.ndarray, Lp: np.ndarray, Lq: np.ndarray
+        self, x_true: np.ndarray, interior: np.ndarray, p_load: np.ndarray, q_load: np.ndarray
     ) -> Optional[np.ndarray]:
-        """The local false state [N, 4] [WU26]: the interior re-solved under the false loads `Lp`, `Lq`
+        """The local false state [N, 4] [WU26]: the interior re-solved under the false loads `p_load`,
+        `q_load`
         (per load-table position, MW/MVAr), every other voltage held true. The injections of the interior
         and its boundary follow the false voltages. None when the local power flow does not converge."""
-        C = self.g.C
-        Xa = np.array(Xt, np.float64, copy=True)
-        Pinj, Qinj = Xa[:, NodeChannel.P_INJ].copy(), Xa[:, NodeChannel.Q_INJ].copy()
+        n_bus = self.g.n_bus
+        x_false = np.array(x_true, np.float64, copy=True)
+        Pinj, Qinj = x_false[:, NodeChannel.P_INJ].copy(), x_false[:, NodeChannel.Q_INJ].copy()
         # the pool's injection is load-positive: every load element at a bus minus that bus's
         # generation, held at this scan's dispatch (the attacker moves loads only)
-        load, qload = np.zeros(C), np.zeros(C)
-        np.add.at(load, self.g.load_bus, Lp)
-        np.add.at(qload, self.g.load_bus, Lq)
+        load, qload = np.zeros(n_bus), np.zeros(n_bus)
+        np.add.at(load, self.g.load_bus, p_load)
+        np.add.at(qload, self.g.load_bus, q_load)
         buses = np.unique(self.g.load_bus)
-        Pinj[buses] = load[buses] - self.g.scan_loads.scan_generation(Xt)[buses]
-        Qinj[buses] = qload[buses] - self.g.scan_loads.scan_reactive_generation(Xt)[buses]
-        Vc = complex_voltages(Xa[:, NodeChannel.V], Xa[:, NodeChannel.THETA])
+        Pinj[buses] = load[buses] - self.g.scan_loads.scan_generation(x_true)[buses]
+        Qinj[buses] = qload[buses] - self.g.scan_loads.scan_reactive_generation(x_true)[buses]
+        Vc = complex_voltages(x_false[:, NodeChannel.V], x_false[:, NodeChannel.THETA])
         base_mva = self.g.case.base_mva
         target = -(Pinj[interior] + 1j * Qinj[interior]) / base_mva  # generation-positive, per unit
-        Vf = local_ac_solve(self._dense_admittances()[0], Vc, interior, target)
-        if Vf is None:
+        v_false = local_ac_solve(self._dense_admittances()[0], Vc, interior, target)
+        if v_false is None:
             return None
-        Xa[interior, NodeChannel.V] = np.abs(Vf[interior])
-        Xa[interior, NodeChannel.THETA] = np.degrees(np.angle(Vf[interior]))
+        x_false[interior, NodeChannel.V] = np.abs(v_false[interior])
+        x_false[interior, NodeChannel.THETA] = np.degrees(np.angle(v_false[interior]))
         touched = np.union1d(interior, self.g.area.boundary(interior)[1])  # and its boundary
-        S = bus_injections(Vf, self.g.net.ybus, base_mva)[touched]
-        Xa[touched, NodeChannel.P_INJ] = -S.real
-        Xa[touched, NodeChannel.Q_INJ] = -S.imag
-        return Xa
+        S = bus_injections(v_false, self.g.net.ybus, base_mva)[touched]
+        x_false[touched, NodeChannel.P_INJ] = -S.real
+        x_false[touched, NodeChannel.Q_INJ] = -S.imag
+        return x_false
 
     def free_load_buses(self) -> np.ndarray:
         """The buses whose load an attacker may pretend in a flow goal (a load off every generator bus,
@@ -141,7 +145,7 @@ class FalseState(Part):
 
     def solve_flow_local(
         self,
-        Xt: np.ndarray,
+        x_true: np.ndarray,
         S: np.ndarray,
         line: Union[int, Sequence[int]],
         target_mva: Union[float, Sequence[float]],
@@ -155,27 +159,27 @@ class FalseState(Part):
         # of S inside eq. 21; with `load_cap`, a load bus shows at most that share of its true load. A
         # component (P or Q) the solve drives past its bound is pinned there and the solve repeated (an
         # active set). The state is None when the solve fails, a bound cannot be met, or S has no free bus.
-        dload = np.zeros(self.g.C)
+        dload = np.zeros(self.g.n_bus)
         free = np.intersect1d(S, self.free_injection_buses())
         if len(free) == 0:
             return None, True, dload
-        region = self._flow_region(Xt, (S, free), line, target_mva)
+        region = self._flow_region(x_true, (S, free), line, target_mva)
         edge = np.setdiff1d(region.touched, S)
         # bus -> its pinned change per component (P in MW, Q in MVAr, generation positive)
         pinned: tuple[dict[int, float], dict[int, float]] = ({}, {})
         held_v: dict[int, float] = {}  # bus -> the voltage limit its magnitude is held at, pu
         for _ in range(3 * (len(S) + len(edge)) + 1):
-            solved = self._flow_solve_pinned(Xt, region, (pinned, held_v))
+            solved = self._flow_solve_pinned(x_true, region, (pinned, held_v))
             if solved is None:
                 return None, False, dload
-            Xa, dS = solved
+            x_false, dS = solved
             over = self._out_of_bounds(region, dS, (limits, load_cap), pinned)
-            v_over = {} if limits is None else _voltages_out_of_range(Xa, Xt, S, limits, held_v)
+            v_over = {} if limits is None else _voltages_out_of_range(x_false, x_true, S, limits, held_v)
             if not over[0] and not over[1] and not v_over:
                 # a load bus's change is its pretended load
                 loads = np.setdiff1d(free, self.generator_buses())
                 dload[loads] = -np.real(dS[loads])
-                return Xa, True, dload
+                return x_false, True, dload
             for component, changes in zip(pinned, over):
                 component.update(changes)
             held_v.update(v_over)
@@ -187,15 +191,15 @@ class FalseState(Part):
 
     def _flow_region(
         self,
-        Xt: np.ndarray,
+        x_true: np.ndarray,
         support: tuple[np.ndarray, np.ndarray],
         line: Union[int, Sequence[int]],
         target_mva: Union[float, Sequence[float]],
     ) -> _FlowRegion:
-        """What every solve on support S at the true state Xt shares; `support` = (S, its free buses)."""
+        """What every solve on support S at the true state x_true shares; `support` = (S, its free buses)."""
         S, free = support
         lines = np.atleast_1d(np.asarray(line, np.int64))
-        V = complex_voltages(Xt[:, NodeChannel.V], Xt[:, NodeChannel.THETA])
+        V = complex_voltages(x_true[:, NodeChannel.V], x_true[:, NodeChannel.THETA])
         touched, blocks = self._support_blocks(S, lines)
         # per unit, the model's injections at the true voltages
         S_true = bus_injections(V, blocks.Yb)[touched]
@@ -208,8 +212,8 @@ class FalseState(Part):
             touched,
             S_true,
             blocks,
-            self.g.split.generation(Xt),
-            self.g.split.load(Xt),
+            self.g.split.generation(x_true),
+            self.g.split.load(x_true),
         )
 
     def _support_blocks(self, S: np.ndarray, lines: np.ndarray) -> tuple[np.ndarray, _FlowBlocks]:
@@ -228,14 +232,14 @@ class FalseState(Part):
 
     def _flow_solve_pinned(
         self,
-        Xt: np.ndarray,
+        x_true: np.ndarray,
         region: _FlowRegion,
         held: tuple[tuple[dict[int, float], dict[int, float]], dict[int, float]],
     ) -> Optional[tuple[np.ndarray, np.ndarray]]:
         """One flow solve on the region's support. `held` = ((bus -> pinned P change, bus -> pinned Q
         change), bus -> held |V|). Returns (the false state [N, 4], the injection change per bus [N],
         generation positive, MVA), or None when the solve fails."""
-        C, S, touched, base_mva = self.g.C, region.S, region.touched, self.g.case.base_mva
+        n_bus, S, touched, base_mva = self.g.n_bus, region.S, region.touched, self.g.case.base_mva
         lines, targets = region.goal
         (pin_p, pin_q), held_v = held
         both = region.rest  # the buses of S that hold their injection
@@ -248,7 +252,7 @@ class FalseState(Part):
         hold = np.array([(b in whole or b in pin_p, b in whole or b in pin_q) for b in ints])
         vb = np.array(sorted(held_v), np.int64)
         Yb, Yf = self._dense_admittances()
-        Vf = local_flow_solve(
+        v_false = local_flow_solve(
             Yb,
             Yf[lines],
             self.g.case.f[lines],
@@ -261,16 +265,16 @@ class FalseState(Part):
             hold=hold.reshape(-1, 2),
             blocks=region.blocks,
         )
-        if Vf is None:
+        if v_false is None:
             return None
-        Xa = np.array(Xt, np.float64, copy=True)
-        Xa[S, NodeChannel.V] = np.abs(Vf[S])
-        Xa[S, NodeChannel.THETA] = np.degrees(np.angle(Vf[S]))
-        dS = np.zeros(C, complex)
-        dS[touched] = (bus_injections(Vf, Yb)[touched] - region.S_true) * base_mva
-        Xa[touched, NodeChannel.P_INJ] -= np.real(dS[touched])  # the stored injection is load positive
-        Xa[touched, NodeChannel.Q_INJ] -= np.imag(dS[touched])
-        return Xa, dS
+        x_false = np.array(x_true, np.float64, copy=True)
+        x_false[S, NodeChannel.V] = np.abs(v_false[S])
+        x_false[S, NodeChannel.THETA] = np.degrees(np.angle(v_false[S]))
+        dS = np.zeros(n_bus, complex)
+        dS[touched] = (bus_injections(v_false, Yb)[touched] - region.S_true) * base_mva
+        x_false[touched, NodeChannel.P_INJ] -= np.real(dS[touched])  # the stored injection is load positive
+        x_false[touched, NodeChannel.Q_INJ] -= np.imag(dS[touched])
+        return x_false, dS
 
     def _out_of_bounds(
         self,
@@ -318,41 +322,46 @@ class FalseState(Part):
             self._dense_Y = cached
         return cached
 
-    def stealthy_state(self, Xt: np.ndarray, design: AttackDesign, k: FrameKnobs) -> Optional[np.ndarray]:
+    def stealthy_state(
+        self, x_true: np.ndarray, design: AttackDesign, knobs: FrameKnobs
+    ) -> Optional[np.ndarray]:
         """The local false state of the design (its targets scaled by its multiplier, re-solved on its
         interior, or on the region around its targets), or None when the local power flow has no solution
         or the state breaks the operating limits [WU26 eqs. 21-23]. Spends no random draw."""
-        placed = self.with_region(design, k)
+        placed = self.with_region(design, knobs)
         if placed is None or placed.interior is None:
             return None
         interior = placed.interior
-        Lp = self.g.scan_loads.true_load(Xt)  # this scan's active load per load element
-        Lq = self.g.scan_loads.true_reactive_load(Xt)
-        Lp_true, Lp = Lp, Lp.copy()
-        Lp[design.targets] *= design.mult
-        Xa = self.solve_local(Xt, interior, Lp, Lq)
-        if Xa is None:
+        p_load_true = self.g.scan_loads.true_load(x_true)  # this scan's active load per load element
+        q_load = self.g.scan_loads.true_reactive_load(x_true)
+        p_load = p_load_true.copy()
+        p_load[design.targets] *= design.mult
+        x_false = self.solve_local(x_true, interior, p_load, q_load)
+        if x_false is None:
             return None
-        if k.limits is not None and not self.state_within_limits(Xa, Xt, Lp - Lp_true, k.limits, interior):
+        if knobs.limits is not None and not self.state_within_limits(
+            x_false, x_true, p_load - p_load_true, knobs.limits, interior
+        ):
             return None
-        return Xa
+        return x_false
 
-    def with_region(self, design: AttackDesign, k: FrameKnobs) -> Optional[AttackDesign]:
-        """The design with its interior filled in: the held one, else the region within `k.hops`
+    def with_region(self, design: AttackDesign, knobs: FrameKnobs) -> Optional[AttackDesign]:
+        """The design with its interior filled in: the held one, else the region within `knobs.hops`
         branches of its targets; None when the targets have no such region."""
         if design.interior is not None:
             return design
-        interior = self.g.area.local_region(self.g.load_bus[design.targets], k.hops)
+        interior = self.g.area.local_region(self.g.load_bus[design.targets], knobs.hops)
         return None if interior is None else design._replace(interior=interior)
 
-    def is_feasible(self, Xt: np.ndarray, design: AttackDesign, k: FrameKnobs) -> bool:
-        """Whether the design has a stealthy state on `Xt`: the onset test of an episode (no random draw)."""
-        return self.stealthy_state(Xt, design, k) is not None
+    def is_feasible(self, x_true: np.ndarray, design: AttackDesign, knobs: FrameKnobs) -> bool:
+        """Whether the design has a stealthy state on `x_true`: the onset test of an episode (no random
+        draw)."""
+        return self.stealthy_state(x_true, design, knobs) is not None
 
     def state_within_limits(
         self,
-        Xa: np.ndarray,
-        Xt: np.ndarray,
+        x_false: np.ndarray,
+        x_true: np.ndarray,
         load_delta_pos: np.ndarray,
         limits: OperatingLimits,
         interior: np.ndarray,
@@ -360,6 +369,6 @@ class FalseState(Part):
         """[WU26 eqs. 21-23] on a false state: `load_delta_pos` is the pretended load change per
         load-table position (MW), summed per bus for buses carrying several loads; the generator
         limits apply to the generators of `interior`, the attacked subnetwork."""
-        dload = np.zeros(self.g.C)
+        dload = np.zeros(self.g.n_bus)
         np.add.at(dload, self.g.load_bus, load_delta_pos)
-        return within_limits(Xa, Xt, self.g.split.generation(Xt), dload, limits, interior)
+        return within_limits(x_false, x_true, self.g.split.generation(x_true), dload, limits, interior)

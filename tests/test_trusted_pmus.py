@@ -97,10 +97,11 @@ def test_a_trusted_pmu_keeps_its_bus_true_from_its_slot_on():
     S = np.array(sorted(int(b) for b in case_studies.buses(g, [3, 4, 5, 7, 11])), dtype=np.int64)
     assert bus4 in w.support_at(2, S) and bus4 not in w.support_at(3, S)
     for t in (2, 3, 10):
-        Xa = g.minimizer.goal_state(goal, t, window[t], w.support_at(t, S), k)
-        assert Xa is not None
+        x_false = g.minimizer.goal_state(goal, t, window[t], w.support_at(t, S), k)
+        assert x_false is not None
         moved = not np.array_equal(
-            Xa[bus4, [NodeChannel.V, NodeChannel.THETA]], window[t][bus4, [NodeChannel.V, NodeChannel.THETA]]
+            x_false[bus4, [NodeChannel.V, NodeChannel.THETA]],
+            window[t][bus4, [NodeChannel.V, NodeChannel.THETA]],
         )
         assert moved == (t < 3)
 
@@ -133,9 +134,13 @@ def _named(g, window, k, goal, trust, result) -> set[str]:
                 + str(number[b])
             )
         for e, _c in zip(*np.nonzero(edge)):
-            names.add(f"SCADA {number[g.ei[0, e]]}")
+            names.add(f"SCADA {number[g.edge_index[0, e]]}")
         for e, c in zip(*np.nonzero(cur)):  # a PMU's branch current at its end of the branch
-            end = g.ei[0, e] if c in (CurrentChannel.RE_FROM, CurrentChannel.IM_FROM) else g.ei[1, e]
+            end = (
+                g.edge_index[0, e]
+                if c in (CurrentChannel.RE_FROM, CurrentChannel.IM_FROM)
+                else g.edge_index[1, e]
+            )
             names.add(f"PMU {number[end]}")
     return names
 

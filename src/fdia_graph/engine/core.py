@@ -70,9 +70,9 @@ class FdiaGenerator:
         # jitter then comes from `rng` like every other draw
         self.scan_key: Optional[int] = None
         self.net, self.case = net, net.case
-        self.C = len(self.case.bus_id)
-        self.ei = np.vstack([self.case.f, self.case.t]).astype(np.int32)  # [2, E]: from bus, to bus
-        self.E = self.ei.shape[1]
+        self.n_bus = len(self.case.bus_id)
+        self.edge_index = np.vstack([self.case.f, self.case.t]).astype(np.int32)  # [2, E]: from bus, to bus
+        self.n_branch = self.edge_index.shape[1]
         # the parts, each one job in one class: a call `g.<part>.<method>` names the class of the method
         self.emitter, self.scan_loads, self.area = Emitter(self), ScanLoads(self), AttackArea(self)
         self.false_state, self.attack_frames = FalseState(self), AttackFrames(self)
@@ -124,18 +124,18 @@ class FdiaGenerator:
         # every bus with a load, a shunt or a unit that is not idle injects; the rest are junctions
         shunted = np.flatnonzero((case.gs != 0) | (case.bs != 0))
         injecting = np.unique(np.r_[self.load_bus, shunted, case.unit_bus[~idle]])
-        self.zero_inj = np.setdiff1d(np.arange(self.C), injecting).tolist()
+        self.zero_inj = np.setdiff1d(np.arange(self.n_bus), injecting).tolist()
 
     def _case_limits(self) -> None:
         """The case's limits [WU26 eqs. 21-23]: bus voltage limits and generator P and Q limits [N, 2],
         summed over co-located generators, ±inf where a bus has none. The slack is unbounded: its output
         is the balance of every state."""
-        case, C = self.case, self.C
-        self.p_lim = np.tile([-np.inf, np.inf], (C, 1))
-        self.q_lim = np.tile([-np.inf, np.inf], (C, 1))
+        case, n_bus = self.case, self.n_bus
+        self.p_lim = np.tile([-np.inf, np.inf], (n_bus, 1))
+        self.q_lim = np.tile([-np.inf, np.inf], (n_bus, 1))
         gens = np.flatnonzero(case.bus_type[case.unit_bus] == BusType.PV)  # the units that hold a voltage
         at = case.unit_bus[gens]
-        self.has_gen = np.zeros(C, bool)  # a generator on the bus, zero-MW condensers included
+        self.has_gen = np.zeros(n_bus, bool)  # a generator on the bus, zero-MW condensers included
         self.has_gen[at] = True
         if len(at):
             self.p_lim[at] = self.q_lim[at] = 0.0  # summed over the bus's generators below

@@ -103,7 +103,7 @@ class SearchSource(TimelineSource):
         bus. The owner is a label: no design reads it."""
         if own is None:
             return
-        OwnedBuses(self.g.C, len(own.bus_client), [str(n) for n in own.names])
+        OwnedBuses(self.g.n_bus, len(own.bus_client), [str(n) for n in own.names])
         self.g.use_plan(replace(self.g.plan, owner=own.bus_client[self.g.plan.bus]))
 
     @classmethod

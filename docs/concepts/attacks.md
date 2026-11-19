@@ -22,7 +22,8 @@ The attacker wants the operator to believe a state of the grid that is not the t
 detector that checks the readings against the grid's equations would catch readings that fit no
 state. So the attacker picks a false state that the equations allow:
 
-1. Choose a small area of the grid.
+1. Choose a small area of the grid: the buses within a few branches of the targets. A ramp has
+   up to five targets, which need not be neighbours, so its area can be several neighbourhoods.
 2. Change the loads inside the area (and, for an overload, the generator outputs).
 3. Solve the AC equations of the area again, with every voltage outside it held true.
 4. Add the difference of the readings to the true scan.
@@ -32,14 +33,16 @@ The attack vector is `a = h(x_false) - h(x_true)`, where `h` is the measurement 
 keeps its usual noise. So the observed scan looks like a normal noisy scan of the false state,
 and a residual test finds nothing wrong.
 
-A false state must also be plausible. It stays within the bus voltage limits and the generator
-limits of the case [WU26, eqs. 21-23].
+A false state must also be plausible. Inside the buses it re-solves it stays within the bus
+voltage limits and the generator limits of the case [WU26, eqs. 21-23]. The buses one branch
+outside take up the change in their reported injection. An overload checks the generator limits
+there too; a ramp does not.
 
 ## The two families
 
 | Family | Code | What the attacker does |
 |---|---|---|
-| `At`, the slow ramp | 5 | a false load that rises a little each frame, holds, and returns |
+| `At`, the slow ramp | 5 | a false load that moves away from the true load a little each frame (up or down), holds, and returns to one step away from it |
 | `Am`, the overload | 7 | the reported flow of a line rises to its rating |
 
 **`At`** is hard to see because each step is small, so a detector that looks for jumps sees
@@ -72,13 +75,13 @@ into the two is the setting `loads`
 
 ### The search-based designs
 
-The designs are methods of the generator `FdiaGenerator`: `ramp_design` and
+The designs are methods of `EpisodeDesigns`, the generator's `episode_designs`: `ramp_design` and
 `am_overload_design` (`engine/attacks/episodes.py`). Settings are in `TimelineSettings`
 ([the tables](../guides/generation.md#timelinesettings)).
 
 **The fewest-tamper search.** [WU26, eq. 12] asks for the attack that tampers the fewest
-devices. The search tries supports, the sets of buses the false state moves, smallest first, and
-keeps the one whose attack changes the fewest devices beyond noise
+devices. The search tries supports, the sets of buses the false state moves: the whole area first, then
+smaller ones, smallest first. It keeps the one whose attack changes the fewest devices beyond noise
 (`engine/attacks/minimize.py`). It solves at most `min_budget` supports per search.
 
 **`At`.**
@@ -86,11 +89,15 @@ keeps the one whose attack changes the fewest devices beyond noise
 - The targets are up to 5 loads drawn at random among the stealthy loads: attackable loads that are
   not on a generator bus [BOY22]. An attackable load has nonzero active power, is not on the
   slack bus and is at most `max_load_mw`.
-- One load factor moves all of them: it rises `ramp_rate` per frame, holds, and returns. The
-  rise lasts 20 % to 45 % of the episode and the hold 0 % to 25 % (`draw_ramp`).
+- One load factor moves all of them: it rises `ramp_rate` per frame, holds, and returns at the
+  same rate. The rise lasts 20 % to 45 % of the episode and the hold 0 % to 25 % (`draw_ramp`).
+  The factor never falls below one `ramp_rate`, so every frame of the episode carries an attack:
+  after the return the episode stays one step away from the true load until it ends, and a ramp
+  with a long rise can end before its return is complete. A ramp goes up or down with equal chance.
 - With `min_tamper` (the default) the search keeps only supports on which no metered channel
-  moves by more than its rated accuracy times `stealth_scale` between frames. Otherwise the
-  ramp runs on its whole area with no such bound.
+  moves by more than its rated accuracy times `stealth_scale` between frames. With `min_tamper`
+  off, or when the search finds no such support (the episode's record then shows `-1` devices),
+  the ramp runs on its whole area with no such bound.
 - A step with no local solution is halved, up to 6 times (`STEP_HALVINGS`).
 - A design is tested on every frame it will occupy before it is accepted, up to 40 draws
   (`ONSET_DRAWS`).
@@ -103,7 +110,9 @@ keeps the one whose attack changes the fewest devices beyond noise
   the case studies of [WU26].
 - The ratings are 1.25 times each branch's peak true flow over the pool
   (`rating_source="pool"`). `rating_source="pglib"` uses the PGLib-OPF ratings instead, which
-  exist for IEEE-14, 118 and 300; another case raises `NoLineRatings`.
+  exist for IEEE-14, 118 and 300; another case raises `NoLineRatings`. `rating_source="delta"`
+  rates each line from its own window: its true flow at the window's last snapshot plus
+  `rating_delta` (per unit of the system base).
 - The goal of each snapshot is a linear share of the way from the true flow to the rating, and
   the last snapshot reaches the rating (`overload_goal`).
 - The loads and generators of the support are free inside their limits. The load a bus shows

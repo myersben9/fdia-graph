@@ -166,7 +166,7 @@ def test_a_stealthy_frame_is_the_benign_scan_plus_its_attack_vector(timeline_fil
     frames = np.flatnonzero(a["data/family"] == 5)[:20]
     assert len(frames) >= 5
     for t in frames:
-        Xt = a["clean/node_clean"][t].astype(np.float64)  # the pool state the frame was emitted from
+        x_true = a["clean/node_clean"][t].astype(np.float64)  # the pool state the frame was emitted from
         targets = np.array([pos[int(b)] for b in mag_bus[ptr[t] : ptr[t + 1]]])
         dev = mag[ptr[t] : ptr[t + 1]].astype(np.float64)  # unsigned: a rise or a drop of that size
         nt, et = a["attack/node_tamper"][t] > 0, a["attack/edge_tamper"][t] > 0
@@ -175,11 +175,13 @@ def test_a_stealthy_frame_is_the_benign_scan_plus_its_attack_vector(timeline_fil
         region = g.area.local_region(g.load_bus[targets], int(attrs["hops"]))
         rebuilt = []
         for sign in (1.0, -1.0):
-            Lp = g.scan_loads.true_load(Xt)
-            Lp[targets] *= 1.0 + sign * dev
-            Xa = g.false_state.solve_local(Xt, region, Lp, g.scan_loads.true_reactive_load(Xt))
-            if Xa is not None:
-                rebuilt.append(g.attack_frames.attack_vector(Xa, Xt))
+            p_load = g.scan_loads.true_load(x_true)
+            p_load[targets] *= 1.0 + sign * dev
+            x_false = g.false_state.solve_local(
+                x_true, region, p_load, g.scan_loads.true_reactive_load(x_true)
+            )
+            if x_false is not None:
+                rebuilt.append(g.attack_frames.attack_vector(x_false, x_true))
         # exactly one direction reproduces the frame; the clean layer is the pool state in float32, so
         # the rebuilt vector agrees to ~1e-4 MW, where a second noise draw would differ by about 1%
         match = [(n, e) for n, e in rebuilt if np.allclose(dn[nt], n[nt], rtol=1e-3, atol=1e-2)]
@@ -209,7 +211,7 @@ def test_area_equivalent_loads_are_never_targets():
 
     g = FdiaGenerator(Network.from_ieee(145), seed=1)
     load = ieee_net(145).load
-    per_bus = np.zeros(g.C)
+    per_bus = np.zeros(g.n_bus)
     np.add.at(per_bus, load.bus.to_numpy(int), load.p_mw.to_numpy(float))
     assert np.array_equal(g.load_p0, per_bus[g.load_bus])  # the load table: the case's load per bus
     p = np.abs(g.load_p0)
@@ -233,18 +235,20 @@ def test_a_step_without_a_local_solution_is_halved(monkeypatch):
     g = FdiaGenerator(Network.from_ieee(14), seed=1)
     steps: list[float] = []
 
-    def fake(Xt, design, k):
+    def fake(x_true, design, k):
         steps.append(float(np.max(np.abs(np.asarray(design.mult) - 1.0))))
         return "frame" if steps[-1] <= 0.01 else None
 
     monkeypatch.setattr(g.ramp_frames, "_stealthy_frame", fake)
     k = FrameKnobs(hops=2)
-    Xt = np.zeros((g.C, 4))
+    x_true = np.zeros((g.n_bus, 4))
     two = g.stealthy_pos[:2]
-    assert g.ramp_frames._ramp_frame(Xt, AttackDesign(two, 1.2), k) == "frame"
+    assert g.ramp_frames._ramp_frame(x_true, AttackDesign(two, 1.2), k) == "frame"
     assert np.allclose(steps, [0.2, 0.1, 0.05, 0.025, 0.0125, 0.00625])
     steps.clear()
-    assert g.ramp_frames._ramp_frame(Xt, AttackDesign(two, 1.9), k) is None  # six halvings, none small enough
+    assert (
+        g.ramp_frames._ramp_frame(x_true, AttackDesign(two, 1.9), k) is None
+    )  # six halvings, none small enough
     assert len(steps) == 7
 
 
@@ -269,8 +273,8 @@ def test_operating_limits_are_the_case_limits_widened_to_the_pool():
     gen = g.split.generation(X0)
     on = np.flatnonzero(g.split.gen_base[:, 0] > 0)
     assert np.allclose(gen[on, 0], g.split.gen_base[on, 0])  # the base state: base generation exactly
-    none = np.zeros(g.C)
-    everywhere = np.arange(g.C)  # every bus inside the attacked subnetwork
+    none = np.zeros(g.n_bus)
+    everywhere = np.arange(g.n_bus)  # every bus inside the attacked subnetwork
     assert within_limits(X0, X0, gen, none, lim, everywhere)  # ... and is acceptable as its own bound
     worse = X0.copy()
     worse[int(np.argmax(X0[:, 0])), 0] += 0.01  # further above the limit than the true state
@@ -284,7 +288,9 @@ def test_operating_limits_are_the_case_limits_widened_to_the_pool():
     pretended = none.copy()
     pretended[on[0]] = -1e4  # ... unless it is the load change the attacker pretends there
     assert within_limits(bad, X0, gen, pretended, lim, everywhere)
-    outside = np.array([b for b in range(g.C) if b != on[0]])  # the generator on the boundary: unconstrained
+    outside = np.array(
+        [b for b in range(g.n_bus) if b != on[0]]
+    )  # the generator on the boundary: unconstrained
     assert within_limits(bad, X0, gen, none, lim, outside)
 
 
@@ -305,12 +311,12 @@ def test_local_region_keeps_a_boundary_and_the_slack_fixed():
     for hops in (0, 1, 2, 3):
         region = g.area.local_region(g.load_bus[:5], hops)
         assert region is not None and g.slack_bus not in region
-        _, boundary = subnetwork(g.ei, region, 0, g.C)
+        _, boundary = subnetwork(g.edge_index, region, 0, g.n_bus)
         assert len(boundary) and not set(boundary.tolist()) & (set(g.zero_inj) - {g.slack_bus})
     whole = g.area.local_region(
-        np.arange(g.C), 0
+        np.arange(g.n_bus), 0
     )  # every bus as a seed: the slack alone is left to balance against
-    assert whole is not None and sorted(whole.tolist()) == sorted(set(range(g.C)) - {g.slack_bus})
+    assert whole is not None and sorted(whole.tolist()) == sorted(set(range(g.n_bus)) - {g.slack_bus})
 
 
 def test_attacked_frac_zero_is_all_benign(tmp_path, pool):
@@ -357,13 +363,13 @@ def test_reactive_load_adds_back_the_generators_output():
 
     g = FdiaGenerator(Network.from_ieee(14), seed=5)
     X = _solve_states_chunk(14, np.full((1, len(_case_buses(14))), 1.1))[0]
-    Lq = g.scan_loads.true_reactive_load(X)
+    q_load = g.scan_loads.true_reactive_load(X)
     for pos, b in enumerate(g.load_bus):
         want = 1.1 * g.split.base_load[b, 1] if g.has_gen[b] else X[b, 2]
-        assert Lq[pos] == pytest.approx(want, abs=1e-6)
+        assert q_load[pos] == pytest.approx(want, abs=1e-6)
     interior = g.area.local_region(g.load_bus[[2]], 1)
-    Xa = g.false_state.solve_local(X, interior, g.scan_loads.true_load(X), Lq)
-    assert np.allclose(Xa, X, atol=1e-5)
+    x_false = g.false_state.solve_local(X, interior, g.scan_loads.true_load(X), q_load)
+    assert np.allclose(x_false, X, atol=1e-5)
 
 
 def test_stealthy_families_never_target_a_generator_bus(timeline_file):

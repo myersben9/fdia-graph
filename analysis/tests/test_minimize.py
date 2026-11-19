@@ -17,10 +17,10 @@ def _irls_support(g, states, goal, area, iters=20):
     injection change they cause at every other bus (the tamper proxy)."""
     from fdia_analysis.formulas.measurement import ac_jacobian
 
-    Xt = states[0]
-    N = g.C
+    x_true = states[0]
+    N = g.n_bus
     ends = np.stack([g.case.f, g.case.t], axis=1)  # the two branch columns the derivatives read
-    vm, theta = Xt[:, NodeChannel.V], np.radians(Xt[:, NodeChannel.THETA])
+    vm, theta = x_true[:, NodeChannel.V], np.radians(x_true[:, NodeChannel.THETA])
     H = ac_jacobian(vm, theta, g.net.ybus, g.net.yf, g.net.yt, ends, np.arange(N))
     P, Q = (
         H[N * NodeChannel.P_INJ : N * (NodeChannel.P_INJ + 1)],
@@ -33,7 +33,7 @@ def _irls_support(g, states, goal, area, iters=20):
     np.add.at(
         dload,
         g.load_bus[design.targets],
-        g.scan_loads.true_load(Xt)[design.targets] * (np.asarray(design.mult) - 1.0),
+        g.scan_loads.true_load(x_true)[design.targets] * (np.asarray(design.mult) - 1.0),
     )
     A = np.vstack([P[targets][:, cols], Q[targets][:, cols]])
     rhs = np.r_[dload[targets], np.zeros(len(targets))] / g.case.base_mva

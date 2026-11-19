@@ -24,16 +24,16 @@ def test_jitter_draws_in_the_per_channel_order():
     volt = masks.node[:, METER_SLOT[BUS_KINDS[0]][1]] > 0
     assert volt.any() and not volt.all() and len(g.pmu_buses) < volt.sum()  # a mixed plan
     want = []  # (kind, bus, branch, end) of every meter, in draw order
-    for b in range(g.C):
+    for b in range(g.n_bus):
         want += [(int(k), b, -1, -1) for k in BUS_KINDS if masks.node[b, METER_SLOT[k][1]]]
-    for e in range(g.E):
-        at = int(g.ei[0, e])
+    for e in range(g.n_branch):
+        at = int(g.edge_index[0, e])
         want += [(int(k), at, e, 0) for k in FLOW_KINDS if masks.edge[e, METER_SLOT[k][1]]]
-    for e in range(g.E):
+    for e in range(g.n_branch):
         for c in CurrentChannel:
             end = c // TO_END_OFFSET
             if masks.current[e, c]:
-                want.append((int(PHASOR_KINDS[c % TO_END_OFFSET]), int(g.ei[end, e]), e, end))
+                want.append((int(PHASOR_KINDS[c % TO_END_OFFSET]), int(g.edge_index[end, e]), e, end))
     rows = zip(plan.kind.tolist(), plan.bus.tolist(), plan.branch.tolist(), plan.end.tolist())
     assert list(rows) == want
 

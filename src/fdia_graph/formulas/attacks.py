@@ -53,24 +53,24 @@ def element_loads(bus_p: np.ndarray, load_bus: np.ndarray, p0: np.ndarray) -> np
 
 
 def within_limits(
-    Xa: np.ndarray,
-    Xt: np.ndarray,
+    x_false: np.ndarray,
+    x_true: np.ndarray,
     gen_true: np.ndarray,
     load_delta: np.ndarray,
     limits: OperatingLimits,
     interior: np.ndarray,
 ) -> bool:
-    """Whether the false state Xa [N, 4] satisfies [WU26 eqs. 21-23]: every |V| inside v_lo_i =
+    """Whether the false state x_false [N, 4] satisfies [WU26 eqs. 21-23]: every |V| inside v_lo_i =
     min(V_i^min, |V_i^true|), v_hi_i = max(V_i^max, |V_i^true|), and, at the interior's generators, the
     implied output P_gen - (ΔP_inj - ΔP_load) and Q_gen - ΔQ_inj inside its limits. `load_delta` is MW."""
-    V, Vt = Xa[:, NodeChannel.V], Xt[:, NodeChannel.V]
+    V, Vt = x_false[:, NodeChannel.V], x_true[:, NodeChannel.V]
     if np.any(V < np.minimum(limits.v_lo, Vt) - LIMIT_TOL_V):
         return False
     if np.any(V > np.maximum(limits.v_hi, Vt) + LIMIT_TOL_V):
         return False
     I_ = np.asarray(interior, int)
-    p = gen_true[I_, 0] - (Xa[I_, NodeChannel.P_INJ] - Xt[I_, NodeChannel.P_INJ] - load_delta[I_])
-    q = gen_true[I_, 1] - (Xa[I_, NodeChannel.Q_INJ] - Xt[I_, NodeChannel.Q_INJ])
+    p = gen_true[I_, 0] - (x_false[I_, NodeChannel.P_INJ] - x_true[I_, NodeChannel.P_INJ] - load_delta[I_])
+    q = gen_true[I_, 1] - (x_false[I_, NodeChannel.Q_INJ] - x_true[I_, NodeChannel.Q_INJ])
     return bool(
         np.all(p >= limits.p_lo[I_] - LIMIT_TOL_PQ)
         and np.all(p <= limits.p_hi[I_] + LIMIT_TOL_PQ)

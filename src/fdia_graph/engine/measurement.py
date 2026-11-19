@@ -36,7 +36,7 @@ class Emitter(Part):
     def layers(self, z: np.ndarray) -> MeterLayers:
         """One value per meter z [..., M] as a file's layers: node [..., N, 4], flow [..., E, 2] (the
         from end) and PMU current [..., E, 4]; zero where no meter sits."""
-        full = self.g.plan.scatter(z, self.g.C, self.g.E)
+        full = self.g.plan.scatter(z, self.g.n_bus, self.g.n_branch)
         return full._replace(edge=full.edge[..., : len(FLOW_KINDS)])
 
     def emit_from_state(self, X: np.ndarray) -> Scan:
@@ -51,7 +51,7 @@ class Emitter(Part):
         emission per scan, so a file is reproduced bit for bit from its seed."""
         scan = self.emit_from_state(X)
         seen = MeterLayers(scan.node_x, scan.edge_x, scan.i_x)
-        return Frame.from_scan(scan, seen, np.zeros(self.g.C, np.uint8))
+        return Frame.from_scan(scan, seen, np.zeros(self.g.n_bus, np.uint8))
 
     def clean_flows_from_states(self, X: np.ndarray) -> np.ndarray:
         """The exact from-end flows [T, E, 2] (P MW, Q MVAr) of a stack of states [T, N, 4], with no noise:

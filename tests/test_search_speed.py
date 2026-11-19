@@ -95,10 +95,10 @@ def test_exhaustive_searches_return_their_pinned_answers(model, gen, pool):
 
 def test_the_cached_boundary_is_the_subnetwork_boundary(gen):
     rng = np.random.default_rng(0)
-    live = gen.ei
+    live = gen.edge_index
     for _ in range(50):
-        interior = rng.choice(gen.C, int(rng.integers(1, 6)), replace=False)
-        want = subnetwork(live, interior, 0, gen.C)
+        interior = rng.choice(gen.n_bus, int(rng.integers(1, 6)), replace=False)
+        want = subnetwork(live, interior, 0, gen.n_bus)
         got = gen.area.boundary(interior)
         assert all(np.array_equal(a, b) for a, b in zip(got, want))
 
@@ -107,7 +107,7 @@ def test_the_row_block_product_equals_the_full_one(gen, pool):
     """The branch rows the search's attack vector reads, cut to their columns, give the full
     product's values (to rounding: the sum runs over fewer terms)."""
     V = complex_voltages(pool[0][:, NodeChannel.V], pool[0][:, NodeChannel.THETA])
-    for rows in (np.array([0]), np.array([2, 3, 8]), np.arange(gen.E)):
+    for rows in (np.array([0]), np.array([2, 3, 8]), np.arange(gen.n_branch)):
         for Y in (gen.net.yf, gen.net.yt, gen.false_state._dense_admittances()[1]):
             block, cols = _row_block(Y, rows)
             full = np.asarray(Y @ V)[rows]
@@ -118,8 +118,8 @@ def test_the_reused_blocks_solve_as_the_fresh_ones(gen, pool):
     """`local_flow_solve` with the blocks a caller cut once, for a larger set of holdable rows (the
     support and its edge), returns bit for bit the voltages it returns cutting them itself, with an
     edge bus held as well as interior ones."""
-    Xt = pool[0]
-    V = complex_voltages(Xt[:, NodeChannel.V], Xt[:, NodeChannel.THETA])
+    x_true = pool[0]
+    V = complex_voltages(x_true[:, NodeChannel.V], x_true[:, NodeChannel.THETA])
     Yb, Yf = gen.false_state._dense_admittances()
     line, S = 4, np.array([2, 3, 4, 8])
     touched = gen.false_state.touched_buses(S)
@@ -145,15 +145,15 @@ def test_the_support_attack_vector_equals_the_full_one(gen, pool):
     window, goal = _goal(gen, pool, "Am", 150, (1,))
     win = AttackWindow(gen, window, goal, k)
     S = np.array([4, 5])
-    Xa = gen.minimizer.goal_state(goal, 0, window[0], S, k)
-    assert Xa is not None
+    x_false = gen.minimizer.goal_state(goal, 0, window[0], S, k)
+    assert x_false is not None
     near = win.near(S)
-    a_edge, a_cur = win._branch_attack(0, Xa, near)
-    _, want_edge = gen.attack_frames.attack_vector(Xa, window[0])
+    a_edge, a_cur = win._branch_attack(0, x_false, near)
+    _, want_edge = gen.attack_frames.attack_vector(x_false, window[0])
     assert np.allclose(a_edge, want_edge, rtol=1e-5, atol=1e-4)
-    far = np.setdiff1d(np.arange(gen.E), near.lines)
+    far = np.setdiff1d(np.arange(gen.n_branch), near.lines)
     assert not a_edge[far].any()  # a branch off the support reads the same on both sides
-    want_cur = gen.attack_frames.current_attack(Xa, window[0])
+    want_cur = gen.attack_frames.current_attack(x_false, window[0])
     assert (a_cur is None) == (want_cur is None)
     if a_cur is not None and want_cur is not None:
         assert np.allclose(a_cur, want_cur, rtol=1e-10, atol=1e-12)

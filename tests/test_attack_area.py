@@ -48,7 +48,7 @@ def test_the_rules_check_1_and_2_and_charge_for_size(g118):
     # [WU26] Sec. III-A rules 1-4
     states = np.stack(_load_states(118, None)[:10])
     lines = _lines(g118, 118)
-    seeds = np.unique(g118.ei[:, lines])
+    seeds = np.unique(g118.edge_index[:, lines])
     chosen = g118.area.rule_area(seeds, lines, states)
     assert chosen is not None and g118.area._connected(chosen)
     scores = [g118.area.area_score(g118.area.local_region(seeds, h), lines, states) for h in (1, 2, 3, 4)]
@@ -102,13 +102,14 @@ def test_every_attack_the_search_returns_is_valid():
     prev = w.prev
     for t in range(len(window)):
         free = w.support_at(t, r.support)
-        Xa = g.minimizer.goal_state(goal, t, window[t], free, k)
-        assert Xa is not None
-        reached = g.emitter.clean_flows_from_states(Xa[None])[0, lines]
+        x_false = g.minimizer.goal_state(goal, t, window[t], free, k)
+        assert x_false is not None
+        reached = g.emitter.clean_flows_from_states(x_false[None])[0, lines]
         assert np.allclose(np.hypot(reached[:, 0], reached[:, 1]), goal.targets_at(t), atol=1e-6)
         for b in w.pinned[t]:
             assert np.array_equal(
-                Xa[b, [NodeChannel.V, NodeChannel.THETA]], window[t][b, [NodeChannel.V, NodeChannel.THETA]]
+                x_false[b, [NodeChannel.V, NodeChannel.THETA]],
+                window[t][b, [NodeChannel.V, NodeChannel.THETA]],
             )
         node, edge, _, now = w._snapshot(t, free, prev)
         sig_node, sig_edge = w.sigma[t]

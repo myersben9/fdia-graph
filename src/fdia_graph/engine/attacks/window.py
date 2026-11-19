@@ -43,7 +43,7 @@ class _Near(NamedTuple):
 
 def _near_branches(g: FdiaGenerator, S: np.ndarray) -> _Near:
     """`_Near` of support S: the branches with an end in S."""
-    lines = np.flatnonzero(np.isin(g.ei, S).any(axis=0))
+    lines = np.flatnonzero(np.isin(g.edge_index, S).any(axis=0))
     yf, yt = _row_block(g.net.yf, lines), _row_block(g.net.yt, lines)
     return _Near(lines, yf, yt, g.case.f[lines], g.flow_metered[lines])
 
@@ -57,7 +57,7 @@ class AttackWindow:
         g: FdiaGenerator,
         states: list[np.ndarray],
         goal: Goal,
-        k: FrameKnobs,
+        knobs: FrameKnobs,
         stealth_bound: bool = True,
         prev: Optional[AttackVector] = None,
         trust: Optional[TrustSchedule] = None,
@@ -65,14 +65,14 @@ class AttackWindow:
         # The between-snapshot stealth bound is At's alone (a sub-noise ramp is what At is). [WU26]'s
         # model has no increment constraint: its noise only decides which changes the l0 count
         # ignores, so a flow goal (Am) is never bounded. `stealth_bound` off is for analysis.
-        self.g, self.states, self.goal, self.k = g, states, goal, k
+        self.g, self.states, self.goal, self.knobs = g, states, goal, knobs
         self.stealth_bound = stealth_bound and goal.kind == "load"
-        self.channels_first = k.objective == CostUnit.CHANNELS.value  # what the cost minimizes first
+        self.channels_first = knobs.objective == CostUnit.CHANNELS.value  # what the cost minimizes first
         # the buses a trusted PMU pins at each snapshot [WU26 eqs. 29-31]
         self.pinned = [frozenset[int]() if trust is None else trust.pinned(t) for t in range(len(states))]
         self._near: Optional[tuple[bytes, _Near]] = None  # the last support's branches (`near`)
         self.node_m, self.edge_m = g.masks.node, g.masks.edge
-        self.pmu = np.zeros(g.C, bool)
+        self.pmu = np.zeros(g.n_bus, bool)
         self.pmu[g.pmu_buses] = True
         # a bus angle is a PMU channel: a SCADA voltmeter reads |V| only
         self.node_m = self.node_m.copy()
@@ -94,7 +94,7 @@ class AttackWindow:
         only; the meters' rated accuracy at the true readings for At (`NoiseModel.sigmas`)."""
         if goal.kind == "flow":
             paper = paper_sigma(self.node_m.shape, self.edge_m.shape, self.pmu, g.case.base_mva)
-            return [paper for _ in states], [paper_current_sigma((g.E, 4)) for _ in states]
+            return [paper for _ in states], [paper_current_sigma((g.n_branch, 4)) for _ in states]
         exact = (np.asarray(X, np.float64) for X in states)
         true = (g.plan.gather(X, F, I) for X, F, I in zip(exact, self.flows, self.currents))
         rated = [g.emitter.layers(g.noise.sigmas(z)) for z in true]
@@ -161,8 +161,8 @@ class AttackWindow:
     def _devices(self, union: _Channels) -> int:
         """How many devices hold a channel of the union (a PMU branch current joins the PMU of the bus
         at its end)."""
-        ei = self.g.ei
-        return len(tampered_devices(union[0], union[1], self.pmu, ei[0], union[2], ei[1]))
+        from_bus, to_bus = self.g.edge_index
+        return len(tampered_devices(union[0], union[1], self.pmu, from_bus, union[2], to_bus))
 
     def _zero_on_boundary(self, S: np.ndarray) -> bool:
         """Whether a zero-injection bus sits on S's boundary (it could not absorb the changed power)."""
@@ -174,14 +174,14 @@ class AttackWindow:
         """Snapshot t on support S: (the node, flow and PMU current channels moved beyond their noise,
         and this snapshot's attack vector), or None when S has no false state here or (At) breaks the
         stealth bound against the previous snapshot's attack vector `prev`."""
-        Xa = self.g.minimizer.goal_state(self.goal, t, self.states[t], S, self.k)
-        if Xa is None:
+        x_false = self.g.minimizer.goal_state(self.goal, t, self.states[t], S, self.knobs)
+        if x_false is None:
             return None
-        a_node = np.asarray(Xa, float) - np.asarray(self.states[t], float)
-        a_edge, a_cur = self._branch_attack(t, Xa, self.near(S))
+        a_node = np.asarray(x_false, float) - np.asarray(self.states[t], float)
+        a_edge, a_cur = self._branch_attack(t, x_false, self.near(S))
         sig_node, sig_edge = self.sigma[t]
         if self.stealth_bound:  # no metered channel moves more than its rated accuracy per step
-            scale = self.k.stealth_scale
+            scale = self.knobs.stealth_scale
             step = tampered_channels(
                 a_node - prev.node,
                 a_edge - prev.edge,
@@ -202,11 +202,11 @@ class AttackWindow:
             self._near = (key, _near_branches(self.g, S))
         return self._near[1]
 
-    def _branch_attack(self, t: int, Xa: np.ndarray, near: _Near) -> tuple[np.ndarray, np.ndarray]:
-        """The attack vector of false state Xa at snapshot t on the flow channels [E, 2] and the PMU
+    def _branch_attack(self, t: int, x_false: np.ndarray, near: _Near) -> tuple[np.ndarray, np.ndarray]:
+        """The attack vector of false state x_false at snapshot t on the flow channels [E, 2] and the PMU
         branch currents [E, 4]. Only a branch with an end in the support sees a
         false voltage, so only those (`near`) are evaluated; every other entry is zero."""
-        V = complex_voltages(Xa[:, NodeChannel.V], Xa[:, NodeChannel.THETA])
+        V = complex_voltages(x_false[:, NodeChannel.V], x_false[:, NodeChannel.THETA])
         (Yf, f_cols), (Yt, t_cols) = near.yf, near.yt
         If = Yf @ V[f_cols]
         Sf = V[near.from_bus] * np.conj(If) * self.g.case.base_mva
