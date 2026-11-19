@@ -63,9 +63,6 @@ classDiagram
     class GeneratorSpec {
         <<models>>
     }
-    class LayerSet {
-        <<models>>
-    }
     class LoadRule {
         <<models>>
     }
@@ -117,7 +114,6 @@ classDiagram
     FdiaGenerator ..> FalseState : uses
     FdiaGenerator ..> GeneratorOptions : uses
     FdiaGenerator ..> GeneratorSpec : uses
-    FdiaGenerator ..> LayerSet : uses
     FdiaGenerator ..> LoadSplit : uses
     FdiaGenerator ..> Measurement : uses
     FdiaGenerator ..> MeterKind : uses

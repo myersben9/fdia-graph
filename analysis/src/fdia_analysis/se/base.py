@@ -74,8 +74,8 @@ def _torch():
         ) from e
 
 
-# what the eq. (3) pseudo-measurements need of a file: PMU currents, as real and imaginary parts
-_PSEUDO_NEEDS = ("pmu_currents", "rectangular_currents")
+# what the eq. (3) pseudo-measurements need of a file: PMU currents
+_PSEUDO_NEEDS = ("pmu_currents",)
 
 
 def require_physical(ds: FdiaGraph) -> None:
@@ -267,8 +267,7 @@ class SEBase:
     def _fields(self, ds: FdiaGraph, *names: str) -> list[str]:
         """The export fields a solve reads from `ds`: `names`, plus under pmu_pseudo the PMU currents of
         each frame read (`prev_pmu_i` beside `prev_node_x`). The pseudo-measurements read a current as
-        its real and imaginary part, so a file that stores magnitude and angle (New York) is refused
-        here, before a number of it is read."""
+        its real and imaginary part, the one form a file has."""
         if not self.pmu_pseudo:
             return list(names)
         ds.require(*_PSEUDO_NEEDS, by="pmu_pseudo")

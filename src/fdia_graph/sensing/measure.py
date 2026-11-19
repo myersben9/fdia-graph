@@ -64,8 +64,6 @@ class Measurement:
         branch = {
             MeterKind.PF: (pf, pt),
             MeterKind.QF: (qf, qt),
-            MeterKind.I: (np.abs(i_f), np.abs(i_t)),
-            MeterKind.IA: (np.angle(i_f, deg=True), np.angle(i_t, deg=True)),
             MeterKind.IR: (i_f.real, i_t.real),
             MeterKind.II: (i_f.imag, i_t.imag),
         }
@@ -87,8 +85,6 @@ class Measurement:
         branch = {
             K.PF: (ds_f.real, ds_t.real),
             K.QF: (ds_f.imag, ds_t.imag),
-            K.I: (_magnitude(i_f, d_f), _magnitude(i_t, d_t)),
-            K.IA: (_angle(i_f, d_f), _angle(i_t, d_t)),
             K.IR: (d_f.real, d_t.real),
             K.II: (d_f.imag, d_t.imag),
         }

@@ -53,7 +53,7 @@ EXCEPTIONS: dict[str, str] = {}
 
 # Modules these rules do not reach yet, with the reason. The New York grid's code came in from its own
 # repository as written (2026-11-02) and is brought under the rules one module at a time, each change
-# checked to reproduce the same output; until then its rules are src/fdia_graph/CLAUDE.md.
+# checked to reproduce the same output; until then it is exempt from the limits below.
 _DATA_AS_WRITTEN = (  # the New York modules of data/
     "config.py",
     "dispatch.py",

@@ -41,6 +41,7 @@ VALID = {
     inputs.AdmissibleTargets: dict(families=("Aq", "Ad"), targets={1: 2, 2: 3}),
     inputs.OwnFamilies: dict(names=("At",), placed=("At", "Am")),
     inputs.OwnedBuses: dict(buses=3, owned=3, names=("a", "b")),
+    inputs.ReadableLayout: dict(path="t.h5", edge_feat="P_from,Q_from", current_form="rectangular"),
     inputs.SplitRule: dict(split_by="time", frames=3),
     inputs.ModelledNet: dict(
         out_of_service=(), scaled=(), not_read=(), open_branches=0, buses=14, solved_buses=14

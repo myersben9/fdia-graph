@@ -136,7 +136,7 @@ class TimelineSource(ABC):
         self._rng, self.rec = self.placement_rng(), Placement.empty(list(self.lengths()))
         self._pending: list[Planned[DesignedEpisode]] = []  # designed, not yet written
         self._cursor = 0  # the next frame to write
-        self._writer = TimelineWriter(path, (self.frames, g.C, g.E), self._clean, g.spec)
+        self._writer = TimelineWriter(path, (self.frames, g.C, g.E), self._clean)
         self._writer.write_graph(g.ei, self.graph(), self.legend)
         self._walk = Walk(g, self.X, self._writer, self.first)
 

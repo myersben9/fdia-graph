@@ -116,7 +116,6 @@ class Capability(Choice):
     SWING = "swing"
     TEMPORAL = "temporal"
     PMU_CURRENTS = "pmu_currents"
-    RECTANGULAR_CURRENTS = "rectangular_currents"
 
 
 # ---- generation ----------------------------------------------------------------------------------

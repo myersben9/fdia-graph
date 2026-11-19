@@ -190,30 +190,29 @@ def test_default_collate_treats_a_bundle_as_a_dict():
 
 def test_channels_name_the_documented_order():
     """`NodeChannel` is the one definition of the node_x order (|V|, P_inj, Q_inj, theta) and
-    `EdgeChannel` of the flow order (P_from, Q_from, then the to end); the legends a file carries name
+    `EdgeChannel` of the flow order (P_from, Q_from); the legends a file carries name
     the same columns, and a member indexes the last axis of a numpy array or a tensor with no copy."""
     import torch
 
     from fdia_graph import schema
     from fdia_graph.constants.channels import (
+        EDGE_FEAT_DEFAULT,
         TO_END_OFFSET,
         CurrentChannel,
         EdgeChannel,
         NodeChannel,
-        PolarCurrentChannel,
     )
 
     assert [c.name for c in NodeChannel] == ["V", "P_INJ", "Q_INJ", "THETA"]
-    assert [c.name for c in EdgeChannel] == ["P_FROM", "Q_FROM", "P_TO", "Q_TO"]
+    assert [c.name for c in EdgeChannel] == ["P_FROM", "Q_FROM"]
     assert schema.NODE_FEAT_LEGEND.upper().split(",") == [c.name for c in NodeChannel]
     assert [name.upper() for name in schema.FLOW_NAMES] == [c.name for c in EdgeChannel]
-    assert schema.EDGE_FEAT_DEFAULT == ",".join(schema.FLOW_NAMES[: EdgeChannel.Q_FROM + 1])
-    for channels in (NodeChannel, EdgeChannel, CurrentChannel, PolarCurrentChannel):
+    assert EDGE_FEAT_DEFAULT == ",".join(schema.FLOW_NAMES)
+    for channels in (NodeChannel, CurrentChannel):
         assert [int(c) for c in channels] == [0, 1, 2, 3]
-    # the to end of a branch quantity sits TO_END_OFFSET columns after its from end
-    assert EdgeChannel.P_TO - EdgeChannel.P_FROM == EdgeChannel.Q_TO - EdgeChannel.Q_FROM == TO_END_OFFSET
+    # the to end of a current sits TO_END_OFFSET columns after its from end
     assert CurrentChannel.RE_TO - CurrentChannel.RE_FROM == TO_END_OFFSET
-    assert PolarCurrentChannel.ANGLE_TO - PolarCurrentChannel.ANGLE_FROM == TO_END_OFFSET
+    assert CurrentChannel.IM_TO - CurrentChannel.IM_FROM == TO_END_OFFSET
     a = np.arange(24.0).reshape(2, 3, 4)
     theta = a[..., NodeChannel.THETA]
     assert np.array_equal(theta, a[:, :, 3]) and np.shares_memory(theta, a)

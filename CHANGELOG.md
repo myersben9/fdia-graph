@@ -5,6 +5,20 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- **One file layout.** A timeline has flows at the from end of a branch and PMU currents as real and
+  imaginary part, on every test system; nothing in the package wrote any other form since the New York
+  source left, so the other form is gone from the package.
+  - Removed: `LayerSet` (`both_ends`, `temporal`) and the `spec` argument of `FdiaGenerator` and
+    `TimelineWriter`; `MeterKind.I` and `IA`, `PolarCurrentChannel`, `EdgeChannel.P_TO` and `Q_TO`;
+    `schema.CURRENT_POLAR`; `Capability.RECTANGULAR_CURRENTS`; `FdiaGraph.current_form`. `MeterKind.IR`
+    and `II` are now 6 and 7 (a plan's kinds are not stored in a file).
+  - A file that declares another layout (four flows in `edge_feat`, or a `current_form` other than
+    `rectangular`) is refused with `NotATimeline` when it is opened (`models.inputs.ReadableLayout`),
+    where before an estimator refused a polar file at the fit. Every released file opens as before.
+  - The notes file that sat inside the package is deleted; the rules it restated are in
+    `CONTRIBUTING.md` and the tests.
+  - Every IEEE timeline is byte for byte what it was.
+
 - **The two densest files of the attack core are split by job.** No method's logic changed, and every
   IEEE timeline is byte for byte what it was.
   - `engine/attacks/frames.py`, the new part `AttackFrames` (`g.attack_frames`): `frame_from_state`,
@@ -219,7 +233,7 @@ the public API, the generated files and the numbers are the same as the previous
   both run on it, and `data` may not import `engine`. A pool file is read by its path, so an existing
   `pool.h5` reads as before. The survey cache keeps its `_v2` chunks: a chunk pickles `models.plan.Episode`
   with numbers and text, and no pickled class moved. The rules of the New York modules not yet under the
-  SDK's gates are `src/fdia_graph/CLAUDE.md`.
+  SDK's gates were a notes file inside the package (since deleted).
 
 - **One path generates a timeline on any grid, and New York adopts the original generator's noise, walk
   and move rule (a New York file changes; an IEEE file does not: the two IEEE digests are unchanged, and

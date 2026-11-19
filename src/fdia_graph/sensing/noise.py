@@ -4,17 +4,17 @@ from __future__ import annotations
 
 import numpy as np
 
-from fdia_graph.constants.meters import JITTER_FRAC, MeterKind
+from fdia_graph.constants.meters import ANGLE_KINDS, JITTER_FRAC, MeterKind
 from fdia_graph.formulas.noise import accuracy_class_sigma
 from fdia_graph.formulas.temporal import wrap_degrees
 from fdia_graph.sensing.meters import MeterPlan
 
 
 def wrap_angles(d: np.ndarray, kind: np.ndarray) -> np.ndarray:
-    """A difference of readings `d [..., M]` with each angle difference (kinds va and ia, degrees)
+    """A difference of readings `d [..., M]` with each angle difference (degrees)
     wrapped to (-180, 180], since angle readings wrap at +-180 degrees; `kind [M]` the meter kinds."""
     d = np.array(d, float, copy=True)
-    angle = np.isin(kind, (MeterKind.VA, MeterKind.IA))
+    angle = np.isin(kind, ANGLE_KINDS)
     d[..., angle] = wrap_degrees(d[..., angle])
     return d
 

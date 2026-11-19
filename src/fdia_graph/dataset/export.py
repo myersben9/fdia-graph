@@ -139,7 +139,7 @@ class ExportMixin(DatasetBase):
 
     def _in_units(self, out: dict[str, np.ndarray]) -> dict[str, np.ndarray]:
         """The returned arrays in self.units: power and angle arrays converted to per unit when asked
-        (the angles of polar PMU currents among them), masks, labels and the swing z-score untouched."""
+        masks, labels and the swing z-score untouched."""
         if self.units == "pu":
             for k, kind in UNIT_KIND.items():
                 if k in out:
@@ -167,8 +167,8 @@ class ExportMixin(DatasetBase):
 
     def _as_pandas(self, a: ArraysBundle, flatten_features: bool) -> pd.DataFrame:
         """One row per record: the metadata columns and, with `flatten_features`, the per-bus and
-        per-branch readings as columns (V_b{n}, Pinj_b{n}, Pflow_e{n}, ...; also P_to_e{n}, Q_to_e{n}
-        on a file that meters both branch ends) and the per-bus labels attacked_b{n}."""
+        per-branch readings as columns (V_b{n}, Pinj_b{n}, Pflow_e{n}, ...) and the per-bus labels
+        attacked_b{n}."""
         try:
             import pandas as pd
         except ImportError as e:
@@ -190,7 +190,7 @@ class ExportMixin(DatasetBase):
         for ci, nm in enumerate(["V", "Pinj", "Qinj", "theta"]):  # node_x[:, :, ci] is [n, N]
             blocks.append(pd.DataFrame(a["node_x"][:, :, ci], columns=[f"{nm}_b{b}" for b in range(N)]))
         for ci, flow in enumerate(self.edge_feat):  # edge_x[:, :, ci] is [n, E]
-            nm = FLOW_COLUMNS.get(flow, flow)
+            nm = FLOW_COLUMNS[flow]
             blocks.append(pd.DataFrame(a["edge_x"][:, :, ci], columns=[f"{nm}_e{e}" for e in range(E)]))
         blocks.append(pd.DataFrame(a["y"].astype(int), columns=[f"attacked_b{b}" for b in range(N)]))
         return pd.concat(blocks, axis=1)

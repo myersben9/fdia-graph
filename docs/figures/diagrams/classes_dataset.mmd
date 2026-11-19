@@ -71,8 +71,8 @@ classDiagram
     class NotATimeline {
         <<errors>>
     }
-    class PolarCurrentChannel {
-        <<constants>>
+    class ReadableLayout {
+        <<models>>
     }
     class RecordBundle {
         <<models>>
@@ -113,9 +113,9 @@ classDiagram
     FdiaGraph ..> Attr : uses
     FdiaGraph ..> LoadOptions : uses
     FdiaGraph ..> NotATimeline : uses
+    FdiaGraph ..> ReadableLayout : uses
     GraphMixin ..> Static : uses
     RecordsMixin ..> BatchBundle : uses
-    RecordsMixin ..> PolarCurrentChannel : uses
     RecordsMixin ..> RecordBundle : uses
     SequenceMixin ..> EpisodeTable : uses
     SequenceMixin ..> WindowSpec : uses

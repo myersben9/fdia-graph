@@ -29,7 +29,7 @@ PREV_SOURCE_FIELD = {
 # The previous-frame fields every timeline can offer: all but the PMU currents.
 COMMON_PREV_FIELDS = tuple(k for k in PREV_SOURCE_FIELD if k != "prev_pmu_i")
 # The unit conversion each returned array takes under units="pu": "node" (P and Q over baseMVA, the
-# angle to radians), "edge" and "td" (over baseMVA), "current" (a polar file's angles to radians).
+# angle to radians), "edge" and "td" (over baseMVA), "current" (already per unit: unchanged).
 # A mask, a label and the swing take none.
 UNIT_KIND = {
     "node_x": "node",
@@ -48,5 +48,5 @@ UNIT_KIND = {
 }
 # The fields exported as int64 tensors; every other field is float32.
 INT_FIELDS = frozenset({*ID_FIELDS, "prev_timestep", "edge_index"})
-# The pandas column of each flow in a file's `edge_feat` legend; a flow not named here keeps its legend name.
+# The pandas column of each flow in a file's `edge_feat` legend.
 FLOW_COLUMNS = {"P_from": "Pflow", "Q_from": "Qflow"}

@@ -9,6 +9,7 @@ from __future__ import annotations
 import numpy as np
 
 from ..constants.channels import NodeChannel
+from ..constants.meters import FLOW_KINDS
 from ..constants.streams import JITTER_STREAM
 from ..formulas.network import branch_flows, complex_voltages
 from ..models.frames import Frame, MeterLayers, Scan
@@ -34,10 +35,9 @@ class Emitter(Part):
 
     def layers(self, z: np.ndarray) -> MeterLayers:
         """One value per meter z [..., M] as a file's layers: node [..., N, 4], flow [..., E, 2] (the
-        from end, the only one an IEEE case meters) or [..., E, 4] (both ends, `spec.both_ends`) and
-        PMU current [..., E, 4]; zero where no meter sits."""
+        from end) and PMU current [..., E, 4]; zero where no meter sits."""
         full = self.g.plan.scatter(z, self.g.C, self.g.E)
-        return full._replace(edge=full.edge[..., : self.g.spec.edge_width])
+        return full._replace(edge=full.edge[..., : len(FLOW_KINDS)])
 
     def emit_from_state(self, X: np.ndarray) -> Scan:
         """The scan of one stored state X [N, 4]: each reading is the exact one with its meter's constant

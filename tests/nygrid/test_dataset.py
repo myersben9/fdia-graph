@@ -10,7 +10,7 @@ import numpy as np
 import pytest
 
 from fdia_graph import schema
-from fdia_graph.constants.meters import MeterKind
+from fdia_graph.constants.meters import ANGLE_KINDS
 from fdia_graph.models.choices import Split
 
 from .inputs import DAYS_POOL
@@ -100,7 +100,7 @@ def test_temporal_wraps_angle_changes(written):
     from fdia_graph.dataset.clients import ClientView
 
     plan = written[0].plan
-    angle = np.isin(plan.kind, [MeterKind.VA, MeterKind.IA])
+    angle = np.isin(plan.kind, ANGLE_KINDS)
     z = np.zeros((3, len(plan.kind)))
     z[:, angle] = [[179.5], [-179.5], [179.0]]  # crosses +-180 twice
     z[:, ~angle] = [[1.0], [3.0], [2.0]]
@@ -120,3 +120,24 @@ def test_a_file_without_clients_is_refused(tmp_path):
         h.create_dataset("frames/z", data=np.zeros((2, 3), np.float32))
     with pytest.raises(NotATimeline, match="clients"):
         Dataset(old)
+
+
+def test_a_client_file_in_another_layout_is_refused(written, tmp_path):
+    """A file that declares polar currents or flows at both branch ends is refused when it is opened
+    as clients, as it is by `FdiaGraph`: no column of it is read as something else."""
+    import shutil
+
+    from fdia_graph.dataset.clients import Dataset
+    from fdia_graph.errors import NotATimeline
+
+    source_file = written[0].h.filename
+    for attr, value, says in (
+        (schema.Attr.CURRENT_FORM, "polar", "real and imaginary part"),
+        (schema.Attr.EDGE_FEAT, "P_from,Q_from,P_to,Q_to", "flows at the from end"),
+    ):
+        other = tmp_path / f"{attr}.h5"
+        shutil.copy(source_file, other)
+        with h5py.File(other, "a") as f:
+            f.attrs[attr] = value
+        with pytest.raises(NotATimeline, match=says):
+            Dataset(other)

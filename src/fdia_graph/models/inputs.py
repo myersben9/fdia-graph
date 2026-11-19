@@ -17,9 +17,10 @@ from typing import Annotated, ClassVar, Optional, Union, cast
 
 import numpy as np
 
+from ..constants.channels import CURRENT_RECTANGULAR, EDGE_FEAT_DEFAULT
 from ..constants.families import FAMILIES, FAMILY_CODE, GENERATED_FAMILIES
 from ..constants.releases import FIRST_RELEASE
-from ..errors import DataConditionError, NoAdmissibleTarget
+from ..errors import DataConditionError, NoAdmissibleTarget, NotATimeline
 from .choices import Capability, SplitBy
 from .validation import (
     AsArray,
@@ -341,6 +342,31 @@ class OwnedBuses(Validated):
             f"own gives a client for {self.owned} buses; the case has {self.buses}",
         )
         yield not any("," in str(n) for n in self.names), "a client's name must hold no comma"
+
+
+@dataclass(frozen=True)
+class ReadableLayout(Validated):
+    """The layout a timeline file declares, against the one this package reads: flows at the from
+    end of a branch (`edge_feat`) and PMU currents as real and imaginary parts (`current_form`). A
+    file written elsewhere in another layout is refused, so no column of it is misread."""
+
+    error: ClassVar[type[ValueError]] = NotATimeline
+
+    path: str
+    edge_feat: str = EDGE_FEAT_DEFAULT  # what a file with no such attribute holds
+    current_form: str = CURRENT_RECTANGULAR
+
+    def invariants(self) -> Iterable[tuple[bool, str]]:
+        yield (
+            self.edge_feat == EDGE_FEAT_DEFAULT,
+            f"{self.path} stores the flows {self.edge_feat}; this package reads flows at the from end "
+            f"of a branch ({EDGE_FEAT_DEFAULT})",
+        )
+        yield (
+            self.current_form == CURRENT_RECTANGULAR,
+            f"{self.path} stores its PMU currents as {self.current_form}; this package reads the real "
+            "and imaginary part of each phasor",
+        )
 
 
 @dataclass(frozen=True)
