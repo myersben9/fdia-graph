@@ -2245,51 +2245,55 @@
 </tr>
 <tr>
 <td><code>engine.attacks</code></td>
-<td>Every attack the generator builds. Seven files each hold one part of the generator; four hold what serves or uses the parts.</td>
+<td>Every attack the generator builds, one line per file.</td>
 </tr>
 <tr>
 <td><code>engine.attacks.area</code></td>
-<td>The attacker's area: the buses a stealthy attack may act in, and the boundary around a set of buses.</td>
+<td>Given seed buses, the attacker's area and the boundary of any set of buses.</td>
+</tr>
+<tr>
+<td><code>engine.attacks.blas</code></td>
+<td>One BLAS thread for the length of a search (<code>one_blas_thread</code>).</td>
 </tr>
 <tr>
 <td><code>engine.attacks.episodes</code></td>
-<td>What one episode attacks: its design, drawn at onset (<code>EpisodeDesigns</code>).</td>
+<td>The design of one episode (<code>EpisodeDesigns</code>): At's drawn at its onset, Am's from its window.</td>
 </tr>
 <tr>
 <td><code>engine.attacks.false_state</code></td>
-<td>The local false state of a stealthy attack: the attacker's area re-solved under false loads with the boundary held true, and checked against the operating limits. <code>frames.py</code> writes its attack vector onto a scan.</td>
+<td>Given a true state, a support and a goal, the false state: the support's voltages re-solved with every other voltage true, inside the limits.</td>
 </tr>
 <tr>
 <td><code>engine.attacks.family</code></td>
-<td>The interface the attack families share. The design stage asks a family one thing, the episode of a window (<code>EpisodeFamily.designed</code>), and the walk emits what it gets (<code>DesignedEpisode</code>), whichever family made it. A family of your own (<code>AttackFamily</code>) designs one <code>Episode</code> (<code>models.plan</code>), an attack vector over its window, or a miss.</td>
+<td>What the timeline asks of any family, and the base of a family of your own.</td>
 </tr>
 <tr>
 <td><code>engine.attacks.frames</code></td>
-<td>An attack written onto a scan: the attack vector a = h(x_false) - h(x_true) of a false state, and the frame that carries it.</td>
+<td>Given a true and a false state, the attack vector a = h(x_false) - h(x_true) and the frame that adds it to the true scan.</td>
 </tr>
 <tr>
 <td><code>engine.attacks.minimize</code></td>
-<td>The cheapest support of an attack window [WU26 eq. 12].</td>
+<td>The search: the area first, then supports grown from the goal's buses, smallest first, the cheapest of at most <code>min_budget</code> [WU26 eq. 12].</td>
 </tr>
 <tr>
 <td><code>engine.attacks.overload</code></td>
-<td><code>Am</code>, the multi-snapshot overload attack of [WU26]: the reported flows of its target branches (one or two, <code>OverloadSettings.n_lines</code>) driven to their ratings S_max (<code>use_line_ratings</code>) over the window, with the fewest devices tampered.</td>
+<td>Am's inputs and frames: ratings, eligible lines, the flow schedule of [WU26 eqs. 24-25], one frame.</td>
 </tr>
 <tr>
 <td><code>engine.attacks.ramp_frames</code></td>
-<td>The stealthy ramp At: one scan at a time, a local false state added to the true scan.</td>
+<td>One At frame: the false state of the frame's <code>AttackDesign</code>, written as a frame.</td>
 </tr>
 <tr>
 <td><code>engine.attacks.rref</code></td>
-<td>[WU26]'s construction of the attack's support: row reduction of the transposed area Jacobian.</td>
+<td>The other way to choose a support: [WU26]'s row reduction of the transposed area Jacobian.</td>
 </tr>
 <tr>
 <td><code>engine.attacks.search</code></td>
-<td>The search-based families: the slow ramp At and the overload Am [WU26].</td>
+<td>At and Am as families: how <code>EpisodeDesigns</code>, <code>RampFrames</code> and <code>Overload</code> are called frame by frame.</td>
 </tr>
 <tr>
 <td><code>engine.attacks.window</code></td>
-<td>One attack window as the fewest-tamper search sees it: the snapshots, the goal, and what a candidate support costs over them (<code>AttackWindow.cost</code>).</td>
+<td>What one candidate support costs over a window (<code>AttackWindow.cost</code>).</td>
 </tr>
 <tr>
 <td><code>engine.base</code></td>
@@ -2297,15 +2301,15 @@
 </tr>
 <tr>
 <td><code>engine.core</code></td>
-<td>The dataset generation engine: attack simulation and realistic meter readings on a test system.</td>
+<td>The generator: the grid, the meter plan, the load table, the case limits, and one object per part.</td>
 </tr>
 <tr>
 <td><code>engine.measurement</code></td>
-<td>Measurement emission: the generator's meter readings of a stored state, as a file's layers.</td>
+<td>The readings of a stored state: exact, then with bias and jitter, laid out per bus and per branch.</td>
 </tr>
 <tr>
 <td><code>engine.physics</code></td>
-<td>A scan's load and generation, read from its stored state.</td>
+<td>How a stored load-positive injection divides into load and generation.</td>
 </tr>
 <tr>
 <td><code>errors</code></td>
@@ -2397,7 +2401,7 @@
 </tr>
 <tr>
 <td><code>models.frames</code></td>
-<td>What the generator passes around per scan: a measurement scan, the emitted frame with its labels, the run's attack knobs, the design of an At ramp and of an Am overload episode, and what the fewest-tamper search returns.</td>
+<td>The records the attack code passes around: a scan, a frame, an attack vector, a goal, a design, the operating limits, a search result.</td>
 </tr>
 <tr>
 <td><code>models.grid</code></td>
@@ -2806,7 +2810,7 @@
 </tr>
 <tr>
 <td><code>tests/test_attack_area.py</code></td>
-<td>The attacker's area [WU26] Sec. III-A and the window ratings of the overload attack: the paper's own area where it states one, the region its four principles pick otherwise (rules 1 and 2 as checks, 3 and 4 as a score of ours), the "delta" ratings matched to its Fig. 4 magnitudes, and the validity of every attack the search returns (the goal met, every untampered channel within its noise, trusted buses true).</td>
+<td>The attacker's area [WU26] Sec. III-A and the window ratings of the overload attack: the paper's own area where it states one, the area its four principles pick otherwise (rules 1 and 2 as checks, 3 and 4 as a score of ours), the "delta" ratings matched to its Fig. 4 magnitudes, and the validity of every attack the search returns (the goal met, every untampered channel within its noise, trusted buses true).</td>
 </tr>
 <tr>
 <td><code>tests/test_edges.py</code></td>

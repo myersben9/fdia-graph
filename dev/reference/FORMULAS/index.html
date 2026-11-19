@@ -1556,6 +1556,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#wu26-equation-by-equation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        [WU26] equation by equation
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -1810,6 +1821,17 @@
     <span class="md-ellipsis">
       
         Catalogue
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#wu26-equation-by-equation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        [WU26] equation by equation
       
     </span>
   </a>
@@ -2285,6 +2307,101 @@ objects); one test checks it on a case small enough to verify by hand.</p>
 <td>a bus's own V, P, Q, θ channels plus the flows of its incident branches; sum for energies, max for changes</td>
 <td>[JAC26]</td>
 <td>the per-bus features, <code>GatedPrior</code>, <code>ResidualLocalizer</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="wu26-equation-by-equation">[WU26] equation by equation<a class="headerlink" href="#wu26-equation-by-equation" title="Permanent link">&para;</a></h2>
+<p>Each row is an equation, or a range of equations, of [WU26] that the code cites, in the code's own
+words, with where the citation is. Where the code cites one idea under different numbers in different
+places, the table has only the rows every place agrees on. The module paths are under <code>fdia_graph</code>.</p>
+<table>
+<thead>
+<tr>
+<th>equation</th>
+<th>what the code says it states</th>
+<th>where the citation is</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>12</td>
+<td>the tamper count the choice of a support minimizes: the meters moved beyond their noise, which the search counts per device</td>
+<td><code>formulas.attacks.tampered_channels</code>, <code>sensing.noise.NoiseModel.tampered</code>, the class <code>engine.attacks.minimize.Minimizer</code> and its module, the module <code>engine.attacks.window</code>, <code>EpisodeDesigns.ramp_design</code>, <code>models.frames.SupportCost</code>, <code>models.frames.MinimizerResult</code>, <code>models.config.SearchSettings</code>, <code>models.choices.SupportMethod</code>, the knob <code>FrameKnobs.min_tamper</code></td>
+</tr>
+<tr>
+<td>12, 28, 33</td>
+<td>the l0 of these equations taken literally: the tampered measurements</td>
+<td><code>models.choices.CostUnit</code>, the knob <code>FrameKnobs.objective</code></td>
+</tr>
+<tr>
+<td>13-14</td>
+<td>a generator's output is an injection measurement the overload attacker may tamper</td>
+<td><code>engine.attacks.false_state.FalseState.generator_buses</code></td>
+</tr>
+<tr>
+<td>13-18</td>
+<td>the attack vector a = h(x_false) - h(x_true), per node channel and per flow channel</td>
+<td><code>engine.attacks.frames.AttackFrames.attack_vector</code></td>
+</tr>
+<tr>
+<td>13-25</td>
+<td>a flow goal frees the loads and generators of the support</td>
+<td><code>FalseState.goal_state</code></td>
+</tr>
+<tr>
+<td>17-20</td>
+<td>only a PMU reads the voltage angle, and it reads the current phasor of every branch end at its bus</td>
+<td><code>sensing.meters.MeterPlan.from_placement</code>, <code>engine.core.FdiaGenerator.__init__</code>, <code>models.choices.MeterModel</code></td>
+</tr>
+<tr>
+<td>19-20</td>
+<td>the branch-current phasors a PMU reads, I_f = Yf V and I_t = Yt V</td>
+<td><code>formulas.network.branch_currents</code>, <code>constants.channels.CurrentChannel</code>, <code>AttackFrames.current_attack</code>, <code>AttackFrames.currents_with_attack</code>, <code>formulas.attacks.tampered_devices</code>, <code>engine.attacks.window.AttackWindow.__init__</code>, <code>models.fields.RecordFields</code>, <code>schema</code> (<code>PMU_I</code>)</td>
+</tr>
+<tr>
+<td>21</td>
+<td>the voltage magnitude of a bus stays inside its limit</td>
+<td><code>engine.attacks.false_state._voltages_out_of_range</code>, <code>FalseState.solve_flow_local</code></td>
+</tr>
+<tr>
+<td>22-23</td>
+<td>a generator's P and Q stay inside its limits</td>
+<td><code>engine.attacks.false_state._clip_generator</code>, <code>FalseState._out_of_bounds</code>, <code>FalseState.solve_flow_local</code>, <code>FalseState.generator_buses</code></td>
+</tr>
+<tr>
+<td>21-23</td>
+<td>the constraints every false state must satisfy: the bus voltage limits and the generator P and Q limits</td>
+<td><code>formulas.attacks.operating_limits</code>, <code>formulas.attacks.within_limits</code>, <code>FalseState.operating_limits</code>, <code>FalseState.state_within_limits</code>, <code>FalseState.load_goal_state</code>, <code>FalseState.stealthy_state</code>, <code>EpisodeDesigns.am_overload_design</code>, <code>FdiaGenerator._case_limits</code>, <code>generation.search.SearchSource.__init__</code>, <code>SearchSource._knobs</code>, <code>models.frames.OperatingLimits</code></td>
+</tr>
+<tr>
+<td>24-25</td>
+<td>the flow each target line must show at each snapshot of the window: S_{l,t} = S_true_{l,t} + (t - kappa)/T (S_max - S_true_{l,kappa+T})</td>
+<td>the module <code>engine.attacks.overload</code>, <code>models.frames.FlowGoal</code>, <code>formulas.network.local_flow_solve</code>, <code>FalseState.solve_flow_local</code>, <code>EpisodeDesigns.am_overload_design</code>, <code>engine.attacks.search.OverloadEpisode</code>, <code>errors.NoLineRatings</code>, the package <code>ratings</code></td>
+</tr>
+<tr>
+<td>25</td>
+<td>the rating S_max, reached at the last snapshot</td>
+<td><code>engine.attacks.overload._schedule</code>, <code>formulas.attacks.branch_ratings</code>, <code>EpisodeDesigns.am_overload_design</code></td>
+</tr>
+<tr>
+<td>26-32</td>
+<td>the dynamic trusted-PMU configuration, as a constraint on the attack window</td>
+<td><code>models.config.TrustSchedule</code>, <code>Minimizer.min_tamper</code> (<code>trust</code>)</td>
+</tr>
+<tr>
+<td>28</td>
+<td>the union of the tampered devices and channels over every snapshot</td>
+<td><code>engine.attacks.window.AttackWindow.cost</code>, the module <code>engine.attacks.minimize</code></td>
+</tr>
+<tr>
+<td>29</td>
+<td>the attack's state deviation is zero at a trusted PMU, so its bus keeps its true voltage</td>
+<td><code>models.config.TrustSchedule</code>, <code>AttackWindow.support_at</code></td>
+</tr>
+<tr>
+<td>30-31</td>
+<td>trust accumulates, h^S_t = h^S_t-1 + dh^S_t: at snapshot t every PMU with a slot at or before t is pinned</td>
+<td><code>models.config.TrustSchedule</code></td>
 </tr>
 </tbody>
 </table>

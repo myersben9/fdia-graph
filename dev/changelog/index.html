@@ -1989,6 +1989,18 @@ the public API, the generated files and the numbers are the same as the previous
 <h2 id="unreleased">Unreleased<a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
 <ul>
 <li>
+<p><strong>A reading order for the attack code (no change in behaviour).</strong> The files of <code>engine/</code> that hold
+  a part, and every file of <code>engine/attacks/</code>, open with one sentence saying what the file does and
+  name what it calls; <code>engine/attacks/__init__.py</code> lists the files in the order to read them.
+  <code>FdiaGenerator</code> has a class docstring listing every attribute, with the shape and unit of each array.
+  <code>NodeChannel</code> says once that injections are positive for load. <code>docs/reference/FORMULAS.md</code> has a new
+  section, "[WU26] equation by equation", mapping the [WU26] equations the code cites to where they are
+  cited. The search's BLAS thread limit is its own module, <code>engine/attacks/blas.py</code>
+  (<code>one_blas_thread</code>). The tests use the source's names (<code>knobs</code>, <code>support</code>, <code>boundary</code>, <code>area</code>). With
+  docstrings removed, every changed source file but the moved block is identical to before, and every
+  IEEE timeline is byte for byte what it was.</p>
+</li>
+<li>
 <p><strong>The search's cost and a snapshot's moved channels are named records (the search finds the same
   supports; the cost's layout under the <code>"channels"</code> objective changes).</strong>
   <code>AttackWindow.cost</code> returns a <code>SupportCost(devices, channels, size)</code> (<code>models/frames.py</code>) where it
