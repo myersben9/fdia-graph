@@ -191,7 +191,7 @@ def test_recent_change_scale_matches_windowed_std():
 
 
 def test_bus_load_undoes_the_pools_common_scale():
-    from fdia_graph.formulas.attacks import bus_load
+    from fdia_graph.engine.physics import NetSplit, ScaledSplit
 
     # bus 0: load 30, gen 50, both at scale 1.2 -> injection 1.2 * (30 - 50) = -24, load 36
     # bus 1: load only, 10 at scale 0.8 -> injection 8, load 8; bus 2: gen only, 40 at 1.1 -> load 0
@@ -199,9 +199,13 @@ def test_bus_load_undoes_the_pools_common_scale():
     gen_base = np.array([[50.0, 0.0], [0.0, 0.0], [40.0, 0.0]])
     X = np.zeros((3, 4))
     X[:, 1] = [-24.0, 8.0, -44.0]
-    assert np.allclose(bus_load(X, load_base, gen_base), [36.0, 8.0, 0.0])
+    assert np.allclose(ScaledSplit(load_base, gen_base).load(X), [36.0, 8.0, 0.0])
     # the base-generation shortcut the engine used is wrong where a generator sits
     assert not np.isclose(X[0, 1] + gen_base[0, 0], 36.0)
+    # a dispatched pool has no such factor: a bus with a unit is all generation, any other all load
+    net = NetSplit(np.array([True, False, True]), load_base)
+    assert np.allclose(net.load(X), [0.0, 8.0, 0.0])
+    assert np.allclose(net.generation(X)[:, 0], [24.0, 0.0, 44.0])
 
 
 def test_element_loads_split_a_bus_by_base_shares():

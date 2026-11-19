@@ -10,7 +10,7 @@ import numpy as np
 
 from ...constants.channels import NodeChannel
 from ...constants.numerics import ZERO_TOL
-from ...formulas.attacks import bus_load, generator_output, operating_limits, within_limits
+from ...formulas.attacks import operating_limits, within_limits
 from ...formulas.network import (
     _dense,
     _flow_blocks,
@@ -81,7 +81,7 @@ class FalseStateMixin(AreaMixin, PhysicsMixin):
     def operating_limits(self, X: np.ndarray) -> OperatingLimits:
         """The constraints every false state must satisfy [WU26 eqs. 21-23]: the case's bus voltage
         limits, and its generator limits widened to what the pool X ran each generator over."""
-        return operating_limits(self.v_case, self.p_lim, self.q_lim, X, (self.load_base, self.gen_base))
+        return operating_limits(self.v_case, self.p_lim, self.q_lim, self.split.generation(X))
 
     def solve_local(
         self, Xt: np.ndarray, interior: np.ndarray, Lp: np.ndarray, Lq: np.ndarray
@@ -120,11 +120,12 @@ class FalseStateMixin(AreaMixin, PhysicsMixin):
         return np.unique(self.load_bus[self.stealthy_pos])
 
     def generator_buses(self) -> np.ndarray:
-        """The buses with a generator (zero-MW condensers included), the slack excluded: their output is
-        an injection measurement the overload attacker may tamper [WU26 eqs. 13-14], within eqs. 22-23."""
+        """The grid's own buses with a generator (zero-MW condensers included), the slack excluded: their
+        output is an injection measurement the overload attacker may tamper [WU26 eqs. 13-14], within
+        eqs. 22-23."""
         cached = getattr(self, "_generator_buses", None)
         if cached is None:  # asked once per candidate solve: built once, read-only
-            cached = np.setdiff1d(np.flatnonzero(self.has_gen), [self.slack_bus])
+            cached = np.setdiff1d(np.flatnonzero(self.has_gen & self.case.own_bus), [self.slack_bus])
             cached.flags.writeable = False
             self._generator_buses = cached
         return cached
@@ -208,8 +209,8 @@ class FalseStateMixin(AreaMixin, PhysicsMixin):
             touched,
             S_true,
             blocks,
-            generator_output(Xt, self.load_base, self.gen_base),
-            bus_load(Xt, self.load_base, self.gen_base),
+            self.split.generation(Xt),
+            self.split.load(Xt),
         )
 
     def _support_blocks(self, S: np.ndarray, lines: np.ndarray) -> tuple[np.ndarray, _FlowBlocks]:
@@ -299,7 +300,7 @@ class FalseStateMixin(AreaMixin, PhysicsMixin):
         by more than `load_cap` times their true load [YUA11], each with the injection change
         (generation positive, MW) that puts the load change at the cap."""
         load = region.load
-        loaded = np.intersect1d(region.touched, np.flatnonzero(self.load_base[:, 0] != 0))
+        loaded = np.intersect1d(region.touched, np.flatnonzero(self.split.base_load[:, 0] != 0))
         buses = np.setdiff1d(loaded, self.generator_buses())
         out: dict[int, float] = {}
         for b in np.setdiff1d(buses, [self.slack_bus]):
@@ -405,8 +406,7 @@ class FalseStateMixin(AreaMixin, PhysicsMixin):
         limits apply to the generators of `interior`, the attacked subnetwork."""
         dload = np.zeros(self.C)
         np.add.at(dload, self.load_bus, load_delta_pos)
-        gen = generator_output(Xt, self.load_base, self.gen_base)
-        return within_limits(Xa, Xt, gen, dload, limits, interior)
+        return within_limits(Xa, Xt, self.split.generation(Xt), dload, limits, interior)
 
     def _attack_vector(self, Xa: np.ndarray, Xt: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
         """The attack vector a = h(x_false) - h(x_true) [WU26 eqs. 13-18] per node channel [N, 4] and per flow

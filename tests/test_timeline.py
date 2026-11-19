@@ -253,7 +253,7 @@ def test_operating_limits_are_the_case_limits_widened_to_the_pool():
     and may not be made worse; the generator output behind a pool state is recovered exactly, and
     a false state that pushes a generator past its cap or a bus past its limit is refused."""
     from fdia_graph.engine.core import FdiaGenerator
-    from fdia_graph.formulas.attacks import generator_output, within_limits
+    from fdia_graph.formulas.attacks import within_limits
     from fdia_graph.systems.network import Network
 
     g = FdiaGenerator(Network.from_ieee(14), seed=1)
@@ -266,9 +266,9 @@ def test_operating_limits_are_the_case_limits_widened_to_the_pool():
     assert (lim.v_lo == g.v_case[:, 0]).all() and (lim.v_hi == g.v_case[:, 1]).all()  # voltages verbatim
     assert (lim.p_lo <= g.p_lim[:, 0]).all() and (lim.p_hi >= g.p_lim[:, 1]).all()  # generators widened
     assert X0[:, 0].max() > lim.v_hi.max()  # the base case runs above 1.06 pu at some bus ...
-    gen = generator_output(X0, g.load_base, g.gen_base)
-    on = np.flatnonzero(g.gen_base[:, 0] > 0)
-    assert np.allclose(gen[on, 0], g.gen_base[on, 0])  # the base state: base generation exactly
+    gen = g.split.generation(X0)
+    on = np.flatnonzero(g.split.gen_base[:, 0] > 0)
+    assert np.allclose(gen[on, 0], g.split.gen_base[on, 0])  # the base state: base generation exactly
     none = np.zeros(g.C)
     everywhere = np.arange(g.C)  # every bus inside the attacked subnetwork
     assert within_limits(X0, X0, gen, none, lim, everywhere)  # ... and is acceptable as its own bound
@@ -359,7 +359,7 @@ def test_reactive_load_adds_back_the_generators_output():
     X = _solve_states_chunk(14, np.full((1, len(_case_buses(14))), 1.1))[0]
     Lq = g.true_reactive_load(X)
     for pos, b in enumerate(g.load_bus):
-        want = 1.1 * g.load_base[b, 1] if g.has_gen[b] else X[b, 2]
+        want = 1.1 * g.split.base_load[b, 1] if g.has_gen[b] else X[b, 2]
         assert Lq[pos] == pytest.approx(want, abs=1e-6)
     interior = g.local_region(g.load_bus[[2]], 1)
     Xa = g.solve_local(X, interior, g.true_load(X), Lq)

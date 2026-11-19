@@ -5,24 +5,32 @@ search-based designs, on any grid.
 points. Placements, ramp designs and the moves of an infeasible ramp all draw from the generator's
 one random stream, in the order the driver reaches them, so each split is placed only after the
 split before it is walked. An overload Am is designed before its split is walked and moved when it
-has no design. `generation.ieee.IeeeSource` is this source on an IEEE case by its name.
+has no design. `generation.ieee.IeeeSource` is this source on an IEEE case by its name;
+`SearchSource.for_pool` is it on the solved frames of a pool file (the New York grid's).
 """
 
 from __future__ import annotations
 
+from dataclasses import replace
 from typing import Optional
 
 import numpy as np
 
 from .. import schema
+from ..constants.channels import NodeChannel
 from ..constants.families import AM_CODE, FAMILIES
+from ..constants.newyork import SolveKind
+from ..data.pool import Pool
 from ..engine.core import FdiaGenerator
+from ..engine.physics import LoadSplit
+from ..models.choices import LoadRule
 from ..models.config import TimelineSettings
 from ..models.frames import FrameKnobs
 from ..models.inputs import AdmissibleTargets, family_codes
 from ..models.plan import GeneratorSpec
 from ..schema import Attr
 from ..systems.network import Network
+from ..systems.states import PoolStates
 from .design import SearchDesigner
 from .source import TimelineSource
 
@@ -54,16 +62,28 @@ class SearchSource(TimelineSource):
         fams = tuple(dict.fromkeys(family_codes(s.families)))
         self.am_runs = AM_CODE in fams
         # the walk's generator on the meter plan of the settings; `_check_targets` sets the Am ratings
-        self.g, self.X = FdiaGenerator(net, seed, s.meters, s.max_load_mw), X
+        split = LoadSplit.of(s.loads, net.case, X)
+        self.g, self.X = FdiaGenerator(net, seed, s.meters, s.max_load_mw, split=split), X
         self._check_targets(fams)
         self.limits = self.g.operating_limits(self.X)  # every false state must satisfy [WU26 eqs. 21-23]
         self.knobs = self._knobs()
         ramp, workers = (s.ramp.length, s.ramp.rate), s.workers if self.am_runs else 1
         # what a design process rebuilds this generator from: the grid, the meters and the ratings set above
         ratings, delta = self.g._line_ratings, self.g._rating_delta
-        spec = GeneratorSpec(net, seed, s.max_load_mw, s.meters, ratings, rating_delta=delta)
+        spec = GeneratorSpec(net, seed, s.max_load_mw, s.meters, ratings, delta, split)
         designer = SearchDesigner(self.g, spec, self.knobs, self.X, ramp, workers, self.named)
         super().__init__(self.g, self.X, designer, s, [FAMILIES[f] for f in fams], seed, time)
+
+    @classmethod
+    def for_pool(cls, net: Network, pool: Pool, settings: TimelineSettings, seed: int = 123) -> SearchSource:
+        """The source on the solved frames of a pool file (`data.pool.Pool`, the New York grid's) and
+        their time. An unsolved frame is left out, as an IEEE pool leaves out a step with no solution;
+        an injection is positive for load, as in an IEEE pool; and the loads are read as a dispatched
+        pool's (`LoadRule.NET`), whatever `settings.loads` says."""
+        solved = pool.solve_kind == SolveKind.SOLVED
+        X = PoolStates(pool.vm[solved], pool.va[solved], net)[:]
+        X[:, :, [NodeChannel.P_INJ, NodeChannel.Q_INJ]] *= -1.0
+        return cls(net, X, replace(settings, loads=LoadRule.NET), seed, pool.time[solved])
 
     def _check_targets(self, fams: tuple[int, ...]) -> None:
         """Check, before any frame is walked, that every family has a target on this case and that

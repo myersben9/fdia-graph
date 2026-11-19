@@ -49,6 +49,15 @@ class SplitBy(Choice):
     TIME = "time"
 
 
+class LoadRule(Choice):
+    """How a pool's injection at a bus divides into load and generation: by the one factor a scaled
+    pool applied to both, or, for a pool whose units were dispatched (an OPF), a bus with a unit is
+    all generation and any other bus all load."""
+
+    SCALED = "scaled"
+    NET = "net"
+
+
 class Units(Choice):
     """The unit system of the returned measurements: as stored, or per-unit with angles in radians."""
 

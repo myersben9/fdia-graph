@@ -26,6 +26,7 @@ from ..sensing.meters import MeterPlan
 from ..sensing.noise import NoiseModel
 from ..systems.network import Network
 from .attacks import AttackMixin
+from .physics import LoadSplit, ScaledSplit
 
 if TYPE_CHECKING:
     from ..models.plan import GeneratorSpec
@@ -40,12 +41,15 @@ class FdiaGenerator(AttackMixin):
         max_load_mw: Optional[float] = 2000.0,
         plan: Optional[MeterPlan] = None,
         spec: LayerSet = LayerSet(),
+        split: Optional[LoadSplit] = None,
     ) -> None:
         """The generator of any grid: its `Network`, and the meter plan of `meters` drawn from `seed`
         (`MeterPlan.from_coverage`: the meters, then their biases). Only PMUs read angles, and they
         read branch currents [WU26 eqs. 17-20]. A `plan` is used as given and nothing is drawn. A
-        scan is laid out in the layers of `spec` (the New York release meters both ends of a branch)."""
+        scan is laid out in the layers of `spec` (the New York release meters both ends of a branch).
+        `split` says how the pool's injections divide into load and generation (None: a scaled pool)."""
         options = GeneratorOptions(max_load_mw)
+        self.split = ScaledSplit.of_case(net.case) if split is None else split
         self._open(net, seed, spec, options.max_load_mw)
         self._meter(MeterPlan.from_coverage(self.case, meters, self.rng) if plan is None else plan)
 
@@ -75,7 +79,7 @@ class FdiaGenerator(AttackMixin):
     @classmethod
     def from_spec(cls, spec: GeneratorSpec) -> FdiaGenerator:
         """The generator of `spec`: its case, meter plan and ratings."""
-        g = cls(spec.net, spec.seed, spec.meters, spec.max_load_mw)
+        g = cls(spec.net, spec.seed, spec.meters, spec.max_load_mw, split=spec.split)
         g._line_ratings, g._rating_delta = spec.ratings, spec.rating_delta
         return g
 
@@ -83,24 +87,24 @@ class FdiaGenerator(AttackMixin):
         """Which buses carry load, which loads can be attacked, and which buses inject nothing. The
         load table has one row per loaded bus, in bus order. A zero-injection bus is a pure junction
         (net injection exactly 0); a near-zero injection reading is still emitted there."""
-        case = self.case
-        self.load_bus = np.flatnonzero((case.pd != 0) | (case.qd != 0))
-        self.load_p0 = case.pd[self.load_bus]  # base active load per row, signed (MW)
-        self.load_q0 = case.qd[self.load_bus]  # base reactive load per row, signed (MVAr)
+        case, base = self.case, self.split.base_load
+        self.load_bus = np.flatnonzero((base[:, 0] != 0) | (base[:, 1] != 0))
+        self.load_p0 = base[self.load_bus, 0]  # base active load per row, signed (MW)
+        self.load_q0 = base[self.load_bus, 1]  # base reactive load per row, signed (MVAr)
         # the angle reference; a local attack never moves it
         self.slack_bus = int(np.flatnonzero(case.bus_type == BusType.REF)[0])
         p_load = np.abs(self.load_p0)
-        # Attackable: active load above zero, off the slack bus, at most `max_load_mw`. A reactive-only
-        # load (IEEE-300 buses 141, 183) would leave no P footprint yet be labelled attacked; a load on the
-        # slack bus can never enter a region; a gigawatt area-equivalent load has no local solution.
-        attackable = (p_load > 0.0) & (self.load_bus != self.slack_bus)
+        # Attackable: active load above zero, off the slack bus, at most `max_load_mw`, at one of the
+        # grid's own buses. A reactive-only load (IEEE-300 buses 141, 183) would leave no P footprint yet
+        # be labelled attacked; a load on the slack bus can never enter a region; a gigawatt
+        # area-equivalent load has no local solution; a neighbour's equivalent bus is not the grid's.
+        attackable = (p_load > 0.0) & (self.load_bus != self.slack_bus) & case.own_bus[self.load_bus]
         if self.max_load_mw is not None:
             attackable &= p_load <= self.max_load_mw
         self.attackable_pos = np.where(attackable)[0]
         # A unit on a PQ bus is a static generator (IEEE-89 and 300 feed buses from them alone); one
         # that produces nothing (all of IEEE-200's) injects nothing.
-        static = case.bus_type[case.unit_bus] == BusType.PQ
-        idle = static & (case.unit_p == 0) & (case.unit_q == 0)
+        idle = self.split.idle_units(case)
         # The stealthy families also skip every load on a generator bus, zero-MW condensers included: a
         # generator bus is too risky to falsify, the attacker's rule in the protocol followed here [BOY22].
         self.stealthy_pos = np.where(attackable & ~np.isin(self.load_bus, case.unit_bus[~idle]))[0]
@@ -110,20 +114,16 @@ class FdiaGenerator(AttackMixin):
         self.zero_inj = np.setdiff1d(np.arange(self.C), injecting).tolist()
 
     def _case_limits(self) -> None:
-        """Per-bus base load and generation [N, 2] (P, Q) and the case's limits [WU26 eqs. 21-23]: bus
-        voltage limits and generator P and Q limits [N, 2], summed over co-located generators, ±inf where
-        a bus has none. The slack is unbounded: its output is the balance of every state."""
+        """The case's limits [WU26 eqs. 21-23]: bus voltage limits and generator P and Q limits [N, 2],
+        summed over co-located generators, ±inf where a bus has none. The slack is unbounded: its output
+        is the balance of every state."""
         case, C = self.case, self.C
-        self.load_base = np.stack([case.pd, case.qd], axis=1)
-        self.gen_base = np.zeros((C, 2))
         self.p_lim = np.tile([-np.inf, np.inf], (C, 1))
         self.q_lim = np.tile([-np.inf, np.inf], (C, 1))
         gens = np.flatnonzero(case.bus_type[case.unit_bus] == BusType.PV)  # the units that hold a voltage
         at = case.unit_bus[gens]
         self.has_gen = np.zeros(C, bool)  # a generator on the bus, zero-MW condensers included
         self.has_gen[at] = True
-        # per-bus sums over co-located generators, in row order (np.add.at is unbuffered)
-        np.add.at(self.gen_base[:, 0], at, case.unit_p[gens])
         if len(at):
             self.p_lim[at] = self.q_lim[at] = 0.0  # summed over the bus's generators below
             np.add.at(self.p_lim, at, np.stack([case.pmin[gens], case.pmax[gens]], axis=1))

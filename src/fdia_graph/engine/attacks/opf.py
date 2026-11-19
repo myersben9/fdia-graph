@@ -113,7 +113,7 @@ class OpfFdia(AttackFamily):
         self.step_bound = None if step_bound is None else np.asarray(step_bound, float)
         self.frame_hour = None if frame_hour is None else np.asarray(frame_hour, int)
         self.family, self.exit_scans = family, exit_scans  # `family`: the name written on the episode
-        n = len(attacker.owner)
+        n = len(attacker.own)
         self.gen_output = None if gen_output is None else np.asarray(gen_output, float)  # [T, N] MW
         self.gen_ramp = np.asarray(gen_ramp, float)  # five-minute ramp (MW, inf: unbounded)
         # the largest deviation from the basepoint (MW)

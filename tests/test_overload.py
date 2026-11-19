@@ -359,7 +359,7 @@ def test_a_generator_only_support_is_valid_and_its_output_stays_in_limits(g, poo
     """D14: a generator's injection is free within its limits [WU26 eqs. 13-14, 22-23]; a support
     whose only free injection is a generator meets a small flow goal, and the implied generator output
     passes the limit check."""
-    from fdia_graph.formulas.attacks import generator_output, within_limits
+    from fdia_graph.formulas.attacks import within_limits
 
     Xt = pool[0]
     gens = g.generator_buses()
@@ -376,7 +376,7 @@ def test_a_generator_only_support_is_valid_and_its_output_stays_in_limits(g, poo
         assert converged and not dload.any()  # a generator's change is its output, not a load
         reached = g.clean_flows_from_states(Xa[None])[0, line]
         assert np.hypot(*reached) == pytest.approx(1.03 * float(np.hypot(*flow)), rel=1e-6)
-        gen = generator_output(Xt, g.load_base, g.gen_base)
+        gen = g.split.generation(Xt)
         assert within_limits(Xa, Xt, gen, dload, k.limits, S)
         return
     pytest.fail("no generator-only support met a 3% flow goal")
@@ -416,11 +416,10 @@ def test_a_generator_at_its_p_limit_keeps_its_q_free(g, pool):
     # [WU26 eqs. 22-23]
     """Review fix: pinning is per component. With the generator's P range shut to its true output, the
     solve pins P alone and still meets the goal by moving Q; pinning both would leave no free injection."""
-    from fdia_graph.formulas.attacks import generator_output
 
     Xt, S, line, target = _generator_only_case(g, pool)
     b = int(S[0])
-    gen = generator_output(Xt, g.load_base, g.gen_base)
+    gen = g.split.generation(Xt)
     limits = _knobs(g, pool).limits
     # every other generator (the edge's too, D16) unbounded, so only this one's P limit binds
     p_lo, p_hi = np.full(g.C, -np.inf), np.full(g.C, np.inf)
@@ -431,7 +430,7 @@ def test_a_generator_at_its_p_limit_keeps_its_q_free(g, pool):
     assert converged and Xa is not None
     reached = g.clean_flows_from_states(Xa[None])[0, line]
     assert np.hypot(*reached) == pytest.approx(target, rel=1e-6)
-    out = generator_output(Xt, g.load_base, g.gen_base)[b] - (
+    out = g.split.generation(Xt)[b] - (
         Xa[b, NodeChannel.P_INJ : NodeChannel.Q_INJ + 1] - Xt[b, NodeChannel.P_INJ : NodeChannel.Q_INJ + 1]
     )
     assert out[0] == pytest.approx(gen[b, 0], abs=1e-6)  # P held at its (shut) limit
@@ -441,12 +440,11 @@ def test_a_generator_at_its_p_limit_keeps_its_q_free(g, pool):
 def test_a_generator_label_is_relative_to_its_output(g, pool):
     """Review fix: the frame magnitude at a generator bus is its apparent change against the true
     generator output, not against the bus's net injection."""
-    from fdia_graph.formulas.attacks import generator_output
 
     Xt, S, line, target = _generator_only_case(g, pool)
     Xa, _, _ = g.solve_flow_local(Xt, S, line, target)
     b = int(S[0])
-    gen = generator_output(Xt, g.load_base, g.gen_base)[b]
+    gen = g.split.generation(Xt)[b]
     d = Xa[b] - Xt[b]
     want = np.hypot(d[NodeChannel.P_INJ], d[NodeChannel.Q_INJ]) / np.hypot(gen[0], gen[1])
     assert g.pretended_change(Xt, Xa, S)[0] == pytest.approx(want)
@@ -473,13 +471,12 @@ def _edge_cases(g, pool):
 def test_an_edge_generator_stays_inside_its_limits(g, pool):
     """D16: (22)-(23) bound every generator whose reported output the attack changes, a generator on
     the support's edge included: shut its P range and the solve holds its P there or refuses."""
-    from fdia_graph.formulas.attacks import generator_output
 
     base = _knobs(g, pool).limits
     gen = None
     checked = 0
     for Xt, S, line, target, edge_gens, free in _edge_cases(g, pool):
-        gen = generator_output(Xt, g.load_base, g.gen_base)
+        gen = g.split.generation(Xt)
         b = edge_gens[0]
         if abs(free[b, NodeChannel.P_INJ] - Xt[b, NodeChannel.P_INJ]) < 1e-3:
             continue  # the unbounded solve leaves this generator's P alone: nothing to test
@@ -498,16 +495,15 @@ def test_an_edge_generator_stays_inside_its_limits(g, pool):
 def test_the_load_cap_bounds_every_load_the_attack_moves(g, pool):
     """D16: with load_cap tau, no load bus the attack moves (in the support or on its edge) shows a
     change beyond tau times its true load [YUA11]; the goal is still met."""
-    from fdia_graph.formulas.attacks import bus_load
 
     checked = 0
     for Xt, S, line, target, _, _ in _edge_cases(g, pool):
         Xa, _, _ = g.solve_flow_local(Xt, S, line, target, None, 0.05)
         if Xa is None:
             continue
-        load = bus_load(Xt, g.load_base, g.gen_base)
+        load = g.split.load(Xt)
         buses = np.setdiff1d(g.touched_buses(S), np.r_[g.generator_buses(), g.slack_bus])
-        buses = buses[g.load_base[buses, 0] != 0]
+        buses = buses[g.split.base_load[buses, 0] != 0]
         change = np.abs(Xa[buses, NodeChannel.P_INJ] - Xt[buses, NodeChannel.P_INJ])
         assert (change <= 0.05 * np.abs(load[buses]) + 1e-6).all()
         reached = g.clean_flows_from_states(Xa[None])[0, line]

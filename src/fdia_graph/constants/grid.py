@@ -4,6 +4,10 @@ from __future__ import annotations
 
 from enum import IntEnum
 
+# MW: a bus whose load is at or below this carries no load an attack can pretend (a junction's
+# injection is solver noise, and a bus that feeds the grid on average is a source)
+LOAD_FLOOR_MW = 1.0
+
 
 class BusType(IntEnum):
     """MATPOWER's bus types, the `type` column of a case file's bus table [MP19]."""

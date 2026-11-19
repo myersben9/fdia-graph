@@ -5,6 +5,21 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- **The original generator reads a dispatched pool, and picks its targets on the grid's own buses.**
+  New setting `loads` of `TimelineSettings` (`LoadRule`): `"scaled"` (default) reads a bus's load and
+  generation by the one factor a scaled pool applied to both, as before; `"net"` reads a pool solved by
+  an OPF, where a bus with a unit is all generation and any other bus all load. The two rules are the
+  classes `ScaledSplit` and `NetSplit` (`engine/physics.py`), and `FdiaGenerator` takes one as `split`.
+  `Case.own_bus` marks the grid's own buses (every bus of an IEEE case, the 46 New York buses of the New
+  York case); ramp targets, the units an overload may move and an overload's target branches are held
+  to them, and `Attacker` reads the same mark where it read the meter plan's owners.
+  `SearchSource.for_pool(net, pool, settings)` runs the original generator on a New York pool file.
+  Removed: `formulas.attacks.bus_load` (now `LoadSplit.load`), `FdiaGenerator.load_base` and `gen_base`
+  (now `split.base_load`, `ScaledSplit.gen_base`), `Attacker.owner` (now `Attacker.own`);
+  `formulas.attacks.operating_limits` takes the pool's generator output in place of the pool and the
+  base tables. Every IEEE timeline and every New York release timeline is byte for byte what it was; a
+  file records `loads` only when it is not the default.
+
 - **Docs: the six remaining wide diagrams are redrawn for a phone (no change to the packages).**
   `concepts_one_record`, `localization_flow`, `se_estimators`, `se_gated_prior`, `se_jacobian_weighting`
   and `trust_flow` are now top to bottom, at most 8 nodes and 900 px wide, checked against the code, with

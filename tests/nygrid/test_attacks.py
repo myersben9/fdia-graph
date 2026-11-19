@@ -102,7 +102,7 @@ def test_area_spans_utilities_with_a_boundary(setup):
         if area is None:
             continue
         assert att.slack not in area.tolist() and len(att.boundary(area))  # a boundary to hold true
-        if len(set(att.owner[area][att.owner[area] >= 0].tolist())) > 1:
+        if len(set(own.bus_client[area][att.own[area]].tolist())) > 1:
             spanning += 1
     assert spanning > 0  # the local subnetwork may span utilities (not one client)
 
@@ -133,7 +133,7 @@ def test_false_state_load_goal_ac_equations(setup):
     touched = np.union1d(grown, att.boundary(grown))
     free = att.free_injection_buses(vm[0], va[0], touched)
     held = np.setdiff1d(touched, np.r_[free, center])
-    held = held[att.owner[held] >= 0]
+    held = held[att.own[held]]
     assert len(held) and np.abs(s[held] - true[held]).max() < 1e-4
     outside = np.setdiff1d(np.arange(n), grown)
     assert np.allclose(vf[outside], vm[0][outside]) and np.allclose(af[outside], va[0][outside])
@@ -199,7 +199,7 @@ def test_zero_injection_edge_bus_is_absorbed_and_reads_zero(setup):
     change, the slack, or buses outside New York."""
     att, own, plan, meas, noise, (_, vm, va), n, _ = setup
     p, q = att.net.injections(vm[0], va[0])
-    zero = ~att.gen_bus & (att.owner >= 0) & (np.abs(p) < 1e-3) & (np.abs(q) < 1e-3)
+    zero = ~att.gen_bus & att.own & (np.abs(p) < 1e-3) & (np.abs(q) < 1e-3)
     free = np.zeros(n, bool)
     free[att.free_injection_buses(vm[0], va[0], np.arange(n))] = True
     load = att.bus_load(vm[0], va[0])
@@ -212,7 +212,7 @@ def test_zero_injection_edge_bus_is_absorbed_and_reads_zero(setup):
         grown = att.absorb(vm[0], va[0], area)
         assert set(edge_zero) <= set(grown.tolist())  # absorbed into the interior
         e = att.boundary(grown)
-        assert (free[e] | (att.owner[e] < 0) | (e == att.slack)).all()  # the edge moved out
+        assert (free[e] | ~att.own[e] | (e == att.slack)).all()  # the edge moved out
         change = np.zeros(n, complex)
         change[c] = 0.05 * load[c]
         state = att.false_state(vm[0], va[0], area, change)
@@ -236,10 +236,10 @@ def test_the_interchange_consistent_attacker_holds_every_bus_outside_new_york(se
     net, vm, va = att.net, vms[0], vas[0]
     case = net.case
     held = Attacker(net, meas, hold_external=True)
-    ext = held.owner < 0
+    ext = ~held.own
     assert held._held_bus(vm, va)[ext].all() and not att._held_bus(vm, va)[ext].all()
-    every = np.arange(len(held.owner))
-    assert (held.owner[held.free_injection_buses(vm, va, every)] >= 0).all()
+    every = np.arange(len(held.own))
+    assert held.own[held.free_injection_buses(vm, va, every)].all()
     for b in np.flatnonzero(case.is_ny)[:40]:
         inside = held.absorb(vm, va, np.array([b]))
-        assert (held.owner[inside] >= 0).all()  # never grown across the border
+        assert held.own[inside].all()  # never grown across the border

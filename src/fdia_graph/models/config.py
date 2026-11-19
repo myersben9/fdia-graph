@@ -25,6 +25,7 @@ from .choices import (
     Iso,
     Label,
     Layer,
+    LoadRule,
     MeterModel,
     Order,
     RatingSource,
@@ -224,7 +225,7 @@ _FLAT: dict[str, tuple[str, str]] = {
     "min_tamper": ("search", "min_tamper"),
     "min_budget": ("search", "min_budget"),
 }
-_TOP = ("attacked_frac", "families", "am_len", "max_load_mw", "workers", "split_by")
+_TOP = ("attacked_frac", "families", "am_len", "max_load_mw", "workers", "split_by", "loads")
 
 
 @dataclass(frozen=True)
@@ -233,7 +234,8 @@ class TimelineSettings(Validated):
     frames under an episode, the `families` generated (At and Am), the overload Am's length `am_len`
     (None: the ramp's), the load cap `max_load_mw` (None: off) and the processes the Am designs run on
     (`workers`; the result does not depend on it). `split_by` cuts the splits as three blocks in time
-    order or as whole weeks (`SplitBy`). `generate_timeline` also takes every field as a flat keyword
+    order or as whole weeks (`SplitBy`). `loads` says how the pool's injections divide into load and
+    generation (`LoadRule`: "net" for a pool solved by an OPF). `generate_timeline` also takes every field as a flat keyword
     (`TimelineSettings.of`)."""
 
     attacked_frac: Annotated[float, InRange(0.0, 1.0, lo_closed=True, hi_closed=True)] = 0.5
@@ -248,6 +250,7 @@ class TimelineSettings(Validated):
     workers: Count = 1
     am_attack: Annotated[str, OneOf(AmAttack)] = "overload"  # [WU26]'s overload attack, the one kind
     split_by: Annotated[str, OneOf(SplitBy), WhenSet(legacy="time")] = "time"
+    loads: Annotated[str, OneOf(LoadRule), WhenSet(legacy="scaled")] = "scaled"
 
     @property
     def am_frames(self) -> int:
