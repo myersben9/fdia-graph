@@ -1960,11 +1960,29 @@
 the public API, the generated files and the numbers are the same as the previous release.</p>
 <h2 id="unreleased">Unreleased<a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
 <ul>
-<li><strong>Docs: the six remaining wide diagrams are redrawn for a phone (no change to the packages).</strong>
+<li>
+<p><strong>The original generator reads a dispatched pool, and picks its targets on the grid's own buses.</strong>
+  New setting <code>loads</code> of <code>TimelineSettings</code> (<code>LoadRule</code>): <code>"scaled"</code> (default) reads a bus's load and
+  generation by the one factor a scaled pool applied to both, as before; <code>"net"</code> reads a pool solved by
+  an OPF, where a bus with a unit is all generation and any other bus all load. The two rules are the
+  classes <code>ScaledSplit</code> and <code>NetSplit</code> (<code>engine/physics.py</code>), and <code>FdiaGenerator</code> takes one as <code>split</code>.
+  <code>Case.own_bus</code> marks the grid's own buses (every bus of an IEEE case, the 46 New York buses of the New
+  York case); ramp targets, the units an overload may move and an overload's target branches are held
+  to them, and <code>Attacker</code> reads the same mark where it read the meter plan's owners.
+  <code>SearchSource.for_pool(net, pool, settings)</code> runs the original generator on a New York pool file.
+  Removed: <code>formulas.attacks.bus_load</code> (now <code>LoadSplit.load</code>), <code>FdiaGenerator.load_base</code> and <code>gen_base</code>
+  (now <code>split.base_load</code>, <code>ScaledSplit.gen_base</code>), <code>Attacker.owner</code> (now <code>Attacker.own</code>);
+  <code>formulas.attacks.operating_limits</code> takes the pool's generator output in place of the pool and the
+  base tables. Every IEEE timeline and every New York release timeline is byte for byte what it was; a
+  file records <code>loads</code> only when it is not the default.</p>
+</li>
+<li>
+<p><strong>Docs: the six remaining wide diagrams are redrawn for a phone (no change to the packages).</strong>
   <code>concepts_one_record</code>, <code>localization_flow</code>, <code>se_estimators</code>, <code>se_gated_prior</code>, <code>se_jacobian_weighting</code>
   and <code>trust_flow</code> are now top to bottom, at most 8 nodes and 900 px wide, checked against the code, with
   alt texts that describe them. <code>NOT_YET_REDRAWN</code> in <code>tools/prereview.py</code> and the stylesheet's exempt
-  list hold <code>pipeline</code> only. What changed in the pictures:</li>
+  list hold <code>pipeline</code> only. What changed in the pictures:</p>
+</li>
 </ul>
 <table>
 <thead>
