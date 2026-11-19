@@ -1923,38 +1923,44 @@ to attack.</p>
 </tr>
 <tr>
 <td><code>a</code></td>
-<td>the attack vector <code>[L, M]</code>, added to each scan</td>
+<td>the attack vector <code>[L, M]</code>, one column per meter of the source's plan, added to each scan</td>
 </tr>
 <tr>
 <td><code>buses</code></td>
-<td>the buses it attacks</td>
+<td>the buses it attacks, as the episode table records them</td>
 </tr>
 <tr>
 <td><code>clients</code></td>
-<td>the owners of the meters it moves</td>
+<td>the owners of the meters it moves; the file does not store it</td>
 </tr>
 <tr>
 <td><code>target_branch</code></td>
-<td>the branch it is anchored on; -1 for none</td>
+<td>a branch it is anchored on, -1 for none; the file does not store it</td>
 </tr>
 </tbody>
 </table>
+<p>The per-frame labels and tamper masks come from the vector itself: a meter is tampered where the
+vector moves its reading by more than its accuracy class, and a bus is labelled where a tampered
+meter sits. <code>M</code> and the place of each meter are the plan's, <code>source.g.plan</code>, which you can have before the source exists: <code>MeterPlan.from_coverage(net.case, settings.meters, np.random.default_rng(seed))</code> is the plan a source with that seed draws.</p>
 <p><strong>Saying why there is no attack.</strong> When <code>design</code> returns <code>None</code>, set
 <code>self.last_miss = "no_target"</code> if the window held nothing to attack. <code>design_explained</code> then
 reports <code>no_target</code>. A <code>None</code> left unexplained reads as <code>infeasible</code>.</p>
-<p><strong>Limiting the onsets.</strong> Override <code>onset_mask(vm, va, length)</code> to hold the family to the frames
-it may start at. It receives the states of the whole pool, <code>[T, N]</code>, and returns one flag per
-frame. The default allows any frame.</p>
+<p><strong>Refusing an onset.</strong> Return <code>None</code> at an onset the family will not take. The episode then
+moves to another free onset of its split, up to 20 times.</p>
 <p><strong>Keeping it stealthy.</strong> An attack the residual test should not see has to change the readings
-as <code>h(x_false) - h(x_true)</code> for a false state, as the package's <code>Attacker</code> does
+as <code>h(x_false) - h(x_true)</code> for a false state, as the package's own designs do
 (<a href="../../concepts/attacks/#the-local-false-state">The attack families</a>). A family that does not,
 like the example's slow bias, is the naive attack the residual test is meant to catch. It is
 useful as a baseline.</p>
-<p><strong>Where it plugs in today.</strong> <code>NewYorkSource</code> takes its families as a dictionary, name to
-family, beside the package's own. <code>source.generate(path)</code> then places, designs and writes its
-episodes like theirs. The dictionary key may be any name, but <code>Episode.family</code> must be a name
-in <code>fg.FAMILIES</code>. A <code>SearchSource</code> builds its two families itself and takes none from the
-caller.</p>
+<p><strong>Where it plugs in.</strong> <code>SearchSource</code>, <code>IeeeSource</code> and <code>SearchSource.for_pool</code> take
+<code>families=</code>, a dictionary from a family's name to a family object:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">source</span> <span class="o">=</span> <span class="n">SearchSource</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">pool</span><span class="p">,</span> <span class="n">settings</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">families</span><span class="o">=</span><span class="p">{</span><span class="s2">"At"</span><span class="p">:</span> <span class="n">MyFamily</span><span class="p">()})</span>
+</code></pre></div>
+<p>The key is <code>"At"</code> or <code>"Am"</code>: your family takes the place of the search family of that name, and
+its episodes are placed with that name's length and share. <code>source.generate(path)</code> then places,
+designs and writes its episodes like the package's own. <code>Episode.family</code> must be a name in
+<code>fg.FAMILIES</code>; the file stores that name's code
+(<a href="../generation/#a-design-family-of-your-own">Generate a timeline</a>).</p>
 <p>Example:
 <a href="https://github.com/myersben9/fdia-graph/blob/main/examples/nygrid/custom_attack_family.py">custom_attack_family.py</a>.</p>
 <h2 id="an-alarm-rule">An alarm rule<a class="headerlink" href="#an-alarm-rule" title="Permanent link">&para;</a></h2>
@@ -1962,31 +1968,31 @@ caller.</p>
 a residual sum, a gap between two meters, or any score. <code>AlarmRule</code> is a protocol in the
 analysis toolkit, in <code>se/detect/rules.py</code> under <code>analysis/src/fdia_analysis/</code>. Any object with
 this method is a rule:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fdia_analysis.se.detect.rules</span><span class="w"> </span><span class="kn">import</span> <span class="n">AlarmRule</span><span class="p">,</span> <span class="n">PersistenceRule</span>
-<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>
-<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>
-<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="k">class</span><span class="w"> </span><span class="nc">FirstOver</span><span class="p">:</span>
-<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">    </span><span class="sd">"""Alarm at the first scan above a fixed level."""</span>
-<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>
-<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">level</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">level</span> <span class="o">=</span> <span class="n">level</span>
-<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>
-<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">first_alarm</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">stat</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
-<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a>        <span class="n">hit</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">flatnonzero</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">stat</span><span class="p">)</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">level</span><span class="p">)</span>
-<a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a>        <span class="k">return</span> <span class="nb">int</span><span class="p">(</span><span class="n">hit</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">hit</span><span class="p">)</span> <span class="k">else</span> <span class="o">-</span><span class="mi">1</span>
-<a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a>
-<a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a>
-<a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a><span class="n">rule</span> <span class="o">=</span> <span class="n">FirstOver</span><span class="p">(</span><span class="mf">3.0</span><span class="p">)</span>
-<a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a><span class="nb">print</span><span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">rule</span><span class="p">,</span> <span class="n">AlarmRule</span><span class="p">))</span>          <span class="c1"># True</span>
-<a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a><span class="nb">print</span><span class="p">(</span><span class="n">rule</span><span class="o">.</span><span class="n">first_alarm</span><span class="p">([</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">2.0</span><span class="p">,</span> <span class="mf">4.0</span><span class="p">]))</span>    <span class="c1"># 2</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fdia_analysis.se.detect.rules</span><span class="w"> </span><span class="kn">import</span> <span class="n">AlarmRule</span><span class="p">,</span> <span class="n">PersistenceRule</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="k">class</span><span class="w"> </span><span class="nc">FirstOver</span><span class="p">:</span>
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="w">    </span><span class="sd">"""Alarm at the first scan above a fixed level."""</span>
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>
+<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">level</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">level</span> <span class="o">=</span> <span class="n">level</span>
+<a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a>
+<a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">first_alarm</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">stat</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a>        <span class="n">hit</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">flatnonzero</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">stat</span><span class="p">)</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">level</span><span class="p">)</span>
+<a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a>        <span class="k">return</span> <span class="nb">int</span><span class="p">(</span><span class="n">hit</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">hit</span><span class="p">)</span> <span class="k">else</span> <span class="o">-</span><span class="mi">1</span>
+<a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a>
+<a id="__codelineno-2-16" name="__codelineno-2-16" href="#__codelineno-2-16"></a>
+<a id="__codelineno-2-17" name="__codelineno-2-17" href="#__codelineno-2-17"></a><span class="n">rule</span> <span class="o">=</span> <span class="n">FirstOver</span><span class="p">(</span><span class="mf">3.0</span><span class="p">)</span>
+<a id="__codelineno-2-18" name="__codelineno-2-18" href="#__codelineno-2-18"></a><span class="nb">print</span><span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">rule</span><span class="p">,</span> <span class="n">AlarmRule</span><span class="p">))</span>          <span class="c1"># True</span>
+<a id="__codelineno-2-19" name="__codelineno-2-19" href="#__codelineno-2-19"></a><span class="nb">print</span><span class="p">(</span><span class="n">rule</span><span class="o">.</span><span class="n">first_alarm</span><span class="p">([</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">2.0</span><span class="p">,</span> <span class="mf">4.0</span><span class="p">]))</span>    <span class="c1"># 2</span>
 </code></pre></div>
 <p>The package ships one rule, <code>PersistenceRule</code>: it alarms when <code>k</code> of the last <code>n</code> statistics
 exceed a threshold (2 of 3 by default), which a single noisy scan cannot trip.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">benign</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">default_rng</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">normal</span><span class="p">(</span><span class="n">size</span><span class="o">=</span><span class="mi">2000</span><span class="p">)</span>
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="n">rule</span> <span class="o">=</span> <span class="n">PersistenceRule</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">benign</span><span class="p">,</span> <span class="n">q</span><span class="o">=</span><span class="mf">99.9</span><span class="p">)</span>
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="nb">print</span><span class="p">(</span><span class="n">rule</span><span class="o">.</span><span class="n">first_alarm</span><span class="p">(</span><span class="n">benign</span><span class="p">[:</span><span class="mi">300</span><span class="p">]))</span>  <span class="c1"># -1</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="n">benign</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">default_rng</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">normal</span><span class="p">(</span><span class="n">size</span><span class="o">=</span><span class="mi">2000</span><span class="p">)</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="n">rule</span> <span class="o">=</span> <span class="n">PersistenceRule</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">benign</span><span class="p">,</span> <span class="n">q</span><span class="o">=</span><span class="mf">99.9</span><span class="p">)</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="nb">print</span><span class="p">(</span><span class="n">rule</span><span class="o">.</span><span class="n">first_alarm</span><span class="p">(</span><span class="n">benign</span><span class="p">[:</span><span class="mi">300</span><span class="p">]))</span>  <span class="c1"># -1</span>
 </code></pre></div>
 <ul>
 <li>Calibrate a rule on benign scans only. <code>PersistenceRule.fit</code> takes a percentile of benign
@@ -2027,54 +2033,55 @@ zone codes of that file's legend (1 to 11 the NYISO load zones, 12 to 15 the nei
 whose parts disagree is refused with a <code>DataConditionError</code> that names the file and what is
 wrong.</p>
 <p>A <code>SearchSource</code> generates a timeline on any <code>Network</code>:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="kn">import</span><span class="w"> </span><span class="nn">pandapower</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pp</span>
-<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="kn">import</span><span class="w"> </span><span class="nn">pandapower.networks</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pn</span>
-<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>
-<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="kn">import</span><span class="w"> </span><span class="nn">fdia_graph</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">fg</span>
-<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fdia_graph.data.profiles</span><span class="w"> </span><span class="kn">import</span> <span class="n">RawSeries</span>
-<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fdia_graph.generation.search</span><span class="w"> </span><span class="kn">import</span> <span class="n">SearchSource</span>
-<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fdia_graph.models.config</span><span class="w"> </span><span class="kn">import</span> <span class="n">TimelineSettings</span>
-<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fdia_graph.systems.case</span><span class="w"> </span><span class="kn">import</span> <span class="n">Case</span>
-<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fdia_graph.systems.network</span><span class="w"> </span><span class="kn">import</span> <span class="n">Network</span>
-<a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a>
-<a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a><span class="n">net</span> <span class="o">=</span> <span class="n">pn</span><span class="o">.</span><span class="n">case14</span><span class="p">()</span>
-<a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a><span class="n">pp</span><span class="o">.</span><span class="n">runpp</span><span class="p">(</span><span class="n">net</span><span class="p">)</span>
-<a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a><span class="n">grid</span> <span class="o">=</span> <span class="n">Network</span><span class="p">(</span><span class="n">Case</span><span class="o">.</span><span class="n">from_pandapower</span><span class="p">(</span><span class="n">net</span><span class="p">))</span>
-<a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a>
-<a id="__codelineno-3-16" name="__codelineno-3-16" href="#__codelineno-3-16"></a><span class="c1"># a pool for this grid: [T, N, 4], one solved state per frame</span>
-<a id="__codelineno-3-17" name="__codelineno-3-17" href="#__codelineno-3-17"></a><span class="n">hours</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">300</span><span class="p">)</span> <span class="o">/</span> <span class="mf">60.0</span>
-<a id="__codelineno-3-18" name="__codelineno-3-18" href="#__codelineno-3-18"></a><span class="n">profile</span> <span class="o">=</span> <span class="n">fg</span><span class="o">.</span><span class="n">load_profile</span><span class="p">(</span><span class="n">RawSeries</span><span class="p">(</span><span class="mi">100</span> <span class="o">+</span> <span class="mi">10</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">hours</span><span class="p">)))</span>
-<a id="__codelineno-3-19" name="__codelineno-3-19" href="#__codelineno-3-19"></a><span class="n">pool</span> <span class="o">=</span> <span class="n">fg</span><span class="o">.</span><span class="n">generate_states</span><span class="p">(</span><span class="s2">"ieee14"</span><span class="p">,</span> <span class="n">profile</span><span class="p">)</span>
-<a id="__codelineno-3-20" name="__codelineno-3-20" href="#__codelineno-3-20"></a>
-<a id="__codelineno-3-21" name="__codelineno-3-21" href="#__codelineno-3-21"></a><span class="n">settings</span> <span class="o">=</span> <span class="n">TimelineSettings</span><span class="o">.</span><span class="n">of</span><span class="p">(</span>
-<a id="__codelineno-3-22" name="__codelineno-3-22" href="#__codelineno-3-22"></a>    <span class="n">families</span><span class="o">=</span><span class="p">(</span><span class="s2">"At"</span><span class="p">,),</span> <span class="n">ramp_len</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span> <span class="n">min_tamper</span><span class="o">=</span><span class="kc">False</span>
-<a id="__codelineno-3-23" name="__codelineno-3-23" href="#__codelineno-3-23"></a><span class="p">)</span>
-<a id="__codelineno-3-24" name="__codelineno-3-24" href="#__codelineno-3-24"></a><span class="n">source</span> <span class="o">=</span> <span class="n">SearchSource</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">pool</span><span class="p">,</span> <span class="n">settings</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
-<a id="__codelineno-3-25" name="__codelineno-3-25" href="#__codelineno-3-25"></a><span class="n">path</span> <span class="o">=</span> <span class="n">source</span><span class="o">.</span><span class="n">generate</span><span class="p">(</span><span class="s2">"own_grid.h5"</span><span class="p">)</span>
-<a id="__codelineno-3-26" name="__codelineno-3-26" href="#__codelineno-3-26"></a><span class="nb">print</span><span class="p">(</span><span class="n">fg</span><span class="o">.</span><span class="n">FdiaGraph</span><span class="p">(</span><span class="n">path</span><span class="p">)</span><span class="o">.</span><span class="n">summary</span><span class="p">())</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="kn">import</span><span class="w"> </span><span class="nn">pandapower</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pp</span>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="kn">import</span><span class="w"> </span><span class="nn">pandapower.networks</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pn</span>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="kn">import</span><span class="w"> </span><span class="nn">fdia_graph</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">fg</span>
+<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fdia_graph.data.profiles</span><span class="w"> </span><span class="kn">import</span> <span class="n">RawSeries</span>
+<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fdia_graph.generation.search</span><span class="w"> </span><span class="kn">import</span> <span class="n">SearchSource</span>
+<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fdia_graph.models.config</span><span class="w"> </span><span class="kn">import</span> <span class="n">TimelineSettings</span>
+<a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fdia_graph.systems.case</span><span class="w"> </span><span class="kn">import</span> <span class="n">Case</span>
+<a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fdia_graph.systems.network</span><span class="w"> </span><span class="kn">import</span> <span class="n">Network</span>
+<a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a>
+<a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a><span class="n">net</span> <span class="o">=</span> <span class="n">pn</span><span class="o">.</span><span class="n">case14</span><span class="p">()</span>
+<a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a><span class="n">pp</span><span class="o">.</span><span class="n">runpp</span><span class="p">(</span><span class="n">net</span><span class="p">)</span>
+<a id="__codelineno-4-14" name="__codelineno-4-14" href="#__codelineno-4-14"></a><span class="n">grid</span> <span class="o">=</span> <span class="n">Network</span><span class="p">(</span><span class="n">Case</span><span class="o">.</span><span class="n">from_pandapower</span><span class="p">(</span><span class="n">net</span><span class="p">))</span>
+<a id="__codelineno-4-15" name="__codelineno-4-15" href="#__codelineno-4-15"></a>
+<a id="__codelineno-4-16" name="__codelineno-4-16" href="#__codelineno-4-16"></a><span class="c1"># a pool for this grid: [T, N, 4], one solved state per frame</span>
+<a id="__codelineno-4-17" name="__codelineno-4-17" href="#__codelineno-4-17"></a><span class="n">hours</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">300</span><span class="p">)</span> <span class="o">/</span> <span class="mf">60.0</span>
+<a id="__codelineno-4-18" name="__codelineno-4-18" href="#__codelineno-4-18"></a><span class="n">profile</span> <span class="o">=</span> <span class="n">fg</span><span class="o">.</span><span class="n">load_profile</span><span class="p">(</span><span class="n">RawSeries</span><span class="p">(</span><span class="mi">100</span> <span class="o">+</span> <span class="mi">10</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">hours</span><span class="p">)))</span>
+<a id="__codelineno-4-19" name="__codelineno-4-19" href="#__codelineno-4-19"></a><span class="n">pool</span> <span class="o">=</span> <span class="n">fg</span><span class="o">.</span><span class="n">generate_states</span><span class="p">(</span><span class="s2">"ieee14"</span><span class="p">,</span> <span class="n">profile</span><span class="p">)</span>
+<a id="__codelineno-4-20" name="__codelineno-4-20" href="#__codelineno-4-20"></a>
+<a id="__codelineno-4-21" name="__codelineno-4-21" href="#__codelineno-4-21"></a><span class="n">settings</span> <span class="o">=</span> <span class="n">TimelineSettings</span><span class="o">.</span><span class="n">of</span><span class="p">(</span>
+<a id="__codelineno-4-22" name="__codelineno-4-22" href="#__codelineno-4-22"></a>    <span class="n">families</span><span class="o">=</span><span class="p">(</span><span class="s2">"At"</span><span class="p">,),</span> <span class="n">ramp_len</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span> <span class="n">min_tamper</span><span class="o">=</span><span class="kc">False</span>
+<a id="__codelineno-4-23" name="__codelineno-4-23" href="#__codelineno-4-23"></a><span class="p">)</span>
+<a id="__codelineno-4-24" name="__codelineno-4-24" href="#__codelineno-4-24"></a><span class="n">source</span> <span class="o">=</span> <span class="n">SearchSource</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">pool</span><span class="p">,</span> <span class="n">settings</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<a id="__codelineno-4-25" name="__codelineno-4-25" href="#__codelineno-4-25"></a><span class="n">path</span> <span class="o">=</span> <span class="n">source</span><span class="o">.</span><span class="n">generate</span><span class="p">(</span><span class="s2">"own_grid.h5"</span><span class="p">)</span>
+<a id="__codelineno-4-26" name="__codelineno-4-26" href="#__codelineno-4-26"></a><span class="nb">print</span><span class="p">(</span><span class="n">fg</span><span class="o">.</span><span class="n">FdiaGraph</span><span class="p">(</span><span class="n">path</span><span class="p">)</span><span class="o">.</span><span class="n">summary</span><span class="p">())</span>
 </code></pre></div>
 <p>The example borrows the IEEE-14 pool builder, because <code>pn.case14()</code> is that grid. For a grid of
-your own you bring the pool. Two things hold for it today:</p>
+your own you bring the pool. Two things hold for it:</p>
 <ul>
 <li><code>fg.generate_states</code> builds pools for the eight IEEE cases only.</li>
-<li>The search-based designs read a scan's load and generation from its state by the rule of the
-  IEEE pools: each bus's load and generation scaled by one factor, load positive. A pool built
-  another way does not fit them.</li>
+<li>A pool stores each bus's injection with load positive. The setting <code>loads</code> says how the
+  designs divide it into load and generation: <code>"scaled"</code> for a pool made by scaling the case,
+  <code>"net"</code> for a dispatched pool
+  (<a href="../generation/#how-a-pools-load-is-read">How a pool's load is read</a>).</li>
 </ul>
 <p>One source generates one timeline. A second <code>generate</code> on the same <code>SearchSource</code> is refused;
 build a new source.</p>
 <p>To change the New York grid itself, edit its case file
 (<a href="../../concepts/test_systems/#the-new-york-case-file">Test systems</a>). Edit rows in place, or add
 and delete whole rows. A variant in code is a copy, never a change in place:
-<code>hvdc_links(case)</code>, <code>externals_at_base(case, base)</code>, <code>case.with_voltage_margin(0.02)</code>.</p>
+<code>hvdc_links(case)</code>, <code>externals_at_base(case, base)</code> (<code>systems/fixes.py</code>).</p>
 <h2 id="what-an-extension-should-keep-to">What an extension should keep to<a class="headerlink" href="#what-an-extension-should-keep-to" title="Permanent link">&para;</a></h2>
 <ul>
 <li><strong>Named errors.</strong> Raise the errors of <code>fdia_graph.errors</code>: <code>ConfigError</code> for a wrong
   argument, a <code>DataConditionError</code> for data that does not meet a condition, <code>SolverUnavailable</code>
   for an environment that cannot run the solver.</li>
 <li><strong>Settings are arguments.</strong> A setting is an argument of the function or constructor that uses
-  it. A variant is a copy, such as <code>InterfaceFdia.with_overshoot(mw)</code>.</li>
+  it. A variant is a copy, never a change in place.</li>
 </ul>
 <p>Changing the package itself is covered in
 <a href="https://github.com/myersben9/fdia-graph/blob/main/CONTRIBUTING.md">Contributing</a>.</p>

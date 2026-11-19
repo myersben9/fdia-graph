@@ -1090,15 +1090,15 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#two-design-approaches" class="md-nav__link">
+  <a href="#the-designs" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Two design approaches
+        The designs
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Two design approaches">
+    <nav class="md-nav" aria-label="The designs">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -1113,10 +1113,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#the-optimisation-based-designs" class="md-nav__link">
+  <a href="#a-family-of-your-own" class="md-nav__link">
     <span class="md-ellipsis">
       
-        The optimisation-based designs
+        A family of your own
       
     </span>
   </a>
@@ -1883,15 +1883,15 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#two-design-approaches" class="md-nav__link">
+  <a href="#the-designs" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Two design approaches
+        The designs
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Two design approaches">
+    <nav class="md-nav" aria-label="The designs">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -1906,10 +1906,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#the-optimisation-based-designs" class="md-nav__link">
+  <a href="#a-family-of-your-own" class="md-nav__link">
     <span class="md-ellipsis">
       
-        The optimisation-based designs
+        A family of your own
       
     </span>
   </a>
@@ -2020,7 +2020,7 @@ limits of the case [WU26, eqs. 21-23].</p>
 <tr>
 <td><code>Am</code>, the overload</td>
 <td>7</td>
-<td>the reported flow of a line or an interface rises to its limit</td>
+<td>the reported flow of a line rises to its rating</td>
 </tr>
 </tbody>
 </table>
@@ -2030,59 +2030,46 @@ none. Its ramp profile is described in [DAT26], and the published attack it foll
 <p><strong><code>Am</code></strong> is the multi-snapshot overload attack of [WU26, eqs. 24-25]. Over the window the
 reported flow of the target moves from its true value to its limit. The operator sees a line
 about to overload that is not.</p>
-<h2 id="two-design-approaches">Two design approaches<a class="headerlink" href="#two-design-approaches" title="Permanent link">&para;</a></h2>
-<p>A design decides what an episode changes on each frame. Two approaches exist today, and the
-design family is tied to the test system: a <code>SearchSource</code> (the IEEE cases) uses the
-search-based designs, and a <code>NewYorkSource</code> uses the optimisation-based designs.</p>
+<h2 id="the-designs">The designs<a class="headerlink" href="#the-designs" title="Permanent link">&para;</a></h2>
+<p>A design decides what an episode changes on each frame. The package's designs are search-based,
+and they run on every test system: the IEEE cases and the New York case.</p>
 <table>
 <thead>
 <tr>
 <th></th>
-<th>Search-based</th>
-<th>Optimisation-based</th>
+<th><code>At</code></th>
+<th><code>Am</code></th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>Test systems today</td>
-<td>the IEEE cases</td>
-<td>the New York case</td>
-</tr>
-<tr>
-<td><code>At</code></td>
+<td>Family class</td>
 <td><code>SearchRamp</code></td>
-<td><code>Ramp</code></td>
-</tr>
-<tr>
-<td><code>Am</code></td>
 <td><code>SearchOverload</code></td>
-<td><code>InterfaceFdia</code></td>
 </tr>
 <tr>
-<td><code>Am</code> targets</td>
+<td>Targets</td>
+<td>up to 5 loads</td>
 <td>one or two lines, at their ratings</td>
-<td>a transmission interface, at its limit</td>
 </tr>
 <tr>
 <td>False state from</td>
 <td>a local AC solve in numpy</td>
-<td>a local OPF in Ipopt (<code>Am</code>)</td>
+<td>a local AC solve in numpy</td>
 </tr>
 <tr>
 <td>Designed</td>
-<td><code>Am</code> before its split is walked; <code>At</code> as the walk reaches it</td>
-<td>every episode before its split is walked</td>
+<td>as the walk reaches it</td>
+<td>before its split is walked</td>
 </tr>
 </tbody>
 </table>
 <p>Every family answers the same question for the timeline: the episode of a window
 (<code>EpisodeFamily.designed</code> in <code>engine/attacks/family.py</code>). That is why one path generates every
 timeline (<a href="../../guides/generation/">Generate a timeline</a>).</p>
-<p>The two approaches cannot be swapped between systems today, for two reasons stated in the code.
-Each reads its own meter placement. And the search-based designs read a scan's load and
-generation from its state by the rule of the IEEE pools, which scale a bus's load and generation
-by one factor (<code>formulas/attacks.py</code>). A dispatched pool such as New York's does not follow that
-rule.</p>
+<p>The designs read a scan's load and generation from its state. How a bus's injection divides
+into the two is the setting <code>loads</code>
+(<a href="../../guides/generation/#how-a-pools-load-is-read">How a pool's load is read</a>).</p>
 <h3 id="the-search-based-designs">The search-based designs<a class="headerlink" href="#the-search-based-designs" title="Permanent link">&para;</a></h3>
 <p>The designs are methods of the generator <code>FdiaGenerator</code>: <code>ramp_design</code> and
 <code>am_overload_design</code> (<code>engine/attacks/episodes.py</code>). Settings are in <code>TimelineSettings</code>
@@ -2223,43 +2210,17 @@ keeps the one whose attack changes the fewest devices beyond noise
 </table>
 <!-- /results -->
 
-<h3 id="the-optimisation-based-designs">The optimisation-based designs<a class="headerlink" href="#the-optimisation-based-designs" title="Permanent link">&para;</a></h3>
-<p>The designs are classes on one <code>Attacker</code> (<code>engine/attacks/attacker.py</code>), which holds a
-<code>Network</code> and a <code>Measurement</code>. <code>Attacker.area</code> finds the local area, <code>Attacker.false_state</code>
-re-solves it, and <code>Attacker.attack_vector</code> gives the change of every reading.</p>
-<p>Each family subclasses <code>AttackFamily</code> and returns an <code>Episode</code> (<code>models/plan.py</code>) from
-<code>design(window, rng)</code>, or <code>None</code> when the window holds no attack. The window is the true state
-over the frames the episode would cover.</p>
-<p><strong><code>At</code>: <code>Ramp</code></strong> (<code>engine/attacks/ramp.py</code>).</p>
-<ul>
-<li>It ramps up to 4 load buses at once inside an area of 2 hops.</li>
-<li>The rise is 40 % of the window and the hold 20 %.</li>
-<li>A step may use at most 0.9 of a bus's natural five-minute swing over the window.</li>
-<li>The false state comes from <code>Attacker.false_state</code>, a local AC solve in numpy in which the
-  other loads and units of the area absorb the change.</li>
-</ul>
-<p><strong><code>Am</code>: <code>InterfaceFdia</code></strong> (<code>engine/attacks/interface.py</code>), on its base <code>OpfFdia</code>
-(<code>engine/attacks/opf.py</code>).</p>
-<ul>
-<li>The target is a transmission interface: a set of branches whose summed flow the operator
-  limits. <code>Interface</code> (<code>systems/interfaces.py</code>) holds its branches with its real hourly limit
-  and flow.</li>
-<li>An onset is allowed only where, in the hour of the window's last rise scan, an interface's
-  real flow is at least 0.9 of its real limit (<code>onset_mask</code>).</li>
-<li>The goal adds that hour's real headroom to the model's interface flow.</li>
-<li><code>NewYorkSource.production</code> uses a window of 32 scans: 16 to rise, then 16 to unwind. On the
-  unwind each load bus moves by at most its natural five-minute step (<code>natural_steps</code>).</li>
-<li>Each false state is a local AC OPF solved by Ipopt. The search tries supports grown from the
-  interface's end buses, smallest first, at most 32 per search (<code>SUPPORT_BUDGET</code>).</li>
-<li>The bounds keep the false state plausible: a shown load changes by at most 0.1 of its true
-  value; a unit moves within its five-minute ramp and within 3 % of its upper limit around its
-  dispatched output; reactive output stays within the unit's capability.</li>
-<li>The design kept is the one that tampers the fewest meters.</li>
-</ul>
-<p>A design that finds no attack says why (<code>design_explained</code>): <code>no_target</code>, <code>infeasible</code> or
-<code>solver_error</code> (<a href="../../guides/troubleshooting/#the-timeline">Troubleshooting</a>).</p>
-<p>The attacker's area may span utilities, and the attack vector is written on every meter it
-moves, whoever owns it. <code>Episode.clients</code> records the owners of those meters.</p>
+<h3 id="a-family-of-your-own">A family of your own<a class="headerlink" href="#a-family-of-your-own" title="Permanent link">&para;</a></h3>
+<p>A source takes design families of your own, each in place of the search family of one name
+(<a href="../../guides/generation/#a-design-family-of-your-own">Generate a timeline</a>). The simplest is a
+subclass of <code>AttackFamily</code> (<code>engine/attacks/family.py</code>). It returns an <code>Episode</code>
+(<code>models/plan.py</code>) from <code>design(window, rng)</code>, or <code>None</code> when the window holds no attack. The
+window is the true state over the frames the episode would cover. The episode holds one attack
+vector: a value for every meter on every frame. The walk adds each row to the true scan of its
+frame (<code>VectorEpisode</code>).</p>
+<p>A design that finds no attack can say why (<code>design_explained</code>): a reason the family sets in
+<code>last_miss</code>, <code>solver_error</code> when the family counted a failed solve, else <code>infeasible</code>.
+<a href="../../guides/extending/">Add a design family, an alarm rule or a test system</a> has the steps.</p>
 <h2 id="labels-and-the-tamper-masks">Labels and the tamper masks<a class="headerlink" href="#labels-and-the-tamper-masks" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -2302,29 +2263,30 @@ moves, whoever owns it. <code>Episode.clients</code> records the owners of those
 </tr>
 </tbody>
 </table>
-<p>What a 1 in a tamper mask means is declared in the file, in the attribute <code>tamper</code> of
-<code>attack/</code>. It differs between the two sources today.</p>
+<p>What a 1 in a tamper mask means depends on the family that designed the episode.</p>
 <table>
 <thead>
 <tr>
-<th>Source</th>
+<th>Family</th>
 <th>A meter is tampered</th>
 <th>A bus is attacked</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><code>SearchSource</code></td>
+<td><code>SearchRamp</code>, <code>SearchOverload</code></td>
 <td>where the attack changed the stored reading</td>
 <td>at the buses the design names</td>
 </tr>
 <tr>
-<td><code>NewYorkSource</code></td>
-<td>where the attack moves the reading by more than the meter's accuracy class</td>
+<td>a family of your own that designs an attack vector</td>
+<td>where the vector moves the reading by more than the meter's accuracy class</td>
 <td>where a tampered meter sits at the bus</td>
 </tr>
 </tbody>
 </table>
+<p>The file's attribute <code>tamper</code>, on <code>attack/</code>, states the rule of the package's own families, and
+both rules when the source was given a family of your own.</p>
 <p>In every file the observed scan minus the benign scan is the attack, exactly
 (<a href="../layers/">Layers and labels</a>).</p>
 <h2 id="what-the-released-files-additionally-contain">What the released files additionally contain<a class="headerlink" href="#what-the-released-files-additionally-contain" title="Permanent link">&para;</a></h2>
@@ -2406,7 +2368,7 @@ every voltmeter bus and no PMU currents (<a href="../meters/">Meters and noise</
 <tbody>
 <tr>
 <td><code>engine/attacks/family.py</code></td>
-<td><code>EpisodeFamily</code>, <code>AttackFamily</code>, <code>DesignedEpisode</code>: the interface</td>
+<td><code>EpisodeFamily</code>, <code>AttackFamily</code>, <code>DesignedEpisode</code>, <code>VectorEpisode</code>: what every family answers</td>
 </tr>
 <tr>
 <td><code>engine/attacks/search.py</code></td>
@@ -2439,22 +2401,6 @@ every voltmeter bus and no PMU currents (<a href="../meters/">Meters and noise</
 <tr>
 <td><code>engine/attacks/rref.py</code></td>
 <td>the support by row reduction</td>
-</tr>
-<tr>
-<td><code>engine/attacks/attacker.py</code></td>
-<td><code>Attacker</code>, and the unit ramps and bands it bounds by</td>
-</tr>
-<tr>
-<td><code>engine/attacks/ramp.py</code></td>
-<td><code>Ramp</code></td>
-</tr>
-<tr>
-<td><code>engine/attacks/opf.py</code></td>
-<td><code>OpfFdia</code>: the support search and the local OPF</td>
-</tr>
-<tr>
-<td><code>engine/attacks/interface.py</code></td>
-<td><code>InterfaceFdia</code>: the goal against an interface</td>
 </tr>
 </tbody>
 </table>

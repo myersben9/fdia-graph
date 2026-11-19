@@ -1052,10 +1052,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#two-placements" class="md-nav__link">
+  <a href="#the-placement" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Two placements
+        The placement
       
     </span>
   </a>
@@ -1884,10 +1884,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#two-placements" class="md-nav__link">
+  <a href="#the-placement" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Two placements
+        The placement
       
     </span>
   </a>
@@ -2111,67 +2111,52 @@ branch end at its bus.</p>
 </tr>
 </tbody>
 </table>
-<p>A plan uses one form of current, not both: <code>IR</code> and <code>II</code>, or <code>I</code> and <code>IA</code>.</p>
-<h3 id="two-placements">Two placements<a class="headerlink" href="#two-placements" title="Permanent link">&para;</a></h3>
-<p>There are two ways to place the meters today. Which one a timeline uses follows its source
-(<a href="../../guides/generation/#what-differs-between-the-ieee-cases-and-the-new-york-case-today">Generate a timeline</a>).</p>
+<p>A plan uses one form of current, not both: <code>IR</code> and <code>II</code>, or <code>I</code> and <code>IA</code>. The plan the package
+places uses <code>IR</code> and <code>II</code>. <code>I</code> and <code>IA</code> are the kinds of a file that stores its currents as
+magnitude and angle; <code>MeterPlan.from_masks</code> reads such a file's plan.</p>
+<h3 id="the-placement">The placement<a class="headerlink" href="#the-placement" title="Permanent link">&para;</a></h3>
+<p><code>MeterPlan.from_coverage</code> places the meters at random, on every test system.</p>
 <table>
 <thead>
 <tr>
-<th></th>
-<th>Random coverage</th>
-<th>Owned placement</th>
+<th>Meter</th>
+<th>Where</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>Function</td>
-<td><code>MeterPlan.from_coverage</code></td>
-<td><code>plan_meters</code></td>
-</tr>
-<tr>
-<td>Used by</td>
-<td><code>SearchSource</code> (the IEEE cases)</td>
-<td><code>NewYorkSource</code></td>
-</tr>
-<tr>
 <td><code>P</code>, <code>Q</code> injection</td>
 <td>every bus</td>
-<td>every New York bus</td>
 </tr>
 <tr>
 <td><code>P</code>, <code>Q</code> flow</td>
 <td>the from end of a random share of branches</td>
-<td>every branch end on a New York bus</td>
 </tr>
 <tr>
 <td>Voltmeters</td>
 <td>a random share of buses</td>
-<td>a random 60 % of New York buses</td>
 </tr>
 <tr>
 <td>PMUs</td>
 <td>a random share of buses, at least one</td>
-<td>the smallest set that sees every New York bus</td>
 </tr>
 <tr>
 <td>PMU currents</td>
-<td>real and imaginary part</td>
-<td>magnitude and angle</td>
+<td>every branch end at a PMU bus, as real and imaginary part</td>
 </tr>
 <tr>
 <td>Owner</td>
-<td>one client</td>
-<td>the utility that owns the bus</td>
+<td>one client; with the owners of the buses, the client of the meter's bus</td>
 </tr>
 </tbody>
 </table>
-<p><strong>Random coverage.</strong> <code>MeterSettings</code> gives the shares: <code>vbus_frac</code> 0.6, <code>pmu_frac</code> 0.2 and
+<p><code>MeterSettings</code> gives the shares: <code>vbus_frac</code> 0.6, <code>pmu_frac</code> 0.2 and
 <code>flow_frac</code> 0.9. The voltmeter buses are <code>int(0.6 N)</code> buses drawn at random, the PMU buses
 <code>max(1, int(0.2 N))</code>. Each branch gets a flow meter with probability 0.9.</p>
-<p><strong>Owned placement.</strong> Buses outside New York carry no meter. Each side of a tie line meters its
-own end. A PMU sees its own bus and the buses next to it, and the PMUs sit at the smallest set
-of buses that sees every New York bus.</p>
+<p>On the New York case the meters are drawn over all 140 buses, the neighbouring grids' included.
+A source built with <code>own=</code> gives each meter the client of its bus; a meter at a bus that
+belongs to no client has owner -1
+(<a href="../../guides/generation/#a-timeline-read-as-clients">Generate a timeline</a>).</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fdia_graph.constants.meters</span><span class="w"> </span><span class="kn">import</span> <span class="n">MeterKind</span>
@@ -2207,7 +2192,7 @@ timeline file they are layers: one array per bus, per branch and per PMU current
 </tr>
 <tr>
 <td><code>MeterPlan.from_masks</code></td>
-<td>rebuilds the table from a New York file's meter masks</td>
+<td>rebuilds the table from the meter masks of a file that records the client of each bus</td>
 </tr>
 </tbody>
 </table>
@@ -2234,9 +2219,8 @@ voltages through the admittances of the <code>Network</code>.</p>
 <a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="n">scan</span> <span class="o">=</span> <span class="n">NoiseModel</span><span class="p">(</span><span class="n">plan</span><span class="p">)</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="n">z</span><span class="p">,</span> <span class="n">rng</span><span class="p">)</span>  <span class="c1"># one noisy scan</span>
 <a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="nb">print</span><span class="p">(</span><span class="n">z</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">scan</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>            <span class="c1"># (86,) (86,)</span>
 </code></pre></div>
-<p>The sign of an injection differs between files today. An IEEE file stores load as positive, the
-sign its pool uses. A New York file stores generation minus load, the sign <code>Measurement.h</code>
-computes (<a href="../../reference/DATA_DICTIONARY/">Data dictionary</a>).</p>
+<p><code>Measurement.h</code> computes an injection from the voltages as generation minus load. A file stores
+load as positive, the sign an IEEE pool uses (<a href="../../reference/DATA_DICTIONARY/">Data dictionary</a>).</p>
 <h2 id="accuracy-classes">Accuracy classes<a class="headerlink" href="#accuracy-classes" title="Permanent link">&para;</a></h2>
 <p>Each meter kind has an accuracy class: the standard deviation of its total error. The classes
 follow [ASP14] and are in <code>constants/meters.py</code> (<code>ACCURACY_CLASS</code>, <code>KIND_ACCURACY</code>).</p>
@@ -2307,8 +2291,8 @@ power meter (<code>POWER_NOISE_FLOOR_MW</code>) and 0.00001 p.u. on a current (<
 <p>The squares of the two shares add to 1 (0.25² + 0.97² = 1), so bias and jitter together have
 the standard deviation of the class. On a relative meter the bias is a gain error. On
 an absolute meter it is an offset.</p>
-<p>The biases are drawn with the plan. With random coverage there is one draw for every bus and
-branch, metered or not (<code>MeterPlan.from_placement</code>).</p>
+<p>The biases are drawn with the plan: one draw for every bus and branch, metered or not
+(<code>MeterPlan.from_placement</code>).</p>
 <p>A reading is the exact value with its bias, plus the jitter of that scan (<code>NoiseModel.sample</code>).
 <code>NoiseModel.sigmas(z)</code> gives the total of both, which an estimator weights by.</p>
 <p>Treating the whole class as per-scan noise would make consecutive scans jump more than real

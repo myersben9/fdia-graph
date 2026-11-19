@@ -2019,23 +2019,13 @@ attacks solve again, and only on a small area of the grid.</p>
 </thead>
 <tbody>
 <tr>
-<td><code>At</code> and <code>Am</code> on the IEEE cases</td>
+<td><code>At</code> and <code>Am</code>, on every test system</td>
 <td>a local AC solve in numpy</td>
 <td><code>local_ac_solve</code>, <code>local_flow_solve</code> in <code>formulas/network.py</code></td>
 </tr>
-<tr>
-<td><code>At</code> on New York</td>
-<td>the same local solve</td>
-<td><code>Attacker.false_state</code> in <code>engine/attacks/attacker.py</code></td>
-</tr>
-<tr>
-<td><code>Am</code> on New York</td>
-<td>a local OPF, in Pyomo with Ipopt</td>
-<td><code>OpfFdia</code> in <code>engine/attacks/opf.py</code></td>
-</tr>
 </tbody>
 </table>
-<p><code>data/ipopt.py</code> has one function, <code>ipopt</code>. Every OPF gets its solver from it. It finds
+<p><code>data/ipopt.py</code> has one function, <code>ipopt</code>. Every OPF in Ipopt gets its solver from it. It finds
 Ipopt, checks that it starts, and raises <code>SolverUnavailable</code> with the fix when it does not.</p>
 <p><code>Case.from_ieee</code> also solves the base power flow of an IEEE case once, in pandapower.</p>
 <h2 id="what-to-install">What to install<a class="headerlink" href="#what-to-install" title="Permanent link">&para;</a></h2>
@@ -2056,8 +2046,12 @@ Ipopt, checks that it starts, and raises <code>SolverUnavailable</code> with the
 <td><code>pip install "fdia-graph[generate]"</code> (pandapower)</td>
 </tr>
 <tr>
-<td>build the New York pool or timeline</td>
+<td>build the New York pool</td>
 <td><code>pip install "fdia-graph[ny]"</code> (pandapower, Pyomo), and Ipopt</td>
+</tr>
+<tr>
+<td>generate a New York timeline from a pool</td>
+<td><code>pip install "fdia-graph[ny]"</code>; no Ipopt</td>
 </tr>
 </tbody>
 </table>

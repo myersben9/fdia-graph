@@ -2154,7 +2154,7 @@ NYgrid's <code>Data/</code> folder. A test checks that the recipe still reproduc
 exactly.</p>
 <p>A change to the grid is an edit to the file, one row per line. No code patches the case on the
 way in. A variant in code is a copy, never a change in place: <code>hvdc_links(case)</code> or
-<code>case.with_voltage_margin(0.02)</code>.</p>
+<code>externals_at_base(case, base)</code>.</p>
 <h3 id="what-the-reader-refuses">What the reader refuses<a class="headerlink" href="#what-the-reader-refuses" title="Permanent link">&para;</a></h3>
 <p><code>Case.from_matpower</code> reads the file with matpowercaseframes, the reader pandapower uses for
 <code>.m</code> files. A branch with status 0 is left out, and a tap ratio of 0, MATPOWER's mark of a
@@ -2241,12 +2241,8 @@ them. <code>PandapowerSolver</code> avoids it by giving every branch a placehold
 <td>two variants of the New York case, each a copy: <code>externals_at_base</code> and <code>hvdc_links</code></td>
 </tr>
 <tr>
-<td><code>interfaces.py</code></td>
-<td><code>Interface</code>: a New York transmission interface, its branches with its hourly limit and flow</td>
-</tr>
-<tr>
 <td><code>ownership.py</code></td>
-<td><code>Ownership</code>: which utility owns each New York bus</td>
+<td><code>Ownership</code>: the client that owns each bus; <code>assign_clients</code> gives each New York bus to its utility</td>
 </tr>
 <tr>
 <td><code>states.py</code></td>

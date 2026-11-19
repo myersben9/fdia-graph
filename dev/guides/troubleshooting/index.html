@@ -927,10 +927,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#a-searchsource-the-ieee-cases" class="md-nav__link">
+  <a href="#a-searchsource" class="md-nav__link">
     <span class="md-ellipsis">
       
-        A SearchSource (the IEEE cases)
+        A SearchSource
       
     </span>
   </a>
@@ -938,10 +938,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#a-newyorksource" class="md-nav__link">
+  <a href="#a-design-family-of-your-own" class="md-nav__link">
     <span class="md-ellipsis">
       
-        A NewYorkSource
+        A design family of your own
       
     </span>
   </a>
@@ -1917,10 +1917,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#a-searchsource-the-ieee-cases" class="md-nav__link">
+  <a href="#a-searchsource" class="md-nav__link">
     <span class="md-ellipsis">
       
-        A SearchSource (the IEEE cases)
+        A SearchSource
       
     </span>
   </a>
@@ -1928,10 +1928,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#a-newyorksource" class="md-nav__link">
+  <a href="#a-design-family-of-your-own" class="md-nav__link">
     <span class="md-ellipsis">
       
-        A NewYorkSource
+        A design family of your own
       
     </span>
   </a>
@@ -2080,8 +2080,8 @@ imports the script that started it.</p>
 </tr>
 <tr>
 <td><code>NotATimeline</code> from <code>Dataset</code></td>
-<td>the file is not a New York timeline</td>
-<td>open it with <code>fg.FdiaGraph</code></td>
+<td>the file does not record its clients</td>
+<td>open it with <code>fg.FdiaGraph</code>, or generate it with <code>own=</code></td>
 </tr>
 <tr>
 <td><code>MissingCapability</code></td>
@@ -2146,7 +2146,7 @@ imports the script that started it.</p>
 <tr>
 <td><code>DataConditionError: bus ... has no row in ...</code></td>
 <td>a bus has no location in the bus-location table</td>
-<td>fetch the inputs again (<code>build_timeline.py --fetch</code>)</td>
+<td>fetch the inputs again (<code>fetch_inputs</code> in <code>data/inputs.py</code>)</td>
 </tr>
 <tr>
 <td><code>DataConditionError: ... first hour has no AC point</code></td>
@@ -2240,7 +2240,7 @@ later.</p>
 <p>A file records what it could not build, per split and family, in the attributes
 <code>episodes_requested</code>, <code>episodes_built</code>, <code>episode_redraws</code>, <code>episodes_dropped</code> and
 <code>episode_shortfall</code>. <code>fallback_benign</code> counts the frames of an episode stored benign.</p>
-<h3 id="a-searchsource-the-ieee-cases">A <code>SearchSource</code> (the IEEE cases)<a class="headerlink" href="#a-searchsource-the-ieee-cases" title="Permanent link">&para;</a></h3>
+<h3 id="a-searchsource">A <code>SearchSource</code><a class="headerlink" href="#a-searchsource" title="Permanent link">&para;</a></h3>
 <table>
 <thead>
 <tr>
@@ -2275,107 +2275,34 @@ later.</p>
 <p>An overload window with no stealthy design is moved to another onset of its split. The
 measured IEEE-14 builds record their redraws and one shortfall
 (<a href="../generation/#entry-point-an-ieee-case">Generate a timeline</a>).</p>
-<h3 id="a-newyorksource">A <code>NewYorkSource</code><a class="headerlink" href="#a-newyorksource" title="Permanent link">&para;</a></h3>
-<table>
-<thead>
-<tr>
-<th>What you see</th>
-<th>Why</th>
-<th>Fix</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>DataConditionError: ...: branch f-t is not in the case in that orientation</code></td>
-<td>an interface names a branch the case does not hold</td>
-<td>check the case file and the interface data against the pinned inputs</td>
-</tr>
-<tr>
-<td><code>DataConditionError: ...: no rows in interflowHourly_&lt;year&gt;.csv</code></td>
-<td>no interface flows for that year</td>
-<td>fetch the inputs for the year you build</td>
-</tr>
-<tr>
-<td><code>DataConditionError: the pool must carry each unit's output</code></td>
-<td>the pool has no <code>unit_p</code></td>
-<td>build the pool with <code>run_pool.py</code></td>
-</tr>
-<tr>
-<td><code>ConfigError</code> on <code>NewYorkRelease</code></td>
-<td>a family other than <code>Am</code> and <code>At</code>, or <code>Am</code> with no interface</td>
-<td>fix the field the message names</td>
-</tr>
-</tbody>
-</table>
-<p>After <code>source.generate(path)</code>, <code>source.summary()</code> says what was built.</p>
-<table>
-<thead>
-<tr>
-<th>Key</th>
-<th>Counts</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>placed</code></td>
-<td>the slots placed, per split and family</td>
-</tr>
-<tr>
-<td><code>moved</code></td>
-<td>the moves of slots whose design found no attack</td>
-</tr>
-<tr>
-<td><code>built</code></td>
-<td>the episodes built</td>
-</tr>
-<tr>
-<td><code>given_up</code></td>
-<td>the slots given up after <code>REDRAWS</code> moves</td>
-</tr>
-<tr>
-<td><code>unsolved_attempts</code></td>
-<td>design attempts not made, because the window touched an unsolved frame</td>
-</tr>
-<tr>
-<td><code>missed</code></td>
-<td>why design attempts found no attack, per family</td>
-</tr>
-<tr>
-<td><code>survey_missed</code></td>
-<td>the same for the onset survey</td>
-</tr>
-</tbody>
-</table>
-<p><code>missed</code> counts attempts, not slots. A slot is tried again at every onset it moves to.</p>
+<h3 id="a-design-family-of-your-own">A design family of your own<a class="headerlink" href="#a-design-family-of-your-own" title="Permanent link">&para;</a></h3>
+<p>A family that subclasses <code>AttackFamily</code> can say why a design found no attack
+(<code>design_explained</code> in <code>engine/attacks/family.py</code>). After <code>source.generate(path)</code>,
+<code>source.designer.log</code> holds every design attempt of the run, each with its miss reason
+(<code>Tried.miss</code>). A slot is tried again at every onset it moves to, so the log counts attempts,
+not slots.</p>
 <table>
 <thead>
 <tr>
 <th>Miss reason</th>
 <th>Meaning</th>
-<th>What to do</th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td><code>no_target</code></td>
-<td>nothing to attack: no interface near its limit, or no load bus for a ramp</td>
-<td>if it covers every slot, the onset mask and the interface data disagree</td>
+<td>the family set <code>last_miss</code> to it: the window held nothing to attack</td>
 </tr>
 <tr>
 <td><code>infeasible</code></td>
-<td>targets existed, but no support met every bound: the load cap, the basepoint band, the ramps, the voltage limits</td>
-<td>the bounds are binding; widening them is a modelling decision, not a fix</td>
+<td>the family returned <code>None</code> and gave no reason</td>
 </tr>
 <tr>
 <td><code>solver_error</code></td>
-<td>Ipopt stopped abnormally on a support the search tried, so <code>infeasible</code> may be wrong</td>
-<td>the family counts them in <code>solver_errors</code></td>
+<td>the family raised its <code>solver_errors</code> count during the design, so <code>infeasible</code> may be wrong</td>
 </tr>
 </tbody>
 </table>
-<p>For one episode alone, building a <code>SingleEpisodeSource</code> raises a <code>DataConditionError</code> when the
-window touches an unsolved frame. Its <code>generate</code> raises <code>NoAdmissibleTarget</code>, naming the
-reason, when that one window has no attack.</p>
 <h2 id="analysis">Analysis<a class="headerlink" href="#analysis" title="Permanent link">&para;</a></h2>
 <table>
 <thead>

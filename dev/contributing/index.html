@@ -1991,7 +1991,7 @@ listed in <code>NOT_YET_PLAIN</code> in <code>tools/prereview.py</code>, each wi
 </tr>
 <tr>
 <td>every change is proven behaviour-free, or its effect is measured</td>
-<td>the tests pin the fewest-tamper search's answers (<code>tests/test_search_speed.py</code>), [WU26]'s scenarios (<code>tests/test_overload_case_studies.py</code>), the formulas and models, and whole generated files: every dataset and attribute of an IEEE timeline and of a New York build against stored digests (<code>tests/test_timeline_digests.py</code>, <code>tests/nygrid/test_timeline_digests.py</code>; bit for bit on the machine that recorded them, skipped elsewhere, <code>tests/digests.py</code>); a change that moves a generated number states the delta and rewrites the snapshot with <code>FDIA_UPDATE_DIGESTS=1</code></td>
+<td>the tests pin the fewest-tamper search's answers (<code>tests/test_search_speed.py</code>), [WU26]'s scenarios (<code>tests/test_overload_case_studies.py</code>), the formulas and models, and whole generated files: every dataset and attribute of an IEEE timeline against stored digests (<code>tests/test_timeline_digests.py</code>; bit for bit on the machine that recorded them, skipped elsewhere, <code>tests/digests.py</code>); a change that moves a generated number states the delta and rewrites the snapshot with <code>FDIA_UPDATE_DIGESTS=1</code></td>
 <td><code>pytest -W "error::DeprecationWarning:fdia_graph" tests</code></td>
 </tr>
 <tr>
@@ -2170,16 +2170,11 @@ test whose input is missing is skipped. <code>tests/nygrid/inputs.py</code> says
 <tr>
 <td>the pool's frames of two days</td>
 <td>checked in, <code>tests/nygrid/data/days</code></td>
-<td>the timeline digests</td>
-</tr>
-<tr>
-<td>the whole 2019 pool</td>
-<td><code>NYGRID_ROOT/out</code>, built locally</td>
-<td>the tests that rate lines or survey onsets over the year</td>
+<td>the timeline and client tests on the New York case</td>
 </tr>
 </tbody>
 </table>
-<p>The golden snapshots pin what the interface attack and the persistence rule return on fixed inputs.</p>
+<p>The golden snapshot pins what the persistence rule returns on fixed inputs.</p>
 <table>
 <thead>
 <tr>
@@ -2190,24 +2185,13 @@ test whose input is missing is skipped. <code>tests/nygrid/inputs.py</code> says
 </thead>
 <tbody>
 <tr>
-<td><code>tests/nygrid/golden/</code>, the interface attack's designs</td>
-<td><code>tests/nygrid/test_golden.py</code>; needs the whole 2019 pool and skips without it</td>
-<td><code>NYGRID_UPDATE_GOLDEN=1</code></td>
-</tr>
-<tr>
 <td><code>analysis/tests/golden/persistence_rule.json</code>, two numbers</td>
 <td><code>analysis/tests/test_detect.py</code>; needs no data</td>
 <td>an edit to the file</td>
 </tr>
-<tr>
-<td><code>tests/nygrid/golden/</code>, whole-file digests of a New York timeline and of two episodes</td>
-<td><code>tests/nygrid/test_timeline_digests.py</code>; bit for bit on the machine that recorded them, skipped elsewhere</td>
-<td><code>FDIA_UPDATE_DIGESTS=1</code></td>
-</tr>
 </tbody>
 </table>
-<p>A failure of <code>tests/nygrid/test_golden.py</code> names the first value that changed.
-<code>tests/nygrid/test_examples.py</code> runs the attack-family example of <code>docs/guides/extending.md</code> as
+<p><code>tests/nygrid/test_examples.py</code> runs the attack-family example of <code>docs/guides/extending.md</code> as
 published, and <code>analysis/tests/test_detect.py</code> the alarm-rule example. A change to the case file
 <code>src/fdia_graph/systems/case_nygrid.m</code> moves generated numbers, so it comes with the snapshots it moves.</p>
 <h2 id="where-things-live">Where things live<a class="headerlink" href="#where-things-live" title="Permanent link">&para;</a></h2>

@@ -2028,7 +2028,7 @@ generator (<code>core.py</code>) and, under <code>engine/attacks/</code>, the at
 every grid. There are two families.</p>
 <ul>
 <li><code>At</code>, the slow ramp: a false load that rises a little each frame.</li>
-<li><code>Am</code>, the overload: the reported flow of a line or an interface rises to its limit.</li>
+<li><code>Am</code>, the overload: the reported flow of a line rises to its rating.</li>
 </ul>
 <p>Each attacked frame is the reading of one false AC state. The attacker re-solves a small area of
 the grid and holds every voltage outside it true. The attack vector is h(x_false) - h(x_true),
@@ -2036,30 +2036,31 @@ added to the benign scan.</p>
 <table>
 <thead>
 <tr>
-<th>Grid</th>
-<th><code>At</code></th>
-<th><code>Am</code></th>
+<th>Family</th>
+<th>Design</th>
+<th>Family class</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>IEEE cases</td>
+<td><code>At</code></td>
 <td><code>ramp_design</code></td>
-<td><code>am_overload_design</code></td>
+<td><code>SearchRamp</code></td>
 </tr>
 <tr>
-<td>New York</td>
-<td><code>Ramp</code></td>
-<td><code>InterfaceFdia</code></td>
+<td><code>Am</code></td>
+<td><code>am_overload_design</code></td>
+<td><code>SearchOverload</code></td>
 </tr>
 </tbody>
 </table>
-<p>The IEEE designs are methods of <code>FdiaGenerator</code> (<code>engine/core.py</code>), which gets them from
-<code>AttackMixin</code>. The New York designs are classes on one <code>Attacker</code> (<code>engine/attacks/attacker.py</code>).
+<p>The designs are methods of <code>FdiaGenerator</code> (<code>engine/core.py</code>), which gets them from
+<code>AttackMixin</code>. They run on every test system.
 A timeline asks every family the same thing, the episode of a window (<code>EpisodeFamily.designed</code>,
-<code>engine/attacks/family.py</code>); the IEEE designs answer as the families <code>SearchRamp</code> and
-<code>SearchOverload</code> (<code>engine/attacks/search.py</code>). <a href="../attacks/">The attack families</a> describes
-both families and both kinds of design.</p>
+<code>engine/attacks/family.py</code>); the designs answer as the families <code>SearchRamp</code> and
+<code>SearchOverload</code> (<code>engine/attacks/search.py</code>). A source also takes a family of your own in
+place of one of them. <a href="../attacks/">The attack families</a> describes both families and their
+designs.</p>
 <p>You now have: the episodes, each with its frames, its buses and its attack vectors.</p>
 <h2 id="the-timeline-file">The timeline file<a class="headerlink" href="#the-timeline-file" title="Permanent link">&para;</a></h2>
 <p><code>generation/</code> holds the stages that walk a timeline: the plan, the designs, the frames and the
@@ -2068,19 +2069,18 @@ the file, cut the train, validation and test splits, place the episodes, design 
 frames in time order, and finish the file.</p>
 <ul>
 <li>The steps are written once. A source is a subclass that builds the generator, the pool and the
-  designer of its families, and says what its files record: <code>SearchSource</code> (<code>generation/search.py</code>),
-  the original generator, built on a <code>Network</code> (<code>IeeeSource</code> in <code>generation/ieee.py</code> builds it for an
-  IEEE case by name), and <code>NewYorkSource</code> (<code>generation/newyork.py</code>), the New York release. How the
-  splits are cut is a setting of every source, <code>split_by</code>: three blocks in time order, or whole
+  designer of its families, and says what its files record. The package has one: <code>SearchSource</code>
+  (<code>generation/search.py</code>), the original generator, built on a <code>Network</code>. <code>IeeeSource</code> in
+  <code>generation/ieee.py</code> builds it for an IEEE case by name, and <code>SearchSource.for_pool</code> builds it
+  on a pool file, as the New York case has. How the
+  splits are cut is a setting of the source, <code>split_by</code>: three blocks in time order, or whole
   weeks, which need each frame's time (an IEEE pool stores none, so the caller passes <code>time=</code>).</li>
 <li><code>TimelineWriter</code> (<code>generation/write.py</code>) is the one writer of the HDF5 file.</li>
 <li><code>schema.py</code> defines every group, dataset and attribute name of the file, once.</li>
-<li>Settings arrive as models from <code>models/config.py</code>: <code>TimelineSettings</code> for an IEEE timeline,
-  <code>NewYorkSettings</code> for a New York one. <code>NewYorkRelease</code> holds what the released New York
-  timeline is built from.</li>
+<li>Settings arrive as one model from <code>models/config.py</code>, <code>TimelineSettings</code>.</li>
 </ul>
-<p><code>fg.generate</code> starts an IEEE timeline through <code>generate_timeline</code> in <code>timeline.py</code>. The script
-<code>pipelines/newyork/build_timeline.py</code> starts the New York one.
+<p><code>fg.generate</code> starts an IEEE timeline through <code>generate_timeline</code> in <code>timeline.py</code>. On the New
+York case you build the source yourself, with <code>SearchSource.for_pool</code>.
 <a href="../../guides/generation/">Generate a timeline</a> has every step and every setting, and
 <a href="../layers/">Layers and labels</a> what the file stores per frame.</p>
 <p>You now have: one HDF5 file. <code>fg.generate</code> also registers it under a name, for <code>fg.load</code>.</p>
@@ -2093,7 +2093,7 @@ the static graph once and slices records on request, so the whole file is never 
 <li><code>dataset/</code> has one concern per file: <code>base.py</code> (shared state), <code>graph.py</code> (the static graph),
   <code>physics.py</code> (admittances and clean flows), <code>records.py</code> (one record, batches), <code>export.py</code>
   (whole-split arrays) and <code>sequence.py</code> (windows and episodes).</li>
-<li><code>clients.py</code> reads a New York timeline as federated clients, one per utility.</li>
+<li><code>clients.py</code> reads a timeline that records the owners of its buses as federated clients.</li>
 <li><code>errors.py</code> defines every error the package raises on purpose.</li>
 </ul>
 <p>The package's <code>__init__.py</code> imports the heavy helpers only when they are called, so <code>fg.load</code>

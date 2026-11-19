@@ -1168,10 +1168,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#what-a-new-york-file-declares" class="md-nav__link">
+  <a href="#what-the-layout-allows" class="md-nav__link">
     <span class="md-ellipsis">
       
-        What a New York file declares
+        What the layout allows
       
     </span>
   </a>
@@ -1922,10 +1922,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#what-a-new-york-file-declares" class="md-nav__link">
+  <a href="#what-the-layout-allows" class="md-nav__link">
     <span class="md-ellipsis">
       
-        What a New York file declares
+        What the layout allows
       
     </span>
   </a>
@@ -2089,8 +2089,8 @@ what a 1 in a tamper mask means.</p>
 <p>Two more columns place a frame: <code>split</code> (0 train, 1 validation, 2 test) and <code>timestep</code>, the
 frame's row in the file.</p>
 <h2 id="the-temporal-features">The temporal features<a class="headerlink" href="#the-temporal-features" title="Permanent link">&para;</a></h2>
-<p>A file written by a <code>SearchSource</code> also stores two features computed from the observed frames
-alone (<code>formulas/temporal.py</code>, written by <code>TimelineWriter.write_temporal_layers</code>).</p>
+<p>A file also stores two features computed from the observed frames alone (<code>formulas/temporal.py</code>,
+written by <code>TimelineWriter.write_temporal_layers</code>).</p>
 <table>
 <thead>
 <tr>
@@ -2113,8 +2113,8 @@ alone (<code>formulas/temporal.py</code>, written by <code>TimelineWriter.write_
 scans before the frame (<code>SWING_WINDOW_SCANS</code>), plus 0.001. A sudden jump reads as a large swing at its first frame. The
 slow ramp <code>At</code> changes by less than the typical recent change on every frame, so its swing stays
 near the benign level.</p>
-<p>A New York file does not store these two today. <code>ClientView.temporal()</code> computes each client's
-change from its own readings.</p>
+<p><code>ClientView.temporal()</code> is a third: it computes each client's change from its own readings when
+a file is read as clients.</p>
 <h2 id="which-layers-a-feature-may-read">Which layers a feature may read<a class="headerlink" href="#which-layers-a-feature-may-read" title="Permanent link">&para;</a></h2>
 <p>At test time a feature may use only measurements and quantities derived from them.</p>
 <ul>
@@ -2247,22 +2247,23 @@ the clean layer.</p>
 <p>The frames are chunked along time, so a window of consecutive frames is one read.
 <a href="../../reference/DATA_DICTIONARY/#the-timeline-file">The data dictionary</a> lists the datasets of
 each group.</p>
-<h2 id="what-a-new-york-file-declares">What a New York file declares<a class="headerlink" href="#what-a-new-york-file-declares" title="Permanent link">&para;</a></h2>
-<p>A New York timeline has the same layout, written by the same writer. What reads differently is
-declared in the file itself.</p>
+<h2 id="what-the-layout-allows">What the layout allows<a class="headerlink" href="#what-the-layout-allows" title="Permanent link">&para;</a></h2>
+<p>One writer writes every timeline, in one layout. The layout allows more than the package's own
+source writes, and a file declares in its attributes which form it has. The readers accept each
+form.</p>
 <table>
 <thead>
 <tr>
 <th>Item</th>
-<th>IEEE file</th>
-<th>New York file</th>
+<th>The package's source writes</th>
+<th>The layout also allows</th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td>Flow layers</td>
 <td><code>[E, 2]</code>: the from end</td>
-<td><code>[E, 4]</code>: both ends (<code>edge_feat</code> attribute)</td>
+<td><code>[E, 4]</code>: both ends, named in the <code>edge_feat</code> attribute (<code>LayerSet.both_ends</code>)</td>
 </tr>
 <tr>
 <td>PMU currents</td>
@@ -2270,87 +2271,53 @@ declared in the file itself.</p>
 <td>magnitude and angle (<code>current_form</code> is <code>polar</code>)</td>
 </tr>
 <tr>
-<td>Tamper rule</td>
-<td>see <a href="../attacks/#labels-and-the-tamper-masks">the attack families</a></td>
-<td>the same attribute, <code>tamper</code></td>
-</tr>
-<tr>
 <td>Temporal features</td>
 <td>stored</td>
-<td>not stored</td>
-</tr>
-<tr>
-<td>Injection sign</td>
-<td>load positive</td>
-<td>generation positive</td>
-</tr>
-<tr>
-<td>Unsolved frames</td>
-<td>none</td>
-<td>kept in place, with NaN readings, labelled benign</td>
+<td>not stored (<code>LayerSet.temporal</code>)</td>
 </tr>
 </tbody>
 </table>
 <p>Code that reads a current as real and imaginary parts refuses a polar file with
 <code>MissingCapability</code>.</p>
-<p>Of the files the generator writes today, only a New York file carries these:</p>
+<p>A New York file from the package's source has the form of an IEEE file in all three rows. Its
+injections are positive for load, like an IEEE file's, and it holds the solved frames of its
+pool only.</p>
+<p>Some datasets are in a file only when the source was given what they hold:</p>
 <table>
 <thead>
 <tr>
 <th>Where</th>
 <th>Dataset or attribute</th>
 <th>Holds</th>
+<th>Written when</th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td><code>data/</code></td>
 <td><code>time</code></td>
-<td>each frame's time, int64 seconds, NYISO's local clock</td>
-</tr>
-<tr>
-<td><code>episodes/</code></td>
-<td><code>target_branch</code></td>
-<td>the interface branch an episode is anchored on</td>
+<td>each frame's time, int64 seconds</td>
+<td>the pool has times (a New York pool), or <code>time=</code> is passed</td>
 </tr>
 <tr>
 <td><code>graph/</code></td>
 <td><code>bus_client</code></td>
-<td>the utility that owns each bus; -1 outside New York</td>
-</tr>
-<tr>
-<td><code>graph/</code></td>
-<td><code>edge_rating</code></td>
-<td>the line ratings (MVA) of the case: the case file's, or the pool's peak flow on a branch it leaves unrated</td>
-</tr>
-<tr>
-<td><code>graph/</code></td>
-<td><code>bus_type</code>, <code>bus_vmin</code>, <code>bus_vmax</code>, <code>bus_base_kv</code></td>
-<td>bus facts of the case</td>
-</tr>
-<tr>
-<td><code>graph/</code></td>
-<td><code>bus_has_gen</code>, <code>bus_base_pd</code>, <code>bus_base_qd</code></td>
-<td>units and base loads per bus</td>
+<td>the client that owns each bus; -1 for none</td>
+<td>the source has <code>own=</code></td>
 </tr>
 <tr>
 <td>attributes</td>
 <td><code>client_names</code></td>
-<td>the utilities, in the order <code>bus_client</code> indexes</td>
+<td>the clients' names, in the order <code>bus_client</code> indexes</td>
+<td>the source has <code>own=</code></td>
 </tr>
 </tbody>
 </table>
-<p>An IEEE timeline built with <code>time=</code> stores <code>data/time</code> too
-(<a href="../../guides/generation/#split_by-and-time">Generate a timeline</a>).</p>
-<p>The line ratings are in the file because the case file does not give them all:
-<code>NewYorkSource.production</code> rates a branch the case leaves unrated at its peak flow over the
-pool. The unit table, the bus names and the
-bus coordinates are not in the file. They are the case file's
-(<a href="../test_systems/#the-new-york-case-file">Test systems</a>).</p>
-<p>The attributes record the settings as JSON (<code>settings</code>) with their hash (<code>settings_hash</code>). In a
-New York file the settings include, under <code>release</code>, the fields of the <code>NewYorkRelease</code> it was
-built from. A single-episode file records its one episode under <code>episode</code>, in place of the
-attacked share, the splits and the survey.</p>
+<p><a href="../../guides/generation/#split_by-and-time">Generate a timeline</a> says what <code>time=</code> takes, and
+<a href="../../guides/generation/#a-timeline-read-as-clients">its section on clients</a> what <code>own=</code> does.</p>
+<p>The unit table, the bus names and the bus coordinates of the New York case are not in a file.
+They are the case file's (<a href="../test_systems/#the-new-york-case-file">Test systems</a>).</p>
+<p>The attributes record the settings as JSON (<code>settings</code>) with their hash (<code>settings_hash</code>).</p>
 
 
 

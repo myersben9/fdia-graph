@@ -1919,8 +1919,8 @@ the data terms is in <a href="../../guides/generation/"><code>../guides/generati
 </tr>
 <tr>
 <td>onset</td>
-<td>The first frame of an episode, drawn uniformly among the positions of its split where the episode fits and, on the New York grid, where its family may start.</td>
-<td><code>generation.plan.uniform_onset</code>, <code>generation.newyork.NewYorkSource.onset_masks</code>, <code>episodes/onset</code></td>
+<td>The first frame of an episode, drawn uniformly among the positions of its split where the episode fits.</td>
+<td><code>generation.plan.uniform_onset</code>, <code>episodes/onset</code></td>
 </tr>
 <tr>
 <td>pool</td>
@@ -1939,8 +1939,8 @@ the data terms is in <a href="../../guides/generation/"><code>../guides/generati
 </tr>
 <tr>
 <td>split</td>
-<td>The train, val and test partition (0, 1, 2), cut before any episode is placed, so every episode lies inside one split: three blocks in time order on an IEEE case, whole weeks by default on the New York grid.</td>
-<td><code>generation.plan.split_bounds</code>, <code>generation.newyork.NewYorkSource.cut_splits</code>, <code>data/split</code>, <code>models.choices.Split</code>, <code>schema.SPLIT_CODE</code></td>
+<td>The train, val and test partition (0, 1, 2), cut before any episode is placed, so every episode lies inside one split: three blocks in time order by default, or whole weeks (the setting <code>split_by</code>).</td>
+<td><code>generation.plan.split_bounds</code>, <code>generation.plan.split_weeks</code>, <code>generation.source.TimelineSource.cut_splits</code>, <code>data/split</code>, <code>models.choices.Split</code>, <code>schema.SPLIT_CODE</code></td>
 </tr>
 <tr>
 <td>family</td>

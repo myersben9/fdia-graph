@@ -886,27 +886,16 @@
   
 </li>
         
-          <li class="md-nav__item">
-  <a href="#the-new-york-settings" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        The New York settings
-      
-    </span>
-  </a>
-  
-</li>
-        
       </ul>
     </nav>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#what-differs-between-the-ieee-cases-and-the-new-york-case-today" class="md-nav__link">
+  <a href="#what-differs-between-the-ieee-cases-and-the-new-york-case" class="md-nav__link">
     <span class="md-ellipsis">
       
-        What differs between the IEEE cases and the New York case today
+        What differs between the IEEE cases and the New York case
       
     </span>
   </a>
@@ -925,10 +914,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#entry-point-an-ieee-case" class="md-nav__link">
+  <a href="#a-design-family-of-your-own" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Entry point: an IEEE case
+        A design family of your own
       
     </span>
   </a>
@@ -936,41 +925,24 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#entry-point-the-new-york-case" class="md-nav__link">
+  <a href="#a-timeline-read-as-clients" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Entry point: the New York case
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Entry point: the New York case">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#one-episode-alone" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        One episode alone
+        A timeline read as clients
       
     </span>
   </a>
   
 </li>
-        
-          <li class="md-nav__item">
-  <a href="#reading-the-file-by-utility" class="md-nav__link">
+      
+        <li class="md-nav__item">
+  <a href="#entry-point-an-ieee-case" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Reading the file by utility
+        Entry point: an IEEE case
       
     </span>
   </a>
-  
-</li>
-        
-      </ul>
-    </nav>
   
 </li>
       
@@ -2121,27 +2093,16 @@
   
 </li>
         
-          <li class="md-nav__item">
-  <a href="#the-new-york-settings" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        The New York settings
-      
-    </span>
-  </a>
-  
-</li>
-        
       </ul>
     </nav>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#what-differs-between-the-ieee-cases-and-the-new-york-case-today" class="md-nav__link">
+  <a href="#what-differs-between-the-ieee-cases-and-the-new-york-case" class="md-nav__link">
     <span class="md-ellipsis">
       
-        What differs between the IEEE cases and the New York case today
+        What differs between the IEEE cases and the New York case
       
     </span>
   </a>
@@ -2160,10 +2121,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#entry-point-an-ieee-case" class="md-nav__link">
+  <a href="#a-design-family-of-your-own" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Entry point: an IEEE case
+        A design family of your own
       
     </span>
   </a>
@@ -2171,41 +2132,24 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#entry-point-the-new-york-case" class="md-nav__link">
+  <a href="#a-timeline-read-as-clients" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Entry point: the New York case
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Entry point: the New York case">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#one-episode-alone" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        One episode alone
+        A timeline read as clients
       
     </span>
   </a>
   
 </li>
-        
-          <li class="md-nav__item">
-  <a href="#reading-the-file-by-utility" class="md-nav__link">
+      
+        <li class="md-nav__item">
+  <a href="#entry-point-an-ieee-case" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Reading the file by utility
+        Entry point: an IEEE case
       
     </span>
   </a>
-  
-</li>
-        
-      </ul>
-    </nav>
   
 </li>
       
@@ -2259,7 +2203,8 @@ New York case you build the pool first.</p>
 and it runs these steps in this order.</p>
 <p><img alt="Eight boxes, top to bottom. A test system and its pool: one AC state per frame. 1. Open: the file, under a .part name. 2. Cut the splits: blocks in time order, or whole weeks. 3. Place: a split's episodes, whole, at random onsets. 4. Design: each episode. 5. Walk: the frames, in time order; an arrow labelled next split goes back to Place. 6. Finish: the episode table. Last, one timeline file: observed, benign, clean." src="../../figures/diagrams/generation_flow.png" /></p>
 <p>A source is a subclass of <code>TimelineSource</code>. It builds the generator, the pool and the designer
-of its attack families, and it says what its files record. There are two.</p>
+of its attack families, and it says what its files record. The package has one, in three
+spellings.</p>
 <table>
 <thead>
 <tr>
@@ -2275,14 +2220,18 @@ of its attack families, and it says what its files record. There are two.</p>
 <td>a <code>Network</code> and a pool array</td>
 </tr>
 <tr>
-<td><code>NewYorkSource</code></td>
-<td><code>generation/newyork.py</code></td>
-<td>the New York pool file</td>
+<td><code>IeeeSource</code></td>
+<td><code>generation/ieee.py</code></td>
+<td>an IEEE case by its name, and its pool array</td>
+</tr>
+<tr>
+<td><code>SearchSource.for_pool</code></td>
+<td><code>generation/search.py</code></td>
+<td>a <code>Network</code> and a pool file, as the New York case has</td>
 </tr>
 </tbody>
 </table>
-<p><code>IeeeSource</code> (<code>generation/ieee.py</code>) is a <code>SearchSource</code> for an IEEE case by its name.
-<code>SearchSource.for_pool</code> is a <code>SearchSource</code> on a New York pool file
+<p><code>IeeeSource</code> and <code>for_pool</code> build a <code>SearchSource</code>
 (<a href="#the-original-generator-on-the-new-york-case">The original generator on the New York case</a>).</p>
 <h3 id="1-open">1. Open<a class="headerlink" href="#1-open" title="Permanent link">&para;</a></h3>
 <p>Owner: <code>TimelineSource.open</code>, with <code>TimelineWriter</code> (<code>generation/write.py</code>).</p>
@@ -2296,14 +2245,11 @@ The writer stores the static graph first: the branches and what gives the admitt
 by a split. The setting <code>split_by</code> chooses how.</p>
 <ul>
 <li><code>"time"</code>: three blocks in time order.</li>
-<li><code>"week"</code>: whole weeks, drawn into the three splits. This needs each frame's time. The weeks
-  are ranked by how many allowed onsets they hold and drawn in strata of 20 weeks
-  (<code>split_weeks</code>). Where no family limits its onsets, as on a <code>SearchSource</code>, the order is
-  random.</li>
+<li><code>"week"</code>: whole weeks, drawn at random into the three splits, in strata of 20 weeks
+  (<code>split_weeks</code>). This needs each frame's time.</li>
 </ul>
-<p>Just before the cut the source runs <code>prepare</code>. It does nothing on a <code>SearchSource</code>. A
-<code>NewYorkSource</code> finds there the onsets its families may take (see
-<a href="#the-new-york-settings">the New York settings</a>).</p>
+<p>Just before the cut the source runs <code>prepare</code>. It does nothing on a <code>SearchSource</code>; a subclass
+can work out there what it needs before the splits are cut.</p>
 <h3 id="3-place">3. Place<a class="headerlink" href="#3-place" title="Permanent link">&para;</a></h3>
 <p>Owner: <code>TimelineSource.place</code>, with <code>place_split</code> in <code>generation/plan.py</code>.</p>
 <p>Each split gets whole episodes at random onsets.</p>
@@ -2353,7 +2299,7 @@ per split and family the episodes requested, built, moved, dropped and short.
 <p>Settings arrive as models from <code>models/config.py</code>. Each model checks its values when it is
 built, and a value it does not allow raises <code>ConfigError</code>.</p>
 <h3 id="timelinesettings"><code>TimelineSettings</code><a class="headerlink" href="#timelinesettings" title="Permanent link">&para;</a></h3>
-<p>The settings of a <code>SearchSource</code>, so of every IEEE timeline.</p>
+<p>The settings of a <code>SearchSource</code>, so of every timeline the package generates.</p>
 <table>
 <thead>
 <tr>
@@ -2651,134 +2597,9 @@ settings when it is not the default.</p>
 <p>A design picks its targets among the grid's own buses (<code>Case.own_bus</code>). On an IEEE case that is
 every bus. On the New York case it is the 46 New York buses; the other 94 stand for the
 neighbouring grids.</p>
-<h3 id="the-new-york-settings">The New York settings<a class="headerlink" href="#the-new-york-settings" title="Permanent link">&para;</a></h3>
-<p><code>NewYorkSettings</code> holds the settings of a <code>NewYorkSource</code>.</p>
-<table>
-<thead>
-<tr>
-<th>Field</th>
-<th>Default</th>
-<th>Meaning</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>length</code></td>
-<td>16</td>
-<td>frames per episode, or <code>{family: frames}</code></td>
-</tr>
-<tr>
-<td><code>attacked_frac</code></td>
-<td>0.2</td>
-<td>share of each split's frames under an episode</td>
-</tr>
-<tr>
-<td><code>split</code></td>
-<td><code>SplitSettings((0.7, 0.15, 0.15))</code></td>
-<td>train, validation, test</td>
-</tr>
-<tr>
-<td><code>split_by</code></td>
-<td><code>"week"</code></td>
-<td>how the splits are cut</td>
-</tr>
-<tr>
-<td><code>workers</code></td>
-<td>1</td>
-<td>processes that design the episodes</td>
-</tr>
-<tr>
-<td><code>verbose</code></td>
-<td><code>False</code></td>
-<td>print progress</td>
-</tr>
-<tr>
-<td><code>survey</code></td>
-<td>0</td>
-<td>frames between surveyed onsets; 0 is off</td>
-</tr>
-<tr>
-<td><code>survey_cache</code></td>
-<td><code>None</code></td>
-<td>folder that keeps the survey by chunk</td>
-</tr>
-</tbody>
-</table>
-<p>The overload family of the New York case waits for a loaded grid: it may start only where an
-interface is near its limit. <code>prepare</code> asks each family for its <code>onset_mask</code>. With <code>survey</code> on,
-it also designs every allowed onset on that grid of frames first, and then places episodes only
-at onsets where an attack was found. A survey saved under <code>survey_cache</code> lets a stopped build
-resume.</p>
-<p><code>NewYorkRelease</code> holds what <code>NewYorkSource.production</code> builds its source from.</p>
-<table>
-<thead>
-<tr>
-<th>Field</th>
-<th>Default</th>
-<th>Meaning</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>families</code></td>
-<td><code>("Am", "At")</code></td>
-<td>the families built</td>
-</tr>
-<tr>
-<td><code>interfaces</code></td>
-<td><code>("SPR/DUN-SOUTH",)</code></td>
-<td>the interfaces <code>Am</code> targets</td>
-</tr>
-<tr>
-<td><code>workers</code></td>
-<td>12</td>
-<td>processes that design the episodes</td>
-</tr>
-<tr>
-<td><code>survey</code></td>
-<td>12</td>
-<td>the survey's grid in frames; 0 is off</td>
-</tr>
-<tr>
-<td><code>survey_cache</code></td>
-<td><code>None</code></td>
-<td>folder that keeps the survey by chunk</td>
-</tr>
-<tr>
-<td><code>root</code></td>
-<td><code>"."</code></td>
-<td>folder whose <code>data/</code> holds the inputs</td>
-</tr>
-<tr>
-<td><code>hold_external</code></td>
-<td><code>False</code></td>
-<td>keep every bus outside New York true</td>
-</tr>
-<tr>
-<td><code>v_margin</code></td>
-<td>0.0</td>
-<td>widens the attacker's voltage limits (p.u.)</td>
-</tr>
-<tr>
-<td><code>gen_v_tol</code></td>
-<td><code>None</code></td>
-<td>holds generator voltages near schedule (p.u.)</td>
-</tr>
-<tr>
-<td><code>load_cap</code></td>
-<td><code>None</code></td>
-<td>cap on a shown load change; <code>None</code> keeps 0.1</td>
-</tr>
-<tr>
-<td><code>band</code></td>
-<td><code>None</code></td>
-<td>basepoint band's share; <code>None</code> keeps 0.03</td>
-</tr>
-</tbody>
-</table>
-<p><code>production</code> sets the episode lengths itself: 32 frames for <code>Am</code> and 16 for <code>At</code>.</p>
-<h2 id="what-differs-between-the-ieee-cases-and-the-new-york-case-today">What differs between the IEEE cases and the New York case today<a class="headerlink" href="#what-differs-between-the-ieee-cases-and-the-new-york-case-today" title="Permanent link">&para;</a></h2>
-<p>Every row is a difference in settings or in data. The steps above are the same.</p>
+<h2 id="what-differs-between-the-ieee-cases-and-the-new-york-case">What differs between the IEEE cases and the New York case<a class="headerlink" href="#what-differs-between-the-ieee-cases-and-the-new-york-case" title="Permanent link">&para;</a></h2>
+<p>One source generates both. Every row is a difference in data or in a setting. The steps above
+are the same.</p>
 <table>
 <thead>
 <tr>
@@ -2806,7 +2627,7 @@ resume.</p>
 <tr>
 <td>A step that does not solve</td>
 <td>dropped from the pool</td>
-<td>kept in place, with an empty state</td>
+<td>kept in the pool, with an empty state; <code>for_pool</code> leaves it out of the timeline</td>
 </tr>
 <tr>
 <td>Frame times</td>
@@ -2814,44 +2635,19 @@ resume.</p>
 <td>stored in the pool</td>
 </tr>
 <tr>
-<td>Meter placement</td>
-<td><code>MeterPlan.from_coverage</code>: random shares</td>
-<td><code>plan_meters</code>: every bus and branch end a utility owns</td>
+<td><code>loads</code></td>
+<td><code>"scaled"</code></td>
+<td><code>"net"</code>, set by <code>for_pool</code></td>
 </tr>
 <tr>
-<td>Design family</td>
-<td><code>SearchRamp</code>, <code>SearchOverload</code></td>
-<td><code>Ramp</code>, <code>InterfaceFdia</code></td>
+<td>Buses a design may target</td>
+<td>every bus</td>
+<td>the 46 New York buses</td>
 </tr>
 <tr>
-<td>Episode lengths</td>
-<td>60 frames, both families</td>
-<td>16 frames; <code>NewYorkSource.production</code> uses 32 for <code>Am</code></td>
-</tr>
-<tr>
-<td>Attacked share</td>
-<td>0.5</td>
-<td>0.2</td>
-</tr>
-<tr>
-<td>Split default</td>
-<td><code>"time"</code>, 0.6 / 0.2 / 0.2</td>
-<td><code>"week"</code>, 0.7 / 0.15 / 0.15</td>
-</tr>
-<tr>
-<td>Allowed onsets</td>
-<td>any onset of the split</td>
-<td><code>Am</code> only where an interface is near its limit</td>
-</tr>
-<tr>
-<td>Temporal features</td>
-<td><code>temporal_delta</code> and <code>swing</code> are written</td>
-<td>not written</td>
-</tr>
-<tr>
-<td>Entry point</td>
-<td><code>fg.generate</code></td>
-<td><code>pipelines/newyork/build_timeline.py</code></td>
+<td>Source</td>
+<td><code>IeeeSource</code>, through <code>fg.generate</code></td>
+<td><code>SearchSource.for_pool</code></td>
 </tr>
 <tr>
 <td>Released data</td>
@@ -2860,14 +2656,14 @@ resume.</p>
 </tr>
 </tbody>
 </table>
-<p>The design family row is the default of each entry point, not a limit: the search-based designs
-run on the New York case too (next section). Two of these rows are still tied together. The search-based designs read the meters that
-<code>MeterPlan.from_coverage</code> places, and the New York designs read the meters that <code>plan_meters</code>
-places. So the meter placement and the design family both follow the source. Neither is a
-setting of its own. <a href="../../concepts/attacks/">The attack families</a> says what each design does.</p>
+<p>The meter placement, the design families, the file layout and the defaults of <code>TimelineSettings</code>
+are the same on both. <a href="../../concepts/attacks/">The attack families</a> says what each design does.</p>
 <h2 id="the-original-generator-on-the-new-york-case">The original generator on the New York case<a class="headerlink" href="#the-original-generator-on-the-new-york-case" title="Permanent link">&para;</a></h2>
 <p>The New York case is a test case of <code>SearchSource</code> like an IEEE case: coverage meters, the
-search-based ramp and overload, and the settings of <code>TimelineSettings</code>.</p>
+search-based ramp and overload, and the settings of <code>TimelineSettings</code>. Reading the case file
+needs the <code>[ny]</code> extra. The pool is one you build
+(<a href="../operating_points/">Build the operating points</a>); the repository has a pool of two days
+for its tests.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fdia_graph.data.pool</span><span class="w"> </span><span class="kn">import</span> <span class="n">read_pool</span>
 <a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fdia_graph.generation.search</span><span class="w"> </span><span class="kn">import</span> <span class="n">SearchSource</span>
 <a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fdia_graph.models.config</span><span class="w"> </span><span class="kn">import</span> <span class="n">OverloadSettings</span><span class="p">,</span> <span class="n">TimelineSettings</span>
@@ -2882,7 +2678,7 @@ search-based ramp and overload, and the settings of <code>TimelineSettings</code
 </code></pre></div>
 <p><code>for_pool</code> hands the generator the pool as it reads one: the solved frames only, with their
 times, injections positive for load, and <code>loads="net"</code>. The file has the layout of an IEEE file:
-a flow at the from end, currents as real and imaginary parts, one client.</p>
+a flow at the from end, currents as real and imaginary parts, and the two temporal features.</p>
 <table>
 <thead>
 <tr>
@@ -2915,15 +2711,141 @@ a flow at the from end, currents as real and imaginary parts, one client.</p>
 </table>
 <p><code>tests/nygrid/test_any_case.py</code> runs this on the two checked-in days and checks that every
 labelled bus is New York's.</p>
+<h2 id="a-design-family-of-your-own">A design family of your own<a class="headerlink" href="#a-design-family-of-your-own" title="Permanent link">&para;</a></h2>
+<p><code>SearchSource</code>, <code>IeeeSource</code> and <code>SearchSource.for_pool</code> take <code>families=</code>, a dictionary from a
+family's name to a family object. The object takes the place of the search family of that name,
+<code>"At"</code> or <code>"Am"</code>. Its episodes are placed like that family's: the name must be in the settings'
+<code>families</code>, and the episode length is that name's (<code>ramp_len</code> for <code>"At"</code>).</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fdia_graph.generation.ieee</span><span class="w"> </span><span class="kn">import</span> <span class="n">IeeeSource</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fdia_graph.models.config</span><span class="w"> </span><span class="kn">import</span> <span class="n">TimelineSettings</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="c1"># X: a pool array [T, 14, 4]; MyFamily: a subclass of AttackFamily</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="n">settings</span> <span class="o">=</span> <span class="n">TimelineSettings</span><span class="o">.</span><span class="n">of</span><span class="p">(</span><span class="n">families</span><span class="o">=</span><span class="p">(</span><span class="s2">"At"</span><span class="p">,),</span> <span class="n">ramp_len</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">attacked_frac</span><span class="o">=</span><span class="mf">0.3</span><span class="p">)</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="n">source</span> <span class="o">=</span> <span class="n">IeeeSource</span><span class="p">(</span><span class="mi">14</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">settings</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">families</span><span class="o">=</span><span class="p">{</span><span class="s2">"At"</span><span class="p">:</span> <span class="n">MyFamily</span><span class="p">()})</span>
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="n">source</span><span class="o">.</span><span class="n">generate</span><span class="p">(</span><span class="s2">"out/own.h5"</span><span class="p">)</span>
+</code></pre></div>
+<p>A family that subclasses <code>AttackFamily</code> (<code>engine/attacks/family.py</code>) designs one attack vector
+per window, a value for every meter of the source's plan on every frame
+(<a href="../extending/#a-design-family">Add a design family</a>). Such an episode is designed before
+its split is walked. The file records it under the code of the family name its <code>Episode</code>
+carries. A meter is marked tampered where the vector moves its reading by more than the meter's
+accuracy class, and a bus is labelled where a tampered meter sits.</p>
+<p>The designs of several workers run in spawned processes, so with <code>workers</code> above 1 the family
+object must pickle. <code>tests/test_any_case.py</code> runs a family of its own on IEEE-14.</p>
+<h2 id="a-timeline-read-as-clients">A timeline read as clients<a class="headerlink" href="#a-timeline-read-as-clients" title="Permanent link">&para;</a></h2>
+<p><code>SearchSource</code> and <code>SearchSource.for_pool</code> take <code>own=</code>, an <code>Ownership</code>
+(<code>systems/ownership.py</code>): the clients' names and the client of each bus, -1 for a bus that
+belongs to none. Each meter then belongs to the client of its bus. The file records the names
+in the attribute <code>client_names</code> and each bus's client in <code>graph/bus_client</code>. The designs do not
+read the owners, so the attacks are the same with and without them.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fdia_graph.systems.ownership</span><span class="w"> </span><span class="kn">import</span> <span class="n">Ownership</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="c1"># net, pool, settings: as in the New York snippet above</span>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="n">case</span> <span class="o">=</span> <span class="n">net</span><span class="o">.</span><span class="n">case</span>
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="n">bus_client</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">case</span><span class="o">.</span><span class="n">is_ny</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">case</span><span class="o">.</span><span class="n">bus_id</span><span class="p">))</span> <span class="o">%</span> <span class="mi">3</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>  <span class="c1"># three made-up clients</span>
+<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="n">ties</span> <span class="o">=</span> <span class="n">bus_client</span><span class="p">[</span><span class="n">case</span><span class="o">.</span><span class="n">f</span><span class="p">]</span> <span class="o">!=</span> <span class="n">bus_client</span><span class="p">[</span><span class="n">case</span><span class="o">.</span><span class="n">t</span><span class="p">]</span>
+<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="n">own</span> <span class="o">=</span> <span class="n">Ownership</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="s2">"a"</span><span class="p">,</span> <span class="s2">"b"</span><span class="p">,</span> <span class="s2">"c"</span><span class="p">]),</span> <span class="n">bus_client</span><span class="p">,</span> <span class="n">ties</span><span class="p">)</span>
+<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="n">SearchSource</span><span class="o">.</span><span class="n">for_pool</span><span class="p">(</span><span class="n">net</span><span class="p">,</span> <span class="n">pool</span><span class="p">,</span> <span class="n">settings</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">own</span><span class="o">=</span><span class="n">own</span><span class="p">)</span><span class="o">.</span><span class="n">generate</span><span class="p">(</span><span class="s2">"out/ny_clients.h5"</span><span class="p">)</span>
+</code></pre></div>
+<p><code>assign_clients</code> in <code>systems/ownership.py</code> builds the <code>Ownership</code> of the New York case from the
+utility territories and the bus locations among the build's inputs: each New York bus goes to
+the utility whose territory holds it.</p>
+<p>The file opens with <code>fg.FdiaGraph(path)</code> like any timeline. <code>Dataset</code> (<code>dataset/clients.py</code>) is
+a second view of it, by meter and by client:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fdia_graph.dataset.clients</span><span class="w"> </span><span class="kn">import</span> <span class="n">Dataset</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="n">ds</span> <span class="o">=</span> <span class="n">Dataset</span><span class="p">(</span><span class="s2">"out/ny_clients.h5"</span><span class="p">)</span>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="n">a</span> <span class="o">=</span> <span class="n">ds</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">"a"</span><span class="p">,</span> <span class="n">split</span><span class="o">=</span><span class="s2">"train"</span><span class="p">)</span>
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="n">x</span> <span class="o">=</span> <span class="n">a</span><span class="o">.</span><span class="n">node_features</span><span class="p">()</span>           <span class="c1"># [T, N_c, 4]</span>
+<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="n">op</span> <span class="o">=</span> <span class="n">ds</span><span class="o">.</span><span class="n">operator</span><span class="p">(</span><span class="n">split</span><span class="o">=</span><span class="s2">"test"</span><span class="p">)</span>  <span class="c1"># every meter</span>
+</code></pre></div>
+<p>A client sees only its own meters and the labels of its own buses. The operator view is the full
+scan. <code>ds.clients</code> lists the clients' names.</p>
+<table>
+<thead>
+<tr>
+<th>On a <code>ClientView</code></th>
+<th>Shape</th>
+<th>Holds</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>z</code></td>
+<td><code>[T, M_c]</code></td>
+<td>its observed scans, one column per meter it owns</td>
+</tr>
+<tr>
+<td><code>labels</code></td>
+<td><code>[T, N_c]</code></td>
+<td>the attack labels of its buses</td>
+</tr>
+<tr>
+<td><code>meters</code></td>
+<td></td>
+<td>its rows of the meter table</td>
+</tr>
+<tr>
+<td><code>buses</code></td>
+<td><code>[N_c]</code></td>
+<td>the positions of the buses it owns</td>
+</tr>
+<tr>
+<td><code>frames</code></td>
+<td><code>[T]</code></td>
+<td>the frames selected; a week split has gaps</td>
+</tr>
+<tr>
+<td><code>node_features()</code></td>
+<td><code>[T, N_c, 4]</code></td>
+<td>voltage, angle, P, Q per bus; NaN where not metered</td>
+</tr>
+<tr>
+<td><code>temporal()</code></td>
+<td><code>[T, M_c]</code></td>
+<td>the change from the frame before</td>
+</tr>
+</tbody>
+</table>
+<table>
+<thead>
+<tr>
+<th>On the <code>Dataset</code></th>
+<th>Holds</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ds.plan</code></td>
+<td>the meter table, rebuilt from the file's masks (<code>MeterPlan.from_masks</code>)</td>
+</tr>
+<tr>
+<td><code>ds.z(frames)</code></td>
+<td>the flat reading vector of that table</td>
+</tr>
+<tr>
+<td><code>ds.z(frames, benign=True)</code></td>
+<td>the same scans without the attack</td>
+</tr>
+<tr>
+<td><code>ds.tampered(frames)</code></td>
+<td>the tampered meters</td>
+</tr>
+</tbody>
+</table>
+<p><code>Dataset</code> refuses a file that does not record its clients with <code>NotATimeline</code>.
+<code>tests/nygrid/test_dataset.py</code> writes such a file and reads it back.</p>
 <h2 id="entry-point-an-ieee-case">Entry point: an IEEE case<a class="headerlink" href="#entry-point-an-ieee-case" title="Permanent link">&para;</a></h2>
 <p><code>fg.generate</code> loads the pool, generates the timeline and registers the file under a name.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">fdia_graph</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">fg</span>
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="c1"># needs fdia-graph[generate]</span>
-<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="c1"># downloads the IEEE-14 pool (about 25 MB) once</span>
-<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="c1"># about five minutes on a laptop</span>
-<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="n">fg</span><span class="o">.</span><span class="n">generate</span><span class="p">(</span><span class="s2">"ieee14"</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">"my_run"</span><span class="p">,</span> <span class="n">frames</span><span class="o">=</span><span class="mi">2000</span><span class="p">)</span>
-<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="n">mine</span> <span class="o">=</span> <span class="n">fg</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">"my_run"</span><span class="p">,</span> <span class="n">split</span><span class="o">=</span><span class="s2">"train"</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">fdia_graph</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">fg</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="c1"># needs fdia-graph[generate]</span>
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="c1"># downloads the IEEE-14 pool (about 25 MB) once</span>
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="c1"># about five minutes on a laptop</span>
+<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="n">fg</span><span class="o">.</span><span class="n">generate</span><span class="p">(</span><span class="s2">"ieee14"</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">"my_run"</span><span class="p">,</span> <span class="n">frames</span><span class="o">=</span><span class="mi">2000</span><span class="p">)</span>
+<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="n">mine</span> <span class="o">=</span> <span class="n">fg</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">"my_run"</span><span class="p">,</span> <span class="n">split</span><span class="o">=</span><span class="s2">"train"</span><span class="p">)</span>
 </code></pre></div>
 <table>
 <thead>
@@ -3155,184 +3077,6 @@ timeline (experiment <code>generation.parallel_design</code>):</p>
 </table>
 <!-- /results -->
 
-<h2 id="entry-point-the-new-york-case">Entry point: the New York case<a class="headerlink" href="#entry-point-the-new-york-case" title="Permanent link">&para;</a></h2>
-<p>The build scripts are in the repository's <code>pipelines/newyork/</code>, not in the wheel, so work from a
-checkout. You need the <code>[ny]</code> extra, Ipopt, the inputs and the pool
-(<a href="../operating_points/">Build the operating points</a>).</p>
-<p>Run from the work folder whose <code>data/</code> holds the inputs:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>python<span class="w"> </span><span class="nv">$FG</span>/pipelines/newyork/build_timeline.py<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">    </span>out/timeline_2019.h5<span class="w"> </span>--pool<span class="w"> </span>out/pool_2019_v3.h5<span class="w"> </span>--workers<span class="w"> </span><span class="m">4</span>
-</code></pre></div>
-<table>
-<thead>
-<tr>
-<th>Option</th>
-<th>Default</th>
-<th>Meaning</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>--pool</code></td>
-<td><code>out/pool_2019_v3.h5</code></td>
-<td>the pool file</td>
-</tr>
-<tr>
-<td><code>--families</code></td>
-<td><code>Am,At</code></td>
-<td>the families built</td>
-</tr>
-<tr>
-<td><code>--interface</code></td>
-<td><code>SPR/DUN-SOUTH</code></td>
-<td>the interfaces <code>Am</code> targets</td>
-</tr>
-<tr>
-<td><code>--workers</code></td>
-<td>12</td>
-<td>processes that design the episodes</td>
-</tr>
-<tr>
-<td><code>--survey</code></td>
-<td>12</td>
-<td>the survey's grid in frames; 0 is off</td>
-</tr>
-<tr>
-<td><code>--survey-cache</code></td>
-<td>none</td>
-<td>folder that keeps the survey by chunk</td>
-</tr>
-<tr>
-<td><code>--fetch</code></td>
-<td></td>
-<td>download the inputs into the work folder and stop</td>
-</tr>
-</tbody>
-</table>
-<p>The script writes a summary beside the file, as JSON. In Python the same build is:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fdia_graph.generation.newyork</span><span class="w"> </span><span class="kn">import</span> <span class="n">NewYorkSource</span>
-<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fdia_graph.models.config</span><span class="w"> </span><span class="kn">import</span> <span class="n">NewYorkRelease</span>
-<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>
-<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">"__main__"</span><span class="p">:</span>
-<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>    <span class="n">release</span> <span class="o">=</span> <span class="n">NewYorkRelease</span><span class="p">(</span><span class="n">workers</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
-<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>    <span class="n">pool</span> <span class="o">=</span> <span class="s2">"out/pool_2019_v3.h5"</span>
-<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>    <span class="n">source</span> <span class="o">=</span> <span class="n">NewYorkSource</span><span class="o">.</span><span class="n">production</span><span class="p">(</span><span class="n">pool</span><span class="p">,</span> <span class="n">release</span><span class="p">)</span>
-<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a>    <span class="n">source</span><span class="o">.</span><span class="n">generate</span><span class="p">(</span><span class="s2">"out/timeline_2019.h5"</span><span class="p">)</span>
-<a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a>    <span class="nb">print</span><span class="p">(</span><span class="n">source</span><span class="o">.</span><span class="n">summary</span><span class="p">()[</span><span class="s2">"built"</span><span class="p">])</span>
-</code></pre></div>
-<p><code>production</code> reads the case, assigns each New York bus to its utility, rates each unrated branch
-at its peak flow over the pool, places the meters and builds the two families. <code>summary()</code> then
-counts, per split and family, the slots placed, the moves, the episodes built and the slots given
-up. <a href="../troubleshooting/#the-timeline">Troubleshooting</a> explains its miss reasons.</p>
-<h3 id="one-episode-alone">One episode alone<a class="headerlink" href="#one-episode-alone" title="Permanent link">&para;</a></h3>
-<p><code>pipelines/newyork/build_single_episodes.py</code> writes the whole day of one onset with a single
-<code>Am</code> episode in it:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>python<span class="w"> </span><span class="nv">$FG</span>/pipelines/newyork/build_single_episodes.py<span class="w"> </span>OUT_DIR<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="w">    </span>--pool<span class="w"> </span>out/pool_2019_v3.h5<span class="w"> </span>--onset<span class="w"> </span><span class="m">2019</span>-07-05T10:30:00
-</code></pre></div>
-<p>It uses <code>SingleEpisodeSource</code> (<code>generation/newyork.py</code>), a <code>NewYorkSource</code> with one episode
-placed by hand:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
-<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>
-<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fdia_graph.generation.newyork</span><span class="w"> </span><span class="kn">import</span> <span class="n">SingleEpisodeSource</span>
-<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>
-<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="c1"># source: the NewYorkSource built above, with workers=1</span>
-<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="n">when</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">datetime64</span><span class="p">(</span><span class="s2">"2019-07-05T10:30:00"</span><span class="p">)</span>
-<a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="n">times</span> <span class="o">=</span> <span class="n">source</span><span class="o">.</span><span class="n">pool</span><span class="o">.</span><span class="n">time</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="s2">"datetime64[s]"</span><span class="p">)</span>
-<a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a><span class="n">onset</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">flatnonzero</span><span class="p">(</span><span class="n">times</span> <span class="o">==</span> <span class="n">when</span><span class="p">)[</span><span class="mi">0</span><span class="p">])</span>
-<a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a><span class="n">one</span> <span class="o">=</span> <span class="n">SingleEpisodeSource</span><span class="p">(</span><span class="n">source</span><span class="p">,</span> <span class="n">onset</span><span class="p">,</span> <span class="n">family</span><span class="o">=</span><span class="s2">"Am"</span><span class="p">)</span>
-<a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a><span class="n">one</span><span class="o">.</span><span class="n">generate</span><span class="p">(</span><span class="s2">"one.h5"</span><span class="p">)</span>
-</code></pre></div>
-<p><code>onset</code> is a frame of the pool. The snippet finds the frame of the same time the command above
-names.</p>
-<p><code>lo</code> and <code>hi</code> set the pool frames the file covers. <code>using=</code> designs the episode with a variant
-of the family, such as <code>InterfaceFdia.with_overshoot(mw)</code>. <code>lag=</code> designs it on the window that
-many frames earlier.</p>
-<h3 id="reading-the-file-by-utility">Reading the file by utility<a class="headerlink" href="#reading-the-file-by-utility" title="Permanent link">&para;</a></h3>
-<p>A New York timeline opens with <code>fg.FdiaGraph(path)</code> like any timeline. <code>Dataset</code>
-(<code>dataset/clients.py</code>) is a second view of it, by meter and by utility:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fdia_graph.dataset.clients</span><span class="w"> </span><span class="kn">import</span> <span class="n">Dataset</span>
-<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>
-<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="n">ds</span> <span class="o">=</span> <span class="n">Dataset</span><span class="p">(</span><span class="s2">"out/timeline_2019.h5"</span><span class="p">)</span>
-<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="n">con_ed</span> <span class="o">=</span> <span class="n">ds</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">"ConEd"</span><span class="p">,</span> <span class="n">split</span><span class="o">=</span><span class="s2">"train"</span><span class="p">)</span>
-<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="n">x</span> <span class="o">=</span> <span class="n">con_ed</span><span class="o">.</span><span class="n">node_features</span><span class="p">()</span>      <span class="c1"># [T, N_c, 4]</span>
-<a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="n">op</span> <span class="o">=</span> <span class="n">ds</span><span class="o">.</span><span class="n">operator</span><span class="p">(</span><span class="n">split</span><span class="o">=</span><span class="s2">"test"</span><span class="p">)</span>  <span class="c1"># every meter</span>
-</code></pre></div>
-<p>A client sees only its own meters and the labels of its own buses. The operator view is the full
-scan. <code>ds.clients</code> lists the utility names.</p>
-<table>
-<thead>
-<tr>
-<th>On a <code>ClientView</code></th>
-<th>Shape</th>
-<th>Holds</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>z</code></td>
-<td><code>[T, M_c]</code></td>
-<td>its observed scans, one column per meter it owns</td>
-</tr>
-<tr>
-<td><code>labels</code></td>
-<td><code>[T, N_c]</code></td>
-<td>the attack labels of its buses</td>
-</tr>
-<tr>
-<td><code>meters</code></td>
-<td></td>
-<td>its rows of the meter table</td>
-</tr>
-<tr>
-<td><code>buses</code></td>
-<td><code>[N_c]</code></td>
-<td>the positions of the buses it owns</td>
-</tr>
-<tr>
-<td><code>frames</code></td>
-<td><code>[T]</code></td>
-<td>the frames selected; a week split has gaps</td>
-</tr>
-<tr>
-<td><code>node_features()</code></td>
-<td><code>[T, N_c, 4]</code></td>
-<td>voltage, angle, P, Q per bus; NaN where not metered</td>
-</tr>
-<tr>
-<td><code>temporal()</code></td>
-<td><code>[T, M_c]</code></td>
-<td>the change from the frame before</td>
-</tr>
-</tbody>
-</table>
-<table>
-<thead>
-<tr>
-<th>On the <code>Dataset</code></th>
-<th>Holds</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>ds.plan</code></td>
-<td>the meter table</td>
-</tr>
-<tr>
-<td><code>ds.z(frames)</code></td>
-<td>the flat reading vector of that table</td>
-</tr>
-<tr>
-<td><code>ds.z(frames, benign=True)</code></td>
-<td>the same scans without the attack</td>
-</tr>
-<tr>
-<td><code>ds.tampered(frames)</code></td>
-<td>the tampered meters</td>
-</tr>
-</tbody>
-</table>
-<p><code>Dataset</code> refuses a file that is not a New York timeline with <code>NotATimeline</code>.</p>
 <h2 id="where-the-code-is">Where the code is<a class="headerlink" href="#where-the-code-is" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -3353,10 +3097,6 @@ scan. <code>ds.clients</code> lists the utility names.</p>
 <tr>
 <td><code>generation/ieee.py</code></td>
 <td><code>IeeeSource</code>: a <code>SearchSource</code> for an IEEE case by name</td>
-</tr>
-<tr>
-<td><code>generation/newyork.py</code></td>
-<td><code>NewYorkSource</code>, <code>SingleEpisodeSource</code>, <code>Survey</code></td>
 </tr>
 <tr>
 <td><code>generation/plan.py</code></td>

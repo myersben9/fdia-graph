@@ -2412,8 +2412,8 @@ timeline (<code>order="time"</code>).</p>
 </tr>
 <tr>
 <td><code>edge_x</code></td>
-<td><code>[E,2]</code> (New York <code>[E,4]</code>)</td>
-<td><code>P_from</code>, <code>Q_from</code> (New York: then <code>P_to</code>, <code>Q_to</code>)</td>
+<td><code>[E,2]</code> (<code>[E,4]</code> in a file with both branch ends)</td>
+<td><code>P_from</code>, <code>Q_from</code> (then <code>P_to</code>, <code>Q_to</code>)</td>
 <td>power leaving the branch (sign = direction)</td>
 </tr>
 <tr>
@@ -2490,13 +2490,15 @@ timeline (<code>order="time"</code>).</p>
 </tr>
 </tbody>
 </table>
-<p><strong>A New York file</strong> has the same layout, and declares in its attributes what its meters change: the flow
-layers (<code>edge_x</code>, <code>edge_m</code>, <code>edge_benign</code>, <code>edge_clean</code> and the tamper mask) are <code>[E,4]</code>, both branch ends
-(<code>attrs["edge_feat"]</code> is <code>P_from,Q_from,P_to,Q_to</code>); <code>pmu_i</code> holds magnitude and angle
-(<code>attrs["current_form"]</code> is <code>polar</code>); it has no <code>temporal_delta</code> and no <code>swing</code>. Only it carries <code>data/time</code>
-(int64 seconds, NYISO's local clock), <code>episodes/target_branch</code>, <code>graph/bus_client</code> with the attribute
-<code>client_names</code>, and <code>graph/edge_rating</code> (MVA).
-<a href="../../concepts/layers/#what-a-new-york-file-declares">Layers and labels</a> lists what such a file declares.</p>
+<p><strong>What the layout also allows.</strong> A file declares in its attributes how its layers read. The flow layers
+(<code>edge_x</code>, <code>edge_m</code>, <code>edge_benign</code>, <code>edge_clean</code> and the tamper mask) can be <code>[E,4]</code>, both branch ends
+(<code>attrs["edge_feat"]</code> is then <code>P_from,Q_from,P_to,Q_to</code>); <code>pmu_i</code> can hold magnitude and angle
+(<code>attrs["current_form"]</code> is then <code>polar</code>); and a file can lack <code>temporal_delta</code> and <code>swing</code>. The readers
+accept such files. The package's own source writes from-end flows <code>[E,2]</code>, currents as real and imaginary
+parts, and both temporal features, on every test system. A file built from a pool with times carries
+<code>data/time</code> (int64 seconds), and one built with the owners of its buses carries <code>graph/bus_client</code> with the
+attribute <code>client_names</code>.
+<a href="../../concepts/layers/#what-the-layout-allows">Layers and labels</a> says more.</p>
 <h2 id="labels-y-says-which-buses-family-says-which-attack">Labels: <code>y</code> says which buses, <code>family</code> says which attack<a class="headerlink" href="#labels-y-says-which-buses-family-says-which-attack" title="Permanent link">&para;</a></h2>
 <p>Two fields, two questions. <code>y</code> <code>[N]</code> is binary per bus because a bus is either tampered with or not.
 <code>family</code> is one code per record because the generator runs one attack episode at a time, on one
@@ -2584,9 +2586,8 @@ than literals:</p>
 </table>
 <p>Sign of <code>P_inj</code>/<code>Q_inj</code>: <code>+</code> = net consumption (load), <code>−</code> = net injection (gen). This is pandapower's
 <code>res_bus</code> convention. Example (case14): the slack bus reads ≈ −235 MW, a 94 MW load bus reads ≈ +93 MW.
-That is the sign of an IEEE file, whose pool stores its injections so. A New York file has the other
-sign, <code>+</code> = net injection (generation minus load): its injections are computed from the voltages
-(<code>Measurement.h</code>, a meter of kind <code>MeterKind.P</code> or <code>MeterKind.Q</code>).</p>
+Every file the package's source writes has this sign, a New York file too: <code>SearchSource.for_pool</code> turns
+the pool's injections to it.</p>
 <h2 id="edge_attr-e8-static-branch-properties-per-unit-never-change"><code>edge_attr</code> <code>[E,8]</code>: static branch properties (per-unit, never change)<a class="headerlink" href="#edge_attr-e8-static-branch-properties-per-unit-never-change" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -2678,8 +2679,8 @@ sign, <code>+</code> = net injection (generation minus load): its injections are
 </tr>
 </tbody>
 </table>
-<p>On a New York file the flows and their mask are <code>[E,4]</code>, and the pandas export adds the columns <code>P_to_e{n}</code>
-and <code>Q_to_e{n}</code>.</p>
+<p>On a file with both branch ends the flows and their mask are <code>[E,4]</code>, and the pandas export adds the columns
+<code>P_to_e{n}</code> and <code>Q_to_e{n}</code>.</p>
 <p>One name to watch: the static table's <code>graph/edge_x</code> is the per-unit series reactance of each branch
 (<code>ds.branch_x</code>), unrelated to the per-record flow layer <code>edge_x</code> above; the on-disk name changes at
 the next data release, the reader already spells the two apart.</p>
@@ -2703,7 +2704,7 @@ physics live on the dataset as <code>ds.edge_attr</code> <code>[E,8]</code> and 
 <tr>
 <td><code>edge_x</code></td>
 <td><code>[E,2]</code></td>
-<td><code>[P_from, Q_from]</code>, power leaving the from-end (sign = direction). MW/MVAr or pu. <code>[E,4]</code> on a New York file: then <code>[P_to, Q_to]</code>, power leaving the to-end.</td>
+<td><code>[P_from, Q_from]</code>, power leaving the from-end (sign = direction). MW/MVAr or pu. <code>[E,4]</code> on a file with both branch ends: then <code>[P_to, Q_to]</code>, power leaving the to-end.</td>
 </tr>
 <tr>
 <td><code>node_m</code>, <code>edge_m</code></td>
@@ -2858,10 +2859,10 @@ columns of <code>pmu_i</code> are defined in <code>fdia_graph.constants.channels
 <code>RE_TO</code>, <code>IM_TO</code>): the real and imaginary part of <code>I_from = Y_f V</code> and <code>I_to = Y_t V</code> in per unit on the base
 current, the same on a <code>units="pu"</code> or <code>"physical"</code> view, zero where no PMU reads that end
 (<code>pmu_i_m</code> is 0 there). <code>pmu_i_benign</code> is the attack-removed twin and <code>pmu_i_tamper</code> marks the
-channels the attacker wrote. A New York file stores each current as magnitude (per unit) and angle
-(degrees) instead (<code>PolarCurrentChannel</code>: <code>MAG_FROM</code>, <code>ANGLE_FROM</code>, <code>MAG_TO</code>, <code>ANGLE_TO</code>), and says so
-(<code>attrs["current_form"]</code> is <code>polar</code>); a <code>units="pu"</code> view gives those
-angles in radians. A file without these datasets (every released file) loads unchanged
+channels the attacker wrote. The layout also allows each current as magnitude (per unit) and angle
+(degrees) (<code>PolarCurrentChannel</code>: <code>MAG_FROM</code>, <code>ANGLE_FROM</code>, <code>MAG_TO</code>, <code>ANGLE_TO</code>); such a file says so
+(<code>attrs["current_form"]</code> is <code>polar</code>), and a <code>units="pu"</code> view gives those
+angles in radians. The package's own source writes real and imaginary parts. A file without these datasets (every released file) loads unchanged
 and its records carry no <code>pmu_i</code>. <code>export(["prev_pmu_i"])</code> gives the previous emitted frame's
 currents on a hybrid-meter timeline, like <code>prev_node_x</code>.</p>
 <p>Chunked along the frame axis so a window of W frames is one read. A file without the <code>kind</code> attribute

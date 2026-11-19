@@ -1960,6 +1960,52 @@
 the public API, the generated files and the numbers are the same as the previous release.</p>
 <h2 id="unreleased">Unreleased<a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
 <ul>
+<li><strong>One source and one set of attack designs for every test system.</strong> The New York grid's own OPF
+  designs and the source built around them leave the package; the New York case stays, as a test
+  system of the one source, <code>SearchSource</code>.</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>Removed</th>
+<th>In its place</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>generation.newyork</code> (<code>NewYorkSource</code>, <code>SingleEpisodeSource</code>), <code>models.config.NewYorkSettings</code>, <code>NewYorkRelease</code></td>
+<td><code>SearchSource.for_pool(net, pool, settings)</code> with <code>TimelineSettings</code></td>
+</tr>
+<tr>
+<td><code>engine.attacks.opf</code>, <code>interface</code> (<code>InterfaceFdia</code>), <code>attacker</code> (<code>Attacker</code>), <code>ramp</code> (<code>Ramp</code>), <code>systems.interfaces</code></td>
+<td>the search-based ramp and overload, on any case</td>
+</tr>
+<tr>
+<td><code>sensing.meters.plan_meters</code> (meters by ownership, the smallest PMU set)</td>
+<td><code>MeterPlan.from_coverage</code>; with <code>own=</code> each meter belongs to the client of its bus</td>
+</tr>
+<tr>
+<td><code>data.pool.peak_ratings</code>, <code>Case.with_voltage_margin</code>, the constants <code>BASEPOINT_BAND</code>, <code>Q_SHARE</code>, <code>RELEASE_INTERFACE</code>, <code>NEW_YORK_FAMILIES</code></td>
+<td>nothing: only the removed designs used them</td>
+</tr>
+<tr>
+<td>the two timeline build scripts of <code>pipelines/newyork/</code></td>
+<td><code>SearchSource.for_pool(...).generate(path)</code></td>
+</tr>
+</tbody>
+</table>
+<p>New on <code>SearchSource</code> and <code>for_pool</code> (<code>IeeeSource</code> takes <code>families=</code> too):
+  - <code>families={"At": MyFamily()}</code> runs a design family of your own (<code>AttackFamily</code>) in place of the
+    search family of that name; its episodes are placed, written and recorded like the package's own.
+  - <code>own=Ownership(...)</code> gives each meter to the client of its bus and records the clients in the
+    file, which then reads as one view per client (<code>dataset.clients.Dataset</code>). <code>MeterPlan.from_masks</code>
+    takes the file's current form, so the client reader handles rectangular and polar files.</p>
+<p>The file layout is unchanged: it still allows flows at both branch ends and currents as magnitude
+  and angle, and the readers accept such files; the package's source writes from-end flows and
+  rectangular currents. <code>FdiaGenerator._meter</code> is now <code>use_plan</code>. Every IEEE timeline is byte for byte
+  what it was. A New York timeline is now what <code>for_pool</code> writes; the files of the removed source are
+  no longer produced by this package. Counted code in <code>fdia_graph</code>: 8,976 to 7,625 lines.</p>
+<ul>
 <li>
 <p><strong>The original generator reads a dispatched pool, and picks its targets on the grid's own buses.</strong>
   New setting <code>loads</code> of <code>TimelineSettings</code> (<code>LoadRule</code>): <code>"scaled"</code> (default) reads a bus's load and
@@ -3308,7 +3354,7 @@ the public API, the generated files and the numbers are the same as the previous
     <code>workers</code>, <code>survey</code>, <code>survey_cache</code>, <code>root</code>, <code>hold_external</code>, <code>v_margin</code>, <code>gen_v_tol</code>, <code>load_cap</code>, <code>band</code>),
     checked when it is built; the build <code>Settings</code> (the seed) is the third argument. One episode alone:
     <code>SingleEpisodeSource(source, onset, family, lo, hi, using=..., lag=...).generate(path)</code>, then its
-    <code>summary()</code>. <code>pipelines/newyork/build_timeline.py</code> and <code>build_single_episodes.py</code> do exactly that.</li>
+    <code>summary()</code>. The timeline build scripts of <code>pipelines/newyork/</code> (since removed) did exactly that.</li>
 <li><code>NewYorkSource(pool, attacker, families, own, settings, build)</code> takes the timeline's settings as a
     <code>NewYorkSettings</code> (<code>length</code>, <code>attacked_frac</code>, <code>split</code>, <code>split_by</code>, <code>workers</code>, <code>block</code>, <code>verbose</code>, <code>survey</code>,
     <code>survey_cache</code>); the measurement is the attacker's and the noise model is made from its meter plan.
@@ -3332,7 +3378,7 @@ the public API, the generated files and the numbers are the same as the previous
   in the caller's process.</li>
 <li><strong>New York frames are written in stretches</strong>, each as soon as every week before it is planned, instead
   of one pass after every design. The noise stream still runs over the frames in time order, so no value
-  depends on where a stretch or a block ends; <code>tests/nygrid/test_stretches.py</code> pins that against a
+  depends on where a stretch or a block ends; the stretches test (since removed) pinned that against a
   one-pass build on a synthetic pool, with no data and no solver.</li>
 <li><code>NewYorkSource.generate()</code> with no path is a <code>ConfigError</code> (the IEEE default path is unchanged).</li>
 <li>The warning for an episode dropped by a jammed placement reads the same on both grids: "split train:
@@ -3602,7 +3648,7 @@ the public API, the generated files and the numbers are the same as the previous
     argument and the DC outage factors are gone. <code>zone_levers(day)</code> uses the AC sensitivities (<code>ac_shift</code>); its
     <code>ac</code> argument is gone. <code>area_damage</code>'s payments are the AC bus prices, attacked less benign.</li>
 <li>A <code>respond</code> run is an AC OPF per scan, about a minute per day on the test machine against five seconds for
-    the DC dispatch. The <code>respond_*</code> snapshots under <code>tests/nygrid/golden/</code> are regenerated under AC and cut
+    the DC dispatch. The <code>respond_*</code> golden snapshots of the New York tests were regenerated under AC and cut
     from 26 to 14. They compare within relative 1e-4 and absolute 1e-2 on the machine that recorded them
     (<code>respond_recorded_on.json</code>), where a refactor must repeat them, and within 5 percent or 2 (MW or dollars)
     elsewhere: on another platform the least-movement dispatch lands on another of its near-equal answers (the

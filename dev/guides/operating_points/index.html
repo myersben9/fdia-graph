@@ -2315,9 +2315,9 @@ repository's <code>pipelines/newyork/</code>, not in the wheel, so work from a c
 </ul>
 <h3 id="1-fetch-the-inputs">1. Fetch the inputs<a class="headerlink" href="#1-fetch-the-inputs" title="Permanent link">&para;</a></h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>mkdir<span class="w"> </span>nygrid<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nb">cd</span><span class="w"> </span>nygrid
-<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>python<span class="w"> </span><span class="nv">$FG</span>/pipelines/newyork/build_timeline.py<span class="w"> </span>--fetch
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>python<span class="w"> </span>-c<span class="w"> </span><span class="s2">"from fdia_graph.data.inputs import fetch_inputs; fetch_inputs('.')"</span>
 </code></pre></div>
-<p>This calls <code>fetch_inputs</code> in <code>data/inputs.py</code>, which writes <code>data/</code>:</p>
+<p><code>fetch_inputs</code> in <code>data/inputs.py</code> writes <code>data/</code>:</p>
 <table>
 <thead>
 <tr>
@@ -2554,7 +2554,7 @@ then gets two terms of its own. Their constants are in <code>constants/newyork.p
 </tr>
 <tr>
 <td><code>data/pool.py</code></td>
-<td><code>Pool</code>, <code>PoolBuilder</code>, <code>read_pool</code>, <code>write_pool</code>, <code>peak_ratings</code></td>
+<td><code>Pool</code>, <code>PoolBuilder</code>, <code>read_pool</code>, <code>write_pool</code></td>
 </tr>
 </tbody>
 </table>
