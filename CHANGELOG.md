@@ -5,6 +5,14 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- **The flow solve's values are named records (no change in behaviour).**
+  `FalseState.solve_flow_local` returns a `FlowSolve(x_false, converged, load_change)`
+  (`models/frames.py`) where it returned a bare tuple of three. Inside
+  `engine/attacks/false_state.py`, the active set of the solve is one record with the pinned active
+  changes, the pinned reactive changes and the held voltages by name, where it was a pair of
+  dictionaries and a third passed beside it; the bounds, one solve's result and the goal's branches
+  and targets are named too. Every IEEE timeline is byte for byte what it was.
+
 - **A reading order for the attack code (no change in behaviour).** The files of `engine/` that hold
   a part, and every file of `engine/attacks/`, open with one sentence saying what the file does and
   name what it calls; `engine/attacks/__init__.py` lists the files in the order to read them.

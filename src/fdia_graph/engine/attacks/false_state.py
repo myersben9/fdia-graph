@@ -26,7 +26,15 @@ from ...formulas.network import (
     local_ac_solve,
     local_flow_solve,
 )
-from ...models.frames import AttackDesign, FlowGoal, FrameKnobs, Goal, LoadGoal, OperatingLimits
+from ...models.frames import (
+    AttackDesign,
+    FlowGoal,
+    FlowSolve,
+    FrameKnobs,
+    Goal,
+    LoadGoal,
+    OperatingLimits,
+)
 from ..base import Part
 
 
@@ -51,40 +59,69 @@ def _voltages_out_of_range(
     return out
 
 
+class _Pins(NamedTuple):
+    """The active set of the flow solve: per bus, the change that puts a component at the bound it would
+    pass. One of these holds every pin so far, another the pins one solve adds."""
+
+    p: dict[int, float]  # bus -> its active change at the bound, MW, generation positive
+    q: dict[int, float]  # bus -> its reactive change at the bound, MVAr, generation positive
+    v: dict[int, float]  # bus -> the voltage limit its magnitude is held at, pu
+
+    def any(self) -> bool:
+        """Whether a component is pinned."""
+        return bool(self.p or self.q or self.v)
+
+    def add(self, more: _Pins) -> None:
+        """Pin what `more` pins as well."""
+        self.p.update(more.p)
+        self.q.update(more.q)
+        self.v.update(more.v)
+
+
+class _Bounds(NamedTuple):
+    """The bounds a flow solve keeps; None leaves one out."""
+
+    limits: Optional[OperatingLimits]  # voltages and generators [WU26 eqs. 21-23]
+    load_cap: Optional[float]  # the largest share of its true load a load bus may show as change [YUA11]
+
+
+class _Solved(NamedTuple):
+    """One flow solve with the active set held."""
+
+    x_false: np.ndarray  # the false state [N, 4]
+    dS: np.ndarray  # the injection change per bus [N], generation positive, MVA
+
+
 def _clip_generator(
-    b: int,
-    gen: np.ndarray,
-    dS: complex,
-    box: tuple[tuple[np.ndarray, np.ndarray], tuple[np.ndarray, np.ndarray]],
-    pins: tuple[tuple[dict[int, float], dict[int, float]], tuple[dict[int, float], dict[int, float]]],
+    b: int, gen: np.ndarray, dS: complex, limits: OperatingLimits, held: _Pins, over: _Pins
 ) -> None:
-    """Record in `pins`[1] each of generator b's components (P, Q) that the change dS drives outside
-    its limits `box` [WU26 eqs. 22-23] and that `pins`[0] has not pinned yet, with the change that
-    puts it at the nearest limit (generation positive)."""
-    pinned, out = pins
-    for c, moved in enumerate((np.real(dS), np.imag(dS))):
-        value = gen[c] + moved
-        clipped = float(np.clip(value, box[c][0][b], box[c][1][b]))
-        if b not in pinned[c] and clipped != value:
-            out[c][b] = clipped - gen[c]
+    """Record in `over` each component (P, Q) of generator b that the change dS drives outside its limits
+    [WU26 eqs. 22-23] and that `held` has not pinned yet, with the change that puts it at the nearest limit
+    (generation positive). `gen` is the generator's true output (P, Q)."""
+    p = gen[0] + np.real(dS)
+    p_at_limit = float(np.clip(p, limits.p_lo[b], limits.p_hi[b]))
+    if b not in held.p and p_at_limit != p:
+        over.p[b] = p_at_limit - gen[0]
+    q = gen[1] + np.imag(dS)
+    q_at_limit = float(np.clip(q, limits.q_lo[b], limits.q_hi[b]))
+    if b not in held.q and q_at_limit != q:
+        over.q[b] = q_at_limit - gen[1]
 
 
 class _FlowSetup(NamedTuple):
-    """One support at one true state: what every solve of `solve_flow_local` on it shares. `free` are the
-    support's free injection buses and `rest` the others; `goal` = (branches, targets in MVA); `V` the true
-    voltages; `reach` the support with its boundary and `S_true` their true injections (per unit); `gen`
-    [N, 2] and `load` [N] the true generator output and load (MW)."""
+    """One support at one true state: what every solve of `solve_flow_local` on it shares."""
 
     support: np.ndarray
-    free: np.ndarray
-    rest: np.ndarray
-    goal: tuple[np.ndarray, np.ndarray]
-    V: np.ndarray
-    reach: np.ndarray
-    S_true: np.ndarray
+    free: np.ndarray  # the support's free injection buses
+    rest: np.ndarray  # the support's other buses, which hold their injection
+    lines: np.ndarray  # the goal's branches
+    targets: np.ndarray  # the flow each goal branch must show, MVA
+    V: np.ndarray  # the true voltages, complex
+    reach: np.ndarray  # the support with its boundary
+    S_true: np.ndarray  # the true injections of the reach, per unit
     blocks: _FlowBlocks
-    gen: np.ndarray
-    load: np.ndarray
+    gen: np.ndarray  # [N, 2] the true generator output, MW and MVAr
+    load: np.ndarray  # [N] the true load, MW
 
 
 class FalseState(Part):
@@ -160,10 +197,9 @@ class FalseState(Part):
         target_mva: Union[float, Sequence[float]],
         limits: Optional[OperatingLimits] = None,
         load_cap: Optional[float] = None,
-    ) -> tuple[Optional[np.ndarray], bool, np.ndarray]:
+    ) -> FlowSolve:
         """The false state of a flow goal on a support [WU26 eqs. 24-25]: each goal branch's from-end apparent
-        flow reaches `target_mva`; only the support's voltages and free injections (and its boundary's) move.
-        Returns (state [N, 4] or None, converged, pretended load change [N] MW, zero at generator buses)."""
+        flow reaches `target_mva`; only the support's voltages and free injections (and its boundary's) move."""
         # With `limits`, each generator the attack changes stays inside [WU26 eqs. 22-23] and each voltage of
         # the support inside eq. 21; with `load_cap`, a load bus shows at most that share of its true load. A
         # component (P or Q) the solve drives past its bound is pinned there and the solve repeated (an active
@@ -171,30 +207,23 @@ class FalseState(Part):
         dload = np.zeros(self.g.n_bus)
         free = np.intersect1d(support, self.free_injection_buses())
         if len(free) == 0:
-            return None, True, dload
-        setup = self._flow_setup(x_true, (support, free), line, target_mva)
+            return FlowSolve(None, True, dload)
+        setup = self._flow_setup(x_true, support, free, line, target_mva)
         boundary = np.setdiff1d(setup.reach, support)
-        # bus -> its pinned change per component (P in MW, Q in MVAr, generation positive)
-        pinned: tuple[dict[int, float], dict[int, float]] = ({}, {})
-        held_v: dict[int, float] = {}  # bus -> the voltage limit its magnitude is held at, pu
+        bounds = _Bounds(limits, load_cap)
+        held = _Pins({}, {}, {})
         for _ in range(3 * (len(support) + len(boundary)) + 1):
-            solved = self._flow_solve_pinned(x_true, setup, (pinned, held_v))
+            solved = self._flow_solve_pinned(x_true, setup, held)
             if solved is None:
-                return None, False, dload
-            x_false, dS = solved
-            over = self._out_of_bounds(setup, dS, (limits, load_cap), pinned)
-            v_over = (
-                {} if limits is None else _voltages_out_of_range(x_false, x_true, support, limits, held_v)
-            )
-            if not over[0] and not over[1] and not v_over:
+                return FlowSolve(None, False, dload)
+            over = self._out_of_bounds(x_true, setup, solved, bounds, held)
+            if not over.any():
                 # a load bus's change is its pretended load
                 loads = np.setdiff1d(free, self.generator_buses())
-                dload[loads] = -np.real(dS[loads])
-                return x_false, True, dload
-            for component, changes in zip(pinned, over):
-                component.update(changes)
-            held_v.update(v_over)
-        return None, True, dload
+                dload[loads] = -np.real(solved.dS[loads])
+                return FlowSolve(solved.x_false, True, dload)
+            held.add(over)
+        return FlowSolve(None, True, dload)
 
     def reach(self, support: np.ndarray) -> np.ndarray:
         """The support and its boundary: the buses whose reported injection a false state on the support can
@@ -204,29 +233,28 @@ class FalseState(Part):
     def _flow_setup(
         self,
         x_true: np.ndarray,
-        support_and_free: tuple[np.ndarray, np.ndarray],
+        support: np.ndarray,
+        free: np.ndarray,
         line: Union[int, Sequence[int]],
         target_mva: Union[float, Sequence[float]],
     ) -> _FlowSetup:
-        """What every solve on the support at the true state x_true shares; `support_and_free` = (the
-        support, its free buses)."""
-        support, free = support_and_free
+        """What every solve on the support at the true state x_true shares; `free` are the support's free
+        injection buses."""
         lines = np.atleast_1d(np.asarray(line, np.int64))
         V = complex_voltages(x_true[:, NodeChannel.V], x_true[:, NodeChannel.THETA])
         reach, blocks = self._support_blocks(support, lines)
-        # per unit, the model's injections at the true voltages
-        S_true = bus_injections(V, blocks.Yb)[reach]
         return _FlowSetup(
-            support,
-            free,
-            np.setdiff1d(support, free),
-            (lines, np.atleast_1d(np.asarray(target_mva, float))),
-            V,
-            reach,
-            S_true,
-            blocks,
-            self.g.split.generation(x_true),
-            self.g.split.load(x_true),
+            support=support,
+            free=free,
+            rest=np.setdiff1d(support, free),
+            lines=lines,
+            targets=np.atleast_1d(np.asarray(target_mva, float)),
+            V=V,
+            reach=reach,
+            S_true=bus_injections(V, blocks.Yb)[reach],  # the model's injections at the true voltages
+            blocks=blocks,
+            gen=self.g.split.generation(x_true),
+            load=self.g.split.load(x_true),
         )
 
     def _support_blocks(self, support: np.ndarray, lines: np.ndarray) -> tuple[np.ndarray, _FlowBlocks]:
@@ -243,18 +271,12 @@ class FalseState(Part):
         self._last_support_blocks = (key, value)
         return value
 
-    def _flow_solve_pinned(
-        self,
-        x_true: np.ndarray,
-        setup: _FlowSetup,
-        held: tuple[tuple[dict[int, float], dict[int, float]], dict[int, float]],
-    ) -> Optional[tuple[np.ndarray, np.ndarray]]:
-        """One flow solve on the setup's support. `held` = ((bus -> pinned P change, bus -> pinned Q
-        change), bus -> held |V|). Returns (the false state [N, 4], the injection change per bus [N],
-        generation positive, MVA), or None when the solve fails."""
+    def _flow_solve_pinned(self, x_true: np.ndarray, setup: _FlowSetup, held: _Pins) -> Optional[_Solved]:
+        """One flow solve on the setup's support with the pins of `held` in force; None when the solve
+        fails."""
         n_bus, support, reach, base_mva = self.g.n_bus, setup.support, setup.reach, self.g.case.base_mva
-        lines, targets = setup.goal
-        (pin_p, pin_q), held_v = held
+        lines, targets = setup.lines, setup.targets
+        pin_p, pin_q, held_v = held.p, held.q, held.v
         both = setup.rest  # the buses of the support that hold their injection
         fixed = np.union1d(both, np.array(sorted({*pin_p, *pin_q}), np.int64))
         change = np.array([complex(pin_p.get(int(b), 0.0), pin_q.get(int(b), 0.0)) for b in fixed])
@@ -287,27 +309,24 @@ class FalseState(Part):
         dS[reach] = (bus_injections(v_false, Yb)[reach] - setup.S_true) * base_mva
         x_false[reach, NodeChannel.P_INJ] -= np.real(dS[reach])  # the stored injection is load positive
         x_false[reach, NodeChannel.Q_INJ] -= np.imag(dS[reach])
-        return x_false, dS
+        return _Solved(x_false, dS)
 
     def _out_of_bounds(
-        self,
-        setup: _FlowSetup,
-        dS: np.ndarray,
-        bounds: tuple[Optional[OperatingLimits], Optional[float]],
-        pinned: tuple[dict[int, float], dict[int, float]],
-    ) -> tuple[dict[int, float], dict[int, float]]:
-        """The components of a solve past their bounds over `setup.reach`, each with the change that
-        puts it at the bound (MW or MVAr, generation positive): a generator's P or Q outside [WU26 eqs.
-        22-23], a load's active change past `load_cap`. `bounds` = (limits, load_cap), either None."""
-        limits, load_cap = bounds
-        out: tuple[dict[int, float], dict[int, float]] = ({}, {})
+        self, x_true: np.ndarray, setup: _FlowSetup, solved: _Solved, bounds: _Bounds, held: _Pins
+    ) -> _Pins:
+        """What a solve drives past its bounds and `held` has not pinned yet, each with the value that
+        puts it at the bound: over `setup.reach`, a generator's P or Q outside [WU26 eqs. 22-23] and a
+        load's active change past the load cap; on the support, a voltage outside eq. 21."""
+        limits, dS = bounds.limits, solved.dS
+        over = _Pins({}, {}, {})
         if limits is not None:
-            box = ((limits.p_lo, limits.p_hi), (limits.q_lo, limits.q_hi))
             for b in np.intersect1d(setup.reach, self.generator_buses()):
-                _clip_generator(int(b), setup.gen[b], complex(dS[b]), box, (pinned, out))
-        if load_cap is not None:
-            out[0].update(self._loads_past_cap(setup, dS, load_cap, pinned[0]))
-        return out
+                _clip_generator(int(b), setup.gen[b], complex(dS[b]), limits, held, over)
+        if bounds.load_cap is not None:
+            over.p.update(self._loads_past_cap(setup, dS, bounds.load_cap, held.p))
+        if limits is not None:
+            over.v.update(_voltages_out_of_range(solved.x_false, x_true, setup.support, limits, held.v))
+        return over
 
     def _loads_past_cap(
         self, setup: _FlowSetup, dS: np.ndarray, load_cap: float, pinned: dict[int, float]
@@ -371,14 +390,15 @@ class FalseState(Part):
         """The false state of a flow goal: each target branch at its flow of snapshot `snap`
         (`solve_flow_local`); None when the solve fails or, with limits, a voltage or a generator of
         the reach leaves them (`formulas.attacks.within_limits`)."""
-        x_false, _, dload = self.solve_flow_local(
+        solve = self.solve_flow_local(
             x_true, support, goal.lines, goal.targets_at(snap), knobs.limits, knobs.load_cap
         )
+        x_false = solve.x_false
         if x_false is None:
             return None
         if knobs.limits is not None:  # every generator the attack moves, on the support's boundary too
             gen = self.g.split.generation(x_true)
-            if not within_limits(x_false, x_true, gen, dload, knobs.limits, self.reach(support)):
+            if not within_limits(x_false, x_true, gen, solve.load_change, knobs.limits, self.reach(support)):
                 return None
         return x_false
 
