@@ -15,4 +15,4 @@ The subpackages are `se` (the estimators, and the alarm rules in `se.detect`), `
 in `formulas`. A name is imported from the module that defines it; no package re-exports one.
 """
 
-__version__ = "0.21.0"
+__version__ = "0.22.0"

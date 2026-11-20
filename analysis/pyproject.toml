@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "fdia-analysis"
-version = "0.21.0"
+version = "0.22.0"
 description = "State estimation, attack localization, federated training and trusted-meter selection on fdia-graph timelines."
 readme = "README.md"
 requires-python = ">=3.9"
@@ -24,7 +24,7 @@ classifiers = [
 dependencies = [
   # the generation toolkit (the timeline files, their loader, the formulas and records), at this
   # distribution's own version: the two are released together (tests/test_versions.py)
-  "fdia-graph==0.21.0",
+  "fdia-graph==0.22.0",
   "numpy>=1.21",
   "h5py>=3.6",
 ]

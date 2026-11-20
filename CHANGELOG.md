@@ -5,6 +5,34 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+## 0.22.0
+
+The first release of two distributions: `fdia-graph` (generate a timeline and load it) and
+`fdia-analysis` (what is measured on a timeline). It breaks imports and removes code; the entries
+below give each change in full. In short:
+
+- **Two packages.** State estimation, localization, federated training and trusted-meter selection
+  moved from `fdia_graph` to `fdia_analysis`, installed with `pip install fdia-analysis`. See "Two
+  toolkits in one repository".
+- **One generator for every test system.** The New York grid is a case file that goes through the
+  same source as the IEEE cases (`SearchSource`, `SearchSource.for_pool`). The generator makes two
+  attack families, the ramp `At` and the overload `Am`. See "One source and one set of attack designs
+  for every test system".
+- **New York study code is gone.** Several entries below marked "(New York grid)" describe an
+  operator, a dispatch and attack designs that were added after 0.21.0 and removed again before this
+  release. "The study scripts leave the repository", "New York code that nothing built is removed",
+  "The simulated grid operator and the [WU26] defense reproduction are no longer part of the
+  package" and "One source and one set of attack designs for every test system" say what was
+  removed and what is left.
+- **One file layout.** A timeline in another layout is refused when it is opened; such a file reads
+  with fdia-graph 0.21. The released IEEE data sets load as before. See "One file layout".
+- **The generator is made of parts.** A method is called on its part, for example
+  `g.emitter.benign_frame(...)`, and many names in the attack code changed. See "The generator is
+  made of parts, not mixins", "Names in the attack code say what the thing is" and "One word for
+  each set of buses in the attack code".
+- **No aliases, no deprecated paths, no DC model.** See "Family-name aliases and old import paths are
+  removed", "Deprecated logic is removed" and "No DC model is left".
+
 - **A guided tour of one attack episode (docs only).** `docs/guides/tour.md`, "Follow one attack
   through the code", follows one overload episode on IEEE-14 from the pool of operating points to the
   frame in the file: the class and method of each step, the file it is in, the [WU26] equation it
