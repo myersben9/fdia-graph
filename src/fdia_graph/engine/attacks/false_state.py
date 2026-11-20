@@ -60,8 +60,9 @@ def _voltages_out_of_range(
 
 
 class _Pins(NamedTuple):
-    """The active set of the flow solve: per bus, the change that puts a component at the bound it would
-    pass. One of these holds every pin so far, another the pins one solve adds."""
+    """The active set of the flow solve: per bus, the value that holds a component at the bound it would
+    pass (a change for P and Q, the limit itself for a voltage). One of these holds every pin so far,
+    another the pins one solve adds."""
 
     p: dict[int, float]  # bus -> its active change at the bound, MW, generation positive
     q: dict[int, float]  # bus -> its reactive change at the bound, MVAr, generation positive
@@ -316,7 +317,8 @@ class FalseState(Part):
     ) -> _Pins:
         """What a solve drives past its bounds and `held` has not pinned yet, each with the value that
         puts it at the bound: over `setup.reach`, a generator's P or Q outside [WU26 eqs. 22-23] and a
-        load's active change past the load cap; on the support, a voltage outside eq. 21."""
+        load's active change past the load cap (changes in MW or MVAr, generation positive); on the
+        support, a voltage outside eq. 21 (the limit, pu)."""
         limits, dS = bounds.limits, solved.dS
         over = _Pins({}, {}, {})
         if limits is not None:
