@@ -119,10 +119,10 @@ it in `episodes/am_line`, and the script reads it from there.
 ## 4. The goal
 
 `Overload.overload_goal` builds a `FlowGoal` (`models/frames.py`): the apparent flow each target
-branch must show at each snapshot. The schedule is `_schedule` in `engine/attacks/overload.py`
-[WU26 eqs. 24-25]: the true flow at that snapshot, plus a share of the gap between the last true
-flow and the rating. The share grows by one sixtieth per snapshot, so the last snapshot reaches the
-rating.
+branch must show at each snapshot. The schedule of [WU26 eqs. 24-25] is `_schedule` in
+`engine/attacks/overload.py`. It is the true flow at that snapshot, plus a share of the gap between
+the last true flow and the rating. The share grows by one sixtieth per snapshot, so the last
+snapshot reaches the rating.
 
 The printed lines show it for both branches. On branch 10 the true flow is lower at the end of the
 window than at its start, while the goal climbs to the rating.
