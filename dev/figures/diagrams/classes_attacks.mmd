@@ -77,6 +77,9 @@ classDiagram
     class FlowGoal {
         <<models>>
     }
+    class FlowSolve {
+        <<models>>
+    }
     class Frame {
         <<models>>
     }
@@ -151,6 +154,7 @@ classDiagram
     EpisodeDesigns ..> RampDesign : uses
     FalseState ..> AttackDesign : uses
     FalseState ..> FlowGoal : uses
+    FalseState ..> FlowSolve : uses
     FalseState ..> FrameKnobs : uses
     FalseState ..> LoadGoal : uses
     FalseState ..> OperatingLimits : uses

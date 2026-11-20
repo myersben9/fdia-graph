@@ -1989,6 +1989,15 @@ the public API, the generated files and the numbers are the same as the previous
 <h2 id="unreleased">Unreleased<a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
 <ul>
 <li>
+<p><strong>The flow solve's values are named records (no change in behaviour).</strong>
+  <code>FalseState.solve_flow_local</code> returns a <code>FlowSolve(x_false, converged, load_change)</code>
+  (<code>models/frames.py</code>) where it returned a bare tuple of three. Inside
+  <code>engine/attacks/false_state.py</code>, the active set of the solve is one record with the pinned active
+  changes, the pinned reactive changes and the held voltages by name, where it was a pair of
+  dictionaries and a third passed beside it; the bounds, one solve's result and the goal's branches
+  and targets are named too. Every IEEE timeline is byte for byte what it was.</p>
+</li>
+<li>
 <p><strong>A reading order for the attack code (no change in behaviour).</strong> The files of <code>engine/</code> that hold
   a part, and every file of <code>engine/attacks/</code>, open with one sentence saying what the file does and
   name what it calls; <code>engine/attacks/__init__.py</code> lists the files in the order to read them.

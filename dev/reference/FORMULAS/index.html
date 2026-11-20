@@ -2361,7 +2361,7 @@ places, the table has only the rows every place agrees on. The module paths are 
 <tr>
 <td>21</td>
 <td>the voltage magnitude of a bus stays inside its limit</td>
-<td><code>engine.attacks.false_state._voltages_out_of_range</code>, <code>FalseState.solve_flow_local</code></td>
+<td><code>engine.attacks.false_state._voltages_out_of_range</code>, <code>FalseState._out_of_bounds</code>, <code>FalseState.solve_flow_local</code></td>
 </tr>
 <tr>
 <td>22-23</td>
@@ -2376,7 +2376,7 @@ places, the table has only the rows every place agrees on. The module paths are 
 <tr>
 <td>24-25</td>
 <td>the flow each target line must show at each snapshot of the window: S_{l,t} = S_true_{l,t} + (t - kappa)/T (S_max - S_true_{l,kappa+T})</td>
-<td>the module <code>engine.attacks.overload</code>, <code>models.frames.FlowGoal</code>, <code>formulas.network.local_flow_solve</code>, <code>FalseState.solve_flow_local</code>, <code>EpisodeDesigns.am_overload_design</code>, <code>engine.attacks.search.OverloadEpisode</code>, <code>errors.NoLineRatings</code>, the package <code>ratings</code></td>
+<td>the module <code>engine.attacks.overload</code>, <code>models.frames.FlowGoal</code>, <code>models.frames.FlowSolve</code>, <code>formulas.network.local_flow_solve</code>, <code>FalseState.solve_flow_local</code>, <code>EpisodeDesigns.am_overload_design</code>, <code>engine.attacks.search.OverloadEpisode</code>, <code>errors.NoLineRatings</code>, the package <code>ratings</code></td>
 </tr>
 <tr>
 <td>25</td>
