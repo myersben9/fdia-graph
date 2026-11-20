@@ -16,7 +16,8 @@ pip install -e ".[generate]"
 python examples/tour.py
 ```
 
-It generates a small timeline by the public call, then rebuilds the file's one episode by hand:
+It generates a small timeline by the public call, then rebuilds the file's one episode by hand. The
+timeline is registered as `tour` in the local cache and replaces a dataset of that name:
 
 ```python
 fg.generate("ieee14", name="tour", frames=600, seed=123, families=("Am",), attacked_frac=0.2)
@@ -59,7 +60,8 @@ number is the position plus one.
 <!-- tour:end -->
 
 The sections below take the numbered lines in order. `tests/test_tour.py` runs the script and
-compares its output with the block above (set `FDIA_SLOW=1` to run it).
+compares its output with the block above. That test runs only with `FDIA_SLOW=1`, and no scheduled
+workflow runs it, so run it after a change to the attack code.
 
 ## 1. The source
 
@@ -83,12 +85,14 @@ that it can call the parts one by one.
   frame is one solved AC state. Injections are positive for load (`NodeChannel`,
   `constants/channels.py`).
 - **The meter plan.** `MeterPlan.from_coverage` (`sensing/meters.py`) draws the meters from the
-  seed, at the coverage of `MeterSettings`. Here that is 89 meters: PMUs at positions 3 and 11, and
+  seed, at the coverage of `MeterSettings`, and places them with `MeterPlan.from_placement`. Here
+  that is 89 meters: PMUs at positions 3 and 11, and
   a flow meter on 18 of the 20 branches. Only a PMU reads an angle [WU26 eqs. 17-20].
   [Meters and noise](../concepts/meters.md) has the rules.
 - **Who can be moved.** `FalseState.free_injection_buses` (`engine/attacks/false_state.py`) lists
-  the buses whose injection an overload attacker may change: the attackable loads and the
-  generators [WU26 eqs. 13-14]. Position 6 injects nothing, so it is held at zero.
+  the buses whose injection an overload attacker may change: the attackable loads, and the
+  generators of `FalseState.generator_buses` [WU26 eqs. 13-14]. Position 6 injects nothing, so it
+  is held at zero.
 
 `SearchSource.__init__` also sets the line ratings before any frame is made
 (`Overload.use_line_ratings`, `engine/attacks/overload.py`). By default a branch's rating is
@@ -102,11 +106,13 @@ that it can call the parts one by one.
   episode's onset from the generator's random stream. With `attacked_frac=0.2` the train split gets
   one 60-frame episode and the two shorter splits none. The onset drawn is frame 92, so
   the window is frames 92 to 151.
-- **The targets.** `SearchDesigner.task` (`generation/design.py`) hands the window's 60 states to
-  `SearchOverload.designed` (`engine/attacks/search.py`), which calls
+- **The targets.** `SearchDesigner.task` (`generation/design.py`) builds the episode's task, and
+  `Designer._design` hands the window's 60 states to `SearchOverload.designed`
+  (`engine/attacks/search.py`), which calls
   `EpisodeDesigns.am_overload_design` (`engine/attacks/episodes.py`). It does three things:
     1. `Overload.eligible_lines` keeps the branches that are rated, flow metered, below their rating
-       at every snapshot, and have a free injection in the area around their ends. Here 18 qualify.
+       at every snapshot, have both ends at the grid's own buses, and have a free injection in the
+       area around their ends. Here 18 qualify.
     2. It puts them in a random order, drawn from a stream keyed by this episode, and
        `Overload.target_sets` forms pairs: a branch with the first other branch whose two ends lie
        inside its area.
@@ -119,8 +125,8 @@ it in `episodes/am_line`, and the script reads it from there.
 ## 4. The goal
 
 `Overload.overload_goal` builds a `FlowGoal` (`models/frames.py`): the apparent flow each target
-branch must show at each snapshot. The schedule of [WU26 eqs. 24-25] is `_schedule` in
-`engine/attacks/overload.py`. It is the true flow at that snapshot, plus a share of the gap between
+branch must show at each snapshot [WU26 eqs. 24-25]. The schedule is `_schedule` in
+`engine/attacks/overload.py` [WU26 eq. 25]. It is the true flow at that snapshot, plus a share of the gap between
 the last true flow and the rating. The share grows by one sixtieth per snapshot, so the last
 snapshot reaches the rating.
 
@@ -132,16 +138,19 @@ window than at its start, while the goal climbs to the rating.
 `Minimizer.min_tamper` (`engine/attacks/minimize.py`) chooses where the attacker acts
 [WU26 eq. 12].
 
-- **The area.** `Minimizer.window_area` asks `AttackArea.hop_area` (`engine/attacks/area.py`) for
-  the buses within `hops` branches of the target branches' ends, the slack left out. With two hops
+- **The area.** `Minimizer.window_area` asks `AttackArea.attack_area` (`engine/attacks/area.py`),
+  which under the default `area_rule` is `AttackArea.hop_area`: the buses within `hops` branches of
+  the target branches' ends, the slack left out. With two hops
   on a grid this small, the area is every bus but the slack, and its boundary is the slack alone.
 - **The candidates.** The whole area is the first candidate. `Minimizer._supports` then yields
   smaller ones, smallest first: each starts from one end of each target branch and grows by one
-  adjacent area bus at a time. A candidate must hold a free injection.
+  adjacent area bus at a time. A zero-injection bus on a candidate's boundary joins it, so a
+  candidate can grow by more than one bus. A candidate must hold a free injection.
 - **The cost.** `AttackWindow.cost` (`engine/attacks/window.py`) solves the false state of a
   candidate at all 60 snapshots and returns a `SupportCost`: the devices and the channels moved
-  beyond [WU26]'s noise at some snapshot [WU26 eq. 28], and the candidate's size. A candidate that
-  fails at any snapshot has no cost.
+  beyond [WU26]'s noise at some snapshot [WU26 eq. 28], and the candidate's size. A candidate has
+  no cost when its solve fails at any snapshot, when it moves no device beyond noise, or when it
+  cannot beat the best found so far.
 - **The result.** The search solves at most `min_budget` candidates, 256 by default, and it used
   all of them here. The cheapest it found is the support of positions 9 and 13: 3 devices, against
   5 for the whole area. The search makes no claim that this is the minimum.
@@ -154,17 +163,20 @@ injection the attack can change. The file records the support and the search's c
 ## 6. The false state
 
 For each frame, `FalseState.goal_state` (`engine/attacks/false_state.py`) solves the false state of
-that snapshot's goal on the held support. For a flow goal it calls `FalseState.solve_flow_local`,
-which returns a `FlowSolve` (`models/frames.py`):
+that snapshot's goal on the held support. For a flow goal it calls `FalseState.flow_goal_state`,
+which calls `FalseState.solve_flow_local` and gets a `FlowSolve` (`models/frames.py`):
 
 - **Unknowns.** The voltage magnitude and angle of the support's buses. Every other voltage is held
-  at its true value, which the printed line confirms: only positions 9 and 13 move.
+  at its true value. The printed line shows the voltage magnitude moving at positions 9 and 13
+  only.
 - **What must hold.** Each target branch shows its goal flow, by `formulas.network.local_flow_solve`.
   The free injections of the support change to make that so. Here both are loads, and
   `FlowSolve.load_change` is the load each one pretends.
-- **Bounds.** A load shows a change of at most `load_cap` times its true load, a generator stays
-  inside its limits and a voltage inside its limit [WU26 eqs. 21-23]. A value that would pass a
-  bound is pinned there and the solve repeated.
+- **Bounds.** A load shows a change of at most `load_cap` times its true load [YUA11]. A generator
+  stays inside its limits and a voltage inside its limit [WU26 eqs. 21-23]. A value that would pass
+  a bound is pinned there and the solve repeated.
+- **The last check.** `flow_goal_state` then rejects a state that leaves the limits anywhere on
+  the reach (`formulas.attacks.within_limits`).
 
 The pretended change is a few hundredths of a megawatt at the first snapshot and a few megawatts at
 the last, because the goal moves a little further from the truth at each snapshot.
@@ -180,9 +192,10 @@ and hands it to `AttackFrames.frame_from_state` (`engine/attacks/frames.py`):
    `g.scan_key` to get the same draw.
 2. `AttackFrames.attack_vector` is the noiseless reading of the false state minus that of the true
    state [WU26 eqs. 13-18].
-3. The vector is added to the true scan on the meters it moves. The masks of those meters are a
-   `MeterLayers` (`models/frames.py`): node, flow and PMU current.
+3. The vector is added to the true scan on the node and flow meters it moves.
 4. The labels `y` are set at the free injections of the support, positions 9 and 13.
+5. `AttackFrames.currents_with_attack` does the same for the PMU currents, and the masks of every
+   meter moved are returned as a `MeterLayers` (`models/frames.py`): node, flow and PMU current.
 
 Two counts appear on this page and they measure different things. The search's 3 devices are those
 moved beyond [WU26]'s noise somewhere in the window. The masks mark every stored reading the attack
@@ -206,7 +219,8 @@ walk writes the tables. For this episode:
 | `episodes/am_line`, `am_rating_mva`, `am_target_mva`, `am_reached_mva`, `am_emitted_mva` | one row per target branch |
 | `episodes/min_devices`, `min_channels`, `min_evaluated`, `min_support_idx` | what the search chose |
 
-[The data dictionary](../reference/DATA_DICTIONARY.md#the-timeline-file) lists every dataset.
+[The data dictionary](../reference/DATA_DICTIONARY.md#the-timeline-file) describes the datasets
+every timeline holds. The names of the `am_` and `min_` tables are in `schema.py`.
 
 `fg.load("tour", order="time")` reads the file back. `ds.episodes` is the episode table, and its
 `buses` are the buses the episode labelled: positions 9 and 13, the support's free injections.

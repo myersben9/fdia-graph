@@ -1,5 +1,6 @@
 """The tour of docs/guides/tour.md prints what the page shows: `examples/tour.py` runs as published and
-its output is compared, line for line, with the block the page quotes, so the page cannot go stale."""
+its output is compared, line for line, with the block the page quotes. The comparison runs only with
+FDIA_SLOW=1, and no scheduled workflow runs it."""
 
 from __future__ import annotations
 
