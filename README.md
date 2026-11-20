@@ -87,6 +87,7 @@ Every extra of both toolkits is listed in [Install and data versions](docs/guide
   [generate a timeline](docs/getting-started/generate.md),
   [analyse a timeline](docs/getting-started/analyse.md)
 - Guides: [generate a timeline](docs/guides/generation.md),
+  [follow one attack through the code](docs/guides/tour.md),
   [build the operating points](docs/guides/operating_points.md),
   [add a design family or a test system](docs/guides/extending.md),
   [troubleshooting](docs/guides/troubleshooting.md)

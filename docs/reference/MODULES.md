@@ -243,6 +243,7 @@ What every folder of the repository holds, then what every Python file does, in 
 | `tests/test_timeline_digests.py` | The generated IEEE timeline, whole: every dataset and attribute of the file against a stored digest. |
 | `tests/test_toolkit_boundary.py` | The dependency between the two toolkits points one way: the analysis toolkit `fdia_analysis` builds on the generation toolkit `fdia_graph`, and `fdia_graph` never imports it. Checked in the source (no import, no module name in a lazy table) and by running: a fresh interpreter in which `fdia_analysis` is blocked (so the check is the same whether or not it is installed) loads every module of `fdia_graph`, generates a timeline and reads it back. |
 | `tests/test_tools.py` | Four repository tools on small samples: the constants rule of `tools/layout.py` on a temporary tree, `tools/count_lines.py` on a file whose lines are easy to miscount, the phone rules of `tools/render_mermaid.py` on two flow diagrams, and the plain-pages rule of `tools/prereview.py` on a page. |
+| `tests/test_tour.py` | The tour of docs/guides/tour.md prints what the page shows: `examples/tour.py` runs as published and its output is compared, line for line, with the block the page quotes, so the page cannot go stale. |
 | `tests/test_trust_formulas.py` | The row reduction the attack search and the trusted-meter kernel share (the kernel itself, the open attack subspace, its cost and the greedy selection, is checked in analysis/tests/test_trust_formulas.py). |
 | `tests/test_trusted_pmus.py` | [WU26]'s trusted-PMU schedule as a constraint on the fewest-tamper search: a PMU trusted at slot s keeps its bus's /V/ and angle true at every snapshot t >= s (eqs. 26-32), its branch currents stay untrusted (eq. 27), and one support is held for the window. |
 | `tests/test_validation.py` | The validation engine (models.validation): rules declared on fields, one message shape, and the public entry points that build their config models before any work. |
@@ -282,6 +283,7 @@ What every folder of the repository holds, then what every Python file does, in 
 | `examples/nygrid/custom_alarm_rule.py` | A detector rule of your own: a CUSUM on the residual statistic, next to the package's persistence rule. |
 | `examples/nygrid/custom_attack_family.py` | An attack family of your own: a slow bias on one load bus's injection meter. |
 | `examples/quickstart.py` | 60-second tour of fdia-graph: load a dataset, inspect it, and get it in whatever format you want. |
+| `examples/tour.py` | One overload episode on IEEE-14, step by step: the script behind docs/guides/tour.md. |
 | `examples/train_arma.py` | Stronger localizer baseline: an edge-fused ARMA graph convolution net (Bianchi et al., IEEE TPAMI 2021). |
 | `examples/train_gnn.py` | End-to-end example: train a GNN attack-localizer on an fdia-graph dataset — the whole point of the SDK. |
 | `examples/train_tgnn.py` | Temporal Graph NN localizer benchmark on an fdia-graph dataset. |
