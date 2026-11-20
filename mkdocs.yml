@@ -56,6 +56,7 @@ nav:
   - How-to guides:
       - Install and data versions: guides/install.md
       - Generate a timeline: guides/generation.md
+      - Follow one attack through the code: guides/tour.md
       - Build the operating points: guides/operating_points.md
       - Estimate the state: guides/state_estimation.md
       - Add a design family, an alarm rule or a test system: guides/extending.md

@@ -100,4 +100,5 @@ the build of the timeline from the pool.
 
 - [Analyse a timeline](analyse.md): run an estimator and a localizer on the file.
 - [Generate a timeline](../guides/generation.md): the steps, and every setting.
+- [Follow one attack through the code](../guides/tour.md): one episode, class by class.
 - [The attack families](../concepts/attacks.md): what the two families are.

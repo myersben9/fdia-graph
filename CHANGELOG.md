@@ -5,6 +5,15 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- **A guided tour of one attack episode (docs only).** `docs/guides/tour.md`, "Follow one attack
+  through the code", follows one overload episode on IEEE-14 from the pool of operating points to the
+  frame in the file: the class and method of each step, the file it is in, the [WU26] equation it
+  implements and what it produced for that episode. The values come from a new script,
+  `examples/tour.py`, which generates a 600-frame timeline, rebuilds its one episode by hand and
+  checks the frame it builds against the file's. `tests/test_tour.py` compares the script's output
+  with the block the page quotes (with `FDIA_SLOW=1`). The page is linked from the README, the docs
+  navigation and the generation tutorial.
+
 - **The flow solve's values are named records (no change in behaviour).**
   `FalseState.solve_flow_local` returns a `FlowSolve(x_false, converged, load_change)`
   (`models/frames.py`) where it returned a bare tuple of three. Inside
