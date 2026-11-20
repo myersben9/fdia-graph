@@ -1771,6 +1771,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#0220" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        0.22.0
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#0210" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1904,6 +1915,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#0220" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        0.22.0
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#0210" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2015,7 +2037,34 @@
 <p>Every release lists what a user of the package can see change. "No user-visible change" means
 the public API, the generated files and the numbers are the same as the previous release.</p>
 <h2 id="unreleased">Unreleased<a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
+<h2 id="0220">0.22.0<a class="headerlink" href="#0220" title="Permanent link">&para;</a></h2>
+<p>The first release of two distributions: <code>fdia-graph</code> (generate a timeline and load it) and
+<code>fdia-analysis</code> (what is measured on a timeline). It breaks imports and removes code; the entries
+below give each change in full. In short:</p>
 <ul>
+<li><strong>Two packages.</strong> State estimation, localization, federated training and trusted-meter selection
+  moved from <code>fdia_graph</code> to <code>fdia_analysis</code>, installed with <code>pip install fdia-analysis</code>. See "Two
+  toolkits in one repository".</li>
+<li><strong>One generator for every test system.</strong> The New York grid is a case file that goes through the
+  same source as the IEEE cases (<code>SearchSource</code>, <code>SearchSource.for_pool</code>). The generator makes two
+  attack families, the ramp <code>At</code> and the overload <code>Am</code>. See "One source and one set of attack designs
+  for every test system".</li>
+<li><strong>New York study code is gone.</strong> Several entries below marked "(New York grid)" describe an
+  operator, a dispatch and attack designs that were added after 0.21.0 and removed again before this
+  release. "The study scripts leave the repository", "New York code that nothing built is removed",
+  "The simulated grid operator and the [WU26] defense reproduction are no longer part of the
+  package" and "One source and one set of attack designs for every test system" say what was
+  removed and what is left.</li>
+<li><strong>One file layout.</strong> A timeline in another layout is refused when it is opened; such a file reads
+  with fdia-graph 0.21. The released IEEE data sets load as before. See "One file layout".</li>
+<li><strong>The generator is made of parts.</strong> A method is called on its part, for example
+  <code>g.emitter.benign_frame(...)</code>, and many names in the attack code changed. See "The generator is
+  made of parts, not mixins", "Names in the attack code say what the thing is" and "One word for
+  each set of buses in the attack code".</li>
+<li>
+<p><strong>No aliases, no deprecated paths, no DC model.</strong> See "Family-name aliases and old import paths are
+  removed", "Deprecated logic is removed" and "No DC model is left".</p>
+</li>
 <li>
 <p><strong>A guided tour of one attack episode (docs only).</strong> <code>docs/guides/tour.md</code>, "Follow one attack
   through the code", follows one overload episode on IEEE-14 from the pool of operating points to the
