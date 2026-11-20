@@ -2,8 +2,8 @@
 operating limits, a search result.
 
 This module imports no other module of the package. Also here: the attack settings of a run
-(`FrameKnobs`), the layers of a file (`MeterLayers`), the cost of a support (`SupportCost`) and the
-score of a candidate area (`AreaScore`)."""
+(`FrameKnobs`), the layers of a file (`MeterLayers`), the result of a flow solve (`FlowSolve`), the cost
+of a support (`SupportCost`) and the score of a candidate area (`AreaScore`)."""
 
 from __future__ import annotations
 
@@ -195,6 +195,16 @@ class AmOverloadDesign(NamedTuple):
     ratings: tuple[float, ...]  # each target branch's rating S_max, MVA, in `goal.lines` order
     support: np.ndarray  # the buses whose voltages the false state moves, held for every frame
     tamper: MinimizerResult  # the search's result for the window
+
+
+class FlowSolve(NamedTuple):
+    """What the flow solve of a goal on a support returns [WU26 eqs. 24-25]
+    (`engine.attacks.false_state.FalseState.solve_flow_local`)."""
+
+    x_false: Optional[np.ndarray]  # the false state [N, 4]; None when the solve fails, a bound cannot be
+    # met or the support has no free bus
+    converged: bool  # False only when the local solve itself failed
+    load_change: np.ndarray  # the pretended load change per bus [N], MW; zero at a generator bus
 
 
 class SupportCost(NamedTuple):
