@@ -1,6 +1,7 @@
 """Four repository tools on small samples: the constants rule of `tools/layout.py` on a temporary tree,
 `tools/count_lines.py` on a file whose lines are easy to miscount, the phone rules of
-`tools/render_mermaid.py` on two flow diagrams, and the plain-pages rule of `tools/prereview.py` on a page."""
+`tools/render_mermaid.py` on two flow diagrams, and the plain-pages rule and the release exception of the
+changelog rule of `tools/prereview.py`."""
 
 import os
 import sys
@@ -151,3 +152,11 @@ def test_a_package_count_separates_the_homes_of_constants(tmp_path):
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(text, encoding="utf-8")
     assert count_lines.LineCount.package(tmp_path) == (3 + SAMPLE.count("\n"), 15, 3)
+
+
+def test_an_empty_unreleased_section_is_accepted_only_above_the_current_version():
+    version = prereview._read("pyproject.toml").split('version = "')[1].split('"')[0]
+    release = f"# Changelog\n\n## Unreleased\n\n## {version}\n\n- an entry\n"
+    assert prereview._is_release(release)
+    assert not prereview._is_release(release.replace(f"## {version}", "## 0.0.1"))
+    assert not prereview._is_release(release.replace("## Unreleased\n", "## Unreleased\n\n- unreleased\n"))
