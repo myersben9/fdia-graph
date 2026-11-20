@@ -1,0 +1,16 @@
+flowchart TB
+    prev["`**1. Estimate the scan before**
+    a plain solve of its readings
+    previous_estimate`"]
+    dz["`**2. Unpredicted change**
+    this scan minus the readings
+    that estimate predicts: delta_z`"]
+    split["`**3. Split by the Jacobian**
+    the part a state change explains,
+    and the unexplained rest`"]
+    w["`**4. Meter weights**
+    Huber's, from the unexplained rest
+    JacobianWeighting.weights`"]
+    solve["`**5. One weighted solve**
+    SEBase.estimate`"]
+    prev --> dz --> split --> w --> solve

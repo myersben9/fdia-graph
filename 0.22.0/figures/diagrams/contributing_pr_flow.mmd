@@ -1,0 +1,18 @@
+flowchart TB
+    A["`**1. Branch off main**`"]
+    B["`**2. Pre-review**
+    tools/prereview.py, every gate`"]
+    C["`**3. Checklist review**
+    REVIEW_CHECKLIST.md`"]
+    D["`**4. Draft pull request**
+    tools/pr.py create`"]
+    E["`**5. One review by review agents**
+    one round of fixes`"]
+    R["`**6. Pre-review again**
+    tools/prereview.py`"]
+    F["`**7. Ready and summary**
+    tools/pr.py ready, summary`"]
+    H["`**8. Merge**
+    tools/pr.py merge: green CI
+    and the owner's approval`"]
+    A --> B --> C --> D --> E --> R --> F --> H

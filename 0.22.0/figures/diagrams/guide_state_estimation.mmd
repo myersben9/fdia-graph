@@ -1,0 +1,18 @@
+flowchart TB
+    fit["`**est.fit(train)**
+    reads the benign records`"]
+    sigma["`**Meter weights**
+    sigma from the residuals
+    at the clean truth`"]
+    jac["`**Chord Jacobian H**
+    at the benign mean
+    G = HᵀWH and its inverse`"]
+    hook["`**Hook: _fit_states**
+    SubspacePrior learns its basis`"]
+    est["`**est.estimate(test)**
+    chord-Newton loop, hook: _solve
+    returns [n, 2N-1]`"]
+    score["`**est.score(test)**
+    estimate minus clean, per family
+    angle deg, voltage pu`"]
+    fit --> hook --> sigma --> jac --> est --> score

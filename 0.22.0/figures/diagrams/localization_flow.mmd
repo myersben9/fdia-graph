@@ -1,0 +1,20 @@
+flowchart TB
+    learn["`**1. Fit the method's parts**
+    a learned arm trains on every record
+    loc.fit(train)`"]
+    thr["`**2. Set a threshold per bus**
+    the (1 − fa_target) benign quantile
+    LocalizerBase.fit`"]
+    val["`**3. With val, a learned arm**
+    takes one validation-best threshold
+    tune_threshold`"]
+    score["`**4. Score every bus of a scan**
+    the one thing a method changes
+    loc.scores(test)`"]
+    flag["`**5. Flag**
+    score above the threshold
+    loc.localize(test)`"]
+    report["`**6. Report per family**
+    flags against y, next to the
+    benign false alarms: loc.score(test)`"]
+    learn --> thr --> val --> score --> flag --> report

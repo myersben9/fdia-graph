@@ -1,0 +1,179 @@
+classDiagram
+    class AttackArea {
+        +hop_area()
+        +boundary()
+        +grow_over_zero_injection()
+        +attack_area()
+        +explicit_area()
+        +rule_area()
+        +area_score()
+    }
+    class FalseState {
+        +operating_limits()
+        +solve_local()
+        +free_load_buses()
+        +generator_buses()
+        +free_injection_buses()
+        +solve_flow_local()
+        +reach()
+        +goal_state()
+        ... and 6 more
+    }
+    class AttackFrames {
+        +frame_from_state()
+        +frame_from_vector()
+        +currents_with_attack()
+        +attack_vector()
+        +current_attack()
+    }
+    class Minimizer {
+        +min_tamper()
+        +window_area()
+        +zero_closed()
+    }
+    class AttackWindow {
+        +cost()
+        +support_at()
+        +near()
+    }
+    class Overload {
+        +use_line_ratings()
+        +line_ratings()
+        +eligible_lines()
+        +overload_goal()
+        +window_ratings()
+        +target_sets()
+        +overload_step()
+        +pretended_change()
+        ... and 1 more
+    }
+    class RampFrames {
+        +ramp_frame()
+    }
+    class EpisodeDesigns {
+        +target_counts()
+        +ramp_step()
+        +ramp_design()
+        +am_overload_design()
+    }
+    class AmOverloadDesign {
+        <<models>>
+    }
+    class AreaScore {
+        <<models>>
+    }
+    class AttackDesign {
+        <<models>>
+    }
+    class AttackVector {
+        <<models>>
+    }
+    class CostUnit {
+        <<models>>
+    }
+    class FdiaGenerator {
+        <<engine>>
+    }
+    class FlowGoal {
+        <<models>>
+    }
+    class FlowSolve {
+        <<models>>
+    }
+    class Frame {
+        <<models>>
+    }
+    class FrameKnobs {
+        <<models>>
+    }
+    class LoadGoal {
+        <<models>>
+    }
+    class MeterLayers {
+        <<models>>
+    }
+    class MinimizerResult {
+        <<models>>
+    }
+    class NoLineRatings {
+        <<errors>>
+    }
+    class OperatingLimits {
+        <<models>>
+    }
+    class OverloadSettings {
+        <<models>>
+    }
+    class Part {
+        <<engine>>
+    }
+    class RampDesign {
+        <<models>>
+    }
+    class RrefSupport {
+        <<engine>>
+    }
+    class Scan {
+        <<models>>
+    }
+    class SupportCost {
+        <<models>>
+    }
+    class SupportMethod {
+        <<models>>
+    }
+    class TrustSchedule {
+        <<models>>
+    }
+    class TrustablePmus {
+        <<models>>
+    }
+    Part <|-- AttackArea
+    Part <|-- AttackFrames
+    Part <|-- EpisodeDesigns
+    Part <|-- FalseState
+    Part <|-- Minimizer
+    Part <|-- Overload
+    Part <|-- RampFrames
+    AttackArea ..> AreaScore : uses
+    AttackFrames ..> Frame : uses
+    AttackFrames ..> MeterLayers : uses
+    AttackFrames ..> Scan : uses
+    AttackWindow ..> AttackVector : uses
+    AttackWindow ..> CostUnit : uses
+    AttackWindow ..> FdiaGenerator : uses
+    AttackWindow ..> FrameKnobs : uses
+    AttackWindow ..> MeterLayers : uses
+    AttackWindow ..> SupportCost : uses
+    AttackWindow ..> TrustSchedule : uses
+    EpisodeDesigns ..> AmOverloadDesign : uses
+    EpisodeDesigns ..> AttackDesign : uses
+    EpisodeDesigns ..> AttackVector : uses
+    EpisodeDesigns ..> FrameKnobs : uses
+    EpisodeDesigns ..> LoadGoal : uses
+    EpisodeDesigns ..> RampDesign : uses
+    FalseState ..> AttackDesign : uses
+    FalseState ..> FlowGoal : uses
+    FalseState ..> FlowSolve : uses
+    FalseState ..> FrameKnobs : uses
+    FalseState ..> LoadGoal : uses
+    FalseState ..> OperatingLimits : uses
+    Minimizer ..> AttackVector : uses
+    Minimizer ..> AttackWindow : uses
+    Minimizer ..> FlowGoal : uses
+    Minimizer ..> FrameKnobs : uses
+    Minimizer ..> LoadGoal : uses
+    Minimizer ..> MinimizerResult : uses
+    Minimizer ..> RrefSupport : uses
+    Minimizer ..> SupportMethod : uses
+    Minimizer ..> TrustSchedule : uses
+    Minimizer ..> TrustablePmus : uses
+    Overload ..> AmOverloadDesign : uses
+    Overload ..> FlowGoal : uses
+    Overload ..> Frame : uses
+    Overload ..> FrameKnobs : uses
+    Overload ..> NoLineRatings : uses
+    Overload ..> OverloadSettings : uses
+    RampFrames ..> AttackDesign : uses
+    RampFrames ..> Frame : uses
+    RampFrames ..> FrameKnobs : uses

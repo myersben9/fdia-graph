@@ -1,0 +1,29 @@
+classDiagram
+    class Bundle {
+        +key_of()
+        +to_dict()
+        +ordered()
+        +update()
+        +setdefault()
+        +pop()
+        +popitem()
+        +clear()
+    }
+    class RecordFields {
+    }
+    class RecordBundle {
+    }
+    class BatchBundle {
+    }
+    class ArraysBundle {
+    }
+    class EpisodeTable {
+    }
+    class Summary {
+    }
+    Bundle <|-- EpisodeTable
+    Bundle <|-- RecordFields
+    Bundle <|-- Summary
+    RecordFields <|-- ArraysBundle
+    RecordFields <|-- BatchBundle
+    RecordFields <|-- RecordBundle

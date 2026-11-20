@@ -1,0 +1,45 @@
+flowchart TB
+    subgraph fdia_graph["fdia-graph, the generation toolkit: src/fdia_graph"]
+        data["data/"]
+        dataset["dataset/"]
+        download["download.py"]
+        engine["engine/"]
+        generation["generation/"]
+        ratings["ratings/"]
+        registry["registry.py"]
+        sensing["sensing/"]
+        systems["systems/"]
+        timeline["timeline.py"]
+    end
+    subgraph fdia_analysis["fdia-analysis, the analysis toolkit: analysis/src/fdia_analysis"]
+        federated["federated/"]
+        localization["localization/"]
+        results["results/"]
+        se["se/"]
+        trust["trust/"]
+    end
+    data --> systems
+    dataset --> sensing
+    dataset --> systems
+    download --> registry
+    engine --> ratings
+    engine --> sensing
+    engine --> systems
+    federated --> dataset
+    federated --> localization
+    federated --> se
+    generation --> data
+    generation --> download
+    generation --> engine
+    generation --> registry
+    generation --> systems
+    generation --> timeline
+    localization --> dataset
+    localization --> se
+    se --> dataset
+    sensing --> systems
+    timeline --> generation
+    trust --> dataset
+    trust --> generation
+    trust --> registry
+    trust --> se

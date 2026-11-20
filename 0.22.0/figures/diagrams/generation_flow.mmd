@@ -1,0 +1,22 @@
+flowchart TB
+    pool["`**A test system and its pool**
+    one AC state per frame`"]
+    open["`**1. Open**
+    the file, under a .part name`"]
+    cut["`**2. Cut the splits**
+    blocks in time order,
+    or whole weeks`"]
+    place["`**3. Place**
+    a split's episodes,
+    whole, at random onsets`"]
+    design["`**4. Design**
+    each episode`"]
+    walk["`**5. Walk**
+    the frames, in time order`"]
+    finish["`**6. Finish**
+    the episode table`"]
+    file[("`**One timeline file**
+    observed, benign, clean`")]
+    pool --> open --> cut --> place --> design --> walk
+    walk -- "next split" --> place
+    walk --> finish --> file

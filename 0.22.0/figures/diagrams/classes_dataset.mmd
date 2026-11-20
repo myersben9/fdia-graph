@@ -1,0 +1,121 @@
+classDiagram
+    class DatasetBase {
+        +require()
+        +edge_index
+        +edge_attr
+        +export()
+    }
+    class GraphMixin {
+        +edge_index
+        +branch_r
+        +branch_x
+        +branch_b
+        +branch_g
+        +branch_gs
+        +branch_bs
+        +branch_tap
+        ... and 4 more
+    }
+    class AdmittanceMixin {
+        +ybus_np
+        +yf_np
+        +yt_np
+        +ybus
+        +yf
+        +yt
+    }
+    class RecordsMixin {
+        +collate()
+        +loader()
+    }
+    class ExportMixin {
+        +summary()
+        +export()
+    }
+    class SequenceMixin {
+        +windows()
+        +episodes
+    }
+    class FdiaGraph {
+    }
+    class Admittances {
+        <<models>>
+    }
+    class ArraysBundle {
+        <<models>>
+    }
+    class Attr {
+        <<schema>>
+    }
+    class BatchBundle {
+        <<models>>
+    }
+    class BranchModel {
+        <<models>>
+    }
+    class EpisodeTable {
+        <<models>>
+    }
+    class ExportRequest {
+        <<models>>
+    }
+    class FieldRequest {
+        <<models>>
+    }
+    class LoadOptions {
+        <<models>>
+    }
+    class MissingCapability {
+        <<errors>>
+    }
+    class NotATimeline {
+        <<errors>>
+    }
+    class ReadableLayout {
+        <<models>>
+    }
+    class RecordBundle {
+        <<models>>
+    }
+    class Requirement {
+        <<models>>
+    }
+    class Static {
+        <<schema>>
+    }
+    class Summary {
+        <<models>>
+    }
+    class WindowSpec {
+        <<models>>
+    }
+    AdmittanceMixin <|-- FdiaGraph
+    DatasetBase <|-- AdmittanceMixin
+    DatasetBase <|-- ExportMixin
+    DatasetBase <|-- GraphMixin
+    DatasetBase <|-- RecordsMixin
+    DatasetBase <|-- SequenceMixin
+    ExportMixin <|-- FdiaGraph
+    GraphMixin <|-- FdiaGraph
+    RecordsMixin <|-- FdiaGraph
+    SequenceMixin <|-- FdiaGraph
+    AdmittanceMixin ..> Admittances : uses
+    AdmittanceMixin ..> BranchModel : uses
+    AdmittanceMixin ..> Static : uses
+    DatasetBase ..> ArraysBundle : uses
+    DatasetBase ..> EpisodeTable : uses
+    DatasetBase ..> MissingCapability : uses
+    DatasetBase ..> Requirement : uses
+    ExportMixin ..> ArraysBundle : uses
+    ExportMixin ..> ExportRequest : uses
+    ExportMixin ..> FieldRequest : uses
+    ExportMixin ..> Summary : uses
+    FdiaGraph ..> Attr : uses
+    FdiaGraph ..> LoadOptions : uses
+    FdiaGraph ..> NotATimeline : uses
+    FdiaGraph ..> ReadableLayout : uses
+    GraphMixin ..> Static : uses
+    RecordsMixin ..> BatchBundle : uses
+    RecordsMixin ..> RecordBundle : uses
+    SequenceMixin ..> EpisodeTable : uses
+    SequenceMixin ..> WindowSpec : uses

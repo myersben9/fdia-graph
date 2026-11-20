@@ -1,0 +1,134 @@
+classDiagram
+    class Part {
+    }
+    class Emitter {
+        +exact()
+        +layers()
+        +emit_from_state()
+        +benign_frame()
+        +clean_flows_from_states()
+        +all_flows_from_states()
+        +currents_from_states()
+    }
+    class LoadSplit {
+        +generation()
+        +load()
+        +idle_units()
+        +of()
+    }
+    class ScaledSplit {
+        +of_case()
+        +generation()
+        +idle_units()
+    }
+    class NetSplit {
+        +of_pool()
+        +idle_units()
+        +generation()
+    }
+    class ScanLoads {
+        +true_load()
+        +true_reactive_load()
+        +scan_reactive_generation()
+        +scan_generation()
+    }
+    class FdiaGenerator {
+        +use_plan()
+        +from_spec()
+    }
+    class AttackArea {
+        <<engine>>
+    }
+    class AttackFrames {
+        <<engine>>
+    }
+    class BusType {
+        <<constants>>
+    }
+    class Case {
+        <<systems>>
+    }
+    class EpisodeDesigns {
+        <<engine>>
+    }
+    class FalseState {
+        <<engine>>
+    }
+    class Frame {
+        <<models>>
+    }
+    class GeneratorOptions {
+        <<models>>
+    }
+    class GeneratorSpec {
+        <<models>>
+    }
+    class LoadRule {
+        <<models>>
+    }
+    class Measurement {
+        <<sensing>>
+    }
+    class MeterKind {
+        <<constants>>
+    }
+    class MeterLayers {
+        <<models>>
+    }
+    class MeterPlan {
+        <<sensing>>
+    }
+    class MeterSettings {
+        <<models>>
+    }
+    class Minimizer {
+        <<engine>>
+    }
+    class Network {
+        <<systems>>
+    }
+    class NoiseModel {
+        <<sensing>>
+    }
+    class Overload {
+        <<engine>>
+    }
+    class RampFrames {
+        <<engine>>
+    }
+    class Scan {
+        <<models>>
+    }
+    LoadSplit <|-- NetSplit
+    LoadSplit <|-- ScaledSplit
+    Part <|-- Emitter
+    Part <|-- ScanLoads
+    Emitter ..> Frame : uses
+    Emitter ..> MeterLayers : uses
+    Emitter ..> Scan : uses
+    FdiaGenerator ..> AttackArea : uses
+    FdiaGenerator ..> AttackFrames : uses
+    FdiaGenerator ..> BusType : uses
+    FdiaGenerator ..> Emitter : uses
+    FdiaGenerator ..> EpisodeDesigns : uses
+    FdiaGenerator ..> FalseState : uses
+    FdiaGenerator ..> GeneratorOptions : uses
+    FdiaGenerator ..> GeneratorSpec : uses
+    FdiaGenerator ..> LoadSplit : uses
+    FdiaGenerator ..> Measurement : uses
+    FdiaGenerator ..> MeterKind : uses
+    FdiaGenerator ..> MeterPlan : uses
+    FdiaGenerator ..> MeterSettings : uses
+    FdiaGenerator ..> Minimizer : uses
+    FdiaGenerator ..> Network : uses
+    FdiaGenerator ..> NoiseModel : uses
+    FdiaGenerator ..> Overload : uses
+    FdiaGenerator ..> RampFrames : uses
+    FdiaGenerator ..> ScaledSplit : uses
+    FdiaGenerator ..> ScanLoads : uses
+    LoadSplit ..> Case : uses
+    LoadSplit ..> LoadRule : uses
+    NetSplit ..> Case : uses
+    Part ..> FdiaGenerator : uses
+    ScaledSplit ..> BusType : uses
+    ScaledSplit ..> Case : uses

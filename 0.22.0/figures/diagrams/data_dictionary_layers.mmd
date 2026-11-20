@@ -1,0 +1,10 @@
+flowchart TB
+    clean["`**clean, edge_clean**
+    the noiseless true state`"]
+    benign["`**benign, edge_benign**
+    the scan without the attack`"]
+    obs["`**node_x, edge_x**
+    observed, the model input
+    observed − benign = the attack`"]
+    clean -- "+ meter noise" --> benign
+    benign -- "+ the attack" --> obs

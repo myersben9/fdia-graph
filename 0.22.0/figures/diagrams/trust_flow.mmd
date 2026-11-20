@@ -1,0 +1,24 @@
+flowchart TB
+    jac["`**1. Jacobian at the benign mean**
+    a WLS fit from measurements only
+    tm.fit(train)`"]
+    level["`**2. Alarm level**
+    benign quantile of the largest
+    normalized residual`"]
+    cost["`**3. Attack cost**
+    fewest meters of the cheapest attack
+    the secured rows leave open`"]
+    pick["`**4. Secure one more meter**
+    TrustedMeters: the greedy rule
+    TrustedMetersDQN: a Q-network`"]
+    pin["`**5. Pin the secured meters**
+    they read the benign layer
+    tm.score(test)`"]
+    test["`**6. Residual test**
+    largest normalized residual
+    against the alarm level`"]
+    out["`**Detection per family**
+    before and after securing`"]
+    jac --> level --> cost --> pick
+    pick -- "up to k meters" --> cost
+    pick --> pin --> test --> out

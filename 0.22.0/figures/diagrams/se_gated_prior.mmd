@@ -1,0 +1,13 @@
+flowchart TB
+    loc["`**1. A localizer flags buses**
+    a fitted localizer,
+    or OracleGate: the labels`"]
+    gate["`**2. Down-weight their meters**
+    the bus's own and its branch flows,
+    times gate_factor (0.001)`"]
+    keep["`**3. Secured meters keep their weight**
+    GatedPrior(secured=...)`"]
+    solve["`**4. Solve inside the benign prior**
+    SubspacePrior, with Huber if set:
+    the prior fills the gap`"]
+    loc --> gate --> keep --> solve

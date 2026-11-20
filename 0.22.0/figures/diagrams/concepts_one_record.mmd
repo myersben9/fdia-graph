@@ -1,0 +1,21 @@
+flowchart TB
+    state["`**Operating state**
+    one frame of the pool`"]
+    clean["`**Clean layer**
+    clean, edge_clean
+    Measurement.h, no noise`"]
+    benign["`**Benign layer**
+    benign, edge_benign
+    emit_from_state`"]
+    obs["`**Observed layer**
+    node_x, edge_x
+    frame_from_state`"]
+    labels["`**Labels**
+    y, family, seq_id,
+    the tamper masks`"]
+    record[("`**One record**
+    TimelineWriter.store`")]
+    state --> clean
+    clean -- "+ meter noise" --> benign
+    benign -- "+ the attack" --> obs
+    obs --> labels --> record
