@@ -20,14 +20,16 @@ below give each change in full. In short:
   for every test system".
 - **New York study code is gone.** Several entries below marked "(New York grid)" describe an
   operator, a dispatch and attack designs that were added after 0.21.0 and removed again before this
-  release. "The study scripts leave the repository", "New York code that nothing built is removed" and
-  "One source and one set of attack designs for every test system" say what was removed and what is
-  left.
+  release. "The study scripts leave the repository", "New York code that nothing built is removed",
+  "The simulated grid operator and the [WU26] defense reproduction are no longer part of the
+  package" and "One source and one set of attack designs for every test system" say what was
+  removed and what is left.
 - **One file layout.** A timeline in another layout is refused when it is opened; such a file reads
   with fdia-graph 0.21. The released IEEE data sets load as before. See "One file layout".
 - **The generator is made of parts.** A method is called on its part, for example
   `g.emitter.benign_frame(...)`, and many names in the attack code changed. See "The generator is
-  made of parts, not mixins" and the three entries on names.
+  made of parts, not mixins", "Names in the attack code say what the thing is" and "One word for
+  each set of buses in the attack code".
 - **No aliases, no deprecated paths, no DC model.** See "Family-name aliases and old import paths are
   removed", "Deprecated logic is removed" and "No DC model is left".
 

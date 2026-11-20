@@ -21,7 +21,8 @@ the branch's commits against the base, the uncommitted changes and the untracked
 
 - **changelog**: never more than one `## Unreleased`; a change under `src/` or `analysis/src/` needs
   exactly one, with at least one entry, and CHANGELOG.md changed. A release is the one exception to
-  the entry: its `## Unreleased` is empty and the next heading is the version in `pyproject.toml`.
+  the entry: it changes `pyproject.toml`, its `## Unreleased` is empty and the next heading is the
+  version in `pyproject.toml`.
 - **rendered diagrams**: a changed `docs/figures/diagrams/*.mmd` has its `.png` and `.svg` changed too;
   and every hand-written flow diagram reads on a phone: `flowchart TB`, at most 8 nodes, a PNG at most
   900 px wide (every run; the generated class and module diagrams are exempt, and so are the diagrams
@@ -161,7 +162,9 @@ def _changelog(files: list[str]) -> tuple[str, str]:
     src = [f for f in files if f.startswith(tuple(root + "/" for root in SOURCE_ROOTS))]
     if src and heads != 1:
         return FAIL, "a change to a package's source needs a '## Unreleased' section in CHANGELOG.md"
-    if src and _unreleased_entries(text) == 0 and not _is_release(text):
+    # a release moves the entries under its version: only a change that sets the version is one
+    released = "pyproject.toml" in files and _is_release(text)
+    if src and _unreleased_entries(text) == 0 and not released:
         return FAIL, "the '## Unreleased' section of CHANGELOG.md has no entry"
     if src and "CHANGELOG.md" not in files:
         return FAIL, f"{len(src)} source file(s) of the packages changed but CHANGELOG.md did not"
