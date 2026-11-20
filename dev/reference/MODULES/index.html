@@ -711,6 +711,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../guides/tour/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Follow one attack through the code
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../guides/operating_points/" class="md-nav__link">
         
   
@@ -2933,6 +2961,10 @@
 <td>Four repository tools on small samples: the constants rule of <code>tools/layout.py</code> on a temporary tree, <code>tools/count_lines.py</code> on a file whose lines are easy to miscount, the phone rules of <code>tools/render_mermaid.py</code> on two flow diagrams, and the plain-pages rule of <code>tools/prereview.py</code> on a page.</td>
 </tr>
 <tr>
+<td><code>tests/test_tour.py</code></td>
+<td>The tour of docs/guides/tour.md prints what the page shows: <code>examples/tour.py</code> runs as published and its output is compared, line for line, with the block the page quotes. The comparison runs only with FDIA_SLOW=1, and no scheduled workflow runs it.</td>
+</tr>
+<tr>
 <td><code>tests/test_trust_formulas.py</code></td>
 <td>The row reduction the attack search and the trusted-meter kernel share (the kernel itself, the open attack subspace, its cost and the greedy selection, is checked in analysis/tests/test_trust_formulas.py).</td>
 </tr>
@@ -3069,6 +3101,10 @@
 <tr>
 <td><code>examples/quickstart.py</code></td>
 <td>60-second tour of fdia-graph: load a dataset, inspect it, and get it in whatever format you want.</td>
+</tr>
+<tr>
+<td><code>examples/tour.py</code></td>
+<td>One overload episode on IEEE-14, step by step: the script behind docs/guides/tour.md.</td>
 </tr>
 <tr>
 <td><code>examples/train_arma.py</code></td>

@@ -709,6 +709,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../guides/tour/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Follow one attack through the code
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../guides/operating_points/" class="md-nav__link">
         
   
@@ -1988,6 +2016,16 @@
 the public API, the generated files and the numbers are the same as the previous release.</p>
 <h2 id="unreleased">Unreleased<a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
 <ul>
+<li>
+<p><strong>A guided tour of one attack episode (docs only).</strong> <code>docs/guides/tour.md</code>, "Follow one attack
+  through the code", follows one overload episode on IEEE-14 from the pool of operating points to the
+  frame in the file: the class and method of each step, the file it is in, the [WU26] equation it
+  implements and what it produced for that episode. The values come from a new script,
+  <code>examples/tour.py</code>, which generates a 600-frame timeline, rebuilds its one episode by hand and
+  checks the frame it builds against the file's. <code>tests/test_tour.py</code> compares the script's output
+  with the block the page quotes (with <code>FDIA_SLOW=1</code>). The page is linked from the README, the docs
+  navigation and the generation tutorial.</p>
+</li>
 <li>
 <p><strong>The flow solve's values are named records (no change in behaviour).</strong>
   <code>FalseState.solve_flow_local</code> returns a <code>FlowSolve(x_false, converged, load_change)</code>
