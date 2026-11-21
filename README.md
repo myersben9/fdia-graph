@@ -1,36 +1,26 @@
 # fdia-graph
 
-A Python package that builds attacked measurement timelines on power-grid test systems, with a
-second toolkit to analyse them. Download a ready timeline or generate your own.
+[![PyPI](https://img.shields.io/pypi/v/fdia-graph)](https://pypi.org/project/fdia-graph/)
+[![Python 3.9+](https://img.shields.io/badge/python-3.9%2B-blue)](https://pypi.org/project/fdia-graph/)
+[![Tests](https://github.com/myersben9/fdia-graph/actions/workflows/smoke.yml/badge.svg?branch=main)](https://github.com/myersben9/fdia-graph/actions/workflows/smoke.yml)
+[![License: MIT code, CC BY 4.0 data](https://img.shields.io/badge/license-MIT%20code%20%7C%20CC%20BY%204.0%20data-blue)](https://github.com/myersben9/fdia-graph/blob/main/LICENSE)
 
-A timeline is the meter readings of one grid, frame by frame, with false data injection attacks
-(FDIA) placed in it and labelled per bus.
+**Labelled cyber-attack data for power-grid research, and the code that makes it.**
 
-## Two toolkits
+`fdia-graph` builds timelines of meter readings on power-grid test systems, places false data
+injection attacks (FDIA) in them, and labels the buses each attack targets. The generator solves
+every attack it makes on the AC power-flow equations, around the buses it targets. Download a ready
+timeline, or generate your own.
 
-| Toolkit | Package | What it does |
-|---|---|---|
-| `fdia-graph` | `fdia_graph` | generates a timeline and loads it |
-| `fdia-analysis` | `fdia_analysis` | runs estimators and localizers on a timeline |
+<img src="https://raw.githubusercontent.com/myersben9/fdia-graph/main/docs/figures/first_look.png" width="720" alt="Two panels, one per target branch of an overload attack on IEEE-14, apparent flow in MVA against the frame. Outside the attack window the reported flow follows the flow without the attack. Inside the 60-frame window the reported flow climbs steadily to the branch's rating, shown as a dashed line, while the flow without the attack stays level.">
 
-`fdia-analysis` holds state estimation, attack localization, federated training, trusted-meter
-selection and a results store. It depends on `fdia-graph`. `fdia-graph` never imports it.
-
-## Test systems
-
-| System | Buses | Data |
-|---|---|---|
-| IEEE and other public cases | 14, 30, 57, 89, 118, 145, 200, 300 | released datasets, downloaded by `fg.load` |
-| New York grid | 140 | case file in the package; you build the dataset |
-
-Each released dataset is one timeline of 72,000 frames. The New York grid is a MATPOWER case file
-with 140 buses and 227 branches. It goes through the same generator, and
-[Build the operating points](docs/guides/operating_points.md) starts its dataset.
-
-The generator makes two attack families: `At`, a slow load ramp, and `Am`, a line overload. The
-released files hold seven families: five that the generator does not make (`Aq`, `Ad`, `As`, `Ar`,
-`Al`), and an `Am` that drives no line to its limit.
-[The attack families](docs/concepts/attacks.md) has the details.
+One overload attack in a generated IEEE-14 timeline, as an operator would see it. Over 60 frames the
+flow meters of two branches report a flow that climbs to the rating, while the flow without the
+attack stays near where it was.
+`python examples/first_look.py` makes this figure,
+[fdia-graph in five cells](examples/demo.ipynb) is a notebook that generates the same timeline and
+draws the same flows, and
+[Follow one attack through the code](docs/guides/tour.md) explains every step behind it.
 
 ## Three steps
 
@@ -65,6 +55,32 @@ test = fg.load("ieee118", split="test")
 est = WLS().fit(train)
 print(est.score(test))
 ```
+
+## Two toolkits
+
+| Toolkit | Package | What it does |
+|---|---|---|
+| `fdia-graph` | `fdia_graph` | generates a timeline and loads it |
+| `fdia-analysis` | `fdia_analysis` | runs estimators and localizers on a timeline |
+
+`fdia-analysis` holds state estimation, attack localization, federated training, trusted-meter
+selection and a results store. It depends on `fdia-graph`. `fdia-graph` never imports it.
+
+## Test systems
+
+| System | Buses | Data |
+|---|---|---|
+| IEEE and other public cases | 14, 30, 57, 89, 118, 145, 200, 300 | released datasets, downloaded by `fg.load` |
+| New York grid | 140 | case file in the package; you build the dataset |
+
+Each released dataset is one timeline of 72,000 frames. The New York grid is a MATPOWER case file
+with 140 buses and 227 branches. It goes through the same generator, and
+[Build the operating points](docs/guides/operating_points.md) starts its dataset.
+
+The generator makes two attack families: `At`, a slow load ramp, and `Am`, a line overload. The
+released files hold seven families: five that the generator does not make (`Aq`, `Ad`, `As`, `Ar`,
+`Al`), and an `Am` that drives no line to its limit.
+[The attack families](docs/concepts/attacks.md) has the details.
 
 ## How it flows
 

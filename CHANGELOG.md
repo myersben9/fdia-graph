@@ -5,6 +5,16 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- **A first screen for the README (docs and examples; no package code changes).** The README opens
+  with its PyPI, Python, test and license badges, one line and a short paragraph on what the package
+  is, and a figure of one overload attack on IEEE-14:
+  the flow two branches report against the flow without the attack, climbing to the rating over the
+  60-frame window. `examples/first_look.py` makes the figure from the timeline of
+  `docs/guides/tour.md`. The three steps now come before the tables of toolkits and test systems.
+  `examples/demo.ipynb`, "fdia-graph in five cells", is a notebook with its outputs stored: it generates
+  a timeline with the same settings, loads it, shows where the attack is and which readings it moved,
+  and draws the same flows.
+
 ## 0.22.0
 
 The first release of two distributions: `fdia-graph` (generate a timeline and load it) and
