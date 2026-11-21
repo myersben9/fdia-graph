@@ -5,6 +5,12 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- **A first screen for the README (docs only).** The README opens with what the package is in one
+  sentence, its PyPI, Python, test and license badges, and a figure of one overload attack on IEEE-14:
+  the flow two branches report against the flow without the attack, climbing to the rating over the
+  60-frame window. `examples/first_look.py` makes the figure from the timeline of
+  `docs/guides/tour.md`. The three steps now come before the tables of toolkits and test systems.
+
 ## 0.22.0
 
 The first release of two distributions: `fdia-graph` (generate a timeline and load it) and

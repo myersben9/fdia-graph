@@ -280,6 +280,7 @@ What every folder of the repository holds, then what every Python file does, in 
 
 | file | what it does |
 |---|---|
+| `examples/first_look.py` | One overload attack as an operator would see it: the figure at the top of the README. |
 | `examples/nygrid/custom_alarm_rule.py` | A detector rule of your own: a CUSUM on the residual statistic, next to the package's persistence rule. |
 | `examples/nygrid/custom_attack_family.py` | An attack family of your own: a slow bias on one load bus's injection meter. |
 | `examples/quickstart.py` | 60-second tour of fdia-graph: load a dataset, inspect it, and get it in whatever format you want. |
