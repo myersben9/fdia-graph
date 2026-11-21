@@ -15,7 +15,8 @@ power-flow equations of the grid. Download a ready timeline, or generate your ow
 
 One overload attack on IEEE-14, as an operator would see it. Over 60 frames the flow meters of two
 branches report a flow that climbs to the rating, while the flow without the attack stays level.
-`python examples/first_look.py` makes this figure, and
+`python examples/first_look.py` makes this figure,
+[fdia-graph in five cells](examples/demo.ipynb) is a notebook that builds it from nothing, and
 [Follow one attack through the code](docs/guides/tour.md) explains every step behind it.
 
 ## Three steps

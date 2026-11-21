@@ -10,6 +10,9 @@ the public API, the generated files and the numbers are the same as the previous
   the flow two branches report against the flow without the attack, climbing to the rating over the
   60-frame window. `examples/first_look.py` makes the figure from the timeline of
   `docs/guides/tour.md`. The three steps now come before the tables of toolkits and test systems.
+  `examples/demo.ipynb`, "fdia-graph in five cells", is a notebook with its outputs stored: it generates
+  the same timeline, loads it, shows where the attack is and which readings it moved, and draws the
+  figure.
 
 ## 0.22.0
 
