@@ -5,7 +5,9 @@ It generates the 600-frame IEEE-14 timeline of docs/guides/tour.md (one overload
 flow meters of the two branches the episode targets, and plots what the meters would have read
 without the attack against what they reported, with each branch's rating.
 
-Run: python examples/first_look.py [out.png]   (needs fdia-graph[generate] and matplotlib)
+Run from the repository root: python examples/first_look.py [out.png]
+(needs fdia-graph[generate] and matplotlib; downloads the IEEE-14 pool on first use, and registers the
+timeline as `tour` in the local cache, as examples/tour.py does with the same settings)
 """
 
 from __future__ import annotations
@@ -35,7 +37,7 @@ def apparent(flows: np.ndarray) -> np.ndarray:
 def main(out: str) -> None:
     path = fg.generate("ieee14", name="tour", frames=FRAMES, seed=SEED, families=("Am",), attacked_frac=0.2)
     with h5py.File(path, "r") as f:
-        episodes = f[schema.Group.EPISODES]
+        episodes = f[schema.Group.EPISODES]  # this seed places one episode, an overload on two branches
         onset, length = int(episodes[schema.EPISODE_ONSET][0]), int(episodes[schema.EPISODE_LENGTH][0])
         lines = episodes[schema.EPISODE_AM_LINE][:].astype(int)
         ratings = episodes[schema.EPISODE_AM_RATING][:]
@@ -52,6 +54,7 @@ def main(out: str) -> None:
         ax.plot(t, without[:, k], color=MUTED, lw=1.4, label="without the attack")
         ax.plot(t, reported[:, k], color=ATTACK, lw=1.6, label="reported to the operator")
         ax.text(t[2], ratings[k], "rating", color=MUTED, fontsize=8, va="bottom")
+        # IEEE-14 numbers its buses in order from one, so a bus number is its position plus one
         ax.set_title(f"Branch {int(ends[k, 0]) + 1} to {int(ends[k, 1]) + 1}", fontsize=10, color=INK, loc="left")
         ax.set_xlabel("frame", fontsize=9, color=INK)
         ax.tick_params(labelsize=8, colors=INK)

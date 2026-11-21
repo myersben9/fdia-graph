@@ -2,21 +2,24 @@
 
 [![PyPI](https://img.shields.io/pypi/v/fdia-graph)](https://pypi.org/project/fdia-graph/)
 [![Python 3.9+](https://img.shields.io/badge/python-3.9%2B-blue)](https://pypi.org/project/fdia-graph/)
-[![Tests](https://github.com/myersben9/fdia-graph/actions/workflows/smoke.yml/badge.svg)](https://github.com/myersben9/fdia-graph/actions/workflows/smoke.yml)
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+[![Tests](https://github.com/myersben9/fdia-graph/actions/workflows/smoke.yml/badge.svg?branch=main)](https://github.com/myersben9/fdia-graph/actions/workflows/smoke.yml)
+[![License: MIT code, CC BY 4.0 data](https://img.shields.io/badge/license-MIT%20code%20%7C%20CC%20BY%204.0%20data-blue)](https://github.com/myersben9/fdia-graph/blob/main/LICENSE)
 
 **Labelled cyber-attack data for power-grid research, and the code that makes it.**
 
 `fdia-graph` builds timelines of meter readings on power-grid test systems, places false data
-injection attacks (FDIA) in them, and labels every attacked bus. Each attack is solved on the AC
-power-flow equations of the grid. Download a ready timeline, or generate your own.
+injection attacks (FDIA) in them, and labels the buses each attack targets. The generator solves
+every attack it makes on the AC power-flow equations, around the buses it targets. Download a ready
+timeline, or generate your own.
 
 <img src="https://raw.githubusercontent.com/myersben9/fdia-graph/main/docs/figures/first_look.png" width="720" alt="Two panels, one per target branch of an overload attack on IEEE-14, apparent flow in MVA against the frame. Outside the attack window the reported flow follows the flow without the attack. Inside the 60-frame window the reported flow climbs steadily to the branch's rating, shown as a dashed line, while the flow without the attack stays level.">
 
-One overload attack on IEEE-14, as an operator would see it. Over 60 frames the flow meters of two
-branches report a flow that climbs to the rating, while the flow without the attack stays level.
+One overload attack in a generated IEEE-14 timeline, as an operator would see it. Over 60 frames the
+flow meters of two branches report a flow that climbs to the rating, while the flow without the
+attack stays near where it was.
 `python examples/first_look.py` makes this figure,
-[fdia-graph in five cells](examples/demo.ipynb) is a notebook that builds it from nothing, and
+[fdia-graph in five cells](examples/demo.ipynb) is a notebook that generates the same timeline and
+draws the same flows, and
 [Follow one attack through the code](docs/guides/tour.md) explains every step behind it.
 
 ## Three steps
