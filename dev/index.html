@@ -495,6 +495,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#three-steps" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Three steps
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#two-toolkits" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -510,17 +521,6 @@
     <span class="md-ellipsis">
       
         Test systems
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#three-steps" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Three steps
       
     </span>
   </a>
@@ -1882,6 +1882,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#three-steps" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Three steps
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#two-toolkits" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1897,17 +1908,6 @@
     <span class="md-ellipsis">
       
         Test systems
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#three-steps" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Three steps
       
     </span>
   </a>
@@ -1990,10 +1990,47 @@
 
 
 <h1 id="fdia-graph">fdia-graph<a class="headerlink" href="#fdia-graph" title="Permanent link">&para;</a></h1>
-<p>A Python package that builds attacked measurement timelines on power-grid test systems, with a
-second toolkit to analyse them. Download a ready timeline or generate your own.</p>
-<p>A timeline is the meter readings of one grid, frame by frame, with false data injection attacks
-(FDIA) placed in it and labelled per bus.</p>
+<p><a href="https://pypi.org/project/fdia-graph/"><img alt="PyPI" src="https://img.shields.io/pypi/v/fdia-graph" /></a>
+<a href="https://pypi.org/project/fdia-graph/"><img alt="Python 3.9+" src="https://img.shields.io/badge/python-3.9%2B-blue" /></a>
+<a href="https://github.com/myersben9/fdia-graph/actions/workflows/smoke.yml"><img alt="Tests" src="https://github.com/myersben9/fdia-graph/actions/workflows/smoke.yml/badge.svg?branch=main" /></a>
+<a href="https://github.com/myersben9/fdia-graph/blob/main/LICENSE"><img alt="License: MIT code, CC BY 4.0 data" src="https://img.shields.io/badge/license-MIT%20code%20%7C%20CC%20BY%204.0%20data-blue" /></a></p>
+<p><strong>Labelled cyber-attack data for power-grid research, and the code that makes it.</strong></p>
+<p><code>fdia-graph</code> builds timelines of meter readings on power-grid test systems, places false data
+injection attacks (FDIA) in them, and labels the buses each attack targets. The generator solves
+every attack it makes on the AC power-flow equations, around the buses it targets. Download a ready
+timeline, or generate your own.</p>
+<p><img src="https://raw.githubusercontent.com/myersben9/fdia-graph/main/docs/figures/first_look.png" width="720" alt="Two panels, one per target branch of an overload attack on IEEE-14, apparent flow in MVA against the frame. Outside the attack window the reported flow follows the flow without the attack. Inside the 60-frame window the reported flow climbs steadily to the branch's rating, shown as a dashed line, while the flow without the attack stays level."></p>
+<p>One overload attack in a generated IEEE-14 timeline, as an operator would see it. Over 60 frames the
+flow meters of two branches report a flow that climbs to the rating, while the flow without the
+attack stays near where it was.
+<code>python examples/first_look.py</code> makes this figure,
+<a href="examples/demo.ipynb">fdia-graph in five cells</a> is a notebook that generates the same timeline and
+draws the same flows, and
+<a href="guides/tour/">Follow one attack through the code</a> explains every step behind it.</p>
+<h2 id="three-steps">Three steps<a class="headerlink" href="#three-steps" title="Permanent link">&para;</a></h2>
+<p><strong>1. Load</strong> a released dataset.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">fdia_graph</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">fg</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="c1"># downloads the IEEE-118 timeline once, then caches it</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="n">train</span> <span class="o">=</span> <span class="n">fg</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">"ieee118"</span><span class="p">,</span> <span class="n">split</span><span class="o">=</span><span class="s2">"train"</span><span class="p">)</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="n">arrays</span> <span class="o">=</span> <span class="n">train</span><span class="o">.</span><span class="n">export</span><span class="p">()</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="nb">print</span><span class="p">(</span><span class="n">arrays</span><span class="p">[</span><span class="s2">"node_x"</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">arrays</span><span class="p">[</span><span class="s2">"y"</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+</code></pre></div>
+<p><strong>2. Generate</strong> your own, then load it by name.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># needs fdia-graph[generate]</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="c1"># downloads the IEEE-14 pool of solved operating points</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="c1"># about five minutes on a laptop</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="n">fg</span><span class="o">.</span><span class="n">generate</span><span class="p">(</span><span class="s2">"ieee14"</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">"my_run"</span><span class="p">,</span> <span class="n">frames</span><span class="o">=</span><span class="mi">2000</span><span class="p">)</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="n">mine</span> <span class="o">=</span> <span class="n">fg</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">"my_run"</span><span class="p">,</span> <span class="n">split</span><span class="o">=</span><span class="s2">"train"</span><span class="p">)</span>
+</code></pre></div>
+<p><strong>3. Analyse</strong> it with an estimator.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># needs fdia-analysis[se]</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fdia_analysis.se.methods</span><span class="w"> </span><span class="kn">import</span> <span class="n">WLS</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="n">test</span> <span class="o">=</span> <span class="n">fg</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">"ieee118"</span><span class="p">,</span> <span class="n">split</span><span class="o">=</span><span class="s2">"test"</span><span class="p">)</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="n">est</span> <span class="o">=</span> <span class="n">WLS</span><span class="p">()</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">train</span><span class="p">)</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="nb">print</span><span class="p">(</span><span class="n">est</span><span class="o">.</span><span class="n">score</span><span class="p">(</span><span class="n">test</span><span class="p">))</span>
+</code></pre></div>
 <h2 id="two-toolkits">Two toolkits<a class="headerlink" href="#two-toolkits" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -2047,30 +2084,6 @@ with 140 buses and 227 branches. It goes through the same generator, and
 released files hold seven families: five that the generator does not make (<code>Aq</code>, <code>Ad</code>, <code>As</code>, <code>Ar</code>,
 <code>Al</code>), and an <code>Am</code> that drives no line to its limit.
 <a href="concepts/attacks/">The attack families</a> has the details.</p>
-<h2 id="three-steps">Three steps<a class="headerlink" href="#three-steps" title="Permanent link">&para;</a></h2>
-<p><strong>1. Load</strong> a released dataset.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">fdia_graph</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">fg</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="c1"># downloads the IEEE-118 timeline once, then caches it</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="n">train</span> <span class="o">=</span> <span class="n">fg</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">"ieee118"</span><span class="p">,</span> <span class="n">split</span><span class="o">=</span><span class="s2">"train"</span><span class="p">)</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="n">arrays</span> <span class="o">=</span> <span class="n">train</span><span class="o">.</span><span class="n">export</span><span class="p">()</span>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="nb">print</span><span class="p">(</span><span class="n">arrays</span><span class="p">[</span><span class="s2">"node_x"</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">arrays</span><span class="p">[</span><span class="s2">"y"</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
-</code></pre></div>
-<p><strong>2. Generate</strong> your own, then load it by name.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># needs fdia-graph[generate]</span>
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="c1"># downloads the IEEE-14 pool of solved operating points</span>
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="c1"># about five minutes on a laptop</span>
-<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="n">fg</span><span class="o">.</span><span class="n">generate</span><span class="p">(</span><span class="s2">"ieee14"</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">"my_run"</span><span class="p">,</span> <span class="n">frames</span><span class="o">=</span><span class="mi">2000</span><span class="p">)</span>
-<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="n">mine</span> <span class="o">=</span> <span class="n">fg</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">"my_run"</span><span class="p">,</span> <span class="n">split</span><span class="o">=</span><span class="s2">"train"</span><span class="p">)</span>
-</code></pre></div>
-<p><strong>3. Analyse</strong> it with an estimator.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># needs fdia-analysis[se]</span>
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fdia_analysis.se.methods</span><span class="w"> </span><span class="kn">import</span> <span class="n">WLS</span>
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>
-<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="n">test</span> <span class="o">=</span> <span class="n">fg</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">"ieee118"</span><span class="p">,</span> <span class="n">split</span><span class="o">=</span><span class="s2">"test"</span><span class="p">)</span>
-<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="n">est</span> <span class="o">=</span> <span class="n">WLS</span><span class="p">()</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">train</span><span class="p">)</span>
-<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="nb">print</span><span class="p">(</span><span class="n">est</span><span class="o">.</span><span class="n">score</span><span class="p">(</span><span class="n">test</span><span class="p">))</span>
-</code></pre></div>
 <h2 id="how-it-flows">How it flows<a class="headerlink" href="#how-it-flows" title="Permanent link">&para;</a></h2>
 <p><img src="https://raw.githubusercontent.com/myersben9/fdia-graph/main/docs/figures/diagrams/flow.png" width="450" alt="Six stages, top to bottom. 1. Test system: Case, Network. 2. Operating points: generate_states for the IEEE cases, PoolBuilder for New York. 3. Meters and attacks: MeterPlan, NoiseModel, the attack designs. 4. Timeline file: TimelineSource.generate, TimelineWriter. 5. Load: fg.load returns FdiaGraph. 6. Analyse: fdia_analysis."></p>
 <h2 id="install">Install<a class="headerlink" href="#install" title="Permanent link">&para;</a></h2>
