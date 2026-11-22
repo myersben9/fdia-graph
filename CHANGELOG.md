@@ -5,11 +5,12 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
-- **A logo (docs only).** The project has a mark: a small network of four buses with one filled in
-  red. `docs/figures/brand/` holds it with the wordmark for light and dark backgrounds, and alone.
-  It is at the top of the README, and the docs site uses it as its header logo and favicon with a
-  black and red palette. The README's figure and the demo notebook draw the reported flow in the same
-  red.
+- **A logo (docs and examples; no package code changes).** The project has a mark: a small network
+  of four buses with one filled in red. `docs/figures/brand/` holds it alone, with the wordmark for
+  light and dark backgrounds, and as a favicon. It is above the title of the README, and the docs
+  site uses it as its header logo and favicon, with a black header and red links. The README's figure
+  and the demo notebook draw the reported flow in the same red and the flow without the attack in
+  black, so the two lines differ in lightness as well as in hue.
 
 - **A first screen for the README (docs and examples; no package code changes).** The README opens
   with its PyPI, Python, test and license badges, one line and a short paragraph on what the package

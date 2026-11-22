@@ -2,7 +2,9 @@
 docs/index.md, CONTRIBUTING.md docs/contributing.md and CHANGELOG.md docs/changelog.md. The
 README is the single source for the landing page; its links carry a docs/ prefix that is wrong
 once the file lives inside docs_dir, so the prefix is stripped on copy, and links between the
-three root pages are rewritten to their staged names. Runs in the Vercel build (vercel.json) and
+three root pages are rewritten to their staged names. The README's leading `<picture>` (the logo,
+switched by the reader's system theme) is left out of the landing page: the site's header carries
+the logo, and the site's own light and dark switch would not move the picture. Runs in the Vercel build (vercel.json) and
 in the versioned deploy (.github/workflows/docs.yml); the three staged files are generated output
 and stay untracked.
 """
@@ -16,6 +18,8 @@ ROOT_PAGES = {"README.md": "index.md", "CONTRIBUTING.md": "contributing.md", "CH
 for source, staged in ROOT_PAGES.items():
     text = (root / source).read_text(encoding="utf-8")
     text = re.sub(r"\]\(docs/", "](", text)
+    if source == "README.md":
+        text = re.sub(r"\A<picture>.*?</picture>\s*", "", text, flags=re.S)
     for other, other_staged in ROOT_PAGES.items():
         text = re.sub(
             r"\]\((?:\./)?" + re.escape(other) + r"(#[^)]*)?\)", r"](" + other_staged + r"\1)", text

@@ -26,7 +26,7 @@ from fdia_graph import schema
 
 FRAMES, SEED = 600, 123
 BEFORE, AFTER = 40, 40  # frames shown on each side of the attack window
-INK, MUTED, ATTACK, LIMIT = "#1a1a1a", "#6b7280", "#D22030", "#9ca3af"
+INK, MUTED, ATTACK = "#111111", "#6b7280", "#D22030"  # black for the flow without the attack, red for the reported one
 
 
 def apparent(flows: np.ndarray) -> np.ndarray:
@@ -50,9 +50,9 @@ def main(out: str) -> None:
     fig, axes = plt.subplots(1, len(lines), figsize=(9.0, 3.6), dpi=160, sharex=True)
     for ax, k in zip(axes, range(len(lines))):
         ax.axvspan(onset, onset + length - 1, color=ATTACK, alpha=0.07, lw=0)
-        ax.axhline(ratings[k], color=LIMIT, lw=1.0, ls=(0, (4, 3)))
-        ax.plot(t, without[:, k], color=MUTED, lw=1.4, label="without the attack")
-        ax.plot(t, reported[:, k], color=ATTACK, lw=1.6, label="reported to the operator")
+        ax.axhline(ratings[k], color=MUTED, lw=1.0, ls=(0, (1, 3)))
+        ax.plot(t, without[:, k], color=INK, lw=1.3, label="without the attack")
+        ax.plot(t, reported[:, k], color=ATTACK, lw=1.8, label="reported to the operator")
         ax.text(t[2], ratings[k], "rating", color=MUTED, fontsize=8, va="bottom")
         # IEEE-14 numbers its buses in order from one, so a bus number is its position plus one
         ax.set_title(f"Branch {int(ends[k, 0]) + 1} to {int(ends[k, 1]) + 1}", fontsize=10, color=INK, loc="left")

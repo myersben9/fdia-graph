@@ -1,6 +1,6 @@
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/myersben9/fdia-graph/main/docs/figures/brand/logo-dark.svg">
-  <img src="https://raw.githubusercontent.com/myersben9/fdia-graph/main/docs/figures/brand/logo.svg" alt="fdia-graph" height="56">
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/myersben9/fdia-graph/main/docs/figures/brand/mark-white.svg">
+  <img src="https://raw.githubusercontent.com/myersben9/fdia-graph/main/docs/figures/brand/mark.svg" alt="" height="64">
 </picture>
 
 # fdia-graph
@@ -17,7 +17,7 @@ injection attacks (FDIA) in them, and labels the buses each attack targets. The 
 every attack it makes on the AC power-flow equations, around the buses it targets. Download a ready
 timeline, or generate your own.
 
-<img src="https://raw.githubusercontent.com/myersben9/fdia-graph/main/docs/figures/first_look.png" width="720" alt="Two panels, one per target branch of an overload attack on IEEE-14, apparent flow in MVA against the frame. Outside the attack window the reported flow follows the flow without the attack. Inside the 60-frame window the reported flow climbs steadily to the branch's rating, shown as a dashed line, while the flow without the attack stays level.">
+<img src="https://raw.githubusercontent.com/myersben9/fdia-graph/main/docs/figures/first_look.png" width="720" alt="Two panels, one per target branch of an overload attack on IEEE-14, apparent flow in MVA against the frame. Outside the attack window the reported flow follows the flow without the attack. Inside the 60-frame window the reported flow climbs steadily to the branch's rating, shown as a dotted line, while the flow without the attack stays near where it was.">
 
 One overload attack in a generated IEEE-14 timeline, as an operator would see it. Over 60 frames the
 flow meters of two branches report a flow that climbs to the rating, while the flow without the
