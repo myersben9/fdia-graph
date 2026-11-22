@@ -5,3 +5,21 @@
 .md-typeset img[src*="figures/diagrams/"]:not([src*="/classes_"]):not([src$="/modules.png"]):not([src$="/pipeline.png"]) {
   max-width: min(100%, 450px);
 }
+
+/* The brand's colours (docs/figures/brand): a black header, and the logo's red for links and accents.
+   On the dark scheme the red is lighter, so that link text keeps its contrast. */
+:root,
+[data-md-color-scheme="default"] {
+  --md-primary-fg-color: #000000;
+  --md-primary-fg-color--light: #333333;
+  --md-primary-fg-color--dark: #000000;
+  --md-primary-bg-color: #ffffff;
+  --md-accent-fg-color: #d22030;
+  --md-typeset-a-color: #b81c2a;
+}
+[data-md-color-scheme="slate"] {
+  --md-primary-fg-color: #000000;
+  --md-primary-bg-color: #ffffff;
+  --md-accent-fg-color: #ff6b78;
+  --md-typeset-a-color: #ff8a94;
+}
