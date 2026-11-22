@@ -1,3 +1,8 @@
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/myersben9/fdia-graph/main/docs/figures/brand/logo-dark.svg">
+  <img src="https://raw.githubusercontent.com/myersben9/fdia-graph/main/docs/figures/brand/logo.svg" alt="fdia-graph" height="56">
+</picture>
+
 # fdia-graph
 
 [![PyPI](https://img.shields.io/pypi/v/fdia-graph)](https://pypi.org/project/fdia-graph/)

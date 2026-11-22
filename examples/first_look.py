@@ -26,7 +26,7 @@ from fdia_graph import schema
 
 FRAMES, SEED = 600, 123
 BEFORE, AFTER = 40, 40  # frames shown on each side of the attack window
-INK, MUTED, ATTACK, LIMIT = "#1a1a1a", "#6b7280", "#c2410c", "#9ca3af"
+INK, MUTED, ATTACK, LIMIT = "#1a1a1a", "#6b7280", "#D22030", "#9ca3af"
 
 
 def apparent(flows: np.ndarray) -> np.ndarray:
