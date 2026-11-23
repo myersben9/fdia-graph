@@ -123,8 +123,9 @@ class FdiaGenerator:
 
     def _load_tables(self) -> None:
         """Which buses carry load, which loads can be attacked, and which buses inject nothing. The
-        load table has one row per loaded bus, in bus order. A zero-injection bus is a pure junction
-        (net injection exactly 0); a near-zero injection reading is still emitted there."""
+        load table has one row per loaded bus, in bus order. A zero-injection bus has no load and no
+        producing unit (net injection exactly 0), whether or not it has a shunt; a near-zero injection
+        reading is still emitted there."""
         case, base = self.case, self.split.base_load
         self.load_bus = np.flatnonzero((base[:, 0] != 0) | (base[:, 1] != 0))
         self.load_p0 = base[self.load_bus, 0]  # base active load per row, signed (MW)
@@ -146,9 +147,10 @@ class FdiaGenerator:
         # The stealthy families also skip every load on a generator bus, zero-MW condensers included: a
         # generator bus is too risky to falsify, the attacker's rule in the protocol followed here [BOY22].
         self.stealthy_pos = np.where(attackable & ~np.isin(self.load_bus, case.unit_bus[~idle]))[0]
-        # every bus with a load, a shunt or a unit that is not idle injects; the rest are junctions
-        shunted = np.flatnonzero((case.gs != 0) | (case.bs != 0))
-        injecting = np.unique(np.r_[self.load_bus, shunted, case.unit_bus[~idle]])
+        # Every bus with a load or a unit that is not idle injects; the rest inject nothing. A shunt is
+        # not an injection: it is in the admittance matrix, and a pool stores a bus's injection with the
+        # shunt's draw left out, so a bus with a shunt and nothing else has a true injection of zero.
+        injecting = np.unique(np.r_[self.load_bus, case.unit_bus[~idle]])
         self.zero_inj = np.setdiff1d(np.arange(self.n_bus), injecting).tolist()
 
     def _case_limits(self) -> None:

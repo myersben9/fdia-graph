@@ -265,7 +265,7 @@ class TimelineWriter:
 
     def _write_columns(self, columns: Mapping[str, np.ndarray]) -> None:
         """Write the per-frame columns: family, stealthy, seq_id, timestep, and the grid's own `columns`
-        by dataset path (the split; on New York also the time and each episode's target branch)."""
+        by dataset path (the split; on New York also the time)."""
         own = {
             schema.FAMILY: self.family.astype(np.int8),
             schema.STEALTHY: np.isin(self.family, sorted(STEALTHY_FAMILIES)).astype(np.uint8),

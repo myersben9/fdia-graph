@@ -89,7 +89,6 @@ class Static:
     BUS_VMIN = "bus_vmin"
     BUS_VMAX = "bus_vmax"
     BUS_BASE_KV = "bus_base_kv"
-    BUS_IS_ZERO_INJ = "bus_is_zero_inj"
     BUS_HAS_GEN = "bus_has_gen"
     BUS_BASE_PD = "bus_base_pd"
     BUS_BASE_QD = "bus_base_qd"
@@ -120,7 +119,6 @@ EPISODE_MIN_SUPPORT_PTR, EPISODE_MIN_SUPPORT_IDX = "min_support_ptr", "min_suppo
 EPISODE_AM_EPISODE, EPISODE_AM_LINE, EPISODE_AM_RATING = "am_episode", "am_line", "am_rating_mva"
 EPISODE_AM_REACHED, EPISODE_AM_EMITTED = "am_reached_mva", "am_emitted_mva"
 EPISODE_AM_TARGET = "am_target_mva"  # the goal at the window's end; one am_* row per target line
-EPISODE_TARGET_BRANCH = "target_branch"  # New York: the interface branch an episode is anchored on (-1 none)
 
 # record field -> dataset path: the loader's vocabulary on disk (clean fields resolve per timestep)
 FIELD_PATH = {
