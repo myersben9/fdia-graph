@@ -19,7 +19,6 @@ from fdia_graph.models.frames import FrameKnobs  # noqa: E402
 from fdia_graph.systems.network import Network
 from fdia_graph.timeline import generate_timeline  # noqa: E402
 
-
 HELD_MW = 1e-6  # a generator within this of a shut limit was pinned there by the solve
 
 
@@ -530,7 +529,8 @@ def test_the_active_set_pins_a_generator_only_past_what_its_meter_resolves():
     one = np.ones(1)
     limits = OperatingLimits(0.9 * one, 1.1 * one, 10.0 * one, 20.0 * one, -5.0 * one, 5.0 * one)
     tol = np.array([0.4, 0.2])  # MW on P, MVAr on Q
-    for gen, sign in ((np.array([20.0, 5.0]), 1.0), (np.array([10.0, -5.0]), -1.0)):  # at the upper, the lower
+    at_the_upper, at_the_lower = np.array([20.0, 5.0]), np.array([10.0, -5.0])
+    for gen, sign in ((at_the_upper, 1.0), (at_the_lower, -1.0)):
         held, over = _Pins({}, {}, {}), _Pins({}, {}, {})
         _clip_generator(0, gen, sign * complex(0.5 * tol[0], 0.5 * tol[1]), limits, tol, held, over)
         assert not over.any()

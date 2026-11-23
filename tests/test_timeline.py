@@ -331,7 +331,8 @@ def test_a_generator_limit_is_passed_only_by_more_than_the_injection_meter_resol
         for side, (channel, column, limit, sign) in enumerate(sides):
             if not np.isfinite(limit[b]):
                 continue
-            to_the_limit = gen[b, column] - limit[b]  # load positive: a rise of the injection lowers the output
+            # load positive: a rise of the injection lowers the implied output
+            to_the_limit = gen[b, column] - limit[b]
             for share, allowed in ((0.5, True), (2.0, False)):
                 x_false = x_true.copy()
                 x_false[b, channel] += to_the_limit + sign * share * tol[b, column]
