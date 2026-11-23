@@ -32,7 +32,9 @@ classDiagram
         +zero_closed()
     }
     class AttackWindow {
+        +least
         +cost()
+        +holds()
         +support_at()
         +near()
     }
@@ -52,6 +54,7 @@ classDiagram
     }
     class EpisodeDesigns {
         +target_counts()
+        +draw_ramp()
         +ramp_step()
         +ramp_design()
         +am_overload_design()
@@ -152,6 +155,7 @@ classDiagram
     EpisodeDesigns ..> AmOverloadDesign : uses
     EpisodeDesigns ..> AttackDesign : uses
     EpisodeDesigns ..> AttackVector : uses
+    EpisodeDesigns ..> AttackWindow : uses
     EpisodeDesigns ..> FrameKnobs : uses
     EpisodeDesigns ..> LoadGoal : uses
     EpisodeDesigns ..> RampDesign : uses
