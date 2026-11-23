@@ -2355,7 +2355,7 @@
 </tr>
 <tr>
 <td><code>formulas.noise</code></td>
-<td>The meter error model: the standard deviation an accuracy class gives a reading [ASP14], and the noise [WU26]'s case studies state. <code>sensing.noise.NoiseModel</code> splits a class into a constant per-meter bias and a per-scan jitter (ours) and draws both.</td>
+<td>The meter error model: the standard deviation an accuracy class gives a reading [ASP14]. <code>sensing.noise.NoiseModel</code> splits a class into a constant per-meter bias and a per-scan jitter (ours) and draws both.</td>
 </tr>
 <tr>
 <td><code>formulas.temporal</code></td>
@@ -2772,7 +2772,7 @@
 <tbody>
 <tr>
 <td><code>tests/case_studies.py</code></td>
-<td>[WU26]'s case studies as test inputs: the lines each scenario overloads, its PMU buses and the attacker's area, in MATPOWER bus numbers, and their positions in a generator's grid.</td>
+<td>[WU26]'s case studies as test inputs: the lines each scenario overloads, its PMU buses and the attacker's area, in MATPOWER bus numbers, their positions in a generator's grid, and the paper's own measurement noise.</td>
 </tr>
 <tr>
 <td><code>tests/digests.py</code></td>
@@ -2903,6 +2903,10 @@
 <td>The hybrid meter model: angles at the PMU buses only, the PMU branch-current phasors [WU26 eqs. 19-20] emitted, stored, loaded and attacked, and the eq. (3) pseudo-measurements an estimator can derive from them. The v0.8.3 meter model stays the default and writes none of it.</td>
 </tr>
 <tr>
+<td><code>tests/test_power_floor.py</code></td>
+<td>The floor under the power meters' class as a setting: the plan carries it, the noise and every count follow it, the file records it, and the readers of both toolkits weight by it.</td>
+</tr>
+<tr>
 <td><code>tests/test_profiles.py</code></td>
 <td>Load sources and operator feeds: each reads itself, no network needed.</td>
 </tr>
@@ -2913,6 +2917,10 @@
 <tr>
 <td><code>tests/test_public_coverage.py</code></td>
 <td>Direct tests for public pieces the rest of the suite reached only through a whole pipeline: the replay policy, the linear-algebra and network kernels on cases small enough to check by hand, the episode reader, the release lookup, the trust selector base, the removal guard and the learned localizer's threshold.</td>
+</tr>
+<tr>
+<td><code>tests/test_ramp_rules.py</code></td>
+<td>The rules a ramp is drawn and kept by: its targets are one neighbourhood; no frame of an emitted ramp steps past the stealth bound, into the frame or out of the ramp's last one, on the fewest-tamper support and on the whole area alike; and a ramp no support holds is given up after a fixed number of tries, which the walk answers by moving the episode.</td>
 </tr>
 <tr>
 <td><code>tests/test_registry.py</code></td>

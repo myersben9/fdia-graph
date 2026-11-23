@@ -2085,7 +2085,7 @@ objects); one test checks it on a case small enough to verify by hand.</p>
 <tr>
 <td>operating limits of a false state</td>
 <td><code>formulas.attacks.operating_limits</code>, <code>generator_output</code>, <code>within_limits</code>, <code>limit_tolerance</code>, checked by <code>FalseState.stealthy_state</code></td>
-<td>per bus V_i^min, V_i^max and the generator limits from the case; every generator's implied output P_gen − (ΔP_inj − ΔP_load), Q_gen − ΔQ_inj within its limits, the true output recovered from the pool's common load and generation scale, ΔP_load the load change the attacker pretends; a generator limit is passed only by more than tol_i = max(0.001, c |z_i| + floor), the accuracy of the bus's injection meter at its true reading z_i as the package simulates it [ASP14] (ours: [WU26, Sec. V-A] leaves tampering below the noise out of its tamper count, and applying that to a limit is this package's step; the overload's tamper count uses the paper's flat case-study noise, a different scale); a true value already outside a limit is its own bound (the false state may not make it worse); a false state outside is rejected and its step halved</td>
+<td>per bus V_i^min, V_i^max and the generator limits from the case; every generator's implied output P_gen − (ΔP_inj − ΔP_load), Q_gen − ΔQ_inj within its limits, the true output recovered from the pool's common load and generation scale, ΔP_load the load change the attacker pretends; a generator limit is passed only by more than tol_i = max(0.001, c |z_i| + floor), the accuracy of the bus's injection meter at its true reading z_i as the package simulates it [ASP14] (ours: [WU26, Sec. V-A] leaves tampering below the noise out of its tamper count, and applying that to a limit is this package's step; with <code>SearchSettings.limit_slack="hard"</code> tol_i = 0.001, the paper's limit); a true value already outside a limit is its own bound (the false state may not make it worse); a false state outside is rejected</td>
 <td>[WU26, eqs. 21-23], [ASP14]</td>
 <td>Aq, At, Al, Am</td>
 </tr>
@@ -2148,16 +2148,16 @@ objects); one test checks it on a case small enough to verify by hand.</p>
 <tr>
 <td>tampered channels</td>
 <td><code>formulas.attacks.tampered_channels</code>, called by the fewest-tamper search</td>
-<td>tampered_m = metered_m and |a_m| &gt; σ_acc,m</td>
-<td>[WU26, eq. 12] with sub-noise changes excluded</td>
-<td>At with <code>min_tamper</code></td>
+<td>tampered_m = metered_m and |a_m| &gt; σ_acc,m, with σ_acc the meter's class at its true reading, the noise the file's readings carry</td>
+<td>[WU26, eq. 12] with sub-noise changes excluded [WU26, Sec. V-A] (ours: the paper's own noise is flat, 0.03 pu on SCADA and 0.01 pu on WAMS channels; counting with the meter's class is this package's reading)</td>
+<td>At with <code>min_tamper</code>, Am</td>
 </tr>
 <tr>
 <td>tampered devices</td>
 <td><code>formulas.attacks.tampered_devices</code>, called by the fewest-tamper search</td>
 <td>a channel counts toward its device: a bus's SCADA terminal (injections, the flows metered at the bus, a voltage meter without PMU) or its PMU (|V|, angle, and the branch currents read at the bus)</td>
 <td>[WU26], the device count of its results</td>
-<td>At with <code>min_tamper</code></td>
+<td>At with <code>min_tamper</code>, Am</td>
 </tr>
 <tr>
 <td>pool line rating</td>
@@ -2189,9 +2189,9 @@ objects); one test checks it on a case small enough to verify by hand.</p>
 </tr>
 <tr>
 <td>PMU current sigma</td>
-<td><code>formulas.noise.current_sigma</code>, <code>constants.meters.PMU_CURRENT_CLASS</code>; <code>paper_current_sigma</code> for Am</td>
-<td>σ_re = σ_im = rel |I_end| + 1e-5 pu, rel = 0.01/3 (the whole class) or its jitter part; Am: 0.01 pu</td>
-<td>[C37118]; [WU26, case studies]</td>
+<td><code>formulas.noise.current_sigma</code>, <code>constants.meters.PMU_CURRENT_CLASS</code></td>
+<td>σ_re = σ_im = rel |I_end| + 1e-5 pu, rel = 0.01/3 (the whole class) or its jitter part</td>
+<td>[C37118]</td>
 <td>the emitter's jitter, the fewest-tamper search</td>
 </tr>
 <tr>
@@ -2202,11 +2202,11 @@ objects); one test checks it on a case small enough to verify by hand.</p>
 <td>the estimators' <code>pmu_pseudo</code> option</td>
 </tr>
 <tr>
-<td>paper noise</td>
-<td><code>formulas.noise.paper_sigma</code>, <code>constants.meters.WU26_NOISE</code>, called by the fewest-tamper search for a flow goal</td>
-<td>σ = 0.03 pu × base MVA on P, Q injections and flows, 0.01 pu on a PMU bus's |V| (0.03 on a SCADA voltmeter), degrees(0.01) on the angle</td>
-<td>[WU26, case studies]</td>
-<td>Am</td>
+<td>power meter floor</td>
+<td><code>constants.meters.POWER_NOISE_FLOOR_MW</code>, <code>WU26_SCADA_NOISE_PU</code>, <code>models.config.MeterSettings.power_floor_mw</code>, <code>sensing.meters.kind_classes</code></td>
+<td>σ = c |z| + floor on a power meter; floor = 0.001 MW, or <code>power_floor_pu</code> × base MVA when the setting is given (0.03 pu is the SCADA noise of [WU26]'s case studies)</td>
+<td>[ASP14]; the floor is ours; [WU26, Sec. V-A]</td>
+<td>every family</td>
 </tr>
 <tr>
 <td>overload target sets</td>
@@ -2225,7 +2225,7 @@ objects); one test checks it on a case small enough to verify by hand.</p>
 <tr>
 <td>fewest-tamper support</td>
 <td><code>engine.attacks.minimize.Minimizer.min_tamper</code>, called by <code>EpisodeDesigns.ramp_design</code> and <code>EpisodeDesigns.am_overload_design</code></td>
-<td>minimize over supports S in the attacker's area the devices tampered at some snapshot of the window, S held for the window and feasible at every snapshot (local solve, the goal, the operating limits, for At's load goal no metered channel moving more than its σ from one snapshot to the next, the first from the frame before the episode; Am's flow goal has no such bound, as in [WU26]) and moving at least one device beyond σ, where σ is σ_acc for At's load goal and [WU26]'s own noise <code>paper_sigma</code> for Am's flow goal (the count's threshold only); proven only among converged local solves, closed over zero-injection boundary buses; smallest first from the area, proven when exhausted or at the devices the goal forces above noise</td>
+<td>minimize over supports S in the attacker's area the devices tampered at some snapshot of the window, S held for the window and feasible at every snapshot (local solve, the goal, the operating limits, for At's load goal no metered channel moving more than its σ from one snapshot to the next, the first from the frame before the episode and the benign frame after it from the last; Am's flow goal has no such bound, as in [WU26]); σ is σ_acc, the meter's class, for both goals; a load goal's support may move no device beyond σ and then costs zero, a flow goal's must move at least one; proven only among converged local solves, closed over zero-injection boundary buses; smallest first from the area, proven when exhausted or at the least a goal can cost (zero for a load goal, one device on one channel for a flow goal)</td>
 <td>[WU26, eq. 12]</td>
 <td>At with <code>min_tamper</code>, Am with <code>am_attack="overload"</code></td>
 </tr>

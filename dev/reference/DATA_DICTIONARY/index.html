@@ -1499,6 +1499,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#the-placement-attributes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The placement attributes
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#the-episode-tables" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2231,6 +2242,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#the-placement-attributes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The placement attributes
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#the-episode-tables" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2900,6 +2922,16 @@ physics live on the dataset as <code>ds.edge_attr</code> <code>[E,8]</code> and 
 <td><code>ds.summary()</code> and the registry read these</td>
 </tr>
 <tr>
+<td>attrs</td>
+<td><code>episodes_requested</code>, <code>episodes_built</code>, <code>episode_redraws</code>, <code>episodes_dropped</code>, <code>episode_shortfall</code>, <code>fallback_benign</code></td>
+<td>how the episodes were placed; see below</td>
+</tr>
+<tr>
+<td>attrs</td>
+<td><code>power_floor_mw</code></td>
+<td>only in a file made with <code>MeterSettings.power_floor_pu</code>; see below</td>
+</tr>
+<tr>
 <td><code>data/</code></td>
 <td><code>node_x, node_m, edge_x, edge_m, y, family, stealthy, seq_id, timestep, split, temporal_delta, swing</code></td>
 <td>one row per frame, time order</td>
@@ -2947,6 +2979,49 @@ and its records carry no <code>pmu_i</code>. <code>export(["prev_pmu_i"])</code>
 currents on a hybrid-meter timeline, like <code>prev_node_x</code>.</p>
 <p>Chunked along the frame axis so a window of W frames is one read. A file without the <code>kind</code> attribute
 <code>timeline</code> (a record shard of a data release before v0.8.0) is refused with <code>NotATimeline</code>.</p>
+<h3 id="the-placement-attributes">The placement attributes<a class="headerlink" href="#the-placement-attributes" title="Permanent link">&para;</a></h3>
+<p>The writer stores how the walk placed the episodes. The first five are tables with one row per
+split and one column per family.</p>
+<table>
+<thead>
+<tr>
+<th>attribute</th>
+<th>holds</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>episodes_requested</code></td>
+<td>the episodes the plan asked for</td>
+</tr>
+<tr>
+<td><code>episodes_built</code></td>
+<td>the episodes that began and were written</td>
+</tr>
+<tr>
+<td><code>episode_redraws</code></td>
+<td>the times an episode that could not begin at its onset was moved to a later onset of its split</td>
+</tr>
+<tr>
+<td><code>episodes_dropped</code></td>
+<td>the episodes the plan could not place because the split had no free onset left</td>
+</tr>
+<tr>
+<td><code>episode_shortfall</code></td>
+<td><code>episodes_requested</code> less <code>episodes_built</code>: the episodes the file lacks, for either reason</td>
+</tr>
+<tr>
+<td><code>fallback_benign</code></td>
+<td>the frames inside an episode's window stored as benign, because their attack could not be built</td>
+</tr>
+</tbody>
+</table>
+<p>A ramp that no support holds inside its stealth bound cannot begin: it is moved, which
+<code>episode_redraws</code> counts, and if it is never placed it shows in <code>episode_shortfall</code>.</p>
+<p><code>power_floor_mw</code> is the absolute floor under the accuracy class of the file's power meters, in MW.
+It is stored only when the file was made with a floor of its own
+(<code>MeterSettings.power_floor_pu</code>). A file without it has the package's floor, 0.001 MW. <code>fg.load</code>,
+the clients' reader and the state estimator read it.</p>
 <h3 id="the-episode-tables">The episode tables<a class="headerlink" href="#the-episode-tables" title="Permanent link">&para;</a></h3>
 <p><code>episodes/</code> holds three tables, each stored as one dataset per column. The names are defined in
 <code>src/fdia_graph/schema.py</code> and written by <code>TimelineWriter</code> (<code>src/fdia_graph/generation/write.py</code>).
@@ -3000,7 +3075,8 @@ and branches are positions: a bus is a row of the node layers, a branch a column
 </table>
 <p><strong>The support search</strong>, one row per episode whose support a search chose (<code>m</code> rows). Of the
 package's two designs, a ramp <code>At</code> has a row when <code>SearchSettings.min_tamper</code> is on, which is the
-default, and an overload <code>Am</code> always has one. A file with no such row has none of these datasets.</p>
+default, and an overload <code>Am</code> always has one. A file with no such row has none of these datasets.
+Noise here is the meter's accuracy class at its true reading, the noise the file's readings carry.</p>
 <table>
 <thead>
 <tr>
@@ -3021,13 +3097,13 @@ default, and an overload <code>Am</code> always has one. A file with no such row
 <td><code>min_devices</code></td>
 <td><code>[m]</code></td>
 <td>int32</td>
-<td>the devices the chosen support moves beyond their noise at some snapshot of the window; -1 on a ramp when no candidate the search tried met every constraint and moved a device beyond noise, and the episode ran on its area</td>
+<td>the devices the chosen support moves beyond their noise at some snapshot of the window: 0 or more for a ramp (0 when every change stays under the noise), 1 or more for an overload</td>
 </tr>
 <tr>
 <td><code>min_channels</code></td>
 <td><code>[m]</code></td>
 <td>int32</td>
-<td>the channels it moves beyond their noise at some snapshot; -1 in the same case</td>
+<td>the channels it moves beyond their noise at some snapshot: 0 or more</td>
 </tr>
 <tr>
 <td><code>min_evaluated</code></td>
@@ -3045,11 +3121,12 @@ default, and an overload <code>Am</code> always has one. A file with no such row
 <td><code>min_support_idx</code></td>
 <td><code>[min_support_ptr[m]]</code></td>
 <td>int32</td>
-<td>the buses of each chosen support, sorted, one list after another; the area's buses on a row whose counts are -1</td>
+<td>the buses of each chosen support, sorted, one list after another</td>
 </tr>
 </tbody>
 </table>
-<p>These counts are not the tamper masks. <code>min_devices</code> and <code>min_channels</code> count what moves beyond
+<p>Every episode is on the support its row gives: an episode for which no support was found is not in
+the file. These counts are not the tamper masks. <code>min_devices</code> and <code>min_channels</code> count what moves beyond
 noise somewhere in the window. For a ramp or an overload, <code>attack/node_tamper</code> and
 <code>attack/edge_tamper</code> mark every stored reading the attack changed in a frame, however little.</p>
 <p><strong>The overload</strong>, one row per target branch of each <code>Am</code> episode (<code>a</code> rows, two per episode by

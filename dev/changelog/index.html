@@ -2036,18 +2036,157 @@
 the public API, the generated files and the numbers are the same as the previous release.</p>
 <h2 id="unreleased">Unreleased<a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
 <ul>
-<li><strong>A generator limit counts as passed only beyond what the bus's injection meter resolves (generated
+<li><strong>One noise, and a ramp that keeps its own bound (generated files change).</strong> A change a meter
+  cannot tell from its noise is not tampering, and the noise is the one the file's readings carry.
+  Five changes follow from that. The released data v0.8.3 was made before all of them.</li>
+<li><strong>One noise in four places.</strong> The readings of a file carry the meters' accuracy class at the true
+    reading. The ramp's stealth bound and the generator-limit tolerance already used it. The search's
+    tamper count now uses it for the overload too, where it used the flat noise of [WU26]'s case
+    studies (0.03 pu on SCADA and 0.01 pu on PMU channels). <code>formulas.noise.paper_sigma</code>,
+    <code>paper_current_sigma</code> and <code>constants.meters.WU26_NOISE</code> are removed. Counting with the meter's
+    class is this package's reading of [WU26 eq. 12 and Sec. V-A]; the paper's own noise is flat.</li>
+<li><strong>The power meters' floor is a setting.</strong> <code>MeterSettings.power_floor_pu</code> is the absolute floor
+    under the class of every power meter, per unit of the system base. The default, None, is the
+    0.001 MW the package always used, whatever the base, and leaves a file's settings record and hash
+    as they were. <code>constants.meters.WU26_SCADA_NOISE_PU</code> (0.03) is the paper's SCADA figure. A file
+    made with a floor of its own records it in the attribute <code>power_floor_mw</code>; <code>fg.load</code>
+    (<code>power_floor_mw</code>), the clients' reader (<code>MeterPlan.from_masks</code>) and the state estimator weight
+    by the stored value, and a file without it reads as before.</li>
+<li><strong>A ramp under the noise of every meter costs nothing.</strong> The search refused a support that moved
+    no device beyond noise. For a ramp that support is the cheapest there is: it now costs zero
+    devices and zero channels, the smallest one wins, and the file records 0. An overload still needs
+    one device beyond noise, since a flow inside the noise shows no overload.</li>
+<li><strong>A ramp is never run past its stealth bound.</strong> When no candidate support kept the bound, the
+    ramp ran on its whole area with no bound, and the file recorded -1 devices. It now draws other
+    targets, for up to 8 designs (<code>constants.numerics.RAMP_SUPPORT_TRIES</code>), and when none keeps the
+    bound the episode does not begin at that onset. The walk then moves it to a later onset of its
+    split, up to 20 times, as it does any episode that cannot begin, and counts each move in the
+    attribute <code>episode_redraws</code>; an episode that is never placed shows in <code>episode_shortfall</code> (not
+    in <code>episodes_dropped</code>, which counts episodes the plan had no room for). With <code>min_tamper</code> off the
+    ramp runs on its area only when the area keeps the bound. <code>min_devices</code> and <code>min_channels</code> are
+    never -1, and <code>Minimizer.min_tamper</code> returns None where it returned a result of -1.</li>
+<li><strong>The bound holds on the step out of a ramp too.</strong> The frame after an episode is benign. A ramp
+    whose rise and hold leave no room for its whole return ends with several rate-steps still on, and
+    that one step out was not checked: on IEEE-14 it reached about twice a meter's accuracy. The
+    window now holds the last frame's whole attack inside the bound, and a design that fails it is
+    refused like any other. Of the designs whose area kept every step in, the step out alone refused
+    1 of 13 on IEEE-14 and 0 of 6 on the New York days.</li>
+<li><strong>A frame-time halving that nothing reached is removed.</strong> <code>RampFrames</code> halved a ramp frame's
+    step when it had no false state. A ramp is accepted only with a false state on every frame of its
+    window, and a frame is that same solve on the same state: no frame of the golden timelines, of an
+    IEEE-14 ramp timeline or of the New York days needed it. <code>STEP_HALVINGS</code> and <code>_solvable_step</code> are
+    gone.</li>
+<li><strong>A ramp's targets are one neighbourhood.</strong> A ramp drew 5 eligible loads from the whole grid. It
+    now draws one and takes the others from the eligible loads within <code>hops</code> branches of it, up to
+    <code>RampSettings.targets</code> (5), fewer when fewer are in reach. <code>draw_ramp</code> is a method of
+    <code>EpisodeDesigns</code>.</li>
+<li><strong>The slack on a generator limit is a setting.</strong> <code>SearchSettings.limit_slack</code> chooses how far
+    past a limit a false state of either family may sit: <code>"meter"</code>, the default, is what the bus's
+    injection meter resolves, as before; <code>"hard"</code> is 0.001 MW and 0.001 MVAr, the paper's own limit
+    [WU26 eqs. 21-23]. The choice travels with the limits (<code>OperatingLimits.slack</code>). It matters with a
+    large noise: the meter's class is the slack, so a power floor of 0.03 pu on a 100 MVA base gives
+    every generator limit at least 3 MW and 3 MVAr. The default leaves a file's settings record and
+    hash as they were.</li>
+<li>What changes in a file at the defaults: every ramp episode (its targets, its support, the frames
+    it attacks) and every overload's <code>min_devices</code> and <code>min_channels</code>. Most overload counts are
+    larger, since a meter's class is far under 0.03 pu; an overload's support can change with its
+    count, and a smaller support can count fewer. The benign frames, the clean layers, the meter masks
+    and the splits are what they were: both golden digests of IEEE-14 moved in their attack datasets
+    and in <code>episode_redraws</code> only.</li>
+<li>
+<p>Measured on main and after, same seeds (IEEE-14 1,500 frames, IEEE-118 900 frames, the two New
+    York days ramp-only with seeds 5 and 6). "Past the stealth bound" counts the step into each
+    frame and the step out of a ramp's last one:</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>main</th>
+<th>after</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>New York, ramps kept on a support the search found</td>
+<td>0 of 10</td>
+<td>9 of 9 built (1 of 10 not placed)</td>
+</tr>
+<tr>
+<td>New York, buses a ramp re-solves</td>
+<td>42 to 59</td>
+<td>2 to 18</td>
+</tr>
+<tr>
+<td>New York, ramp frames with a channel past the stealth bound, per 60</td>
+<td>11 to 58</td>
+<td>0</td>
+</tr>
+<tr>
+<td>New York, readings beyond noise in a ramp frame, median and most</td>
+<td>12 to 17, 147</td>
+<td>0, 22</td>
+</tr>
+<tr>
+<td>IEEE-118, ramps kept on a found support</td>
+<td>2 of 4</td>
+<td>4 of 4</td>
+</tr>
+<tr>
+<td>IEEE-118, buses a ramp re-solves</td>
+<td>6 to 44</td>
+<td>2 to 6</td>
+</tr>
+<tr>
+<td>IEEE-118, ramp frames past the bound</td>
+<td>0, 46, 28, 0</td>
+<td>0 in all</td>
+</tr>
+<tr>
+<td>IEEE-14, ramp frames past the bound</td>
+<td>5 in one of 6 ramps</td>
+<td>0 in all</td>
+</tr>
+<tr>
+<td>IEEE-14, an overload's <code>min_devices</code></td>
+<td>4, 2, 12, 10, 11</td>
+<td>4, 8, 12, 16, 15</td>
+</tr>
+</tbody>
+</table>
+</li>
+<li>
+<p>With the 0.03 pu floor on the New York days, all 10 ramps are placed on a found support of 2 to
+    18 buses, none steps past the bound, and a ramp frame moves 1 reading beyond noise at the median.
+    That result does not rest on the wider limit slack the floor brings: with
+    <code>limit_slack="hard"</code> the same 10 ramps are placed, on supports of 2 to 18 buses, with the same
+    median. The noise of a power meter reading 1 MW or more is then about 4.5 % of the reading at the
+    median and 62 % to 67 % at the 95th percentile, against 1.7 % at both with the default floor.</p>
+</li>
+<li>The tests on [WU26]'s case studies run the scenarios as the paper states them
+    (<code>tests/case_studies.py</code>): their meters carry the paper's flat noise, so the count is the paper's,
+    and their limits are hard, since the paper's noise enters its count only. Every pinned count is
+    what it was before this change, and at k = 1.2 the trusted-PMU schedule stops the attack on both
+    IEEE-14 scenarios, as the paper reports. With the meter-class slack on the paper's noise (3 MW at
+    every bus) the schedule would not stop the attack on lines 3-4 and 6-11, which is why the
+    scenarios keep the paper's limits.</li>
+<li>
+<p>The tour page's quoted output moved in three count lines (the whole area costs 11 devices and 41
+    channels, the support found 5 and 20); its episode, support and frames are the same.</p>
+</li>
+<li>
+<p><strong>A generator limit counts as passed only beyond what the bus's injection meter resolves (generated
   files change).</strong> A bus reports one net injection, its load less its generation, and the model has no
   separate telemetry of a unit's output, so a generator shown past a limit by less than the error of
   that meter cannot be told from noise. The limit check charged a bus's whole injection change to its
   generator and refused a state past a limit by more than 0.001 MW. It now refuses one past a limit by
   more than the accuracy of the bus's P or Q injection meter at its true reading
   (<code>formulas.attacks.limit_tolerance</code>, <code>FalseState.limit_tolerance</code>), and never by less than 0.001 MW.
-  <code>formulas.attacks.within_limits</code> takes that tolerance per bus as a seventh argument.</li>
+  <code>formulas.attacks.within_limits</code> takes that tolerance per bus as a seventh argument.</p>
+</li>
 <li>The tolerance is the meter's accuracy class as the package simulates it [ASP14], the noise that is
     in a file. [WU26] leaves tampering below the noise out of its tamper count (Sec. V-A); applying
-    that idea to a limit is this package's step, not the paper's. The overload's tamper count still
-    uses the flat noise of the paper's case study (<code>paper_sigma</code>), a different scale; a later change
+    that idea to a limit is this package's step, not the paper's. At that change the overload's tamper
+    count still used the flat noise of the paper's case study, a different scale; the entry above
     brings the two to one.</li>
 <li>The tolerance follows the bus's reading, not the unit's size: nothing caps it by the generator's
     own range.</li>

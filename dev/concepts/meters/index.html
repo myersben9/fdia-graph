@@ -2311,6 +2311,13 @@ standard deviations (<code>PMU_CURRENT_CLASS</code>). It is relative to the phas
 and the imaginary part alike.</p>
 <p>A relative meter also has a floor, so a reading near zero still has noise: 0.001 MW or MVAr on a
 power meter (<code>POWER_NOISE_FLOOR_MW</code>) and 0.00001 p.u. on a current (<code>CURRENT_FLOOR_PU</code>).</p>
+<p><code>MeterSettings.power_floor_pu</code> sets the power meters' floor for a data set, per unit of the system
+base. None, the default, keeps 0.001 MW whatever the base. The SCADA noise of [WU26]'s case studies
+is a flat 0.03 p.u. (<code>WU26_SCADA_NOISE_PU</code>), which is 3 MW on a 100 MVA base. The floor is part of
+the noise every reading carries, so the ramp's stealth bound, the tamper count and the limit
+tolerance follow it (<a href="../attacks/">The attack families</a>). A file made with a floor of its own records
+it in the attribute <code>power_floor_mw</code>, and <code>fg.load</code>, the clients' reader and the state estimator
+weight by the stored value. A file without the attribute has the package's own floor.</p>
 <h2 id="bias-and-jitter">Bias and jitter<a class="headerlink" href="#bias-and-jitter" title="Permanent link">&para;</a></h2>
 <p>A meter's error is mostly a fixed calibration offset. The package splits each class in two.</p>
 <table>

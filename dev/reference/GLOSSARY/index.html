@@ -2078,17 +2078,17 @@ the data terms is in <a href="../../guides/generation/"><code>../guides/generati
 </tr>
 <tr>
 <td>paper noise</td>
-<td>[WU26]'s case-study noise, 0.03 pu on SCADA and 0.01 pu on PMU channels, in the stored units; the threshold of <code>Am</code>'s tamper count.</td>
-<td><code>constants.meters.WU26_NOISE</code>, <code>formulas.noise.paper_sigma</code></td>
+<td>The noise of [WU26]'s case studies: flat, 0.03 pu on SCADA and 0.01 pu on PMU channels. The package counts with the meters' own class; <code>MeterSettings.power_floor_pu</code> at 0.03 puts the SCADA figure under the power meters of a data set.</td>
+<td><code>constants.meters.WU26_SCADA_NOISE_PU</code>, <code>WU26_WAMS_NOISE_PU</code>, <code>models.config.MeterSettings</code></td>
 </tr>
 <tr>
 <td>tamper cost</td>
-<td>The devices with a channel moved beyond the family's threshold at some snapshot of an attack window, the objective of [WU26, eq. 12]. The threshold is the accuracy-class sigma for <code>At</code> and the paper noise for <code>Am</code>.</td>
-<td><code>formulas.attacks.tampered_channels</code>, <code>tampered_devices</code></td>
+<td>The devices with a channel moved beyond its meter's noise at some snapshot of an attack window, the objective of [WU26, eq. 12]. The noise is the accuracy-class sigma at the true reading, the noise the file's readings carry, for both families. A ramp's cost may be zero; an overload's is at least one device.</td>
+<td><code>formulas.attacks.tampered_channels</code>, <code>tampered_devices</code>, <code>engine.attacks.window.AttackWindow.cost</code></td>
 </tr>
 <tr>
 <td>accuracy-class sigma</td>
-<td>A meter's rated accuracy at a reading (relative for power channels plus a floor, absolute for voltage and angle): the sigma the measured calibration uses and the threshold of the fewest-tamper search for <code>At</code>.</td>
+<td>A meter's rated accuracy at a reading (relative for power channels plus a floor, absolute for voltage and angle): the sigma the measured calibration uses, the threshold of the fewest-tamper search for both families, the ramp's stealth bound and, by default, the slack on a generator limit.</td>
 <td><code>NoiseModel.sigmas</code>, <code>formulas.noise.accuracy_class_sigma</code></td>
 </tr>
 <tr>

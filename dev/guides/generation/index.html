@@ -2455,6 +2455,12 @@ built, and a value it does not allow raises <code>ConfigError</code>.</p>
 <td>multiplier on <code>At</code>'s stealth bound</td>
 </tr>
 <tr>
+<td><code>RampSettings</code></td>
+<td><code>targets</code></td>
+<td>5</td>
+<td>most loads one ramp moves, all within <code>hops</code> of the first</td>
+</tr>
+<tr>
 <td><code>SearchSettings</code></td>
 <td><code>hops</code></td>
 <td>2</td>
@@ -2477,6 +2483,12 @@ built, and a value it does not allow raises <code>ConfigError</code>.</p>
 <td><code>area_rule</code></td>
 <td><code>"hops"</code></td>
 <td>how the attacker's area is chosen</td>
+</tr>
+<tr>
+<td><code>SearchSettings</code></td>
+<td><code>limit_slack</code></td>
+<td><code>"meter"</code></td>
+<td>how far past a generator limit counts as past it: what the bus's injection meter resolves, or <code>"hard"</code>, 0.001 MW</td>
 </tr>
 <tr>
 <td><code>OverloadSettings</code></td>
@@ -2537,6 +2549,12 @@ built, and a value it does not allow raises <code>ConfigError</code>.</p>
 <td><code>meter_model</code></td>
 <td><code>"hybrid"</code></td>
 <td>what the meters read</td>
+</tr>
+<tr>
+<td><code>MeterSettings</code></td>
+<td><code>power_floor_pu</code></td>
+<td><code>None</code></td>
+<td>floor under a power meter's class, p.u. of the base; <code>None</code> is 0.001 MW</td>
 </tr>
 <tr>
 <td><code>SplitSettings</code></td>
