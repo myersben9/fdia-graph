@@ -14,8 +14,10 @@ the public API, the generated files and the numbers are the same as the previous
   frames with a generator on the boundary showed one outside its limits on IEEE-14 (3,000 frames) and
   54.5 % on IEEE-118 (1,500 frames); none does now. The number of episodes, the attacked share and the
   mean designed magnitude did not move by more than rounding (0.0176 to 0.0171 on IEEE-14, 0.0168 to
-  0.0172 on IEEE-118), and no frame fell back to benign. A generated timeline with a ramp differs from
-  one generated before; the released data v0.8.3 was made before this change.
+  0.0172 on IEEE-118), and no frame fell back to benign. The fewest-tamper search can settle on a larger
+  support: on two fixed IEEE-14 windows a ramp's cheapest support went from one device to two, because
+  the one-device supports showed a boundary generator outside its limits. A generated timeline with a
+  ramp differs from one generated before; the released data v0.8.3 was made before this change.
 
 - **A bus with a shunt and nothing else is a zero-injection bus (generated files change on six
   cases).** `FdiaGenerator.zero_inj` counted a bus with a shunt as injecting. A shunt is in the
