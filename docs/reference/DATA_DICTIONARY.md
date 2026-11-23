@@ -197,9 +197,11 @@ Chunked along the frame axis so a window of W frames is one read. A file without
 
 `episodes/` holds three tables, each stored as one dataset per column. The names are defined in
 `src/fdia_graph/schema.py` and written by `TimelineWriter` (`src/fdia_graph/generation/write.py`).
-An episode's index is its row in the first table; `data/seq_id` holds it for every frame of the
-episode and is -1 on a benign frame. Buses and branches are positions: a bus is a row of the node
-layers, a branch a column of `graph/edge_index`.
+An episode's index is its row in the first table; `data/seq_id` holds it for each attacked frame of
+the episode and is -1 on a benign frame. A frame inside an episode's window whose attack could not
+be built is stored as benign, with -1; the file's `fallback_benign` attribute counts them. Buses
+and branches are positions: a bus is a row of the node layers, a branch a column of
+`graph/edge_index`.
 
 **Every episode**, one row per episode (`n` episodes):
 
@@ -211,25 +213,25 @@ layers, a branch a column of `graph/edge_index`.
 | `bus_ptr` | `[n + 1]` | int64 | where each episode's buses start in `bus_idx`: episode `k` owns `bus_idx[bus_ptr[k]:bus_ptr[k + 1]]` |
 | `bus_idx` | `[bus_ptr[n]]` | int32 | the buses each episode attacks, one list after another |
 
-**The support search**, one row per episode whose support a search chose (`m` rows). A ramp `At`
-has a row when `SearchSettings.min_tamper` is on, which is the default. An overload `Am` always has
-one. A file with no such episode has none of these datasets.
+**The support search**, one row per episode whose support a search chose (`m` rows). Of the
+package's two designs, a ramp `At` has a row when `SearchSettings.min_tamper` is on, which is the
+default, and an overload `Am` always has one. A file with no such row has none of these datasets.
 
 | dataset | shape | dtype | holds |
 |---|---|---|---|
 | `min_episode` | `[m]` | int32 | the episode's index |
-| `min_devices` | `[m]` | int32 | the devices the chosen support moves beyond their noise at some snapshot of the window; -1 when no candidate met every constraint and the episode ran on its whole area |
+| `min_devices` | `[m]` | int32 | the devices the chosen support moves beyond their noise at some snapshot of the window; -1 on a ramp when no candidate the search tried met every constraint and moved a device beyond noise, and the episode ran on its area |
 | `min_channels` | `[m]` | int32 | the channels it moves beyond their noise at some snapshot; -1 in the same case |
 | `min_evaluated` | `[m]` | int32 | the candidate supports the search solved |
 | `min_support_ptr` | `[m + 1]` | int64 | where each row's support starts in `min_support_idx` |
-| `min_support_idx` | `[min_support_ptr[m]]` | int32 | the buses of each chosen support, sorted, one list after another |
+| `min_support_idx` | `[min_support_ptr[m]]` | int32 | the buses of each chosen support, sorted, one list after another; the area's buses on a row whose counts are -1 |
 
 These counts are not the tamper masks. `min_devices` and `min_channels` count what moves beyond
-noise somewhere in the window. `attack/node_tamper` and `attack/edge_tamper` mark every stored
-reading the attack changed in a frame, however little.
+noise somewhere in the window. For a ramp or an overload, `attack/node_tamper` and
+`attack/edge_tamper` mark every stored reading the attack changed in a frame, however little.
 
 **The overload**, one row per target branch of each `Am` episode (`a` rows, two per episode by
-default, `OverloadSettings.n_lines`). A file with no `Am` episode has none of these datasets.
+default, `OverloadSettings.n_lines`). A file with no such row has none of these datasets.
 Flows are apparent flows at the from end, in MVA.
 
 | dataset | shape | dtype | holds |
@@ -239,7 +241,7 @@ Flows are apparent flows at the from end, in MVA.
 | `am_rating_mva` | `[a]` | float32 | the branch's rating S_max |
 | `am_target_mva` | `[a]` | float32 | the goal's flow at the last snapshot of the window. The goal ends at the rating, so this equals `am_rating_mva` |
 | `am_reached_mva` | `[a]` | float32 | the flow the false state of the last frame reaches, before noise; NaN when that frame could not be built |
-| `am_emitted_mva` | `[a]` | float32 | the flow the meter reported in the last frame that was built, noise included |
+| `am_emitted_mva` | `[a]` | float32 | the flow the meter reported in the last frame that was built, noise included; NaN when no frame was built |
 
 `attack/mag_ptr` `[T + 1]` (int64), `attack/mag_bus` (int32) and `attack/mag` (float32) are ragged the
 same way, with one list per frame: the buses with a designed magnitude in that frame, and the

@@ -402,10 +402,15 @@ released pool of the system, downloaded once.
 states before the source is built. By default (`OverloadSettings.rating_source="pool"`) a branch's
 rating is `rating_margin` times its largest true flow over the pool the source is given, so the
 rating is taken over those frames only (`Overload.use_line_ratings`). Two runs with different
-`frames` can therefore rate the same branch differently, and for `Am` a shorter run is not the first
-part of a longer one. To make the ratings independent of `frames`, use `rating_source="pglib"` (the
-PGLib-OPF ratings, held for IEEE-14, 118 and 300) or `rating_source="delta"` (each target rated from
-its own window: its true flow at the window's last snapshot plus `rating_delta`).
+`frames` can therefore rate the same branch differently. To make the ratings independent of
+`frames`, use `rating_source="pglib"` (the PGLib-OPF ratings, held for IEEE-14, 118 and 300) or
+`rating_source="delta"` (each target rated from its own window: its true flow at the window's last
+snapshot plus `rating_delta`, in per unit).
+
+Ratings are not the only thing that follows `frames`. The splits are cut from the number of frames,
+so the episodes' places change with it, and the generator limits a false state must keep are widened
+to what the given pool ran each generator over. A shorter run is therefore not the first part of a
+longer one, under any rating source. Only the benign frames are the same in both.
 
 `fg.generate` calls `generate_timeline` in `timeline.py`, which builds an `IeeeSource` and calls
 its `generate`. To generate on a grid that is not an IEEE case, build a `SearchSource` on its

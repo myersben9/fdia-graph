@@ -8,10 +8,11 @@ the public API, the generated files and the numbers are the same as the previous
 - **The episode tables are in the data dictionary (docs only).** `docs/reference/DATA_DICTIONARY.md`
   has a new part, "The episode tables", with the shape, type and meaning of every dataset under
   `episodes/`: the episode rows, the support search's `min_` columns and the overload's `am_` columns,
-  which every generated file carried and no page described. It also states the layout of the ragged
-  `attack/mag` lists. `docs/guides/generation.md` says that `frames` changes the overload's line
-  ratings under the default `rating_source="pool"`, since the rating is taken over the frames a run is
-  given, and names the two settings that do not depend on it.
+  which a file with such episodes carried and no page explained. It also states the layout of the
+  ragged `attack/mag` lists. `docs/guides/generation.md` says that `frames` changes the overload's
+  line ratings under the default `rating_source="pool"`, since the rating is taken over the frames a
+  run is given, names the two rating sources that do not depend on it, and says what else follows
+  `frames`, so that a shorter run is not the first part of a longer one.
 
 - **A logo (docs and examples; no package code changes).** The project has a mark: a small network
   of four buses with one filled in red. `docs/figures/brand/` holds it alone, with the wordmark for
