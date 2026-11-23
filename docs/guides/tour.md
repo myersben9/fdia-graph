@@ -220,7 +220,8 @@ walk writes the tables. For this episode:
 | `episodes/min_devices`, `min_channels`, `min_evaluated`, `min_support_idx` | what the search chose |
 
 [The data dictionary](../reference/DATA_DICTIONARY.md#the-timeline-file) describes the datasets
-every timeline holds. The names of the `am_` and `min_` tables are in `schema.py`.
+every timeline holds, and [its episode tables](../reference/DATA_DICTIONARY.md#the-episode-tables) give the shape, type
+and meaning of each `am_` and `min_` column.
 
 `fg.load("tour", order="time")` reads the file back. `ds.episodes` is the episode table, and its
 `buses` are the buses the episode labelled: positions 9 and 13, the support's free injections.
