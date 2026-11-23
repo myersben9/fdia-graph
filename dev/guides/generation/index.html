@@ -2923,7 +2923,7 @@ scan. <code>ds.clients</code> lists the clients' names.</p>
 <tr>
 <td><code>frames</code></td>
 <td><code>None</code></td>
-<td>walk only the first frames of the pool</td>
+<td>walk only the first frames of the pool; see the note on ratings below</td>
 </tr>
 <tr>
 <td><code>states</code></td>
@@ -2954,6 +2954,18 @@ scan. <code>ds.clients</code> lists the clients' names.</p>
 </table>
 <p>Without <code>states</code>, the pool is the path in <code>$FDIA_GRAPH_INIT</code> when that variable is set, else the
 released pool of the system, downloaded once.</p>
+<p><strong><code>frames</code> changes the overload's line ratings.</strong> <code>fg.generate</code> cuts the pool to its first <code>frames</code>
+states before the source is built. By default (<code>OverloadSettings.rating_source="pool"</code>) a branch's
+rating is <code>rating_margin</code> times its largest true flow over the pool the source is given, so the
+rating is taken over those frames only (<code>Overload.use_line_ratings</code>). Two runs with different
+<code>frames</code> can therefore rate the same branch differently. To make the ratings independent of
+<code>frames</code>, use <code>rating_source="pglib"</code> (the PGLib-OPF ratings, held for IEEE-14, 118 and 300) or
+<code>rating_source="delta"</code> (each target rated from its own window: its true flow at the window's last
+snapshot plus <code>rating_delta</code>, in per unit).</p>
+<p>Ratings are not the only thing that follows <code>frames</code>. The splits are cut from the number of frames,
+so the episodes' places change with it, and the generator limits a false state must keep are widened
+to what the given pool ran each generator over. A shorter run is therefore not the first part of a
+longer one, under any rating source. Only the benign frames are the same in both.</p>
 <p><code>fg.generate</code> calls <code>generate_timeline</code> in <code>timeline.py</code>, which builds an <code>IeeeSource</code> and calls
 its <code>generate</code>. To generate on a grid that is not an IEEE case, build a <code>SearchSource</code> on its
 <code>Network</code> (<a href="../extending/">Add a design family, an alarm rule or a test system</a>).</p>

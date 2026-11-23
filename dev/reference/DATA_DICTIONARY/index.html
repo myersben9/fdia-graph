@@ -1495,6 +1495,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="The timeline file">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#the-episode-tables" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The episode tables
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -2210,6 +2227,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="The timeline file">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#the-episode-tables" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The episode tables
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -2887,8 +2921,8 @@ physics live on the dataset as <code>ds.edge_attr</code> <code>[E,8]</code> and 
 </tr>
 <tr>
 <td><code>episodes/</code></td>
-<td><code>onset, length, family, bus_ptr, bus_idx</code></td>
-<td><code>ds.episodes</code></td>
+<td><code>onset, length, family, bus_ptr, bus_idx</code>; the <code>min_</code> and <code>am_</code> tables</td>
+<td><code>ds.episodes</code> reads the first five; <a href="#the-episode-tables">the episode tables</a> lists them all</td>
 </tr>
 <tr>
 <td><code>attack/</code></td>
@@ -2913,6 +2947,165 @@ and its records carry no <code>pmu_i</code>. <code>export(["prev_pmu_i"])</code>
 currents on a hybrid-meter timeline, like <code>prev_node_x</code>.</p>
 <p>Chunked along the frame axis so a window of W frames is one read. A file without the <code>kind</code> attribute
 <code>timeline</code> (a record shard of a data release before v0.8.0) is refused with <code>NotATimeline</code>.</p>
+<h3 id="the-episode-tables">The episode tables<a class="headerlink" href="#the-episode-tables" title="Permanent link">&para;</a></h3>
+<p><code>episodes/</code> holds three tables, each stored as one dataset per column. The names are defined in
+<code>src/fdia_graph/schema.py</code> and written by <code>TimelineWriter</code> (<code>src/fdia_graph/generation/write.py</code>).
+An episode's index is its row in the first table; <code>data/seq_id</code> holds it for each attacked frame of
+the episode and is -1 on a benign frame. A frame inside an episode's window whose attack could not
+be built is stored as benign, with -1; the file's <code>fallback_benign</code> attribute counts them. Buses
+and branches are positions: a bus is a row of the node layers, a branch a column of
+<code>graph/edge_index</code>.</p>
+<p><strong>Every episode</strong>, one row per episode (<code>n</code> episodes):</p>
+<table>
+<thead>
+<tr>
+<th>dataset</th>
+<th>shape</th>
+<th>dtype</th>
+<th>holds</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>onset</code></td>
+<td><code>[n]</code></td>
+<td>int32</td>
+<td>the episode's first frame, counted in the file's frames</td>
+</tr>
+<tr>
+<td><code>length</code></td>
+<td><code>[n]</code></td>
+<td>int32</td>
+<td>its length in frames</td>
+</tr>
+<tr>
+<td><code>family</code></td>
+<td><code>[n]</code></td>
+<td>int8</td>
+<td>its family code, as in <code>data/family</code></td>
+</tr>
+<tr>
+<td><code>bus_ptr</code></td>
+<td><code>[n + 1]</code></td>
+<td>int64</td>
+<td>where each episode's buses start in <code>bus_idx</code>: episode <code>k</code> owns <code>bus_idx[bus_ptr[k]:bus_ptr[k + 1]]</code></td>
+</tr>
+<tr>
+<td><code>bus_idx</code></td>
+<td><code>[bus_ptr[n]]</code></td>
+<td>int32</td>
+<td>the buses each episode attacks, one list after another</td>
+</tr>
+</tbody>
+</table>
+<p><strong>The support search</strong>, one row per episode whose support a search chose (<code>m</code> rows). Of the
+package's two designs, a ramp <code>At</code> has a row when <code>SearchSettings.min_tamper</code> is on, which is the
+default, and an overload <code>Am</code> always has one. A file with no such row has none of these datasets.</p>
+<table>
+<thead>
+<tr>
+<th>dataset</th>
+<th>shape</th>
+<th>dtype</th>
+<th>holds</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>min_episode</code></td>
+<td><code>[m]</code></td>
+<td>int32</td>
+<td>the episode's index</td>
+</tr>
+<tr>
+<td><code>min_devices</code></td>
+<td><code>[m]</code></td>
+<td>int32</td>
+<td>the devices the chosen support moves beyond their noise at some snapshot of the window; -1 on a ramp when no candidate the search tried met every constraint and moved a device beyond noise, and the episode ran on its area</td>
+</tr>
+<tr>
+<td><code>min_channels</code></td>
+<td><code>[m]</code></td>
+<td>int32</td>
+<td>the channels it moves beyond their noise at some snapshot; -1 in the same case</td>
+</tr>
+<tr>
+<td><code>min_evaluated</code></td>
+<td><code>[m]</code></td>
+<td>int32</td>
+<td>the candidate supports the search solved</td>
+</tr>
+<tr>
+<td><code>min_support_ptr</code></td>
+<td><code>[m + 1]</code></td>
+<td>int64</td>
+<td>where each row's support starts in <code>min_support_idx</code></td>
+</tr>
+<tr>
+<td><code>min_support_idx</code></td>
+<td><code>[min_support_ptr[m]]</code></td>
+<td>int32</td>
+<td>the buses of each chosen support, sorted, one list after another; the area's buses on a row whose counts are -1</td>
+</tr>
+</tbody>
+</table>
+<p>These counts are not the tamper masks. <code>min_devices</code> and <code>min_channels</code> count what moves beyond
+noise somewhere in the window. For a ramp or an overload, <code>attack/node_tamper</code> and
+<code>attack/edge_tamper</code> mark every stored reading the attack changed in a frame, however little.</p>
+<p><strong>The overload</strong>, one row per target branch of each <code>Am</code> episode (<code>a</code> rows, two per episode by
+default, <code>OverloadSettings.n_lines</code>). A file with no such row has none of these datasets.
+Flows are apparent flows at the from end, in MVA.</p>
+<table>
+<thead>
+<tr>
+<th>dataset</th>
+<th>shape</th>
+<th>dtype</th>
+<th>holds</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>am_episode</code></td>
+<td><code>[a]</code></td>
+<td>int32</td>
+<td>the episode's index</td>
+</tr>
+<tr>
+<td><code>am_line</code></td>
+<td><code>[a]</code></td>
+<td>int32</td>
+<td>the target branch</td>
+</tr>
+<tr>
+<td><code>am_rating_mva</code></td>
+<td><code>[a]</code></td>
+<td>float32</td>
+<td>the branch's rating S_max</td>
+</tr>
+<tr>
+<td><code>am_target_mva</code></td>
+<td><code>[a]</code></td>
+<td>float32</td>
+<td>the goal's flow at the last snapshot of the window. The goal ends at the rating, so this equals <code>am_rating_mva</code></td>
+</tr>
+<tr>
+<td><code>am_reached_mva</code></td>
+<td><code>[a]</code></td>
+<td>float32</td>
+<td>the flow the false state of the last frame reaches, before noise; NaN when that frame could not be built</td>
+</tr>
+<tr>
+<td><code>am_emitted_mva</code></td>
+<td><code>[a]</code></td>
+<td>float32</td>
+<td>the flow the meter reported in the last frame that was built, noise included; NaN when no frame was built</td>
+</tr>
+</tbody>
+</table>
+<p><code>attack/mag_ptr</code> <code>[T + 1]</code> (int64), <code>attack/mag_bus</code> (int32) and <code>attack/mag</code> (float32) are ragged the
+same way, with one list per frame: the buses with a designed magnitude in that frame, and the
+magnitude of each.</p>
 <h2 id="where-the-constants-and-the-models-are-defined">Where the constants and the models are defined<a class="headerlink" href="#where-the-constants-and-the-models-are-defined" title="Permanent link">&para;</a></h2>
 <p>A value nothing in a run changes is a constant. Each one is defined once, with its unit and its
 source, in a module of <code>src/fdia_graph/constants/</code>. The modules import nothing from the rest of

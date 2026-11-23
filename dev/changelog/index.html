@@ -2037,6 +2037,16 @@ the public API, the generated files and the numbers are the same as the previous
 <h2 id="unreleased">Unreleased<a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
 <ul>
 <li>
+<p><strong>The episode tables are in the data dictionary (docs only).</strong> <code>docs/reference/DATA_DICTIONARY.md</code>
+  has a new part, "The episode tables", with the shape, type and meaning of every dataset under
+  <code>episodes/</code>: the episode rows, the support search's <code>min_</code> columns and the overload's <code>am_</code> columns,
+  which a file with such episodes carried and no page explained. It also states the layout of the
+  ragged <code>attack/mag</code> lists. <code>docs/guides/generation.md</code> says that <code>frames</code> changes the overload's
+  line ratings under the default <code>rating_source="pool"</code>, since the rating is taken over the frames a
+  run is given, names the two rating sources that do not depend on it, and says what else follows
+  <code>frames</code>, so that a shorter run is not the first part of a longer one.</p>
+</li>
+<li>
 <p><strong>A logo (docs and examples; no package code changes).</strong> The project has a mark: a small network
   of four buses with one filled in red. <code>docs/figures/brand/</code> holds it alone, with the wordmark for
   light and dark backgrounds, and as a favicon. It is above the title of the README, and the docs
