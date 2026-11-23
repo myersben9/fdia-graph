@@ -437,8 +437,11 @@ class FalseState(Part):
         support: np.ndarray,
     ) -> bool:
         """[WU26 eqs. 21-23] on a false state: `load_delta_pos` is the pretended load change per
-        load-table position (MW), summed per bus for buses carrying several loads; the generator
-        limits apply to the generators of the support."""
+        load-table position (MW), summed per bus for buses carrying several loads. The generator
+        limits apply to every generator of the reach: the boundary's reported injection changes too,
+        so a generator there is shown at a new output, as a flow goal's check also holds
+        (`flow_goal_state`)."""
         dload = np.zeros(self.g.n_bus)
         np.add.at(dload, self.g.load_bus, load_delta_pos)
-        return within_limits(x_false, x_true, self.g.split.generation(x_true), dload, limits, support)
+        gen = self.g.split.generation(x_true)
+        return within_limits(x_false, x_true, gen, dload, limits, self.reach(support))

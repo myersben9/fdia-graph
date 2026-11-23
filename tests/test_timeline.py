@@ -288,7 +288,7 @@ def test_operating_limits_are_the_case_limits_widened_to_the_pool():
     assert within_limits(bad, X0, gen, pretended, lim, everywhere)
     outside = np.array(
         [b for b in range(g.n_bus) if b != on[0]]
-    )  # the generator on the boundary: unconstrained
+    )  # the function checks the generators among the buses it is given, and no other
     assert within_limits(bad, X0, gen, none, lim, outside)
 
 
@@ -536,3 +536,35 @@ def test_a_bus_with_a_shunt_and_nothing_else_injects_nothing():
         if int(b) in (4, 36):
             injected[(4, 36).index(int(b))] -= (ps, qs)
     assert np.abs(injected).max() < 1e-6  # MW and MVAr: nothing is injected at a shunt-only bus
+
+
+def test_a_ramp_state_keeps_the_generators_of_its_boundary_inside_their_limits(pool):
+    """A load goal's false state changes the reported injection of the buses one branch outside its
+    support. A generator there is held to its limits [WU26 eqs. 22-23], as a flow goal's is: a state the
+    support alone would pass, and the boundary does not, is rejected."""
+    from fdia_graph.engine.core import FdiaGenerator
+    from fdia_graph.formulas.attacks import within_limits
+    from fdia_graph.models.frames import AttackDesign
+    from fdia_graph.systems.network import Network
+
+    g = FdiaGenerator(Network.from_ieee(14), seed=1)
+    fs, limits = g.false_state, g.false_state.operating_limits(pool)
+    kept = refused_at_the_boundary = 0
+    for x_true in pool[::50]:
+        gen, load_true = g.split.generation(x_true), g.scan_loads.true_load(x_true)
+        for row in g.stealthy_pos:
+            support = np.array([g.load_bus[row]])
+            for mult in (0.9, 1.1):
+                design = AttackDesign(np.array([row]), mult, support)
+                unchecked = fs.load_goal_state(x_true, design, support, None)
+                if unchecked is None:
+                    continue
+                dload = np.zeros(g.n_bus)
+                dload[g.load_bus[row]] = load_true[row] * (mult - 1.0)
+                on_the_reach = within_limits(unchecked, x_true, gen, dload, limits, fs.reach(support))
+                on_the_support = within_limits(unchecked, x_true, gen, dload, limits, support)
+                checked = fs.load_goal_state(x_true, design, support, limits)
+                assert (checked is not None) == on_the_reach
+                kept += on_the_reach
+                refused_at_the_boundary += on_the_support and not on_the_reach
+    assert kept and refused_at_the_boundary  # the rule both admits states and has something to refuse

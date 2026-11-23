@@ -5,6 +5,18 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- **A ramp keeps the generators of its boundary inside their limits (generated files change).** A
+  false state changes the reported injection of the buses one branch outside its support, and a
+  generator there is shown at a new output. An overload already rejected a state that showed such a
+  generator outside its limits [WU26 eqs. 22-23]; a ramp checked the generators of its support only.
+  Both now check every generator of the reach through the one function,
+  `formulas.attacks.within_limits`. On a ramp-only timeline of the default settings, 13.7 % of the
+  frames with a generator on the boundary showed one outside its limits on IEEE-14 (3,000 frames) and
+  54.5 % on IEEE-118 (1,500 frames); none does now. The number of episodes, the attacked share and the
+  mean designed magnitude did not move by more than rounding (0.0176 to 0.0171 on IEEE-14, 0.0168 to
+  0.0172 on IEEE-118), and no frame fell back to benign. A generated timeline with a ramp differs from
+  one generated before; the released data v0.8.3 was made before this change.
+
 - **A bus with a shunt and nothing else is a zero-injection bus (generated files change on six
   cases).** `FdiaGenerator.zero_inj` counted a bus with a shunt as injecting. A shunt is in the
   admittance matrix, and a pool stores a bus's injection without the shunt's draw, so a bus with a

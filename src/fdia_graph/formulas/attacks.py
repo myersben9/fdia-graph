@@ -63,7 +63,7 @@ def within_limits(
 ) -> bool:
     """Whether the false state x_false [N, 4] satisfies [WU26 eqs. 21-23]: every |V| inside v_lo_i =
     min(V_i^min, |V_i^true|), v_hi_i = max(V_i^max, |V_i^true|), and, at the generators among `buses` (the
-    support for a load goal, the reach for a flow goal), the implied output P_gen - (ΔP_inj - ΔP_load) and
+    reach of the false state: its support and the boundary), the implied output P_gen - (ΔP_inj - ΔP_load) and
     Q_gen - ΔQ_inj inside its limits. `load_delta` is MW."""
     V, Vt = x_false[:, NodeChannel.V], x_true[:, NodeChannel.V]
     if np.any(V < np.minimum(limits.v_lo, Vt) - LIMIT_TOL_V):
