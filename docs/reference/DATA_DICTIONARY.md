@@ -176,7 +176,7 @@ Every frame of a timeline carries three aligned layers, for node and for edge me
 | `benign/` | `node_benign, edge_benign` | the attack removed |
 | `clean/` | `node_clean, edge_clean` | the noiseless truth per frame |
 | `graph/` | `edge_index` and the static branch physics and bus shunts | the same for every frame |
-| `episodes/` | `onset, length, family, bus_ptr, bus_idx` | `ds.episodes` |
+| `episodes/` | `onset, length, family, bus_ptr, bus_idx`; the `min_` and `am_` tables | `ds.episodes` reads the first five; [the episode tables](#the-episode-tables) lists them all |
 | `attack/` | `mag_ptr, mag_bus, mag, node_tamper, edge_tamper` | designed magnitude per attacked bus, unsigned (a load rise and a drop of the same size record the same value); the meters the attacker wrote |
 | `data/`, `benign/`, `attack/` | `pmu_i, pmu_i_m`; `pmu_i_benign`; `pmu_i_tamper` | hybrid-meter files only (`attrs["meter_model"] == "hybrid"`, new generation): the PMU branch currents `[T, E, 4]`, see below |
 
@@ -192,6 +192,58 @@ currents on a hybrid-meter timeline, like `prev_node_x`.
 
 Chunked along the frame axis so a window of W frames is one read. A file without the `kind` attribute
 `timeline` (a record shard of a data release before v0.8.0) is refused with `NotATimeline`.
+
+### The episode tables
+
+`episodes/` holds three tables, each stored as one dataset per column. The names are defined in
+`src/fdia_graph/schema.py` and written by `TimelineWriter` (`src/fdia_graph/generation/write.py`).
+An episode's index is its row in the first table; `data/seq_id` holds it for every frame of the
+episode and is -1 on a benign frame. Buses and branches are positions: a bus is a row of the node
+layers, a branch a column of `graph/edge_index`.
+
+**Every episode**, one row per episode (`n` episodes):
+
+| dataset | shape | dtype | holds |
+|---|---|---|---|
+| `onset` | `[n]` | int32 | the episode's first frame, counted in the file's frames |
+| `length` | `[n]` | int32 | its length in frames |
+| `family` | `[n]` | int8 | its family code, as in `data/family` |
+| `bus_ptr` | `[n + 1]` | int64 | where each episode's buses start in `bus_idx`: episode `k` owns `bus_idx[bus_ptr[k]:bus_ptr[k + 1]]` |
+| `bus_idx` | `[bus_ptr[n]]` | int32 | the buses each episode attacks, one list after another |
+
+**The support search**, one row per episode whose support a search chose (`m` rows). A ramp `At`
+has a row when `SearchSettings.min_tamper` is on, which is the default. An overload `Am` always has
+one. A file with no such episode has none of these datasets.
+
+| dataset | shape | dtype | holds |
+|---|---|---|---|
+| `min_episode` | `[m]` | int32 | the episode's index |
+| `min_devices` | `[m]` | int32 | the devices the chosen support moves beyond their noise at some snapshot of the window; -1 when no candidate met every constraint and the episode ran on its whole area |
+| `min_channels` | `[m]` | int32 | the channels it moves beyond their noise at some snapshot; -1 in the same case |
+| `min_evaluated` | `[m]` | int32 | the candidate supports the search solved |
+| `min_support_ptr` | `[m + 1]` | int64 | where each row's support starts in `min_support_idx` |
+| `min_support_idx` | `[min_support_ptr[m]]` | int32 | the buses of each chosen support, sorted, one list after another |
+
+These counts are not the tamper masks. `min_devices` and `min_channels` count what moves beyond
+noise somewhere in the window. `attack/node_tamper` and `attack/edge_tamper` mark every stored
+reading the attack changed in a frame, however little.
+
+**The overload**, one row per target branch of each `Am` episode (`a` rows, two per episode by
+default, `OverloadSettings.n_lines`). A file with no `Am` episode has none of these datasets.
+Flows are apparent flows at the from end, in MVA.
+
+| dataset | shape | dtype | holds |
+|---|---|---|---|
+| `am_episode` | `[a]` | int32 | the episode's index |
+| `am_line` | `[a]` | int32 | the target branch |
+| `am_rating_mva` | `[a]` | float32 | the branch's rating S_max |
+| `am_target_mva` | `[a]` | float32 | the goal's flow at the last snapshot of the window. The goal ends at the rating, so this equals `am_rating_mva` |
+| `am_reached_mva` | `[a]` | float32 | the flow the false state of the last frame reaches, before noise; NaN when that frame could not be built |
+| `am_emitted_mva` | `[a]` | float32 | the flow the meter reported in the last frame that was built, noise included |
+
+`attack/mag_ptr` `[T + 1]` (int64), `attack/mag_bus` (int32) and `attack/mag` (float32) are ragged the
+same way, with one list per frame: the buses with a designed magnitude in that frame, and the
+magnitude of each.
 
 ## Where the constants and the models are defined
 

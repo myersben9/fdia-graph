@@ -388,7 +388,7 @@ mine = fg.load("my_run", split="train")
 |---|---|---|
 | `system` | | `"ieee14"` to `"ieee300"`, or the bus count |
 | `name` | | the name `fg.load` finds the file under |
-| `frames` | `None` | walk only the first frames of the pool |
+| `frames` | `None` | walk only the first frames of the pool; see the note on ratings below |
 | `states` | `None` | your own pool: an array or a path |
 | `out` | `None` | the file's path; `None` is `<name>.h5` in the cache |
 | `seed` | 123 | the seed |
@@ -397,6 +397,15 @@ mine = fg.load("my_run", split="train")
 
 Without `states`, the pool is the path in `$FDIA_GRAPH_INIT` when that variable is set, else the
 released pool of the system, downloaded once.
+
+**`frames` changes the overload's line ratings.** `fg.generate` cuts the pool to its first `frames`
+states before the source is built. By default (`OverloadSettings.rating_source="pool"`) a branch's
+rating is `rating_margin` times its largest true flow over the pool the source is given, so the
+rating is taken over those frames only (`Overload.use_line_ratings`). Two runs with different
+`frames` can therefore rate the same branch differently, and for `Am` a shorter run is not the first
+part of a longer one. To make the ratings independent of `frames`, use `rating_source="pglib"` (the
+PGLib-OPF ratings, held for IEEE-14, 118 and 300) or `rating_source="delta"` (each target rated from
+its own window: its true flow at the window's last snapshot plus `rating_delta`).
 
 `fg.generate` calls `generate_timeline` in `timeline.py`, which builds an `IeeeSource` and calls
 its `generate`. To generate on a grid that is not an IEEE case, build a `SearchSource` on its
