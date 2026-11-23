@@ -115,7 +115,7 @@ def test_the_schedule_stops_the_rref_attack_at_k_1_2(scenario):
     g, window, knobs, goal = _setup(scenario, 1.2)
     trust = TrustSchedule([int(b) for b in case_studies.buses(g, ORDER[scenario])], SLOTS)
     r = g.minimizer.min_tamper(window, goal, knobs._replace(support_method="rref"), trust=trust)
-    assert r.devices == -1
+    assert r is None
 
 
 def test_a_line_no_free_bus_moves_leaves_the_snapshot_nothing_to_rank(monkeypatch):
@@ -129,4 +129,4 @@ def test_a_line_no_free_bus_moves_leaves_the_snapshot_nothing_to_rank(monkeypatc
     seeds, _, _ = g.minimizer._goal_seeds(goal)
     area = np.asarray(g.area.hop_area(seeds, knobs.hops))
     assert RrefSupport(g).ladder(AttackWindow(g, window, goal, knobs), 0, area) == []
-    assert g.minimizer.min_tamper(window, goal, knobs._replace(support_method="rref")).devices == -1
+    assert g.minimizer.min_tamper(window, goal, knobs._replace(support_method="rref")) is None

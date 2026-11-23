@@ -184,7 +184,7 @@ def test_the_schedule_stops_the_ieee14_scenarios_at_k_1_2(scenario):
     attack does (8 and 10 devices)."""
     g, window, knobs, goal = _setup(scenario, 1.2)
     assert g.minimizer.min_tamper(window, goal, knobs).devices == (8, 10)[scenario]
-    assert g.minimizer.min_tamper(window, goal, knobs, trust=_schedule(g, scenario)).devices == -1
+    assert g.minimizer.min_tamper(window, goal, knobs, trust=_schedule(g, scenario)) is None
 
 
 @pytest.mark.parametrize("bus", [2, 99])  # MATPOWER bus 2 has no PMU in the paper's plan; 99 is no bus

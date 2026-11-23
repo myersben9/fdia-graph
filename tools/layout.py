@@ -134,7 +134,6 @@ EXEMPT: dict[str, dict[str, str]] = {
     "engine/attacks/area.py": {"AREA_HOPS": "knob", "AREA_SIZE_PENALTY": "knob"},
     "engine/attacks/episodes.py": {"ONSET_DRAWS": "knob"},
     "engine/attacks/overload.py": {"AM_LINE_TRIES": "knob"},
-    "engine/attacks/ramp_frames.py": {"STEP_HALVINGS": "knob"},
     "systems/case.py": {"CASE_FILE": "path", "STATEMENT": "private", "QUOTED": "private"},
     "generation/plan.py": {"PLACE_TRIES": "knob", "STRATUM": "knob", "REDRAWS": "knob"},
     "generation/write.py": {"_BATCH": "private"},
