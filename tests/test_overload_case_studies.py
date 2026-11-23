@@ -51,7 +51,7 @@ def _scenario(system: int, scenario: tuple) -> tuple:
     g = case_studies.paper_metering(g, case_studies.PMUS[system], flow)
     window = list(X[:WINDOW])
     g.overload.use_line_ratings(OverloadSettings(rating_margin=MARGIN), np.stack(window))
-    knobs = FrameKnobs(2, g.false_state.operating_limits(X), True, 4096, 1.0, 0.5, 2)
+    knobs = FrameKnobs(2, case_studies.paper_limits(g, X), True, 4096, 1.0, 0.5, 2)
     goal = g.overload.overload_goal(window, *lines)
     return g, window, knobs, goal, g.minimizer.min_tamper(window, goal, knobs)
 

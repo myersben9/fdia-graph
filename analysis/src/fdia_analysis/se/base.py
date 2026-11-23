@@ -133,6 +133,7 @@ class SEBase:
         ppc = net._ppc
         Yb, Yf, Yt = makeYbus(ppc["baseMVA"], ppc["bus"], ppc["branch"])
         self.baseMVA = float(ppc["baseMVA"])
+        self.power_floor_mw = float(ds.power_floor_mw)  # the floor of the file's power meters, MW
         self.N = int(ds.N)
         self.E = int(ds.E)
         self._nppc = ppc["bus"].shape[0]
@@ -376,7 +377,7 @@ class SEBase:
 
     def _class_sigma(self, mean_abs: np.ndarray) -> np.ndarray:
         """The accuracy-class sigma of every metered slot [m], in the estimator's units (pu, rad)."""
-        from fdia_graph.constants.meters import ACCURACY_CLASS, POWER_NOISE_FLOOR_MW
+        from fdia_graph.constants.meters import ACCURACY_CLASS
 
         N, E = self.N, self.E
         order = [
@@ -389,7 +390,7 @@ class SEBase:
         ]
         cls = np.concatenate([np.full(n, ACCURACY_CLASS[k]) for k, n, _ in order])[self.mask]
         rel = np.concatenate([np.full(n, r) for _, n, r in order])[self.mask]
-        sig = accuracy_class_sigma(mean_abs, cls, rel, POWER_NOISE_FLOOR_MW / self.baseMVA)
+        sig = accuracy_class_sigma(mean_abs, cls, rel, self.power_floor_mw / self.baseMVA)
         if self.pmu_pseudo:  # a pseudo reading is no meter: its sigma is eq. (3)'s propagated noise
             sig[self._pseudo_pos] = self._pseudo_sig
         return sig

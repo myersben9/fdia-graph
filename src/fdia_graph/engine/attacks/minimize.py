@@ -7,7 +7,8 @@ of, `AttackWindow.cost` (window.py) for each candidate, and `RrefSupport` (rref.
 asks for row reduction. A candidate grows by one adjacent area bus at a time. Each is solved at every
 snapshot and its tampered devices and channels counted over the window [WU26 eq. 28]. The cheapest
 found wins; nothing is claimed about optimality. A trusted PMU (`TrustSchedule`, [WU26 eqs. 27, 29])
-holds its bus true from its slot on. A support that moves no device beyond noise is skipped."""
+holds its bus true from its slot on. The count is against the meters' own noise: a ramp's support that
+moves no device beyond it costs zero and is the cheapest there is, and an overload's is skipped."""
 
 from __future__ import annotations
 
@@ -39,9 +40,11 @@ class Minimizer(Part):
         trust: Optional[TrustSchedule] = None,
     ) -> Optional[MinimizerResult]:
         """The cheapest support found for the window of `states` (one [N, 4] true state per snapshot) and
-        `goal`, or None when the goal's buses have no area. `prev` is the attack vector of the frame before
-        the window (At's stealth bound starts from it); `trust` the trusted-PMU schedule [WU26 eqs. 26-32].
-        With `knobs.support_method` "rref" a flow goal takes its support from `rref.RrefSupport` instead."""
+        `goal`. None when the goal's buses have no area, or when no candidate has a cost: none has a
+        false state at every snapshot inside the limits and, for a ramp, inside the stealth bound.
+        `prev` is the attack vector of the frame before the window (At's stealth bound starts from it);
+        `trust` the trusted-PMU schedule [WU26 eqs. 26-32]. With `knobs.support_method` "rref" a flow
+        goal takes its support from `rref.RrefSupport` instead."""
         if trust is not None:  # refused before the search runs: every trusted bus carries a PMU
             TrustablePmus(trust.buses, frozenset(self.g.pmu_buses.tolist()), self.g.n_bus)
         with one_blas_thread():
@@ -81,8 +84,8 @@ class Minimizer(Part):
             if not np.array_equal(support, area)
         )
         best, evaluated = _cheapest(window, itertools.chain([area], later), area, knobs.min_budget)
-        if best is None:  # no candidate meets every constraint: say so, keep the area
-            return MinimizerResult(area, -1, -1, evaluated)
+        if best is None:  # no candidate has a cost: the caller draws other targets or gives the window up
+            return None
         cost, support = best
         return MinimizerResult(support, cost.devices, cost.channels, evaluated)
 
@@ -141,8 +144,8 @@ def _cheapest(
     window: AttackWindow, candidates: Iterator[np.ndarray], area: np.ndarray, budget: int
 ) -> tuple[Optional[tuple[SupportCost, np.ndarray]], int]:
     """(The cheapest of at most `budget` candidates with its cost, or None; the candidates solved). It
-    stops early at one device on one channel, the least an attack tampers: the candidates after the area
-    come smallest first, so none later beats it."""
+    stops early at the least a support of the goal can cost (`AttackWindow.least`): the candidates
+    after the area come smallest first, so none later beats it."""
     best: Optional[tuple[SupportCost, np.ndarray]] = None
     evaluated = 0
     for support in itertools.islice(candidates, budget):
@@ -150,7 +153,7 @@ def _cheapest(
         # None unless the support beats the best
         cost = window.cost(support, None if best is None else best[0])
         best = best if cost is None else (cost, support)
-        if best is not None and (best[0].devices, best[0].channels) == (1, 1) and best[1] is not area:
+        if best is not None and (best[0].devices, best[0].channels) == window.least and best[1] is not area:
             break
     return best, evaluated
 

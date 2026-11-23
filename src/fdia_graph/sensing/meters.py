@@ -20,11 +20,21 @@ from fdia_graph.constants.meters import (
     METER_SLOT,
     PHASOR_KINDS,
     PMU_CURRENT_CLASS,
+    POWER_KINDS,
+    POWER_NOISE_FLOOR_MW,
     MeterKind,
 )
 from fdia_graph.models.config import MeterSettings
 from fdia_graph.models.frames import MeterLayers
 from fdia_graph.systems.case import Case
+
+
+def kind_classes(kinds: np.ndarray, power_floor: float) -> tuple[np.ndarray, np.ndarray]:
+    """The accuracy class of each meter kind in `kinds` [M] as (`sigma_rel`, `sigma_abs`): the classes of
+    `KIND_ACCURACY`, with `power_floor` (MW, MVAr) as the floor of every power meter."""
+    relative = np.array([KIND_ACCURACY[k][0] for k in kinds])
+    absolute = np.array([KIND_ACCURACY[k][1] for k in kinds])
+    return relative, np.where(np.isin(kinds, POWER_KINDS), power_floor, absolute)
 
 
 @dataclass(frozen=True)
@@ -85,7 +95,8 @@ class MeterPlan:
         voltmeter at `vbus_frac` of the buses, a PMU at `pmu_frac` (at least one), a flow meter on
         `flow_frac` of the branches. Three draws from `rng`, in this order, then the biases. `pmu_at`
         [N] and `flow_at` [E] (bool) stand in for the drawn PMUs and flow meters (a paper's metering);
-        the draws are made all the same, so the voltmeters and the biases stay those of the stream."""
+        the draws are made all the same, so the voltmeters and the biases stay those of the stream.
+        The power meters' floor is `coverage.power_floor_pu` on the case's base."""
         N, E = len(case.bus_id), len(case.f)
         volt, pmu = np.zeros(N, bool), np.zeros(N, bool)
         volt[rng.choice(N, int(coverage.vbus_frac * N), replace=False)] = True
@@ -93,17 +104,23 @@ class MeterPlan:
         flow = rng.random(E) < coverage.flow_frac
         pmu = pmu if pmu_at is None else np.asarray(pmu_at, bool)
         flow = flow if flow_at is None else np.asarray(flow_at, bool)
-        return cls.from_placement(case, volt, pmu, flow, rng)
+        return cls.from_placement(case, volt, pmu, flow, rng, coverage.power_floor_mw(case.base_mva))
 
     @classmethod
     def from_placement(
-        cls, case: Case, volt: np.ndarray, pmu: np.ndarray, flow: np.ndarray, rng: np.random.Generator
+        cls,
+        case: Case,
+        volt: np.ndarray,
+        pmu: np.ndarray,
+        flow: np.ndarray,
+        rng: np.random.Generator,
+        power_floor: float = POWER_NOISE_FLOOR_MW,
     ) -> MeterPlan:
         """The meters of an IEEE case, owned by one client, with a voltmeter at the buses `volt` [N], a
         PMU at `pmu` [N] and a flow meter on the branches `flow` [E] (all bool): P and Q injection at every
         bus, P and Q flow at a metered branch's from end, |V| at voltmeters and PMUs, and at a PMU also the
         angle and the current phasor of every branch end at its bus, as real and imaginary part [WU26 eqs.
-        17-20]."""
+        17-20]. `power_floor` (MW, MVAr) is the floor under the class of every power meter."""
         # The rows are in the order a scan's noise is drawn: bus by bus (|V|, angle, P, Q), then the
         # flows and then the currents, branch by branch. The biases are drawn from `rng` for every bus
         # and branch, metered or not, in the order every released file fixes: P, Q, |V|, angle, P flow,
@@ -126,14 +143,15 @@ class MeterPlan:
         end = part // TO_END_OFFSET
         kind = np.r_[np.array(BUS_KINDS)[k], np.array(FLOW_KINDS)[c], np.array(PHASOR_KINDS)[part % 2]]
         none = np.full(len(b), -1)
+        sigma_rel, sigma_abs = kind_classes(kind, power_floor)
         return cls(
             kind=kind,
             bus=np.r_[b, case.f[e], np.where(end == 0, case.f[i], case.t[i])],
             branch=np.r_[none, e, i],
             end=np.r_[none, np.zeros(len(e), int), end],
             owner=np.zeros(len(kind), int),
-            sigma_rel=np.array([KIND_ACCURACY[m][0] for m in kind]),
-            sigma_abs=np.array([KIND_ACCURACY[m][1] for m in kind]),
+            sigma_rel=sigma_rel,
+            sigma_abs=sigma_abs,
             bias=np.r_[np.c_[v, angle, p, q][b, k], np.c_[pf, qf][e, c], current_bias[i, part]],
         )
 
@@ -155,11 +173,18 @@ class MeterPlan:
         return z
 
     @classmethod
-    def from_masks(cls, masks: MeterLayers, edges: np.ndarray, bus_client: np.ndarray) -> MeterPlan:
+    def from_masks(
+        cls,
+        masks: MeterLayers,
+        edges: np.ndarray,
+        bus_client: np.ndarray,
+        power_floor: float = POWER_NOISE_FLOOR_MW,
+    ) -> MeterPlan:
         """The plan a file's meter masks describe, kind by kind (bus meters by bus, branch meters by
         branch then end). `gather` on the file's layers gives that plan's flat vector. `edges` is [2, E], and
-        each meter's owner is the client of its bus (`bus_client` [N]). A file does not store `bias`:
-        it reads NaN."""
+        each meter's owner is the client of its bus (`bus_client` [N]). `power_floor` is the floor of
+        the power meters the file was made with (`Attr.POWER_FLOOR_MW`; the package's own when the
+        file records none). A file does not store `bias`: it reads NaN."""
         kind, bus, branch, end = [], [], [], []
         for k in MeterKind:
             layer, column = METER_SLOT[k]
@@ -173,13 +198,14 @@ class MeterPlan:
             branch.append(none if at_bus else row)
             end.append(none if at_bus else e)
         kinds, buses = np.concatenate(kind), np.concatenate(bus)
+        sigma_rel, sigma_abs = kind_classes(kinds, power_floor)
         return cls(
             kind=kinds,
             bus=buses,
             branch=np.concatenate(branch),
             end=np.concatenate(end),
             owner=bus_client[buses],
-            sigma_rel=np.array([KIND_ACCURACY[k][0] for k in kinds]),
-            sigma_abs=np.array([KIND_ACCURACY[k][1] for k in kinds]),
+            sigma_rel=sigma_rel,
+            sigma_abs=sigma_abs,
             bias=np.full(len(kinds), np.nan),
         )

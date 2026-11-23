@@ -9,7 +9,6 @@ import pytest
 pytest.importorskip("pandapower")
 
 from fdia_graph.constants.channels import NodeChannel  # noqa: E402
-from fdia_graph.engine.attacks.episodes import draw_ramp  # noqa: E402
 from fdia_graph.engine.core import FdiaGenerator  # noqa: E402
 from fdia_graph.formulas.network import (  # noqa: E402
     _flow_blocks,
@@ -28,26 +27,24 @@ WINDOW = 8
 MARGIN = 1.2  # S_max = MARGIN x each branch's peak true flow over the window
 
 # (meter model, load_cap, kind, onset, target lines or ramp draw) -> (support, devices, channels,
-# evaluated), every search exhaustive (evaluated below the budget). The two At searches stop as soon as a
-# support tampers one device on one channel, the least any attack can (60 and 78 candidates where they
-# would solve 128 and 112): a ramp holds the generators of its boundary to their limits, and the
-# one-device supports pass a limit there by less than the bus's injection meter resolves, which is no
-# violation. The overload rows without a load cap are those the search found before the proof machinery
-# was removed. Two rows with the load cap were pinned again when a generator limit began to count as
-# passed only beyond the injection meter's accuracy: the active set no longer pins a generator over a
-# difference below the noise, so the goal at onset 0 is met on a smaller support (28 channels where it
-# took 43) and the goal at onset 150, which had no false state, has one.
+# evaluated), every search exhaustive (evaluated below the budget). Every row was pinned again when the
+# search began to count both families against the meters' own noise and a ramp's targets became one
+# neighbourhood. The overload rows keep their supports, or lose one bus, and count more: a meter's class
+# at its reading is far under the flat 0.03 pu the count used before, so more channels are beyond it.
+# The two ramp rows are other draws (a load and its neighbours), so other supports. A ramp may cost
+# nothing, so neither search stops at one device on one channel: each solves every candidate, and the
+# cheapest is one device for the second row and three for the first.
 PINNED = {
-    ("hybrid", 0.5, "Am", 0, (0,)): ([1, 2, 3, 4, 6], 8, 28, 18),
-    ("hybrid", 0.5, "Am", 150, (0,)): ([1, 2, 3, 4, 5, 6], 8, 30, 18),
-    ("hybrid", 0.5, "Am", 300, (0,)): ([1, 2, 3, 4, 5, 6], 7, 25, 18),
-    ("hybrid", 0.5, "At", 20, 0): ([3, 4, 6, 7, 9, 10, 11, 12, 13], 1, 1, 60),
-    ("hybrid", 0.5, "At", 200, 1): ([2, 3, 4, 6, 7, 8, 9, 10, 11, 13], 1, 1, 78),
-    ("hybrid", None, "Am", 0, (0,)): ([1, 4], 7, 23, 18),
-    ("hybrid", None, "Am", 150, (1,)): ([4], 6, 14, 99),
-    ("hybrid", None, "Am", 300, (0,)): ([1, 4], 7, 25, 18),
-    ("hybrid", None, "Am", 0, (1, 4)): ([1, 4], 7, 24, 99),
-    ("hybrid", None, "Am", 150, (4, 5)): ([1, 2, 4], 7, 30, 707),
+    ("hybrid", 0.5, "Am", 0, (0,)): ([1, 2, 3, 4, 6], 10, 46, 18),
+    ("hybrid", 0.5, "Am", 150, (0,)): ([1, 2, 3, 4, 6], 10, 51, 18),
+    ("hybrid", 0.5, "Am", 300, (0,)): ([1, 2, 3, 4, 6], 10, 48, 18),
+    ("hybrid", 0.5, "At", 20, 0): ([4, 5, 6, 7, 8, 10, 11, 12, 13], 3, 3, 112),
+    ("hybrid", 0.5, "At", 200, 1): ([2, 3, 4, 6, 7, 8, 9, 10], 1, 1, 96),
+    ("hybrid", None, "Am", 0, (0,)): ([1, 4], 7, 30, 18),
+    ("hybrid", None, "Am", 150, (1,)): ([4], 6, 20, 99),
+    ("hybrid", None, "Am", 300, (0,)): ([1, 4], 7, 30, 18),
+    ("hybrid", None, "Am", 0, (1, 4)): ([1, 4], 7, 30, 99),
+    ("hybrid", None, "Am", 150, (4, 5)): ([1, 2, 4], 7, 34, 707),
 }
 
 
@@ -77,7 +74,7 @@ def _goal(g, pool, kind, t, which):
     if kind == "Am":
         g.overload.use_line_ratings(OverloadSettings(rating_margin=MARGIN), np.stack(window))
         return window, g.overload.overload_goal(window, *which)
-    design = draw_ramp(np.random.default_rng(100 + which), g.stealthy_pos, WINDOW)
+    design = g.episode_designs.draw_ramp(np.random.default_rng(100 + which), WINDOW, FrameKnobs())
     return window, LoadGoal(tuple(g.episode_designs.ramp_step(design, i, 0.002) for i in range(WINDOW)))
 
 

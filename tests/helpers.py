@@ -107,11 +107,73 @@ class FixedDraws:
 WINDOW = 6  # snapshots per test window: a ramp's loads move above their noise by then, still fast
 
 
+def ramp_frames_past_the_bound(g, X, path, scale=1.0):
+    """How many attacked ramp frames of the timeline at `path`, walked by the generator `g` over the
+    pool `X`, hold a metered channel whose attack steps from the frame before by more than its meter's
+    sigma at the true reading times `scale`: the ramp's stealth bound, read back from the file. The
+    step out counts too: an attacked frame followed by a frame the ramp does not attack must hold its
+    whole attack inside the bound. The stored readings are float32, so a step counts only beyond four
+    of their spacings."""
+    import h5py
+
+    from fdia_graph import schema
+    from fdia_graph.constants.channels import NodeChannel
+    from fdia_graph.constants.families import AT_CODE
+
+    masks = [np.array(m) > 0 for m in (g.masks.node, g.masks.edge, g.masks.current)]
+    pmu = np.zeros(g.n_bus, bool)
+    pmu[g.pmu_buses] = True
+    masks[0][~pmu, NodeChannel.THETA] = False  # a bus angle is a PMU channel
+    pairs = (
+        (schema.NODE_X, schema.NODE_BENIGN),
+        (schema.EDGE_X, schema.EDGE_BENIGN),
+        (schema.PMU_I, schema.PMU_I_BENIGN),
+    )
+    past = 0
+    with h5py.File(path, "r") as f:
+        episodes, seq = f[schema.Group.EPISODES], f[schema.SEQ_ID][:]
+        for k in np.flatnonzero(episodes[schema.EPISODE_FAMILY][:] == AT_CODE):
+            onset, length = int(episodes[schema.EPISODE_ONSET][k]), int(episodes[schema.EPISODE_LENGTH][k])
+            first = max(onset - 1, 0)
+            read = [(f[x][first : onset + length], f[b][first : onset + length]) for x, b in pairs]
+            attack = [x.astype(float) - b.astype(float) for x, b in read]
+            spacing = [4 * np.spacing(np.abs(x).astype(np.float32)).astype(float) for x, _ in read]
+            for t in np.flatnonzero(seq[onset : onset + length] == k) + onset:
+                i = t - first
+                x = np.asarray(X[t], np.float64)
+                flows = g.emitter.clean_flows_from_states(x[None])[0]
+                currents = g.emitter.currents_from_states(x[None])[0]
+                sigma = g.emitter.layers(g.noise.sigmas(g.plan.gather(x, flows, currents)))
+                leaves = t + 1 >= onset + length or seq[t + 1] != k  # the next frame is not this ramp's
+                steps = [
+                    (np.abs(a[i] - (a[i - 1] if i else 0.0)) > scale * s + e[i])
+                    | (leaves & (np.abs(a[i]) > scale * s + e[i]))
+                    for a, s, e in zip(attack, sigma, spacing)
+                ]
+                past += any(bool((step & m).any()) for step, m in zip(steps, masks))
+    return past
+
+
+def feasible_ramp(g, X, t, knobs):
+    """A ramp drawn at t with a false state on the area at every frame of its window, whatever the
+    stealth bound says of it (`ramp_design` keeps only those that hold the bound); None when 40 draws
+    give none. The draws come from the generator's own stream."""
+    from fdia_graph.engine.attacks.episodes import probe_frames
+
+    designs = g.episode_designs
+    for _ in range(40):
+        d = designs.draw_ramp(g.rng, WINDOW, knobs)
+        steps = ((u, designs.ramp_step(d, u - t, 0.002)) for u in probe_frames(len(X), t, WINDOW))
+        if all(g.false_state.is_feasible(X[u], step, knobs) for u, step in steps):
+            return d
+    return None
+
+
 def windows(case, n, held=True):
-    """n ramp windows accepted on the area, each with its goal (one design per snapshot) from the
-    ramp's first frame; with `held`, only windows where some support held for the window meets every
-    constraint (the stealth bound rejects most: a reactive flow near zero has a noise floor of 1e-3).
-    `case` is the fixture of that name."""
+    """n ramp windows with a false state on the area at every frame, each with its goal (one design
+    per snapshot) from the ramp's first frame; with `held`, only windows where some support held for
+    the window keeps the stealth bound and moves a device beyond noise (the bound rejects most: a
+    reactive flow near zero has a noise floor of 1e-3). `case` is the fixture of that name."""
     from fdia_graph.engine.attacks.episodes import probe_frames
     from fdia_graph.models.frames import LoadGoal
 
@@ -120,14 +182,16 @@ def windows(case, n, held=True):
     out = []
     while len(out) < n:
         t = int(rng.integers(0, len(X) - WINDOW))
-        d = g.episode_designs.ramp_design(X, t, (WINDOW, 0.002), knobs._replace(min_tamper=False))
+        d = feasible_ramp(g, X, t, knobs)
         if d is None:
             continue
         frames = probe_frames(len(X), t, WINDOW)
         goal = LoadGoal(tuple(g.episode_designs.ramp_step(d, u - t, 0.002) for u in frames))
         states = [X[u] for u in frames]
-        if held and g.minimizer.min_tamper(states, goal, knobs).devices <= 0:
-            continue  # no held support, or nothing moves above noise: nothing for the search to choose
+        if held:
+            found = g.minimizer.min_tamper(states, goal, knobs)
+            if found is None or found.devices == 0:
+                continue  # no held support, or nothing moves above noise: nothing for the search to weigh
         out.append((states, goal, d))
     return out
 

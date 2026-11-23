@@ -11,6 +11,8 @@ from typing import NamedTuple, Optional, Union
 
 import numpy as np
 
+from ..constants.numerics import RAMP_TARGETS
+
 
 class MeterLayers(NamedTuple):
     """One value per meter of a meter table, laid out as a file's layers
@@ -113,6 +115,9 @@ class OperatingLimits(NamedTuple):
     p_hi: np.ndarray  # [N] highest, MW (+inf without a generator)
     q_lo: np.ndarray  # [N] lowest generator reactive output per bus, MVAr
     q_hi: np.ndarray  # [N] highest, MVAr
+    # how far past a generator limit counts as past it (`LimitSlack`): what the bus's injection
+    # meter resolves, or "hard", the numerical slack alone
+    slack: str = "meter"
 
 
 class FrameKnobs(NamedTuple):
@@ -121,7 +126,7 @@ class FrameKnobs(NamedTuple):
     # the attacks are local false states [WU26]: the attacker solves the area within `hops`
     # branches of the attacked buses (or the target lines) with the boundary voltages held true
     hops: int = 2
-    limits: Optional[OperatingLimits] = None  # a false state outside the box is rejected (then halved)
+    limits: Optional[OperatingLimits] = None  # a false state outside the box is rejected
     # [WU26 eq. 12]: an episode's support is the one that tampers the fewest devices (off: the area
     # within `hops`), searched over at most `min_budget` candidate supports
     min_tamper: bool = False
@@ -141,6 +146,7 @@ class FrameKnobs(NamedTuple):
     # of the goal, or "rules", the area the paper's four principles pick (`AttackArea.rule_area`, ours)
     area: Optional[tuple[int, ...]] = None
     area_rule: str = "hops"
+    ramp_targets: int = RAMP_TARGETS  # the most loads one ramp moves (`RampSettings.targets`)
 
 
 class AttackVector(NamedTuple):
@@ -209,7 +215,8 @@ class FlowSolve(NamedTuple):
 
 class SupportCost(NamedTuple):
     """What a support costs over an attack window [WU26 eq. 12]: the devices and the channels its
-    false states move beyond noise at some snapshot, and its size in buses."""
+    false states move beyond the meters' noise at some snapshot, and its size in buses. Both counts are
+    zero for a support whose changes all stay under the noise."""
 
     devices: int  # devices with a channel moved beyond noise at some snapshot
     channels: int  # channels moved beyond noise at some snapshot
@@ -228,10 +235,9 @@ class MinimizerResult(NamedTuple):
     optimality: [WU26] does not prove its minimum either)."""
 
     support: np.ndarray  # the buses whose voltages the false state moves (sorted)
-    devices: int  # devices with a channel moved beyond its noise at some snapshot; -1 when no candidate
-    # support meets every constraint and moves at least one device beyond its noise (the episode then
-    # runs on the area)
-    channels: int  # channels moved beyond their noise at some snapshot
+    devices: int  # devices with a channel moved beyond its noise at some snapshot: 0 or more (a ramp
+    # may stay under the noise of every meter for its whole window; an overload moves at least one)
+    channels: int  # channels moved beyond their noise at some snapshot: 0 or more
     evaluated: int  # candidate supports solved
 
 

@@ -44,8 +44,8 @@ class RrefSupport:
         trust: Optional[TrustSchedule] = None,
     ) -> Optional[MinimizerResult]:
         """The support the row reduction gives the window of `states` and the flow `goal`, grown until
-        the AC solve reaches the goal; None when the goal has no area. `evaluated` counts the supports
-        solved, and `devices` is -1 when none reaches the goal."""
+        the AC solve reaches the goal; None when the goal has no area or no rung reaches it.
+        `evaluated` counts the supports solved."""
         area = self.g.minimizer.window_area(states, goal, knobs)
         if area is None:
             return None
@@ -62,7 +62,7 @@ class RrefSupport:
             cost = window.cost(support, None)
             if cost is not None:
                 return MinimizerResult(support, cost.devices, cost.channels, len(tried))
-        return MinimizerResult(area, -1, -1, len(tried))
+        return None
 
     def level(self, ladders: list[list[np.ndarray]], level: int, area: np.ndarray) -> np.ndarray:
         """The window's support at a growth level: every snapshot's first `level + 1` rungs joined,

@@ -3,6 +3,8 @@ formulas (`formulas.network`)."""
 
 from __future__ import annotations
 
+from typing import Union
+
 import numpy as np
 import scipy.sparse as sp
 
@@ -63,7 +65,7 @@ class Network:
         v = self._v(vm, va)
         return v @ self.yf.T, v @ self.yt.T
 
-    def neighbors(self, buses, hops: int) -> np.ndarray:
+    def neighbors(self, buses: Union[int, np.ndarray], hops: int) -> np.ndarray:
         """Sorted positions of all buses within `hops` branches of `buses`, the buses included."""
         d = hop_distances(self.adjacency, np.atleast_1d(buses))
         return np.flatnonzero((d >= 0) & (d <= hops))

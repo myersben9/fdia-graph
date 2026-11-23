@@ -22,8 +22,12 @@ JITTER_FRAC = 0.25
 # three standard deviations of each component, relative to the phasor's magnitude.
 PMU_CURRENT_CLASS = 0.01 / 3
 CURRENT_FLOOR_PU = 1e-5  # pu on the base current: keeps a branch carrying almost no current from zero noise
-# The measurement noise of [WU26]'s case studies (pu): 0.03 on SCADA channels, 0.01 on PMU channels.
-WU26_NOISE = {"scada": 0.03, "pmu": 0.01}
+# The measurement noise of [WU26]'s case studies (Sec. V-A), per unit of the system base: a flat 0.03
+# on every SCADA channel and 0.01 on every WAMS (PMU) channel. The package's own noise is the class
+# above; the SCADA value is what `MeterSettings.power_floor_pu` takes for a data set with the paper's
+# noise under its power meters.
+WU26_SCADA_NOISE_PU = 0.03
+WU26_WAMS_NOISE_PU = 0.01
 
 
 class MeterKind(IntEnum):
@@ -44,6 +48,8 @@ class MeterKind(IntEnum):
 BUS_KINDS = (MeterKind.V, MeterKind.VA, MeterKind.P, MeterKind.Q)
 ANGLE_KINDS = (MeterKind.VA,)  # the kinds read in degrees, which wrap at +-180
 FLOW_KINDS = (MeterKind.PF, MeterKind.QF)  # the kinds of a flow meter, in a flow layer's column order
+# The power meters: the kinds whose class has the power floor under it (`MeterSettings.power_floor_pu`).
+POWER_KINDS = (MeterKind.P, MeterKind.Q, MeterKind.PF, MeterKind.QF)
 # The two parts of a current phasor stored as real and imaginary part. Their error is relative to
 # the phasor's magnitude |I|, not to the part's own size [C37118].
 PHASOR_KINDS = (MeterKind.IR, MeterKind.II)

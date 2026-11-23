@@ -4,11 +4,14 @@ its branch currents stay untrusted (eq. 27), and one support is held for the win
 
 The pinned counts are the IEEE-14 case studies on the paper's metering, a window of 20 pool frames with
 the PMUs trusted at the paper's snapshots 2, 4, 6 and 8, ratings k times each target line's peak flow
-(ours; the paper states none) and the D16 bounds. Table II of the paper reports the attack cost rising
-25.6% and 23.9% (scenario 1, Solutions 1 and 2) and 35.2% and 27.0% (scenario 2); at k = 1.1 the counts
-below rise 20.0% in devices and 37.5% in channels (5 to 6, 8 to 11) and 28.6% and 21.7% (7 to 9, 23 to
-28). At k = 1.2 no candidate's solve reaches both ratings with the four PMUs trusted: the defense stops
-the attack there."""
+(ours; the paper states none), the load cap and the generator limits. The scenarios run as the paper
+states them: the count is on the paper's flat noise, which the scenario's meters carry
+(`case_studies.paper_noise`), and the limits are hard (`case_studies.paper_limits`), since the paper's
+noise enters its count only. Table II of the paper reports the attack cost rising 25.6% and 23.9%
+(scenario 1, Solutions 1 and 2) and 35.2% and 27.0% (scenario 2); at k = 1.1 the counts below rise 20.0%
+in devices and 37.5% in channels (5 to 6, 8 to 11) and 28.6% and 21.7% (7 to 9, 23 to 28). At k = 1.2 no
+candidate's solve reaches both ratings with the four PMUs trusted: the defense stops the attack there,
+on both scenarios, as the paper reports."""
 
 import os
 
@@ -53,7 +56,7 @@ def _setup(scenario: int, margin: float) -> tuple:
     g = case_studies.paper_metering(g, case_studies.PMUS[14], flow)
     window = list(X[:WINDOW])
     g.overload.use_line_ratings(OverloadSettings(rating_margin=margin), np.stack(window))
-    knobs = FrameKnobs(2, g.false_state.operating_limits(X), True, 4096, 1.0, 0.5, 2)
+    knobs = FrameKnobs(2, case_studies.paper_limits(g, X), True, 4096, 1.0, 0.5, 2)
     return g, window, knobs, g.overload.overload_goal(window, *lines)
 
 
@@ -181,7 +184,7 @@ def test_the_schedule_stops_the_ieee14_scenarios_at_k_1_2(scenario):
     attack does (8 and 10 devices)."""
     g, window, knobs, goal = _setup(scenario, 1.2)
     assert g.minimizer.min_tamper(window, goal, knobs).devices == (8, 10)[scenario]
-    assert g.minimizer.min_tamper(window, goal, knobs, trust=_schedule(g, scenario)).devices == -1
+    assert g.minimizer.min_tamper(window, goal, knobs, trust=_schedule(g, scenario)) is None
 
 
 @pytest.mark.parametrize("bus", [2, 99])  # MATPOWER bus 2 has no PMU in the paper's plan; 99 is no bus

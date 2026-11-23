@@ -73,9 +73,8 @@ class SearchSource(TimelineSource):
         self.g, self.X = FdiaGenerator(net, seed, s.meters, s.max_load_mw, split=split), X
         self._label_meters(own)
         self._check_targets(self.searched)
-        self.limits = self.g.false_state.operating_limits(
-            self.X
-        )  # every false state must satisfy [WU26 eqs. 21-23]
+        # every false state must satisfy [WU26 eqs. 21-23], to the slack the settings choose
+        self.limits = self.g.false_state.operating_limits(self.X)._replace(slack=s.search.limit_slack)
         self.knobs = self._knobs()
         # a searched ramp is designed by the walk itself: workers serve the overload and the caller's own
         ramp, workers = (s.ramp.length, s.ramp.rate), s.workers if self.am_runs or mine else 1
@@ -147,6 +146,7 @@ class SearchSource(TimelineSource):
             s.search.min_budget,
             s.ramp.stealth_scale,
             area_rule=s.search.area_rule,  # how the attacker's area is chosen [WU26] Sec. III-A
+            ramp_targets=s.ramp.targets,
         )
         if not self.am_runs:  # no overload attack: its knobs keep their defaults (no cap, one line)
             return knobs
@@ -189,11 +189,20 @@ class SearchSource(TimelineSource):
         if s.search.min_tamper or self.am_runs:
             out[Attr.STEALTH_SCALE] = s.ramp.stealth_scale
         out[Attr.METER_MODEL] = s.meters.meter_model
+        out.update(self._recorded_noise())
         out[Attr.CURRENT_FEAT] = schema.CURRENT_FEAT_LEGEND
         out[Attr.CURRENT_UNITS] = schema.CURRENT_UNITS_LEGEND
         if self.own is not None:
             out[Attr.CLIENT_NAMES] = ",".join(str(name) for name in self.own.names)
         return out
+
+    def _recorded_noise(self) -> dict[str, object]:
+        """The floor of the power meters' class in MW, on a file made with one of its own
+        (`MeterSettings.power_floor_pu`): the noise its readings carry, for a reader to weight by."""
+        meters = self.settings.meters
+        if meters.power_floor_pu is None:
+            return {}
+        return {Attr.POWER_FLOOR_MW: meters.power_floor_mw(self.g.case.base_mva)}
 
     def header(self) -> dict[str, object]:
         """The topology a file records: "base", the intact case (every branch in service), so the

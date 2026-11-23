@@ -155,6 +155,16 @@ class AreaRule(Choice):
     RULES = "rules"
 
 
+class LimitSlack(Choice):
+    """How far past a generator limit [WU26 eqs. 22-23] an implied output may sit before the limit
+    counts as passed: by what the bus's injection meter resolves (its accuracy class at the true
+    reading, ours: a change under the meter's noise is one no reader of the file can tell), or by
+    the numerical slack alone (`LIMIT_TOL_PQ`), which is the paper's hard limit."""
+
+    METER = "meter"
+    HARD = "hard"
+
+
 class RatingSource(Choice):
     """Where the overload attack's line ratings S_max come from: each branch's peak
     true flow over the operating pool times a margin (every system), PGLib-OPF's `rate_a`

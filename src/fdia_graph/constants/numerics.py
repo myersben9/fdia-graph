@@ -18,3 +18,9 @@ BACKTRACK_HALVINGS = 8  # step fractions the Newton power flow tries per iterati
 # injection meter at its true reading (`formulas.attacks.limit_tolerance`), which is never below it.
 LIMIT_TOL_V = 1e-3  # pu
 LIMIT_TOL_PQ = 1e-3  # MW, MVAr
+# Ramp designs, each with a false state on every frame, whose supports are tried for one that keeps the
+# stealth bound before the onset is given up and the walk moves the episode.
+RAMP_SUPPORT_TRIES = 8
+# The most loads one ramp moves unless the settings say otherwise (`RampSettings.targets`): one drawn
+# load and four of its neighbours.
+RAMP_TARGETS = 5

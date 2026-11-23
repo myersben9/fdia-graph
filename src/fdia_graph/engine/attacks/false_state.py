@@ -17,6 +17,7 @@ import numpy as np
 
 from ...constants.channels import NodeChannel
 from ...constants.meters import MeterKind
+from ...constants.numerics import LIMIT_TOL_PQ
 from ...formulas.attacks import limit_tolerance, operating_limits, within_limits
 from ...formulas.network import (
     _dense,
@@ -27,6 +28,7 @@ from ...formulas.network import (
     local_ac_solve,
     local_flow_solve,
 )
+from ...models.choices import LimitSlack
 from ...models.frames import (
     AttackDesign,
     FlowGoal,
@@ -215,7 +217,7 @@ class FalseState(Part):
         free = np.intersect1d(support, self.free_injection_buses())
         if len(free) == 0:
             return FlowSolve(None, True, dload)
-        setup = self._flow_setup(x_true, support, free, line, target_mva)
+        setup = self._flow_setup(x_true, support, free, (line, target_mva), limits)
         boundary = np.setdiff1d(setup.reach, support)
         bounds = _Bounds(limits, load_cap)
         held = _Pins({}, {}, {})
@@ -242,11 +244,13 @@ class FalseState(Part):
         x_true: np.ndarray,
         support: np.ndarray,
         free: np.ndarray,
-        line: Union[int, Sequence[int]],
-        target_mva: Union[float, Sequence[float]],
+        goal: tuple[Union[int, Sequence[int]], Union[float, Sequence[float]]],
+        limits: Optional[OperatingLimits],
     ) -> _FlowSetup:
         """What every solve on the support at the true state x_true shares; `free` are the support's free
-        injection buses."""
+        injection buses, `goal` the branches and the flow each must show (MVA), and `limits` say how
+        far past a generator limit counts as past it (`limit_tolerance`)."""
+        line, target_mva = goal
         lines = np.atleast_1d(np.asarray(line, np.int64))
         V = complex_voltages(x_true[:, NodeChannel.V], x_true[:, NodeChannel.THETA])
         reach, blocks = self._support_blocks(support, lines)
@@ -262,7 +266,7 @@ class FalseState(Part):
             blocks=blocks,
             gen=self.g.split.generation(x_true),
             load=self.g.split.load(x_true),
-            tol=self.limit_tolerance(x_true),
+            tol=self.limit_tolerance(x_true, limits),
         )
 
     def _support_blocks(self, support: np.ndarray, lines: np.ndarray) -> tuple[np.ndarray, _FlowBlocks]:
@@ -406,7 +410,7 @@ class FalseState(Part):
         if x_false is None:
             return None
         if knobs.limits is not None:  # every generator the attack moves, on the support's boundary too
-            gen, tol = self.g.split.generation(x_true), self.limit_tolerance(x_true)
+            gen, tol = self.g.split.generation(x_true), self.limit_tolerance(x_true, knobs.limits)
             reach = self.reach(support)
             if not within_limits(x_false, x_true, gen, solve.load_change, knobs.limits, reach, tol):
                 return None
@@ -452,16 +456,20 @@ class FalseState(Part):
         (`limit_tolerance`); the slack and a static generator on a PQ bus have no limit to pass."""
         dload = np.zeros(self.g.n_bus)
         np.add.at(dload, self.g.load_bus, load_delta_pos)
-        gen, tol = self.g.split.generation(x_true), self.limit_tolerance(x_true)
+        gen, tol = self.g.split.generation(x_true), self.limit_tolerance(x_true, limits)
         return within_limits(x_false, x_true, gen, dload, limits, self.reach(support), tol)
 
-    def limit_tolerance(self, x_true: np.ndarray) -> np.ndarray:
+    def limit_tolerance(self, x_true: np.ndarray, limits: Optional[OperatingLimits]) -> np.ndarray:
         """How far past a generator limit counts as past it at the true state x_true, per bus [N, 2] (P MW,
-        Q MVAr): the standard deviation the noise model gives the bus's P and Q injection meters at their
-        true readings (`formulas.attacks.limit_tolerance`). That is the accuracy class of the meter as the
-        package simulates it [ASP14], the noise that is in the file and the class the ramp's stealth bound
-        uses. An overload's tamper count uses another scale, the flat noise of [WU26]'s case study
-        (`AttackWindow`). One rule for P and Q in a load goal, a flow goal and the flow solve's active set."""
+        Q MVAr). By default (`limits.slack`, `LimitSlack`) it is the standard deviation the noise model
+        gives the bus's P and Q injection meters at their true readings (`formulas.attacks.limit_tolerance`):
+        the accuracy class of the meter as the package simulates it [ASP14], the noise that is in the file,
+        which the stealth bound and the tamper count of both families use too. So a larger noise floor
+        widens this slack as well. With hard limits it is `LIMIT_TOL_PQ` at every bus, the paper's own
+        limit [WU26 eqs. 22-23]. One rule for P and Q in a load goal, a flow goal and the flow solve's
+        active set."""
+        if limits is not None and limits.slack == LimitSlack.HARD.value:
+            return np.full((self.g.n_bus, 2), LIMIT_TOL_PQ)
         cls, floor = self._injection_class()
         injected = np.asarray(x_true, float)[:, [NodeChannel.P_INJ, NodeChannel.Q_INJ]]
         return limit_tolerance(injected, cls, floor)
