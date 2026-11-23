@@ -17,7 +17,7 @@ classDiagram
         +solve_flow_local()
         +reach()
         +goal_state()
-        ... and 6 more
+        ... and 7 more
     }
     class AttackFrames {
         +frame_from_state()
@@ -89,6 +89,9 @@ classDiagram
     class LoadGoal {
         <<models>>
     }
+    class MeterKind {
+        <<constants>>
+    }
     class MeterLayers {
         <<models>>
     }
@@ -157,6 +160,7 @@ classDiagram
     FalseState ..> FlowSolve : uses
     FalseState ..> FrameKnobs : uses
     FalseState ..> LoadGoal : uses
+    FalseState ..> MeterKind : uses
     FalseState ..> OperatingLimits : uses
     Minimizer ..> AttackVector : uses
     Minimizer ..> AttackWindow : uses

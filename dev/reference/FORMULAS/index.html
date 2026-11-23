@@ -2084,9 +2084,9 @@ objects); one test checks it on a case small enough to verify by hand.</p>
 </tr>
 <tr>
 <td>operating limits of a false state</td>
-<td><code>formulas.attacks.operating_limits</code>, <code>generator_output</code>, <code>within_limits</code>, checked by <code>FalseState.stealthy_state</code></td>
-<td>per bus V_i^min, V_i^max and the generator limits from the case; every generator's implied output P_gen − (ΔP_inj − ΔP_load), Q_gen − ΔQ_inj within its limits, the true output recovered from the pool's common load and generation scale, ΔP_load the load change the attacker pretends; a true value already outside a limit is its own bound (the false state may not make it worse); a false state outside is rejected and its step halved</td>
-<td>[WU26, eqs. 21-23]</td>
+<td><code>formulas.attacks.operating_limits</code>, <code>generator_output</code>, <code>within_limits</code>, <code>limit_tolerance</code>, checked by <code>FalseState.stealthy_state</code></td>
+<td>per bus V_i^min, V_i^max and the generator limits from the case; every generator's implied output P_gen − (ΔP_inj − ΔP_load), Q_gen − ΔQ_inj within its limits, the true output recovered from the pool's common load and generation scale, ΔP_load the load change the attacker pretends; a generator limit is passed only by more than tol_i = max(0.001, c |z_i| + floor), the accuracy of the bus's injection meter at its true reading z_i as the package simulates it [ASP14] (ours: [WU26, Sec. V-A] leaves tampering below the noise out of its tamper count, and applying that to a limit is this package's step; the overload's tamper count uses the paper's flat case-study noise, a different scale); a true value already outside a limit is its own bound (the false state may not make it worse); a false state outside is rejected and its step halved</td>
+<td>[WU26, eqs. 21-23], [ASP14]</td>
 <td>Aq, At, Al, Am</td>
 </tr>
 <tr>
@@ -2176,7 +2176,7 @@ objects); one test checks it on a case small enough to verify by hand.</p>
 <tr>
 <td>flow-goal false state</td>
 <td><code>formulas.network.local_flow_solve</code>, called by <code>FalseState.solve_flow_local</code></td>
-<td>S_i(V) = S_fixed_i at the held buses of the support and |V_f conj(y_f · V)| = target_l on each goal branch l, the free injections (attackable loads and generators) free, least-norm Gauss-Newton steps halved until the residual drops; an active set pins a generator component at the limit (22)-(23) it would pass (in the support or on its boundary), a load bus's active change at <code>load_cap</code> times its true load (|ΔD_i| ≤ τ D_i [YUA11]), and holds a bus voltage at its limit (21), then solves again</td>
+<td>S_i(V) = S_fixed_i at the held buses of the support and |V_f conj(y_f · V)| = target_l on each goal branch l, the free injections (attackable loads and generators) free, least-norm Gauss-Newton steps halved until the residual drops; an active set pins a generator component at the limit (22)-(23) it would pass by more than its bus's injection meter resolves (in the support or on its boundary), a load bus's active change at <code>load_cap</code> times its true load (|ΔD_i| ≤ τ D_i [YUA11]), and holds a bus voltage at its limit (21), then solves again</td>
 <td>[WU26, eqs. 13-14, 21-25], [YUA11]</td>
 <td>Am</td>
 </tr>
@@ -2392,11 +2392,11 @@ places, the table has only the rows every place agrees on. The module paths are 
 <tr>
 <td>22-23</td>
 <td>a generator's P and Q stay inside its limits</td>
-<td><code>engine.attacks.false_state._clip_generator</code>, <code>FalseState._out_of_bounds</code>, <code>FalseState.solve_flow_local</code>, <code>FalseState.generator_buses</code></td>
+<td><code>engine.attacks.false_state._clip_generator</code>, <code>FalseState._out_of_bounds</code>, <code>FalseState.solve_flow_local</code>, <code>FalseState.generator_buses</code>, <code>FalseState.limit_tolerance</code>, <code>formulas.attacks.limit_tolerance</code></td>
 </tr>
 <tr>
 <td>21-23</td>
-<td>the constraints every false state must satisfy: the bus voltage limits and the generator P and Q limits</td>
+<td>the constraints every false state must satisfy: the bus voltage limits, and the generator P and Q limits at the generators of the reach (the support and its boundary), for a load goal and a flow goal alike; a generator limit is passed only by more than the bus's injection meter resolves, and the slack and a static generator on a load bus have none</td>
 <td><code>formulas.attacks.operating_limits</code>, <code>formulas.attacks.within_limits</code>, <code>FalseState.operating_limits</code>, <code>FalseState.state_within_limits</code>, <code>FalseState.load_goal_state</code>, <code>FalseState.stealthy_state</code>, <code>EpisodeDesigns.am_overload_design</code>, <code>FdiaGenerator._case_limits</code>, <code>generation.search.SearchSource.__init__</code>, <code>SearchSource._knobs</code>, <code>models.frames.OperatingLimits</code></td>
 </tr>
 <tr>

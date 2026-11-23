@@ -2052,8 +2052,13 @@ the data terms is in <a href="../../guides/generation/"><code>../guides/generati
 <td><code>engine.attacks.overload.Overload</code></td>
 </tr>
 <tr>
+<td>zero-injection bus</td>
+<td>A bus with no load and no producing unit, whether or not it has a shunt: a shunt is in the admittance matrix and a pool stores a bus's injection without the shunt's draw, so the bus's true injection is zero. No attack shows an injection there: an area grows over one on its boundary, and a candidate support that would leave one on its boundary takes it in.</td>
+<td><code>engine.core.FdiaGenerator</code> (<code>zero_inj</code>), <code>engine.attacks.area.AttackArea.grow_over_zero_injection</code></td>
+</tr>
+<tr>
 <td>free injection</td>
-<td>A bus whose injection a flow-goal attacker may change: an attackable load or a generator (the latter inside its limits, [WU26, eqs. 22-23]); a zero-injection bus is held at zero.</td>
+<td>A bus whose injection a flow-goal attacker may change: an attackable load or a generator (the latter inside its limits to within what its bus's injection meter resolves, [WU26, eqs. 22-23]); a zero-injection bus is held at zero.</td>
 <td><code>engine.attacks.false_state.FalseState.free_injection_buses</code></td>
 </tr>
 <tr>

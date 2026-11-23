@@ -2158,8 +2158,28 @@ beyond the install above.</p>
 <td>nothing</td>
 </tr>
 <tr>
-<td>A generator on the support's boundary whose P range is shut keeps its P, and a bus whose voltage range is shut keeps its voltage, while the flow goal is met (IEEE-14)</td>
+<td>A generator on the support's boundary whose P range is shut keeps its P or moves it by no more than its bus's injection meter resolves, and a bus whose voltage range is shut keeps its voltage, while the flow goal is met (IEEE-14)</td>
 <td><code>tests/test_overload.py::test_a_boundary_generator_stays_inside_its_limits</code>, <code>test_a_voltage_is_held_at_its_limit_while_the_goal_is_met</code></td>
+<td>nothing</td>
+</tr>
+<tr>
+<td>The flow solve pins a generator at its limit only when it is past it by more than the tolerance, and then exactly at the limit</td>
+<td><code>tests/test_overload.py::test_the_active_set_pins_a_generator_only_past_what_its_meter_resolves</code></td>
+<td>nothing</td>
+</tr>
+<tr>
+<td>A ramp's false state keeps the generators one branch outside its support inside their limits, as an overload's does (IEEE-14)</td>
+<td><code>tests/test_timeline.py::test_a_ramp_state_keeps_the_generators_of_its_boundary_inside_their_limits</code></td>
+<td>nothing</td>
+</tr>
+<tr>
+<td>A generator limit counts as passed only beyond the accuracy of the bus's injection meter at its true reading, and never within 0.001 MW (IEEE-14)</td>
+<td><code>tests/test_timeline.py::test_a_generator_limit_is_passed_only_by_more_than_the_injection_meter_resolves</code></td>
+<td>nothing</td>
+</tr>
+<tr>
+<td>A bus with a shunt and no load and no producing unit is a zero-injection bus, and the pool and the admittance matrix inject nothing there (IEEE-30, 89, 118, 145 and 300)</td>
+<td><code>tests/test_timeline.py::test_a_bus_with_a_shunt_and_nothing_else_injects_nothing</code></td>
 <td>nothing</td>
 </tr>
 <tr>
