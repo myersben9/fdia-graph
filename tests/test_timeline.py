@@ -223,33 +223,6 @@ def test_area_equivalent_loads_are_never_targets():
         FdiaGenerator(Network.from_ieee(14), seed=1, max_load_mw=0)
 
 
-def test_a_step_without_a_local_solution_is_halved(monkeypatch):
-    """A ramp frame is built at the largest halving of its step that solves (STEP_HALVINGS at most),
-    past the noise floor: its design step is sub-floor anyway."""
-    from fdia_graph.engine.core import FdiaGenerator
-    from fdia_graph.models.frames import AttackDesign, FrameKnobs
-    from fdia_graph.systems.network import Network
-
-    g = FdiaGenerator(Network.from_ieee(14), seed=1)
-    steps: list[float] = []
-
-    def fake(x_true, design, knobs):
-        steps.append(float(np.max(np.abs(np.asarray(design.mult) - 1.0))))
-        return "frame" if steps[-1] <= 0.01 else None
-
-    monkeypatch.setattr(g.ramp_frames, "_stealthy_frame", fake)
-    knobs = FrameKnobs(hops=2)
-    x_true = np.zeros((g.n_bus, 4))
-    two = g.stealthy_pos[:2]
-    assert g.ramp_frames.ramp_frame(x_true, AttackDesign(two, 1.2), knobs) == "frame"
-    assert np.allclose(steps, [0.2, 0.1, 0.05, 0.025, 0.0125, 0.00625])
-    steps.clear()
-    assert (
-        g.ramp_frames.ramp_frame(x_true, AttackDesign(two, 1.9), knobs) is None
-    )  # six halvings, none small enough
-    assert len(steps) == 7
-
-
 def test_operating_limits_are_the_case_limits_widened_to_the_pool():
     """Bus and generator limits are the case's; a true state already outside one is its own bound
     and may not be made worse; the generator output behind a pool state is recovered exactly, and
@@ -273,7 +246,7 @@ def test_operating_limits_are_the_case_limits_widened_to_the_pool():
     assert np.allclose(gen[on, 0], g.split.gen_base[on, 0])  # the base state: base generation exactly
     none = np.zeros(g.n_bus)
     everywhere = np.arange(g.n_bus)  # every bus inside the attacked subnetwork
-    tol = g.false_state.limit_tolerance(X0)
+    tol = g.false_state.limit_tolerance(X0, lim)
     assert within_limits(X0, X0, gen, none, lim, everywhere, tol)  # ... and is acceptable as its own bound
     worse = X0.copy()
     worse[int(np.argmax(X0[:, 0])), 0] += 0.01  # further above the limit than the true state
@@ -315,7 +288,10 @@ def test_a_generator_limit_is_passed_only_by_more_than_the_injection_meter_resol
     P, Q = NodeChannel.P_INJ, NodeChannel.Q_INJ
 
     # the tolerance of each bus is its own meter's class: P from the P meter, Q from the Q meter
-    tol = g.false_state.limit_tolerance(x_true)
+    tol = g.false_state.limit_tolerance(x_true, lim)
+    # with hard limits it is the numerical slack alone, whatever the meters' noise
+    hard = g.false_state.limit_tolerance(x_true, lim._replace(slack="hard"))
+    assert np.array_equal(hard, np.full((g.n_bus, 2), LIMIT_TOL_PQ))
     (p_rel, p_floor), (q_rel, q_floor) = KIND_ACCURACY[MeterKind.P], KIND_ACCURACY[MeterKind.Q]
     assert np.allclose(tol[:, 0], np.maximum(LIMIT_TOL_PQ, p_rel * np.abs(x_true[:, P]) + p_floor))
     assert np.allclose(tol[:, 1], np.maximum(LIMIT_TOL_PQ, 3.0 * (q_rel * np.abs(x_true[:, Q]) + q_floor)))
@@ -624,7 +600,7 @@ def test_a_ramp_state_keeps_the_generators_of_its_boundary_inside_their_limits(p
                     continue
                 dload = np.zeros(g.n_bus)
                 dload[g.load_bus[row]] = load_true[row] * (mult - 1.0)
-                tol = fs.limit_tolerance(x_true)
+                tol = fs.limit_tolerance(x_true, limits)
                 on_the_reach = within_limits(unchecked, x_true, gen, dload, limits, fs.reach(support), tol)
                 on_the_support = within_limits(unchecked, x_true, gen, dload, limits, support, tol)
                 checked = fs.load_goal_state(x_true, design, support, limits)

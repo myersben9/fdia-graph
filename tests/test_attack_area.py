@@ -93,9 +93,7 @@ def test_every_attack_the_search_returns_is_valid():
     g = case_studies.paper_metering(g, case_studies.PMUS[14], flow)
     window = list(X[:8])
     g.overload.use_line_ratings(OverloadSettings(rating_margin=1.1), np.stack(window))
-    knobs = FrameKnobs(
-        2, g.false_state.operating_limits(X), True, 256, 1.0, 0.5, 2, area=case_studies.area(g)
-    )
+    knobs = FrameKnobs(2, case_studies.paper_limits(g, X), True, 256, 1.0, 0.5, 2, area=case_studies.area(g))
     goal = g.overload.overload_goal(window, *lines)
     trust = TrustSchedule([int(b) for b in case_studies.buses(g, [4, 6, 1, 13])], [1, 3, 5, 7])
     r = g.minimizer.min_tamper(window, goal, knobs, trust=trust)

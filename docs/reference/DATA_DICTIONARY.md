@@ -172,6 +172,8 @@ Every frame of a timeline carries three aligned layers, for node and for edge me
 | group | datasets | note |
 |---|---|---|
 | attrs | `system, N, E, baseMVA, seed, T, families, kind="timeline"`, the knobs, `attacked_frac` | `ds.summary()` and the registry read these |
+| attrs | `episodes_requested`, `episodes_built`, `episode_redraws`, `episodes_dropped`, `episode_shortfall`, `fallback_benign` | how the episodes were placed; see below |
+| attrs | `power_floor_mw` | only in a file made with `MeterSettings.power_floor_pu`; see below |
 | `data/` | `node_x, node_m, edge_x, edge_m, y, family, stealthy, seq_id, timestep, split, temporal_delta, swing` | one row per frame, time order |
 | `benign/` | `node_benign, edge_benign` | the attack removed |
 | `clean/` | `node_clean, edge_clean` | the noiseless truth per frame |
@@ -192,6 +194,28 @@ currents on a hybrid-meter timeline, like `prev_node_x`.
 
 Chunked along the frame axis so a window of W frames is one read. A file without the `kind` attribute
 `timeline` (a record shard of a data release before v0.8.0) is refused with `NotATimeline`.
+
+### The placement attributes
+
+The writer stores how the walk placed the episodes. The first five are tables with one row per
+split and one column per family.
+
+| attribute | holds |
+|---|---|
+| `episodes_requested` | the episodes the plan asked for |
+| `episodes_built` | the episodes that began and were written |
+| `episode_redraws` | the times an episode that could not begin at its onset was moved to a later onset of its split |
+| `episodes_dropped` | the episodes the plan could not place because the split had no free onset left |
+| `episode_shortfall` | `episodes_requested` less `episodes_built`: the episodes the file lacks, for either reason |
+| `fallback_benign` | the frames inside an episode's window stored as benign, because their attack could not be built |
+
+A ramp that no support holds inside its stealth bound cannot begin: it is moved, which
+`episode_redraws` counts, and if it is never placed it shows in `episode_shortfall`.
+
+`power_floor_mw` is the absolute floor under the accuracy class of the file's power meters, in MW.
+It is stored only when the file was made with a floor of its own
+(`MeterSettings.power_floor_pu`). A file without it has the package's floor, 0.001 MW. `fg.load`,
+the clients' reader and the state estimator read it.
 
 ### The episode tables
 

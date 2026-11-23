@@ -28,21 +28,43 @@ the public API, the generated files and the numbers are the same as the previous
   - **A ramp is never run past its stealth bound.** When no candidate support kept the bound, the
     ramp ran on its whole area with no bound, and the file recorded -1 devices. It now draws other
     targets, for up to 8 designs (`constants.numerics.RAMP_SUPPORT_TRIES`), and when none keeps the
-    bound the episode does not begin at that onset: the walk moves it later or drops it, as it does
-    any episode that cannot begin, and the placement attributes count it. With `min_tamper` off the
+    bound the episode does not begin at that onset. The walk then moves it to a later onset of its
+    split, up to 20 times, as it does any episode that cannot begin, and counts each move in the
+    attribute `episode_redraws`; an episode that is never placed shows in `episode_shortfall` (not
+    in `episodes_dropped`, which counts episodes the plan had no room for). With `min_tamper` off the
     ramp runs on its area only when the area keeps the bound. `min_devices` and `min_channels` are
     never -1, and `Minimizer.min_tamper` returns None where it returned a result of -1.
+  - **The bound holds on the step out of a ramp too.** The frame after an episode is benign. A ramp
+    whose rise and hold leave no room for its whole return ends with several rate-steps still on, and
+    that one step out was not checked: on IEEE-14 it reached about twice a meter's accuracy. The
+    window now holds the last frame's whole attack inside the bound, and a design that fails it is
+    refused like any other. Of the designs whose area kept every step in, the step out alone refused
+    1 of 13 on IEEE-14 and 0 of 6 on the New York days.
+  - **A frame-time halving that nothing reached is removed.** `RampFrames` halved a ramp frame's
+    step when it had no false state. A ramp is accepted only with a false state on every frame of its
+    window, and a frame is that same solve on the same state: no frame of the golden timelines, of an
+    IEEE-14 ramp timeline or of the New York days needed it. `STEP_HALVINGS` and `_solvable_step` are
+    gone.
   - **A ramp's targets are one neighbourhood.** A ramp drew 5 eligible loads from the whole grid. It
     now draws one and takes the others from the eligible loads within `hops` branches of it, up to
     `RampSettings.targets` (5), fewer when fewer are in reach. `draw_ramp` is a method of
     `EpisodeDesigns`.
+  - **The slack on a generator limit is a setting.** `SearchSettings.limit_slack` chooses how far
+    past a limit a false state of either family may sit: `"meter"`, the default, is what the bus's
+    injection meter resolves, as before; `"hard"` is 0.001 MW and 0.001 MVAr, the paper's own limit
+    [WU26 eqs. 21-23]. The choice travels with the limits (`OperatingLimits.slack`). It matters with a
+    large noise: the meter's class is the slack, so a power floor of 0.03 pu on a 100 MVA base gives
+    every generator limit at least 3 MW and 3 MVAr. The default leaves a file's settings record and
+    hash as they were.
   - What changes in a file at the defaults: every ramp episode (its targets, its support, the frames
-    it attacks) and every overload's `min_devices` and `min_channels`, which are larger, since a
-    meter's class is far under 0.03 pu. An overload's support can change with its count. The benign
-    frames, the clean layers, the meter masks and the splits are what they were: both golden digests
-    of IEEE-14 moved in their attack datasets and in `episode_redraws` only.
+    it attacks) and every overload's `min_devices` and `min_channels`. Most overload counts are
+    larger, since a meter's class is far under 0.03 pu; an overload's support can change with its
+    count, and a smaller support can count fewer. The benign frames, the clean layers, the meter masks
+    and the splits are what they were: both golden digests of IEEE-14 moved in their attack datasets
+    and in `episode_redraws` only.
   - Measured on main and after, same seeds (IEEE-14 1,500 frames, IEEE-118 900 frames, the two New
-    York days ramp-only with seeds 5 and 6):
+    York days ramp-only with seeds 5 and 6). "Past the stealth bound" counts the step into each
+    frame and the step out of a ramp's last one:
 
     | | main | after |
     |---|---|---|
@@ -54,18 +76,21 @@ the public API, the generated files and the numbers are the same as the previous
     | IEEE-118, buses a ramp re-solves | 6 to 44 | 2 to 6 |
     | IEEE-118, ramp frames past the bound | 0, 46, 28, 0 | 0 in all |
     | IEEE-14, ramp frames past the bound | 5 in one of 6 ramps | 0 in all |
-    | IEEE-14, an overload's `min_devices` | 4, 2, 12, 10, 11 | 4, 8, 12, 16, 5 |
+    | IEEE-14, an overload's `min_devices` | 4, 2, 12, 10, 11 | 4, 8, 12, 16, 15 |
 
   - With the 0.03 pu floor on the New York days, all 10 ramps are placed on a found support of 2 to
-    34 buses, none steps past the bound, and a ramp frame moves 1 reading beyond noise at the median.
-    The noise of a power meter reading 1 MW or more is then about 4.5 % of the reading at the median and
-    62 % to 67 % at the 95th percentile, against 1.7 % at both with the default floor.
-  - The tests on [WU26]'s case studies give their meters the paper's flat noise
-    (`tests/case_studies.py`), so the count is the paper's. The limit tolerance follows the same
-    noise, 3 MW on those scenarios, and their pinned counts moved by one device or a few channels.
-    One result changed in kind: at k = 1.2 the trusted-PMU schedule no longer stops the attack on
-    lines 3-4 and 6-11 of IEEE-14 (9 devices and 36 channels against 8 and 27 undefended); it still
-    stops the attack on lines 1-2 and 4-5.
+    18 buses, none steps past the bound, and a ramp frame moves 1 reading beyond noise at the median.
+    That result does not rest on the wider limit slack the floor brings: with
+    `limit_slack="hard"` the same 10 ramps are placed, on supports of 2 to 18 buses, with the same
+    median. The noise of a power meter reading 1 MW or more is then about 4.5 % of the reading at the
+    median and 62 % to 67 % at the 95th percentile, against 1.7 % at both with the default floor.
+  - The tests on [WU26]'s case studies run the scenarios as the paper states them
+    (`tests/case_studies.py`): their meters carry the paper's flat noise, so the count is the paper's,
+    and their limits are hard, since the paper's noise enters its count only. Every pinned count is
+    what it was before this change, and at k = 1.2 the trusted-PMU schedule stops the attack on both
+    IEEE-14 scenarios, as the paper reports. With the meter-class slack on the paper's noise (3 MW at
+    every bus) the schedule would not stop the attack on lines 3-4 and 6-11, which is why the
+    scenarios keep the paper's limits.
   - The tour page's quoted output moved in three count lines (the whole area costs 11 devices and 41
     channels, the support found 5 and 20); its episode, support and frames are the same.
 

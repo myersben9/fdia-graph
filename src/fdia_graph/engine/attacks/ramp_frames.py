@@ -3,8 +3,10 @@
 `search.RampEpisode.frame` calls `ramp_frame` for each frame of an episode. It calls
 `FalseState.with_support` and `stealthy_state` for the false state, then `AttackFrames.frame_from_state`.
 The targeted loads are scaled inside the support and the support is re-solved with every other voltage
-held true, so only the reach's meters change [WU26]. A step with no false state is halved, at most
-`STEP_HALVINGS` times.
+held true, so only the reach's meters change [WU26]. A ramp is accepted only when every frame of its
+window has a false state on its support inside the limits and the stealth bound
+(`EpisodeDesigns.ramp_design`), and a frame is the same solve on the same state, so it is built at the
+designed step.
 """
 
 from __future__ import annotations
@@ -15,9 +17,6 @@ import numpy as np
 
 from ...models.frames import AttackDesign, Frame, FrameKnobs
 from ..base import Part
-
-# times a ramp frame's step with no local power-flow solution is halved (its step is sub-floor)
-STEP_HALVINGS = 6
 
 
 class RampFrames(Part):
@@ -31,31 +30,19 @@ class RampFrames(Part):
         # a meter whose true reading is structurally zero (a condenser's P, a zero-injection bus) gives away.
         x_false = self.g.false_state.stealthy_state(x_true, design, knobs)
         if x_false is None:
-            return None  # no local solution, or one outside the operating limits: the caller halves
+            return None  # no local solution, or one outside the operating limits
         buses = self.g.load_bus[design.targets]
         dev = np.abs(np.asarray(design.mult, float) - 1.0)
         return self.g.attack_frames.frame_from_state(
             x_true, x_false, buses, np.broadcast_to(dev, buses.shape).astype(float)
         )
 
-    def _solvable_step(self, x_true: np.ndarray, design: AttackDesign, knobs: FrameKnobs) -> Optional[Frame]:
-        """The stealthy frame of the design, or of the largest halving of its step (at most STEP_HALVINGS)
-        that has a local power-flow solution, so a step the support cannot absorb still leaves the frame
-        attacked. The frame's magnitudes record the step used."""
-        frame = self._stealthy_frame(x_true, design, knobs)
-        for _ in range(STEP_HALVINGS):
-            if frame is not None:
-                break
-            design = design._replace(mult=1.0 + (np.asarray(design.mult, float) - 1.0) / 2)
-            frame = self._stealthy_frame(x_true, design, knobs)
-        return frame
-
     def ramp_frame(self, x_true: np.ndarray, design: AttackDesign, knobs: FrameKnobs) -> Optional[Frame]:
         """An At frame on the stored operating point `x_true` [N, 4]: the targeted loads scaled, and
         the area within `hops` of them (or the episode's fewest-tamper support when the search chose
-        one) re-solved locally. None when the targets have no area, or when at every halving of its step
-        the local power flow has no solution or the state breaks the operating limits."""
+        one) re-solved locally. None when the targets have no area, or when the local power flow has
+        no solution or the state breaks the operating limits."""
         placed = self.g.false_state.with_support(design, knobs)
         if placed is None:
             return None
-        return self._solvable_step(x_true, placed, knobs)
+        return self._stealthy_frame(x_true, placed, knobs)

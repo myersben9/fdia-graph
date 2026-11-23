@@ -155,6 +155,7 @@ The sections:
 | `SearchSettings` | `min_tamper` | `True` | hold each `At` episode on the fewest devices |
 | `SearchSettings` | `min_budget` | 256 | candidate supports solved per search |
 | `SearchSettings` | `area_rule` | `"hops"` | how the attacker's area is chosen |
+| `SearchSettings` | `limit_slack` | `"meter"` | how far past a generator limit counts as past it: what the bus's injection meter resolves, or `"hard"`, 0.001 MW |
 | `OverloadSettings` | `rating_source` | `"pool"` | `"pool"`, `"pglib"` or `"delta"` |
 | `OverloadSettings` | `rating_margin` | 1.25 | rating over the pool's peak flow |
 | `OverloadSettings` | `load_cap` | 0.5 | largest shown load change, as a share |

@@ -373,7 +373,7 @@ def test_a_generator_only_support_is_valid_and_its_output_stays_in_limits(g, poo
         reached = g.emitter.clean_flows_from_states(x_false[None])[0, line]
         assert np.hypot(*reached) == pytest.approx(1.03 * float(np.hypot(*flow)), rel=1e-6)
         gen = g.split.generation(x_true)
-        tol = g.false_state.limit_tolerance(x_true)
+        tol = g.false_state.limit_tolerance(x_true, knobs.limits)
         assert within_limits(x_false, x_true, gen, dload, knobs.limits, support, tol)
         return
     pytest.fail("no generator-only support met a 3% flow goal")
@@ -422,7 +422,7 @@ def test_a_generator_at_its_p_limit_keeps_its_q_free(g, pool):
     limits = _knobs(g, pool).limits
     free = g.false_state.solve_flow_local(x_true, support, line, target).x_false
     moved = abs(free[b, NodeChannel.P_INJ] - x_true[b, NodeChannel.P_INJ])
-    assert moved > g.false_state.limit_tolerance(x_true)[b, 0]  # so the shut range does bind
+    assert moved > g.false_state.limit_tolerance(x_true, limits)[b, 0]  # so the shut range does bind
     # every other generator (the boundary's too, D16) unbounded, so only this one's P limit binds
     p_lo, p_hi = np.full(g.n_bus, -np.inf), np.full(g.n_bus, np.inf)
     p_lo[b] = p_hi[b] = gen[b, 0]
@@ -482,7 +482,7 @@ def test_a_boundary_generator_stays_inside_its_limits(g, pool):
     for x_true, support, line, target, boundary_gens, _ in _boundary_cases(g, pool):
         gen = g.split.generation(x_true)
         b = boundary_gens[0]
-        resolved = g.false_state.limit_tolerance(x_true)[b, 0]
+        resolved = g.false_state.limit_tolerance(x_true, base)[b, 0]
         p_lo, p_hi = base.p_lo.copy(), base.p_hi.copy()
         p_lo[b] = p_hi[b] = gen[b, 0]
         x_false = g.false_state.solve_flow_local(

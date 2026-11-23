@@ -111,7 +111,9 @@ def ramp_frames_past_the_bound(g, X, path, scale=1.0):
     """How many attacked ramp frames of the timeline at `path`, walked by the generator `g` over the
     pool `X`, hold a metered channel whose attack steps from the frame before by more than its meter's
     sigma at the true reading times `scale`: the ramp's stealth bound, read back from the file. The
-    stored readings are float32, so a step counts only beyond four of their spacings."""
+    step out counts too: an attacked frame followed by a frame the ramp does not attack must hold its
+    whole attack inside the bound. The stored readings are float32, so a step counts only beyond four
+    of their spacings."""
     import h5py
 
     from fdia_graph import schema
@@ -142,10 +144,12 @@ def ramp_frames_past_the_bound(g, X, path, scale=1.0):
                 flows = g.emitter.clean_flows_from_states(x[None])[0]
                 currents = g.emitter.currents_from_states(x[None])[0]
                 sigma = g.emitter.layers(g.noise.sigmas(g.plan.gather(x, flows, currents)))
-                steps = (
-                    np.abs(a[i] - (a[i - 1] if i else 0.0)) > scale * s + e[i]
+                leaves = t + 1 >= onset + length or seq[t + 1] != k  # the next frame is not this ramp's
+                steps = [
+                    (np.abs(a[i] - (a[i - 1] if i else 0.0)) > scale * s + e[i])
+                    | (leaves & (np.abs(a[i]) > scale * s + e[i]))
                     for a, s, e in zip(attack, sigma, spacing)
-                )
+                ]
                 past += any(bool((step & m).any()) for step, m in zip(steps, masks))
     return past
 

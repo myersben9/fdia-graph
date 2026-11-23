@@ -17,6 +17,7 @@ import numpy as np
 from ..constants.families import AT, GENERATED_FAMILIES
 from ..constants.files import EXPORT_COLUMNS
 from ..constants.meters import POWER_NOISE_FLOOR_MW
+from ..constants.numerics import RAMP_TARGETS
 from ..errors import ConfigError
 from .choices import (
     AmAttack,
@@ -25,6 +26,7 @@ from .choices import (
     Iso,
     Label,
     Layer,
+    LimitSlack,
     LoadRule,
     MeterModel,
     Order,
@@ -210,7 +212,7 @@ class RampSettings(Validated):
     rate: Scale = 0.002
     length: Annotated[int, Integer(), AtLeast(1)] = 60
     stealth_scale: Scale = 1.0
-    targets: Annotated[int, Integer(), AtLeast(1), WhenSet(legacy=5)] = 5
+    targets: Annotated[int, Integer(), AtLeast(1), WhenSet(legacy=5)] = RAMP_TARGETS
 
 
 @dataclass(frozen=True)
@@ -219,12 +221,15 @@ class SearchSettings(Validated):
     this many branches of the attacked loads (At) or target lines (Am); `min_tamper`, hold each At
     episode on the support tampering the fewest devices (off: the whole area); `min_budget`,
     the candidate supports solved per episode before the search settles; `area_rule`, how the
-    attacker's area is chosen (`AreaRule`: the buses within `hops`, or [WU26] Sec. III-A's principles)."""
+    attacker's area is chosen (`AreaRule`: the buses within `hops`, or [WU26] Sec. III-A's principles);
+    `limit_slack`, how far past a generator limit a false state of either family may sit
+    (`LimitSlack`: what the bus's injection meter resolves, or "hard", the paper's limit)."""
 
     hops: Count = 2
     min_tamper: bool = True
     min_budget: Count = 256
     area_rule: Annotated[str, OneOf(AreaRule)] = "hops"
+    limit_slack: Annotated[str, OneOf(LimitSlack), WhenSet(legacy="meter")] = "meter"
 
 
 # the flat keywords `generate_timeline` takes, by the settings field each one sets (section, field)

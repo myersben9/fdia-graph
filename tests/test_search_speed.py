@@ -31,8 +31,9 @@ MARGIN = 1.2  # S_max = MARGIN x each branch's peak true flow over the window
 # search began to count both families against the meters' own noise and a ramp's targets became one
 # neighbourhood. The overload rows keep their supports, or lose one bus, and count more: a meter's class
 # at its reading is far under the flat 0.03 pu the count used before, so more channels are beyond it.
-# The two ramp rows are other draws (a load and its neighbours), so other supports; the second stops as
-# soon as a support tampers one device on one channel, and the first finds none under three.
+# The two ramp rows are other draws (a load and its neighbours), so other supports. A ramp may cost
+# nothing, so neither search stops at one device on one channel: each solves every candidate, and the
+# cheapest is one device for the second row and three for the first.
 PINNED = {
     ("hybrid", 0.5, "Am", 0, (0,)): ([1, 2, 3, 4, 6], 10, 46, 18),
     ("hybrid", 0.5, "Am", 150, (0,)): ([1, 2, 3, 4, 6], 10, 51, 18),

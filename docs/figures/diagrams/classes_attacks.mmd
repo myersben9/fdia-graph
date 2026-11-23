@@ -89,6 +89,9 @@ classDiagram
     class FrameKnobs {
         <<models>>
     }
+    class LimitSlack {
+        <<models>>
+    }
     class LoadGoal {
         <<models>>
     }
@@ -163,6 +166,7 @@ classDiagram
     FalseState ..> FlowGoal : uses
     FalseState ..> FlowSolve : uses
     FalseState ..> FrameKnobs : uses
+    FalseState ..> LimitSlack : uses
     FalseState ..> LoadGoal : uses
     FalseState ..> MeterKind : uses
     FalseState ..> OperatingLimits : uses

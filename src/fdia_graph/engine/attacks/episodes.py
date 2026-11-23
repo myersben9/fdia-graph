@@ -43,10 +43,12 @@ class EpisodeDesigns(Part):
         return {AT_CODE: len(self.g.stealthy_pos)}
 
     def draw_ramp(self, rng: np.random.Generator, ramp_len: int, knobs: FrameKnobs) -> RampDesign:
-        """One ramp design: its loads, a direction, the rise and hold lengths (five draws). The loads
-        are one neighbourhood, as [WU26]'s attacker works in one connected subnetwork (Sec. III-A): one
-        of the ramp's eligible loads drawn at random, then up to `knobs.ramp_targets` - 1 others from
-        the eligible loads within `knobs.hops` branches of it, fewer when fewer are in reach."""
+        """One ramp design: its loads, a direction, the rise and hold lengths. The loads are one
+        neighbourhood, as [WU26]'s attacker works in one connected subnetwork (Sec. III-A): one of the
+        ramp's eligible loads drawn uniformly, then up to `knobs.ramp_targets` - 1 others from the
+        eligible loads within `knobs.hops` branches of it, fewer when fewer are in reach (so two
+        targets are at most twice `hops` apart). Five calls on `rng`; how far they advance it depends
+        on how many loads the neighbourhood holds."""
         g, eligible = self.g, self.g.stealthy_pos  # At is stealthy: no load on a generator bus
         first = int(rng.choice(eligible))
         near = g.net.neighbors(g.load_bus[first], knobs.hops)

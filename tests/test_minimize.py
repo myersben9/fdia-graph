@@ -287,8 +287,9 @@ def test_a_ramp_within_noise_costs_nothing_and_an_overload_within_noise_is_no_at
 
 def test_the_onset_is_bounded_against_the_frame_before(case):
     """Episodes may be adjacent: a window after an attacked frame starts its stealth bound from that
-    frame's attack vector. A held 15 percent step is refused after a benign frame (it jumps at onset)
-    and accepted right after a frame carrying the same step (no increment at onset)."""
+    frame's attack vector, and ends it on the frame after, benign unless told otherwise. A held 15
+    percent step is refused between benign frames (it jumps at onset and again on leaving) and accepted
+    between frames carrying the same step (no increment at either end)."""
     from fdia_graph.engine.attacks.window import AttackWindow
     from fdia_graph.models.frames import AttackDesign, LoadGoal
 
@@ -306,7 +307,10 @@ def test_the_onset_is_bounded_against_the_frame_before(case):
             g.attack_frames.current_attack(x_false, states[0]),
         )
         assert AttackWindow(g, states, held, knobs).cost(area, None) is None
-        assert AttackWindow(g, states, held, knobs, prev=before).cost(area, None) is not None
+        continued = AttackWindow(g, states, held, knobs, prev=before)
+        assert continued.cost(area, None) is None  # the frame after is benign: the step out jumps
+        continued.after = before  # the frame after carries the same step too
+        assert continued.cost(area, None) is not None
 
 
 def test_the_search_stops_early_only_once_a_smaller_support_is_the_cheapest():

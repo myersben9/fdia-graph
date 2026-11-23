@@ -22,11 +22,12 @@ JITTER_FRAC = 0.25
 # three standard deviations of each component, relative to the phasor's magnitude.
 PMU_CURRENT_CLASS = 0.01 / 3
 CURRENT_FLOOR_PU = 1e-5  # pu on the base current: keeps a branch carrying almost no current from zero noise
-# The SCADA measurement noise of [WU26]'s case studies (Sec. V-A), per unit of the system base: a flat
-# 0.03 on every SCADA channel (0.01 on WAMS). The package's own noise is the class above; this value
-# is what `MeterSettings.power_floor_pu` takes for a data set with the paper's noise under its power
-# meters.
+# The measurement noise of [WU26]'s case studies (Sec. V-A), per unit of the system base: a flat 0.03
+# on every SCADA channel and 0.01 on every WAMS (PMU) channel. The package's own noise is the class
+# above; the SCADA value is what `MeterSettings.power_floor_pu` takes for a data set with the paper's
+# noise under its power meters.
 WU26_SCADA_NOISE_PU = 0.03
+WU26_WAMS_NOISE_PU = 0.01
 
 
 class MeterKind(IntEnum):

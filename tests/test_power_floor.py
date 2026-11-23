@@ -82,9 +82,12 @@ def test_a_file_records_its_floor_and_both_readers_weight_by_it(tmp_path):
         est = WLS()
         est._build_network(ds, need_clean=False)
         assert est.power_floor_mw == pytest.approx(mw)
-        # the estimator's class sigma of a power meter reading nothing is the floor, per unit
+        # the estimator's class sigma of every power meter reading nothing is the floor, per unit
         sigma = est._class_sigma(np.zeros(int(est.mask.sum())))
-        assert np.isclose(sigma, mw / est.baseMVA).any()
+        n, e = est.N, est.E  # the slots in the estimator's order: |V|, P, Q, angle per bus, then the flows
+        power = np.r_[np.zeros(n, bool), np.ones(2 * n, bool), np.zeros(n, bool), np.ones(2 * e, bool)]
+        power = power[est.mask]
+        assert power.any() and np.allclose(sigma[power], mw / est.baseMVA)
 
 
 def _as_read(written, read):

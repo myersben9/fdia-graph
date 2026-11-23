@@ -48,7 +48,12 @@ unit's size. The slack and a static generator on a load bus have no limits in th
 never refused.
 
 [WU26] leaves tampering below the noise out of its tamper count (Sec. V-A). Applying that idea to a
-limit is this package's step, not the paper's.
+limit is this package's step, not the paper's: the paper's limits are hard.
+
+Because the tolerance is the meter's noise, a larger noise widens it. With the power floor at 0.03
+p.u. on a 100 MVA base, every generator limit has at least 3 MW and 3 MVAr of slack.
+`SearchSettings.limit_slack="hard"` keeps every limit to 0.001 MW and 0.001 MVAr whatever the
+noise.
 
 The package has one noise, and four things read it: the readings of a file carry it, the ramp's
 stealth bound is measured in it, the tamper count of both families is counted against it, and the
@@ -114,24 +119,27 @@ must move at least one device, since a flow that stays inside the noise shows no
 **`At`.**
 
 - The targets are up to 5 loads (`RampSettings.targets`) among the stealthy loads: attackable loads
-  that are not on a generator bus [BOY22]. One is drawn at random and the others from the stealthy
+  that are not on a generator bus [BOY22]. One is drawn uniformly and the others from the stealthy
   loads within `hops` branches of it, fewer when fewer are in reach, so a ramp acts in one
-  neighbourhood (`draw_ramp`). An attackable load has nonzero active power, is not on the slack bus
-  and is at most `max_load_mw`.
+  neighbourhood (`draw_ramp`). A load with few stealthy loads in reach therefore gives a smaller
+  ramp, and two targets of one ramp can be up to twice `hops` apart. An attackable load has nonzero
+  active power, is not on the slack bus and is at most `max_load_mw`.
 - One load factor moves all of them: it rises `ramp_rate` per frame, holds, and returns at the
   same rate. The rise lasts 20 % to 45 % of the episode and the hold 0 % to 25 % (`draw_ramp`).
   The factor never falls below one `ramp_rate`, so every frame of the episode carries an attack:
   after the return the episode stays one step away from the true load until it ends, and a ramp
   with a long rise can end before its return is complete. A ramp goes up or down with equal chance.
 - A ramp is kept only on a support on which no metered channel moves by more than its rated
-  accuracy times `stealth_scale` between frames, the first frame counted from the frame before the
-  episode. With `min_tamper` (the default) that support is the one the search finds. With it off, it
-  is the whole area, tested the same way.
+  accuracy times `stealth_scale` between frames. The first frame is counted from the frame before
+  the episode, and the frame after the episode, which is benign, from the last: a ramp that ends
+  before its return is complete must hold what is left of its change inside the bound in that one
+  step. With `min_tamper` (the default) the support is the one the search finds. With it off, it is
+  the whole area, tested the same way.
 - When no support keeps the bound, other targets are drawn, for up to 8 designs
-  (`RAMP_SUPPORT_TRIES`). If none keeps it, the episode does not begin at that onset, and the walk
-  moves it later or drops it as it does any episode that cannot begin. A ramp is never run past its
-  own bound.
-- A step with no local solution is halved, up to 6 times (`STEP_HALVINGS`).
+  (`RAMP_SUPPORT_TRIES`). If none keeps it, the episode does not begin at that onset. The walk then
+  moves it to a later onset of its split, up to 20 times, and the file counts each move in
+  `episode_redraws`. An episode that is still not placed shows in `episode_shortfall`. A ramp is
+  never run past its own bound.
 - A design is tested on every frame it will occupy before it is accepted, up to 40 draws
   (`ONSET_DRAWS`).
 

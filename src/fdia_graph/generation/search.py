@@ -73,9 +73,8 @@ class SearchSource(TimelineSource):
         self.g, self.X = FdiaGenerator(net, seed, s.meters, s.max_load_mw, split=split), X
         self._label_meters(own)
         self._check_targets(self.searched)
-        self.limits = self.g.false_state.operating_limits(
-            self.X
-        )  # every false state must satisfy [WU26 eqs. 21-23]
+        # every false state must satisfy [WU26 eqs. 21-23], to the slack the settings choose
+        self.limits = self.g.false_state.operating_limits(self.X)._replace(slack=s.search.limit_slack)
         self.knobs = self._knobs()
         # a searched ramp is designed by the walk itself: workers serve the overload and the caller's own
         ramp, workers = (s.ramp.length, s.ramp.rate), s.workers if self.am_runs or mine else 1

@@ -3,8 +3,9 @@
 The cost is the devices and channels the support's false states tamper over the whole window [WU26
 eq. 12], counted against the meters' own noise: the accuracy class of each meter at its true reading,
 which is the noise the file's readings carry (`NoiseModel.sigmas`). A support has no cost when its
-false state fails at a snapshot, or when its step between snapshots is larger than that noise where a
-stealth bound holds. It calls `FalseState.goal_state` for each snapshot, `Emitter` for the true flows
+false state fails at a snapshot, or when a step is larger than that noise where a stealth bound
+holds: the step into each snapshot, and the step out of the last one, since the frame after a
+window is benign. It calls `FalseState.goal_state` for each snapshot, `Emitter` for the true flows
 and currents, `AttackArea.boundary` and `formulas.attacks` for the counts."""
 
 from __future__ import annotations
@@ -79,6 +80,7 @@ class AttackWindow:
         self.sigma, self.i_sigma = self._sigmas(g, states)
         self.zero = np.array(sorted({int(b) for b in g.zero_inj} - {g.slack_bus}), dtype=np.int64)
         self.prev = self._before(prev)
+        self.after = self._before(None)  # the frame after the window is benign: no attack vector
 
     def _sigmas(
         self, g: FdiaGenerator, states: list[np.ndarray]
@@ -174,27 +176,41 @@ class AttackWindow:
     ) -> Optional[tuple[MeterLayers, AttackVector]]:
         """Snapshot t on a support: (the node, flow and PMU current channels moved beyond their noise, as
         masks, and this snapshot's attack vector), or None when the support has no false state here or (At)
-        breaks the stealth bound against the previous snapshot's attack vector `prev`."""
+        breaks the stealth bound: against the previous snapshot's attack vector `prev`, or, at the last
+        snapshot, against the benign frame that follows the window."""
         x_false = self.g.false_state.goal_state(self.goal, t, self.states[t], support, self.knobs)
         if x_false is None:
             return None
         a_node = np.asarray(x_false, float) - np.asarray(self.states[t], float)
         a_edge, a_cur = self._branch_attack(t, x_false, self.near(support))
         sig_node, sig_edge = self.sigma[t]
-        if self.stealth_bound:  # no metered channel moves more than its rated accuracy per step
-            scale = self.knobs.stealth_scale
-            step = tampered_channels(
-                a_node - prev.node,
-                a_edge - prev.edge,
-                scale * sig_node,
-                scale * sig_edge,
-                self.node_m,
-                self.edge_m,
-            )
-            if step[0].any() or step[1].any() or self._current_step(t, a_cur, prev, scale):
-                return None
+        vector = AttackVector(a_node, a_edge, a_cur)
+        if self.stealth_bound and self._breaks_bound(t, vector, prev):
+            return None
         node, edge = tampered_channels(a_node, a_edge, sig_node, sig_edge, self.node_m, self.edge_m)
-        return MeterLayers(node, edge, self._over(t, a_cur, 1.0)), AttackVector(a_node, a_edge, a_cur)
+        return MeterLayers(node, edge, self._over(t, a_cur, 1.0)), vector
+
+    def _breaks_bound(self, t: int, vector: AttackVector, prev: AttackVector) -> bool:
+        """Whether snapshot t breaks the stealth bound: its step from `prev`, and at the last snapshot
+        also its step to the benign frame after the window. A ramp that ends before it has come back
+        leaves its whole remaining change in that one step."""
+        last = t == len(self.states) - 1
+        return self._steps_past(t, vector, prev) or (last and self._steps_past(t, self.after, vector))
+
+    def _steps_past(self, t: int, to: AttackVector, start: AttackVector) -> bool:
+        """Whether a metered channel moves by more than its rated accuracy at snapshot t, times the
+        stealth scale, between the attack vectors `start` and `to`."""
+        scale, (sig_node, sig_edge) = self.knobs.stealth_scale, self.sigma[t]
+        node, edge = tampered_channels(
+            to.node - start.node,
+            to.edge - start.edge,
+            scale * sig_node,
+            scale * sig_edge,
+            self.node_m,
+            self.edge_m,
+        )
+        current = self._over(t, to.current - start.current, scale)
+        return bool(node.any() or edge.any() or current.any())
 
     def near(self, support: np.ndarray) -> _Near:
         """`_Near` of a support, cached for the last one."""
@@ -226,10 +242,6 @@ class AttackWindow:
         """The PMU branch-current channels an attack-vector part moves beyond `scale` times their noise
         at snapshot t, metered ones only."""
         return (np.abs(a_cur) > scale * self.i_sigma[t]) & (self.i_m > 0)
-
-    def _current_step(self, t: int, a_cur: np.ndarray, prev: AttackVector, scale: float) -> bool:
-        """Whether the attack's step on a PMU branch-current channel breaks the stealth bound."""
-        return bool(self._over(t, a_cur - prev.current, scale).any())
 
 
 def _channel_count(union: MeterLayers) -> int:
