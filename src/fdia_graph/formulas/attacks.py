@@ -60,7 +60,8 @@ def limit_tolerance(inj_true: np.ndarray, cls: np.ndarray, floor: np.ndarray) ->
     true reading `inj_true` [N, 2], sigma = cls |z| + floor [ASP14], and never less than `LIMIT_TOL_PQ`.
     A bus reports one injection, so a change of its generator's output smaller than that meter's error
     cannot be told from noise: tampering below the noise is not counted [WU26, Sec. V-A]."""
-    return np.maximum(LIMIT_TOL_PQ, accuracy_class_sigma(np.abs(inj_true), cls, True, floor))
+    relative = np.ones(np.shape(inj_true), bool)  # an injection meter's class is relative to its reading
+    return np.maximum(LIMIT_TOL_PQ, accuracy_class_sigma(np.abs(inj_true), cls, relative, floor))
 
 
 def within_limits(
