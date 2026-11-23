@@ -389,7 +389,8 @@ def test_a_generator_only_support_is_valid_and_its_output_stays_in_limits(g, poo
         reached = g.emitter.clean_flows_from_states(x_false[None])[0, line]
         assert np.hypot(*reached) == pytest.approx(1.03 * float(np.hypot(*flow)), rel=1e-6)
         gen = g.split.generation(x_true)
-        assert within_limits(x_false, x_true, gen, dload, knobs.limits, support)
+        tol = g.false_state.limit_tolerance(x_true)
+        assert within_limits(x_false, x_true, gen, dload, knobs.limits, support, tol)
         return
     pytest.fail("no generator-only support met a 3% flow goal")
 
@@ -485,7 +486,8 @@ def _boundary_cases(g, pool):
 
 def test_a_boundary_generator_stays_inside_its_limits(g, pool):
     """D16: (22)-(23) bound every generator whose reported output the attack changes, a generator on
-    the support's boundary included: shut its P range and the solve holds its P there or refuses."""
+    the support's boundary included: shut its P range and the solve holds its P there or refuses. A
+    change the bus's injection meter cannot resolve passes no limit, so only a larger one is held."""
 
     base = _knobs(g, pool).limits
     gen = None
@@ -493,8 +495,9 @@ def test_a_boundary_generator_stays_inside_its_limits(g, pool):
     for x_true, support, line, target, boundary_gens, free in _boundary_cases(g, pool):
         gen = g.split.generation(x_true)
         b = boundary_gens[0]
-        if abs(free[b, NodeChannel.P_INJ] - x_true[b, NodeChannel.P_INJ]) < 1e-3:
-            continue  # the unbounded solve leaves this generator's P alone: nothing to test
+        resolved = g.false_state.limit_tolerance(x_true)[b, 0]
+        if abs(free[b, NodeChannel.P_INJ] - x_true[b, NodeChannel.P_INJ]) <= resolved:
+            continue  # the unbounded solve moves this generator's P by less than its meter resolves
         p_lo, p_hi = base.p_lo.copy(), base.p_hi.copy()
         p_lo[b] = p_hi[b] = gen[b, 0]
         x_false = g.false_state.solve_flow_local(

@@ -28,18 +28,21 @@ WINDOW = 8
 MARGIN = 1.2  # S_max = MARGIN x each branch's peak true flow over the window
 
 # (meter model, load_cap, kind, onset, target lines or ramp draw) -> (support, devices, channels,
-# evaluated), every search exhaustive (evaluated below the budget). The overload supports and counts are
-# those the search found before the proof machinery was removed. The two At searches were pinned again
-# when a ramp began to hold the generators of its boundary to their limits: the one-device supports
-# they used to stop at (after 60 and 78 candidates) show a boundary generator outside its limits, so
-# each now solves every candidate (128 and 112) and settles on a support of two devices. With the load
-# cap one goal has no false state at all (devices -1).
+# evaluated), every search exhaustive (evaluated below the budget). The two At searches stop as soon as a
+# support tampers one device on one channel, the least any attack can (60 and 78 candidates where they
+# would solve 128 and 112): a ramp holds the generators of its boundary to their limits, and the
+# one-device supports pass a limit there by less than the bus's injection meter resolves, which is no
+# violation. The overload rows without a load cap are those the search found before the proof machinery
+# was removed. Two rows with the load cap were pinned again when a generator limit began to count as
+# passed only beyond the injection meter's accuracy: the active set no longer pins a generator over a
+# difference below the noise, so the goal at onset 0 is met on a smaller support (28 channels where it
+# took 43) and the goal at onset 150, which had no false state, has one.
 PINNED = {
-    ("hybrid", 0.5, "Am", 0, (0,)): ([1, 2, 3, 4, 5, 6, 8], 8, 43, 18),
-    ("hybrid", 0.5, "Am", 150, (0,)): ([1, 2, 3, 4, 5, 6, 8], -1, -1, 18),
+    ("hybrid", 0.5, "Am", 0, (0,)): ([1, 2, 3, 4, 6], 8, 28, 18),
+    ("hybrid", 0.5, "Am", 150, (0,)): ([1, 2, 3, 4, 5, 6], 8, 30, 18),
     ("hybrid", 0.5, "Am", 300, (0,)): ([1, 2, 3, 4, 5, 6], 7, 25, 18),
-    ("hybrid", 0.5, "At", 20, 0): ([2, 3, 4, 5, 6, 7, 9, 10, 11, 12, 13], 2, 2, 128),
-    ("hybrid", 0.5, "At", 200, 1): ([4, 5, 6, 7, 8, 9, 10, 11, 12, 13], 2, 3, 112),
+    ("hybrid", 0.5, "At", 20, 0): ([3, 4, 6, 7, 9, 10, 11, 12, 13], 1, 1, 60),
+    ("hybrid", 0.5, "At", 200, 1): ([2, 3, 4, 6, 7, 8, 9, 10, 11, 13], 1, 1, 78),
     ("hybrid", None, "Am", 0, (0,)): ([1, 4], 7, 23, 18),
     ("hybrid", None, "Am", 150, (1,)): ([4], 6, 14, 99),
     ("hybrid", None, "Am", 300, (0,)): ([1, 4], 7, 25, 18),

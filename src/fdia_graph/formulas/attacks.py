@@ -10,6 +10,7 @@ from ..constants.channels import CurrentChannel, NodeChannel
 from ..constants.grid import UNRATED_MVA
 from ..constants.numerics import LIMIT_TOL_PQ, LIMIT_TOL_V, ZERO_TOL
 from ..models.frames import OperatingLimits
+from .noise import accuracy_class_sigma
 
 
 def operating_limits(
@@ -53,6 +54,15 @@ def element_loads(bus_p: np.ndarray, load_bus: np.ndarray, p0: np.ndarray) -> np
     return bus_p[load_bus] * np.where(t != 0, p0 / np.where(t != 0, t, 1.0), 0.0)
 
 
+def limit_tolerance(inj_true: np.ndarray, cls: np.ndarray, floor: np.ndarray) -> np.ndarray:
+    """How far past a generator limit an implied output may sit before the limit counts as passed, per
+    bus [N, 2] (P MW, Q MVAr): the accuracy-class standard deviation of the bus's injection meter at its
+    true reading `inj_true` [N, 2], sigma = cls |z| + floor [ASP14], and never less than `LIMIT_TOL_PQ`.
+    A bus reports one injection, so a change of its generator's output smaller than that meter's error
+    cannot be told from noise: tampering below the noise is not counted [WU26, Sec. V-A]."""
+    return np.maximum(LIMIT_TOL_PQ, accuracy_class_sigma(np.abs(inj_true), cls, True, floor))
+
+
 def within_limits(
     x_false: np.ndarray,
     x_true: np.ndarray,
@@ -60,11 +70,13 @@ def within_limits(
     load_delta: np.ndarray,
     limits: OperatingLimits,
     buses: np.ndarray,
+    tol: np.ndarray,
 ) -> bool:
     """Whether the false state x_false [N, 4] satisfies [WU26 eqs. 21-23]: every |V| inside v_lo_i =
     min(V_i^min, |V_i^true|), v_hi_i = max(V_i^max, |V_i^true|), and, at the generators among `buses` (the
     reach of the false state: its support and the boundary), the implied output P_gen - (ΔP_inj - ΔP_load) and
-    Q_gen - ΔQ_inj inside its limits. `load_delta` is MW."""
+    Q_gen - ΔQ_inj inside its limits, to within `tol` [N, 2] (`limit_tolerance`). `load_delta` is MW. A bus
+    whose limits are unbounded (the slack, a static generator on a PQ bus) is never past one."""
     V, Vt = x_false[:, NodeChannel.V], x_true[:, NodeChannel.V]
     if np.any(V < np.minimum(limits.v_lo, Vt) - LIMIT_TOL_V):
         return False
@@ -73,11 +85,12 @@ def within_limits(
     I_ = np.asarray(buses, int)
     p = gen_true[I_, 0] - (x_false[I_, NodeChannel.P_INJ] - x_true[I_, NodeChannel.P_INJ] - load_delta[I_])
     q = gen_true[I_, 1] - (x_false[I_, NodeChannel.Q_INJ] - x_true[I_, NodeChannel.Q_INJ])
+    tol_p, tol_q = tol[I_, 0], tol[I_, 1]
     return bool(
-        np.all(p >= limits.p_lo[I_] - LIMIT_TOL_PQ)
-        and np.all(p <= limits.p_hi[I_] + LIMIT_TOL_PQ)
-        and np.all(q >= limits.q_lo[I_] - LIMIT_TOL_PQ)
-        and np.all(q <= limits.q_hi[I_] + LIMIT_TOL_PQ)
+        np.all(p >= limits.p_lo[I_] - tol_p)
+        and np.all(p <= limits.p_hi[I_] + tol_p)
+        and np.all(q >= limits.q_lo[I_] - tol_q)
+        and np.all(q <= limits.q_hi[I_] + tol_q)
     )
 
 

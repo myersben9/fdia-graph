@@ -5,19 +5,45 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- **A generator limit counts as passed only beyond what the bus's injection meter resolves (generated
+  files change).** A bus reports one injection, its load less its generation, so a generator shown past
+  a limit by less than the error of that meter cannot be told from noise, and [WU26] does not count
+  tampering below the noise (Sec. V-A). The limit check charged a bus's whole injection change to its
+  generator and refused a state past a limit by more than 0.001 MW. It now refuses one past a limit by
+  more than the accuracy of the bus's P or Q injection meter at its true reading
+  (`formulas.attacks.limit_tolerance`, `FalseState.limit_tolerance`), and never by less than 0.001 MW.
+  `formulas.attacks.within_limits` takes that tolerance per bus as a seventh argument. One rule holds
+  for both families: the ramp's check, the overload's check on its reach, and the overload solve's
+  active set, which pins a generator at its limit only when it is past it by more than the tolerance.
+  - An overload changes: a generator may now sit past a limit by less than its bus's meter resolves,
+    where the solve held it exactly at the limit. On two fixed IEEE-14 windows with the load cap, one
+    goal is met on a smaller support (28 tampered channels where it took 43) and one that had no false
+    state has one. A generated timeline with an overload differs from one generated before.
+  - `schema.Static.BUS_IS_ZERO_INJ` and `schema.EPISODE_TARGET_BRANCH` are removed: no writer wrote
+    either dataset and no reader read one.
+
 - **A ramp keeps the generators of its boundary inside their limits (generated files change).** A
   false state changes the reported injection of the buses one branch outside its support, and a
   generator there is shown at a new output. An overload already rejected a state that showed such a
   generator outside its limits [WU26 eqs. 22-23]; a ramp checked the generators of its support only.
-  Both now check every generator of the reach through the one function,
-  `formulas.attacks.within_limits`. On a ramp-only timeline of the default settings, 13.7 % of the
-  frames with a generator on the boundary showed one outside its limits on IEEE-14 (3,000 frames) and
-  54.5 % on IEEE-118 (1,500 frames); none does now. The number of episodes, the attacked share and the
-  mean designed magnitude did not move by more than rounding (0.0176 to 0.0171 on IEEE-14, 0.0168 to
-  0.0172 on IEEE-118), and no frame fell back to benign. The fewest-tamper search can settle on a larger
-  support: on two fixed IEEE-14 windows a ramp's cheapest support went from one device to two, because
-  the one-device supports showed a boundary generator outside its limits. A generated timeline with a
-  ramp differs from one generated before; the released data v0.8.3 was made before this change.
+  Both now check the generators of the reach through the one function,
+  `formulas.attacks.within_limits`. The slack and a static generator on a load bus have no limits in
+  the case and are never refused. Measured on a ramp-only timeline of the default settings, seed 11:
+
+  | Frames with a generator on the ramp's boundary | IEEE-14, 3,000 frames | IEEE-118, 1,500 frames |
+  |---|---|---|
+  | Before: past a limit by more than 0.001 MW | 123 of 900 | 360 of 660 |
+  | Before: of those, past it by more than the injection meter's accuracy | 77 | 116 |
+  | Now: past a limit by more than the injection meter's accuracy | 0 of 1,020 | 0 of 660 |
+  | Now: past a limit by more than 0.001 MW, inside the meter's accuracy | 0 | 240, at most 0.58 MW or MVAr |
+
+  The number of episodes and the attacked share did not move, and no frame fell back to benign. On
+  IEEE-14 every state the boundary still refuses is a large dip of a load next to position 5 (bus 6),
+  a condenser with a load whose least output is 0 MW: the bus's whole change is charged to the
+  condenser. A small dip there passes, so a refused step is halved until it does; no surge is refused.
+  A generated timeline with a ramp can differ from one generated before; the released data v0.8.3 was
+  made before this change. The two New York days of the tests do not change: every ramp there falls
+  back to its whole area, on which the limits were already kept.
 
 - **A bus with a shunt and nothing else is a zero-injection bus (generated files change on six
   cases).** `FdiaGenerator.zero_inj` counted a bus with a shunt as injecting. A shunt is in the
@@ -25,17 +51,24 @@ the public API, the generated files and the numbers are the same as the previous
   shunt, no load and no producing unit injects nothing: the released pools hold zero there. Such a
   bus is now a zero-injection bus, so an area grows over it and no attack shows an injection at it.
 
-  | Case | Buses that change (positions) |
-  |---|---|
-  | IEEE-30 | 4 |
-  | IEEE-89 | 37 buses |
-  | IEEE-118 | 4, 36 |
-  | IEEE-145 | 34 buses |
-  | IEEE-200 | 14 |
-  | IEEE-300 | 95, 142, 144, 218 |
+  | Case | Buses that change (positions) | Zero-injection buses, before and now |
+  |---|---|---|
+  | IEEE-30 | 4 | 5 and 6 |
+  | IEEE-89 | 37 buses | 5 and 42 |
+  | IEEE-118 | 4, 36 | 8 and 10 |
+  | IEEE-145 | 34 buses | 37 and 71 |
+  | IEEE-200 | 14 | 53 and 54 |
+  | IEEE-300 | 95, 142, 144, 218 | 61 and 65 |
 
-  IEEE-14, IEEE-57 and the New York case have no such bus and do not change. The released data
-  v0.8.3 was made before this change.
+  IEEE-14, IEEE-57 and the New York case have no such bus and do not change. The rule changes IEEE-89
+  and IEEE-145 most, because their new zero-injection buses are connected to each other and a support
+  takes in every one it touches. The smallest support of a ramp on one load goes from 1 bus to 27 on
+  IEEE-89 and from 30 to 69 on IEEE-145 (medians over the eligible loads), and the area within two
+  branches of one load from 31 to 55 buses of 89 and from 38 to 72 of 145. On IEEE-145 the buses that
+  change carry shunts of up to 1,791 MVA at the base case, which look like loads modelled as
+  impedances; whether such a bus should be a load an attacker can pretend is not settled here. No
+  generated file of IEEE-89 or IEEE-145 has been checked under the new rule. The released data v0.8.3
+  was made before this change.
 
 - **The episode tables are in the data dictionary (docs only).** `docs/reference/DATA_DICTIONARY.md`
   has a new part, "The episode tables", with the shape, type and meaning of every dataset under

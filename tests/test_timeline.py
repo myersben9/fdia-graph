@@ -273,23 +273,57 @@ def test_operating_limits_are_the_case_limits_widened_to_the_pool():
     assert np.allclose(gen[on, 0], g.split.gen_base[on, 0])  # the base state: base generation exactly
     none = np.zeros(g.n_bus)
     everywhere = np.arange(g.n_bus)  # every bus inside the attacked subnetwork
-    assert within_limits(X0, X0, gen, none, lim, everywhere)  # ... and is acceptable as its own bound
+    tol = g.false_state.limit_tolerance(X0)
+    assert within_limits(X0, X0, gen, none, lim, everywhere, tol)  # ... and is acceptable as its own bound
     worse = X0.copy()
     worse[int(np.argmax(X0[:, 0])), 0] += 0.01  # further above the limit than the true state
-    assert not within_limits(worse, X0, gen, none, lim, everywhere)
+    assert not within_limits(worse, X0, gen, none, lim, everywhere, tol)
     bad = X0.copy()
     bad[5, 0] = 0.8
-    assert not within_limits(bad, X0, gen, none, lim, everywhere)
+    assert not within_limits(bad, X0, gen, none, lim, everywhere, tol)
     bad = X0.copy()
     bad[on[0], 1] -= 1e4  # a 10 GW injection change at a generator bus inside the area: past any cap ...
-    assert not within_limits(bad, X0, gen, none, lim, everywhere)
+    assert not within_limits(bad, X0, gen, none, lim, everywhere, tol)
     pretended = none.copy()
     pretended[on[0]] = -1e4  # ... unless it is the load change the attacker pretends there
-    assert within_limits(bad, X0, gen, pretended, lim, everywhere)
+    assert within_limits(bad, X0, gen, pretended, lim, everywhere, tol)
     outside = np.array(
         [b for b in range(g.n_bus) if b != on[0]]
     )  # the function checks the generators among the buses it is given, and no other
-    assert within_limits(bad, X0, gen, none, lim, outside)
+    assert within_limits(bad, X0, gen, none, lim, outside, tol)
+
+
+def test_a_generator_limit_is_passed_only_by_more_than_the_injection_meter_resolves():
+    """A bus reports one injection, so a generator shown past a limit by less than the accuracy of that
+    bus's injection meter cannot be told from noise and is no violation [WU26, Sec. V-A]; past it by more,
+    the state is refused. The tolerance is the meter's class at the true reading, never under 1e-3 MW."""
+    from fdia_graph.constants.meters import KIND_ACCURACY, MeterKind
+    from fdia_graph.constants.numerics import LIMIT_TOL_PQ
+    from fdia_graph.engine.core import FdiaGenerator
+    from fdia_graph.formulas.attacks import within_limits
+    from fdia_graph.systems.network import Network
+
+    g = FdiaGenerator(Network.from_ieee(14), seed=1)
+    X = _load_states("ieee14", None)[:200]
+    lim, x_true = g.false_state.operating_limits(X), X[0]
+    tol = g.false_state.limit_tolerance(x_true)
+    rel, floor = KIND_ACCURACY[MeterKind.P]
+    P, Q = NodeChannel.P_INJ, NodeChannel.Q_INJ
+    assert np.allclose(tol[:, 0], np.maximum(LIMIT_TOL_PQ, rel * np.abs(x_true[:, P]) + floor))
+    assert np.allclose(tol[:, 1], np.maximum(LIMIT_TOL_PQ, rel * np.abs(x_true[:, Q]) + floor))
+    assert (tol >= LIMIT_TOL_PQ).all()
+    gen, none, everywhere = g.split.generation(x_true), np.zeros(g.n_bus), np.arange(g.n_bus)
+    checked = 0
+    for b in g.false_state.generator_buses():
+        to_the_floor = gen[b, 0] - lim.p_lo[b]  # the injection rise that puts the generator at its P_min
+        if not np.isfinite(to_the_floor):
+            continue
+        for share, allowed in ((0.5, True), (2.0, False)):
+            x_false = x_true.copy()
+            x_false[b, P] += to_the_floor + share * tol[b, 0]  # load positive: the implied output falls
+            assert within_limits(x_false, x_true, gen, none, lim, everywhere, tol) == allowed
+        checked += 1
+    assert checked
 
 
 def test_the_fixture_records_its_limits(timeline_file):
@@ -347,7 +381,7 @@ def test_a_producing_static_generator_bus_injects():
         )
     g = FdiaGenerator(Network.from_ieee(200), seed=1)
     base = ieee_net(200)
-    others = set(base.gen.bus) | set(base.load.bus) | set(base.ext_grid.bus) | set(base.shunt.bus)
+    others = set(base.gen.bus) | set(base.load.bus) | set(base.ext_grid.bus)  # a shunt injects nothing
     idle = [int(b) for b in base.sgen.bus if int(b) not in others]
     assert idle and all(b in g.zero_inj for b in idle)
 
@@ -518,24 +552,38 @@ def test_the_file_records_its_settings(timeline_file):
 def test_a_bus_with_a_shunt_and_nothing_else_injects_nothing():
     """A shunt is in the admittance matrix, not an injection: IEEE-118 positions 4 and 36 (buses 5 and
     37) hold a shunt and no load and no unit, the pool stores zero there, and they are zero-injection
-    buses. On every case a bus is zero-injection exactly when it has no load and no producing unit."""
+    buses. On every case a bus is zero-injection exactly when it has no load and no producing unit; the
+    rule reaches IEEE-89 and IEEE-145 most (37 and 34 buses)."""
+    from fdia_graph.data.ieee_pool import _case_buses, _solve_states_chunk
     from fdia_graph.engine.core import FdiaGenerator
+    from fdia_graph.formulas.network import bus_injections, complex_voltages
     from fdia_graph.systems.network import Network
 
-    for system, shunt_only in ((118, {4, 36}), (30, {4}), (300, {95, 142, 144, 218})):
+    # per case: how many buses hold a shunt and nothing else, some of them by position, and every
+    # zero-injection bus the case then has
+    pinned = (
+        (30, 1, {4}, 6),
+        (118, 2, {4, 36}, 10),
+        (300, 4, {95, 142, 144, 218}, 65),
+        (89, 37, {0, 3, 4, 8, 9, 11, 84, 85, 86}, 42),
+        (145, 34, {2, 3, 4, 14, 15, 16, 82, 85, 86}, 71),
+    )
+    for system, count, named, zero_injection in pinned:
         g = FdiaGenerator(Network.from_ieee(system), seed=1)
         case = g.case
         shunted = set(np.flatnonzero((case.gs != 0) | (case.bs != 0)).tolist())
         injecting = set(g.load_bus.tolist()) | set(case.unit_bus[~g.split.idle_units(case)].tolist())
-        assert shunt_only <= shunted - injecting  # the named buses have a shunt and nothing else
-        assert shunt_only <= set(g.zero_inj)
+        shunt_only = sorted(shunted - injecting)
+        assert len(shunt_only) == count and named <= set(shunt_only)
+        assert set(shunt_only) <= set(g.zero_inj) and len(g.zero_inj) == zero_injection
         assert set(g.zero_inj) == set(range(g.n_bus)) - injecting
-    net = ieee_net(118)  # the solved base case: what the bus injects once the shunt's draw is left out
-    injected = net.res_bus.loc[[4, 36], ["p_mw", "q_mvar"]].to_numpy()
-    for b, ps, qs in zip(net.shunt.bus, net.res_shunt.p_mw, net.res_shunt.q_mvar):
-        if int(b) in (4, 36):
-            injected[(4, 36).index(int(b))] -= (ps, qs)
-    assert np.abs(injected).max() < 1e-6  # MW and MVAr: nothing is injected at a shunt-only bus
+        # the pool's own solve of the base case: the state it stores, the shunt's draw left out
+        state = _solve_states_chunk(system, np.ones((1, len(_case_buses(system)))))[0]
+        stored = state[shunt_only][:, [NodeChannel.P_INJ, NodeChannel.Q_INJ]]
+        assert np.abs(stored).max() < 1e-6  # MW and MVAr: the pool stores nothing at a shunt-only bus
+        # and the package's admittance matrix, which holds the shunt, injects nothing there either
+        V = complex_voltages(state[:, NodeChannel.V], state[:, NodeChannel.THETA])
+        assert np.abs(bus_injections(V, g.net.ybus, case.base_mva)[shunt_only]).max() < 1e-5  # MVA
 
 
 def test_a_ramp_state_keeps_the_generators_of_its_boundary_inside_their_limits(pool):
@@ -561,8 +609,9 @@ def test_a_ramp_state_keeps_the_generators_of_its_boundary_inside_their_limits(p
                     continue
                 dload = np.zeros(g.n_bus)
                 dload[g.load_bus[row]] = load_true[row] * (mult - 1.0)
-                on_the_reach = within_limits(unchecked, x_true, gen, dload, limits, fs.reach(support))
-                on_the_support = within_limits(unchecked, x_true, gen, dload, limits, support)
+                tol = fs.limit_tolerance(x_true)
+                on_the_reach = within_limits(unchecked, x_true, gen, dload, limits, fs.reach(support), tol)
+                on_the_support = within_limits(unchecked, x_true, gen, dload, limits, support, tol)
                 checked = fs.load_goal_state(x_true, design, support, limits)
                 assert (checked is not None) == on_the_reach
                 kept += on_the_reach

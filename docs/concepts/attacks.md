@@ -36,8 +36,14 @@ and a residual test finds nothing wrong.
 A false state must also be plausible. Inside the buses it re-solves it stays within the bus
 voltage limits and the generator limits of the case [WU26, eqs. 21-23]. The buses one branch
 outside take up the change in their reported injection, so a generator there is held to its limits
-too: both families check every generator of the reach, the buses re-solved and the buses one branch
+too: both families check the generators of the reach, the buses re-solved and the buses one branch
 outside. A state that shows a generator outside its limits anywhere on the reach is rejected.
+
+A bus reports one injection, its load less its generation. A limit therefore counts as passed only
+when the implied output is outside it by more than that bus's injection meter can resolve: the
+meter's accuracy at the true reading, and never less than 0.001 MW. A smaller difference cannot be
+told from noise, and [WU26] does not count tampering below the noise (Sec. V-A). The slack and a
+static generator on a load bus have no limits in the case, so they are never refused.
 
 A bus with no load and no producing unit injects nothing, whether or not it has a shunt: a shunt is
 part of the grid's admittances, not an injection. No attack shows an injection at such a bus. An

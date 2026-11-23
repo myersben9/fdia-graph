@@ -16,7 +16,8 @@ from typing import NamedTuple, Optional, Union, cast
 import numpy as np
 
 from ...constants.channels import NodeChannel
-from ...formulas.attacks import operating_limits, within_limits
+from ...constants.meters import KIND_ACCURACY, MeterKind
+from ...formulas.attacks import limit_tolerance, operating_limits, within_limits
 from ...formulas.network import (
     _dense,
     _flow_blocks,
@@ -94,18 +95,19 @@ class _Solved(NamedTuple):
 
 
 def _clip_generator(
-    b: int, gen: np.ndarray, dS: complex, limits: OperatingLimits, held: _Pins, over: _Pins
+    b: int, gen: np.ndarray, dS: complex, limits: OperatingLimits, tol: np.ndarray, held: _Pins, over: _Pins
 ) -> None:
     """Record in `over` each component (P, Q) of generator b that the change dS drives outside its limits
-    [WU26 eqs. 22-23] and that `held` has not pinned yet, with the change that puts it at the nearest limit
-    (generation positive). `gen` is the generator's true output (P, Q)."""
+    [WU26 eqs. 22-23] by more than `tol` (the bus's `limit_tolerance`, P then Q) and that `held` has not
+    pinned yet, with the change that puts it at the nearest limit (generation positive). `gen` is the
+    generator's true output (P, Q)."""
     p = gen[0] + np.real(dS)
     p_at_limit = float(np.clip(p, limits.p_lo[b], limits.p_hi[b]))
-    if b not in held.p and p_at_limit != p:
+    if b not in held.p and abs(p_at_limit - p) > tol[0]:
         over.p[b] = p_at_limit - gen[0]
     q = gen[1] + np.imag(dS)
     q_at_limit = float(np.clip(q, limits.q_lo[b], limits.q_hi[b]))
-    if b not in held.q and q_at_limit != q:
+    if b not in held.q and abs(q_at_limit - q) > tol[1]:
         over.q[b] = q_at_limit - gen[1]
 
 
@@ -123,6 +125,7 @@ class _FlowSetup(NamedTuple):
     blocks: _FlowBlocks
     gen: np.ndarray  # [N, 2] the true generator output, MW and MVAr
     load: np.ndarray  # [N] the true load, MW
+    tol: np.ndarray  # [N, 2] how far past a generator limit counts as past it, MW and MVAr
 
 
 class FalseState(Part):
@@ -182,7 +185,8 @@ class FalseState(Part):
 
     def free_injection_buses(self) -> np.ndarray:
         """The buses whose injection a flow-goal attacker may change: the attackable loads and the
-        generators. A zero-injection bus is held at zero (ours, not the paper's): nothing connects there."""
+        generators. A zero-injection bus is held at zero (ours, not the paper's): it has no load and no
+        producing unit, so nothing there could show a changed injection."""
         cached = getattr(self, "_free_injection_buses", None)
         if cached is None:  # asked once per candidate solve: built once, read-only
             cached = np.union1d(self.free_load_buses(), self.generator_buses())
@@ -256,6 +260,7 @@ class FalseState(Part):
             blocks=blocks,
             gen=self.g.split.generation(x_true),
             load=self.g.split.load(x_true),
+            tol=self.limit_tolerance(x_true),
         )
 
     def _support_blocks(self, support: np.ndarray, lines: np.ndarray) -> tuple[np.ndarray, _FlowBlocks]:
@@ -323,7 +328,7 @@ class FalseState(Part):
         over = _Pins({}, {}, {})
         if limits is not None:
             for b in np.intersect1d(setup.reach, self.generator_buses()):
-                _clip_generator(int(b), setup.gen[b], complex(dS[b]), limits, held, over)
+                _clip_generator(int(b), setup.gen[b], complex(dS[b]), limits, setup.tol[b], held, over)
         if bounds.load_cap is not None:
             over.p.update(self._loads_past_cap(setup, dS, bounds.load_cap, held.p))
         if limits is not None:
@@ -399,8 +404,9 @@ class FalseState(Part):
         if x_false is None:
             return None
         if knobs.limits is not None:  # every generator the attack moves, on the support's boundary too
-            gen = self.g.split.generation(x_true)
-            if not within_limits(x_false, x_true, gen, solve.load_change, knobs.limits, self.reach(support)):
+            gen, tol = self.g.split.generation(x_true), self.limit_tolerance(x_true)
+            reach = self.reach(support)
+            if not within_limits(x_false, x_true, gen, solve.load_change, knobs.limits, reach, tol):
                 return None
         return x_false
 
@@ -438,10 +444,37 @@ class FalseState(Part):
     ) -> bool:
         """[WU26 eqs. 21-23] on a false state: `load_delta_pos` is the pretended load change per
         load-table position (MW), summed per bus for buses carrying several loads. The generator
-        limits apply to every generator of the reach: the boundary's reported injection changes too,
+        limits apply to the generators of the reach: the boundary's reported injection changes too,
         so a generator there is shown at a new output, as a flow goal's check also holds
-        (`flow_goal_state`)."""
+        (`flow_goal_state`). A limit is passed only by more than the bus's injection meter can resolve
+        (`limit_tolerance`); the slack and a static generator on a PQ bus have no limit to pass."""
         dload = np.zeros(self.g.n_bus)
         np.add.at(dload, self.g.load_bus, load_delta_pos)
-        gen = self.g.split.generation(x_true)
-        return within_limits(x_false, x_true, gen, dload, limits, self.reach(support))
+        gen, tol = self.g.split.generation(x_true), self.limit_tolerance(x_true)
+        return within_limits(x_false, x_true, gen, dload, limits, self.reach(support), tol)
+
+    def limit_tolerance(self, x_true: np.ndarray) -> np.ndarray:
+        """How far past a generator limit counts as past it at the true state x_true, per bus [N, 2] (P MW,
+        Q MVAr): the standard deviation the noise model gives the bus's P and Q injection meters at their
+        true readings (`formulas.attacks.limit_tolerance`), the class the ramp's stealth bound and tamper
+        count use. One rule for a load goal and a flow goal, and for the flow solve's active set."""
+        cls, floor = self._injection_class()
+        injected = np.asarray(x_true, float)[:, [NodeChannel.P_INJ, NodeChannel.Q_INJ]]
+        return limit_tolerance(injected, cls, floor)
+
+    def _injection_class(self) -> tuple[np.ndarray, np.ndarray]:
+        """The accuracy class and the floor of every bus's P and Q injection meter, each [N, 2]: the plan's
+        own, and at a bus the plan gives no injection meter, the class of that kind of meter
+        (`KIND_ACCURACY`), which is what a meter placed there would have."""
+        cached = getattr(self, "_injection_classes", None)
+        if cached is None:  # asked once per false state: built once
+            plan, n_bus = self.g.plan, self.g.n_bus
+            cls, floor = np.empty((n_bus, 2)), np.empty((n_bus, 2))
+            for column, kind in enumerate((MeterKind.P, MeterKind.Q)):
+                cls[:, column], floor[:, column] = KIND_ACCURACY[kind]
+                rows = np.flatnonzero(plan.kind == kind)
+                cls[plan.bus[rows], column] = plan.sigma_rel[rows]
+                floor[plan.bus[rows], column] = plan.sigma_abs[rows]
+            cached = (cls, floor)
+            self._injection_classes = cached
+        return cached
