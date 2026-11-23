@@ -73,9 +73,9 @@ class Gate:
 def _suite(py: str) -> list[str]:
     """The two test suites on interpreter `py`, spread over worker processes when it has pytest-xdist (the
     test extra installs it). Every worker builds its own tiny timeline in its own cache, so more
-    workers than a few repeat that build more than they save; 8 at most."""
+    workers than a few repeat that build more than they save, and the machine may be shared: 4 at most."""
     has_xdist = subprocess.run([py, "-c", "import xdist"], capture_output=True).returncode == 0
-    workers = ["-n", str(min(8, os.cpu_count() or 1))] if has_xdist else []
+    workers = ["-n", str(min(4, os.cpu_count() or 1))] if has_xdist else []
     strict = [flag for package in PACKAGES for flag in ("-W", f"error::DeprecationWarning:{package}")]
     return [py, "-m", "pytest", "-q", "-x", *workers, *strict, *TESTS]
 
