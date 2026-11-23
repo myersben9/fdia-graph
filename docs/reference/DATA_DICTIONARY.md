@@ -510,3 +510,19 @@ One block of per-bus localization metrics at the localizer's thresholds, the fed
 | `dx_hat` | `dx_hat` | array | yes | [n, 2N-1] implied state change (H^T W H)^-1 H^T W dz |
 | `r_perp` | `r_perp` | array | yes | [n, m] residual the Jacobian cannot explain, (I - P) dz |
 <!-- models:end -->
+
+## Hops Knob
+
+<!-- hops-sweep:start -->
+
++------+----------+-----------------+---------------+---------------------------+
+| hops | time (s) | fallback_benign | attacked frac | tampered / stealthy frame |
++------+----------+-----------------+---------------+---------------------------+
+|    1 |      8.7 |               0 |         0.500 |                     48.52 |
+|    2 |      3.7 |               0 |         0.500 |                     58.69 |
+|    3 |      3.8 |               0 |         0.500 |                     59.88 |
++------+----------+-----------------+---------------+---------------------------+
+
+Trend: On ieee14 with 3000 frames, the mean number of tampered meters per stealthy frame rises from 48.52 at hops=1 to 59.88 at hops=3.
+
+<!-- hops-sweep:end -->
