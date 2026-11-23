@@ -12,7 +12,7 @@ from tests.helpers import FixedDraws, windows
 
 
 def test_a_window_with_no_held_support_says_so(case):
-    """Brute force finds no feasible support exactly when the search reports -1."""
+    """Brute force finds no feasible support exactly when the search returns nothing."""
     from fdia_graph.engine.attacks.window import AttackWindow
 
     g, _, knobs = case
@@ -26,7 +26,7 @@ def test_a_window_with_no_held_support_says_so(case):
             for support in g.minimizer._supports([frozenset(int(b) for b in buses)], area)
             if (c := window.cost(support, None)) is not None
         ]
-        assert (result.devices < 0) == (not feasible and window.cost(area, None) is None)
+        assert (result is None) == (not feasible and window.cost(area, None) is None)
 
 
 def test_the_search_equals_brute_force(case):
@@ -239,7 +239,7 @@ def test_generate_with_the_knob_records_each_ramp_search(tmp_path):
         n = len(eg[schema.EPISODE_MIN_EPISODE])
         assert n >= 1 and n == len(eg[schema.EPISODE_MIN_DEVICES]) == len(eg[schema.EPISODE_MIN_EVALUATED])
         devices = eg[schema.EPISODE_MIN_DEVICES][()]
-        assert ((devices >= 1) | (devices == -1)).all()  # an attack tampers a device, or none was found
+        assert (devices >= 0).all()  # a ramp is recorded on the support the search found, never without one
         assert f.attrs[schema.Attr.MIN_TAMPER] == 1
         assert f.attrs[schema.Attr.STEALTH_SCALE] == 1.0  # an At-only timeline records its bound too
 
@@ -260,18 +260,29 @@ def test_the_stealth_bound_covers_the_onset(case):
         assert AttackWindow(g, states, jump, knobs).cost(area, None) is None
 
 
-def test_a_support_within_noise_is_not_an_attack(case):
-    """A window whose loads never move a device beyond its accuracy sigma costs nothing, so it is not an
-    attack: no support is feasible and the search records -1, never a 0-device result."""
+def test_a_ramp_within_noise_costs_nothing_and_an_overload_within_noise_is_no_attack(case):
+    """A change a meter cannot tell from its noise is not tampering. A ramp whose loads never move a
+    device beyond its accuracy sigma costs zero devices and zero channels on every support, so the
+    search returns the smallest one (the targets' own buses). A flow goal that moves no device beyond
+    noise shows no overload, so it has no cost."""
     from fdia_graph.engine.attacks.window import AttackWindow
-    from fdia_graph.models.frames import AttackDesign, LoadGoal
+    from fdia_graph.models.frames import AttackDesign, FlowGoal, LoadGoal, SupportCost
 
     g, _, knobs = case
     for states, _, d in windows(case, 1, held=False):
         area = np.asarray(g.area.hop_area(np.unique(g.load_bus[d.targets]), knobs.hops))
         still = LoadGoal(tuple(AttackDesign(d.targets, 1.0 + 1e-9) for _ in states))
-        assert AttackWindow(g, states, still, knobs).cost(area, None) is None
-        assert g.minimizer.min_tamper(states, still, knobs).devices == -1
+        window = AttackWindow(g, states, still, knobs)
+        assert window.least == (0, 0) and window.cost(area, None) == SupportCost(0, 0, len(area))
+        found = g.minimizer.min_tamper(states, still, knobs)
+        smallest = g.minimizer.zero_closed(frozenset(int(b) for b in np.unique(g.load_bus[d.targets])))
+        assert (found.devices, found.channels) == (0, 0) and set(found.support.tolist()) == set(smallest)
+        # the same window under a flow goal that asks each line for the flow it already has
+        line = int(np.flatnonzero(g.flow_metered)[0])
+        flows = g.emitter.all_flows_from_states(np.stack(states))[:, line]
+        same = FlowGoal(line, tuple(float(abs(s)) for s in flows))
+        flow_window = AttackWindow(g, states, same, knobs)
+        assert flow_window.least == (1, 1) and flow_window.cost(area, None) is None
 
 
 def test_the_onset_is_bounded_against_the_frame_before(case):
@@ -308,6 +319,8 @@ def test_the_search_stops_early_only_once_a_smaller_support_is_the_cheapest():
     costs = {13: SupportCost(1, 1, 13), 9: None, 7: SupportCost(1, 1, 7)}
 
     class Table:
+        least = (1, 1)  # a flow goal's: one device on one channel
+
         def cost(self, support, beat):
             c = costs[len(support)]
             return c if c is not None and (beat is None or c.key(False) < beat.key(False)) else None

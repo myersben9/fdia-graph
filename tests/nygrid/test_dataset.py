@@ -81,6 +81,17 @@ def test_client_view_holds_only_its_own_meters_buses_and_labels(written):
     assert labels.any() and not labels[:, source.own.bus_client < 0].any()  # every label is some client's
 
 
+def test_no_new_york_ramp_frame_steps_past_its_stealth_bound(written):
+    """Every attacked frame of every ramp on the New York days keeps the stealth bound: the ramp is held
+    on a support the search found, never run on its whole area past the bound."""
+    from tests.helpers import ramp_frames_past_the_bound
+
+    ds, source = written
+    devices = ds.h[schema.Group.EPISODES][schema.EPISODE_MIN_DEVICES][:]
+    assert len(devices) >= 3 and (devices >= 0).all()
+    assert ramp_frames_past_the_bound(source.g, source.X, ds.h.filename) == 0
+
+
 def test_operator_and_split_views(written):
     ds, source = written
     T = source.frames

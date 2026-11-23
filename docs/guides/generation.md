@@ -150,6 +150,7 @@ The sections:
 | `RampSettings` | `rate` | 0.002 | `At` growth per frame |
 | `RampSettings` | `length` | 60 | `At` episode length in frames |
 | `RampSettings` | `stealth_scale` | 1.0 | multiplier on `At`'s stealth bound |
+| `RampSettings` | `targets` | 5 | most loads one ramp moves, all within `hops` of the first |
 | `SearchSettings` | `hops` | 2 | the attacker's reach in branches |
 | `SearchSettings` | `min_tamper` | `True` | hold each `At` episode on the fewest devices |
 | `SearchSettings` | `min_budget` | 256 | candidate supports solved per search |
@@ -164,6 +165,7 @@ The sections:
 | `MeterSettings` | `pmu_frac` | 0.2 | share of buses with a PMU |
 | `MeterSettings` | `flow_frac` | 0.9 | share of branches with a flow meter |
 | `MeterSettings` | `meter_model` | `"hybrid"` | what the meters read |
+| `MeterSettings` | `power_floor_pu` | `None` | floor under a power meter's class, p.u. of the base; `None` is 0.001 MW |
 | `SplitSettings` | `fractions` | `(0.6, 0.2, 0.2)` | train, validation, test |
 
 `fg.generate` and `generate_timeline` take a `TimelineSettings`, and also flat keywords that set

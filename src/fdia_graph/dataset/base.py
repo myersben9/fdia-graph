@@ -81,6 +81,7 @@ class DatasetBase:
     N: int
     E: int
     baseMVA: float
+    power_floor_mw: float  # the floor under the class of the file's power meters, MW or MVAr
     edge_feat: list[str]  # the columns of a flow layer, by name (the file's legend)
     slack: Optional[int]
     idx: np.ndarray

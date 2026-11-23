@@ -16,6 +16,7 @@ import numpy as np
 
 from ..constants.families import AT, GENERATED_FAMILIES
 from ..constants.files import EXPORT_COLUMNS
+from ..constants.meters import POWER_NOISE_FLOOR_MW
 from ..errors import ConfigError
 from .choices import (
     AmAttack,
@@ -175,13 +176,23 @@ class TrustSchedule(Validated):
 @dataclass(frozen=True)
 class MeterSettings(Validated):
     """The meter plan a timeline walks, as `generate_timeline(redundancy=...)` takes it: the coverage
-    fractions of the voltage meters, the PMUs and the flow meters, and what the meters measure:
-    "hybrid" (angles at the PMUs only, PMU branch currents)."""
+    fractions of the voltage meters, the PMUs and the flow meters, what the meters measure
+    ("hybrid": angles at the PMUs only, PMU branch currents), and `power_floor_pu`, the absolute floor
+    under the relative class of every power meter (injections and flows), per unit of the system
+    base. None is the package's own floor, `POWER_NOISE_FLOOR_MW` in MW whatever the base;
+    `constants.meters.WU26_SCADA_NOISE_PU` is the SCADA noise of [WU26]'s case studies. The floor is
+    part of the noise every reading of the file carries, so the stealth bound, the tamper count and
+    the limit tolerance all follow it."""
 
     vbus_frac: float = 0.6
     pmu_frac: float = 0.2
     flow_frac: float = 0.9
     meter_model: Annotated[str, OneOf(MeterModel)] = "hybrid"
+    power_floor_pu: Annotated[Optional[float], Positive(), Finite(), WhenSet(legacy=None)] = None
+
+    def power_floor_mw(self, base_mva: float) -> float:
+        """The floor of a power meter's class in MW (MVAr) on a system of base `base_mva`."""
+        return POWER_NOISE_FLOOR_MW if self.power_floor_pu is None else self.power_floor_pu * base_mva
 
     @property
     def coverage(self) -> dict[str, float]:
@@ -191,13 +202,15 @@ class MeterSettings(Validated):
 
 @dataclass(frozen=True)
 class RampSettings(Validated):
-    """The slow ramp At: its per-frame growth `rate`, the episode `length` in frames and `stealth_scale`,
+    """The slow ramp At: its per-frame growth `rate`, the episode `length` in frames, `stealth_scale`,
     a multiplier on its stealth bound whose unit is the meters' rated accuracy (the overload Am has
-    no such bound)."""
+    no such bound), and `targets`, the most loads one ramp moves: one drawn from the eligible loads
+    and the others from those within the search's `hops` of it, fewer when fewer are in reach."""
 
     rate: Scale = 0.002
     length: Annotated[int, Integer(), AtLeast(1)] = 60
     stealth_scale: Scale = 1.0
+    targets: Annotated[int, Integer(), AtLeast(1), WhenSet(legacy=5)] = 5
 
 
 @dataclass(frozen=True)

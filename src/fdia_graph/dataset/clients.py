@@ -14,7 +14,7 @@ import h5py
 import numpy as np
 
 from fdia_graph import schema
-from fdia_graph.constants.meters import ANGLE_KINDS, BUS_KINDS
+from fdia_graph.constants.meters import ANGLE_KINDS, BUS_KINDS, POWER_NOISE_FLOOR_MW
 from fdia_graph.errors import NotATimeline
 from fdia_graph.formulas.temporal import wrap_degrees
 from fdia_graph.models.choices import Split
@@ -84,7 +84,8 @@ class Dataset:
         bus_client = self.h[schema.path(schema.Group.GRAPH, Static.BUS_CLIENT)][:]
         self.own = Ownership(np.array(self.clients), bus_client, bus_client[edges[0]] != bus_client[edges[1]])
         masks = MeterLayers(*(self.h[name][0] for name in (schema.NODE_M, schema.EDGE_M, schema.PMU_I_M)))
-        self.plan = MeterPlan.from_masks(masks, edges, bus_client)
+        floor = float(self.h.attrs.get(Attr.POWER_FLOOR_MW, POWER_NOISE_FLOOR_MW))
+        self.plan = MeterPlan.from_masks(masks, edges, bus_client, floor)
 
     def _frames(self, split: str | None) -> np.ndarray:
         """The frame indices of `split` exactly: week splits interleave, so a span from its first to its

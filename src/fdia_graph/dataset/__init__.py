@@ -24,6 +24,7 @@ import numpy as np
 from .. import schema
 from ..constants.channels import NodeChannel
 from ..constants.families import HELDOUT_CODES
+from ..constants.meters import POWER_NOISE_FLOOR_MW
 from ..errors import NotATimeline
 from ..models.choices import Split
 from ..models.config import LoadOptions
@@ -121,6 +122,8 @@ class FdiaGraph(GraphMixin, AdmittanceMixin, RecordsMixin, ExportMixin, Sequence
         self.N = int(a[Attr.N])
         self.E = int(a[Attr.E])  # fixed graph size: bus count N, branch count E
         self.baseMVA = float(a.get(Attr.BASEMVA, 100.0))  # p.u. base; v0.4.1+, default 100 MVA
+        # the floor of the power meters' class the file was made with; the package's own when it records none
+        self.power_floor_mw = float(a.get(Attr.POWER_FLOOR_MW, POWER_NOISE_FLOOR_MW))
         # the one layout: flows at the from end, currents as real and imaginary parts (a file that
         # declares another is refused here)
         layout = ReadableLayout(str(self.path), **{k: str(a[k]) for k in schema.LAYOUT_ATTRS if k in a})

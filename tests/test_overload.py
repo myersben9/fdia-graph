@@ -139,7 +139,7 @@ def test_the_search_on_a_flow_goal_equals_brute_force(g, pool):
         for support in [*g.minimizer._supports(starts, area, must_hold)]
         if (c := win.cost(support, None)) is not None
     ]
-    if result is None or result.devices < 0:
+    if result is None:
         assert not costs
     else:
         assert (result.devices, result.channels, len(result.support)) == min(costs)
@@ -170,28 +170,9 @@ def test_am_reaches_the_rating_on_the_held_support(tmp_path, pool):
         assert f.attrs[schema.Attr.AM_ATTACK] == "overload"
 
 
-def test_the_paper_noise_is_in_the_stored_units(g):
-    """D8: [WU26]'s case-study noise, 0.03 pu on SCADA channels and 0.01 pu on PMU channels, in the
-    units a scan stores (MW and MVAr on the case base, |V| in pu, the angle in degrees)."""
-    from fdia_graph.constants.meters import WU26_NOISE
-    from fdia_graph.formulas.noise import paper_sigma
-
-    pmu = np.zeros(g.n_bus, bool)
-    pmu[[0, 3]] = True
-    node, edge = paper_sigma((g.n_bus, 4), (g.n_branch, 2), pmu, g.case.base_mva)
-    assert WU26_NOISE == {"scada": 0.03, "pmu": 0.01}
-    assert np.all(node[:, NodeChannel.P_INJ] == 0.03 * g.case.base_mva) and np.all(
-        edge == 0.03 * g.case.base_mva
-    )
-    assert (
-        node[0, NodeChannel.V] == 0.01 and node[1, NodeChannel.V] == 0.03
-    )  # a PMU bus against a SCADA voltmeter
-    assert np.allclose(node[:, NodeChannel.THETA], np.degrees(0.01))
-
-
-def test_am_counts_against_the_paper_noise_and_at_against_the_rated_accuracy(g, pool):
-    """The window of a flow goal (Am) takes [WU26]'s noise a load goal (At) keeps the meters'
-    rated accuracy."""
+def test_both_families_count_against_the_meters_rated_accuracy(g, pool):
+    """The window of a flow goal (Am) and of a load goal (At) take one noise: the meters' rated
+    accuracy at the true readings, which is the noise the file's readings carry."""
     from fdia_graph.constants.meters import ACCURACY_CLASS, POWER_NOISE_FLOOR_MW
     from fdia_graph.engine.attacks.window import AttackWindow
     from fdia_graph.models.frames import AttackDesign, LoadGoal
@@ -201,9 +182,10 @@ def test_am_counts_against_the_paper_noise_and_at_against_the_rated_accuracy(g, 
     flow = AttackWindow(
         g, window, g.overload.overload_goal(window, int(g.overload.eligible_lines(window, 2)[0])), knobs
     )
-    assert np.all(flow.sigma[0][1] == 0.03 * g.case.base_mva)
     design = AttackDesign(g.stealthy_pos[:1], 1.01)
     load = AttackWindow(g, window, LoadGoal(tuple([design] * 5)), knobs)
+    for of_flow, of_load in zip((*flow.sigma[0], flow.i_sigma[0]), (*load.sigma[0], load.i_sigma[0])):
+        assert np.array_equal(of_flow, of_load)
     flows = g.emitter.clean_flows_from_states(np.stack(window))
     # the rated accuracy at the true readings [ASP14]: absolute on |V| and the angle, relative on powers
     x, N = np.abs(np.asarray(window[0], np.float64)), NodeChannel

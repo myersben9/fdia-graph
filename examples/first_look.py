@@ -26,7 +26,11 @@ from fdia_graph import schema
 
 FRAMES, SEED = 600, 123
 BEFORE, AFTER = 40, 40  # frames shown on each side of the attack window
-INK, MUTED, ATTACK = "#111111", "#6b7280", "#D22030"  # black for the flow without the attack, red for the reported one
+INK, MUTED, ATTACK = (
+    "#111111",
+    "#6b7280",
+    "#D22030",
+)  # black for the flow without the attack, red for the reported one
 
 
 def apparent(flows: np.ndarray) -> np.ndarray:
@@ -55,7 +59,9 @@ def main(out: str) -> None:
         ax.plot(t, reported[:, k], color=ATTACK, lw=1.8, label="reported to the operator")
         ax.text(t[2], ratings[k], "rating", color=MUTED, fontsize=8, va="bottom")
         # IEEE-14 numbers its buses in order from one, so a bus number is its position plus one
-        ax.set_title(f"Branch {int(ends[k, 0]) + 1} to {int(ends[k, 1]) + 1}", fontsize=10, color=INK, loc="left")
+        ax.set_title(
+            f"Branch {int(ends[k, 0]) + 1} to {int(ends[k, 1]) + 1}", fontsize=10, color=INK, loc="left"
+        )
         ax.set_xlabel("frame", fontsize=9, color=INK)
         ax.tick_params(labelsize=8, colors=INK)
         for side in ("top", "right"):
@@ -64,12 +70,17 @@ def main(out: str) -> None:
     axes[0].legend(frameon=False, fontsize=8, loc="upper left", bbox_to_anchor=(0.0, 0.92))
     fig.suptitle(
         "An overload attack on IEEE-14: the meters report a flow climbing to the rating",
-        fontsize=11, color=INK, x=0.01, ha="left",
+        fontsize=11,
+        color=INK,
+        x=0.01,
+        ha="left",
     )
     fig.tight_layout(rect=(0, 0, 1, 0.94))
     fig.savefig(out, facecolor="white")
     print(f"wrote {out}: frames {frames.start} to {frames.stop - 1}, attack {onset} to {onset + length - 1}")
-    print(f"reported flow at the last attacked frame: {np.round(reported[BEFORE + length - 1], 2).tolist()} MVA")
+    print(
+        f"reported flow at the last attacked frame: {np.round(reported[BEFORE + length - 1], 2).tolist()} MVA"
+    )
     print(f"ratings: {np.round(ratings, 2).tolist()} MVA")
 
 

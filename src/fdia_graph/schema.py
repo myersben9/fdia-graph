@@ -219,6 +219,9 @@ class Attr:
     VBUS_FRAC = "vbus_frac"
     PMU_FRAC = "pmu_frac"
     FLOW_FRAC = "flow_frac"
+    # the floor under the class of every power meter, MW or MVAr, on a file made with
+    # `MeterSettings.power_floor_pu`; a file without it has the package's own (`POWER_NOISE_FLOOR_MW`)
+    POWER_FLOOR_MW = "power_floor_mw"
     # on graph/ and attack/
     EDGE_FEAT_STATIC = "edge_feat_static"
     BUS_FEAT_STATIC = "bus_feat_static"

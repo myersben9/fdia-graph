@@ -141,6 +141,7 @@ class FrameKnobs(NamedTuple):
     # of the goal, or "rules", the area the paper's four principles pick (`AttackArea.rule_area`, ours)
     area: Optional[tuple[int, ...]] = None
     area_rule: str = "hops"
+    ramp_targets: int = 5  # the most loads one ramp moves (`RampSettings.targets`)
 
 
 class AttackVector(NamedTuple):
@@ -209,7 +210,8 @@ class FlowSolve(NamedTuple):
 
 class SupportCost(NamedTuple):
     """What a support costs over an attack window [WU26 eq. 12]: the devices and the channels its
-    false states move beyond noise at some snapshot, and its size in buses."""
+    false states move beyond the meters' noise at some snapshot, and its size in buses. Both counts are
+    zero for a support whose changes all stay under the noise."""
 
     devices: int  # devices with a channel moved beyond noise at some snapshot
     channels: int  # channels moved beyond noise at some snapshot
@@ -228,10 +230,9 @@ class MinimizerResult(NamedTuple):
     optimality: [WU26] does not prove its minimum either)."""
 
     support: np.ndarray  # the buses whose voltages the false state moves (sorted)
-    devices: int  # devices with a channel moved beyond its noise at some snapshot; -1 when no candidate
-    # support meets every constraint and moves at least one device beyond its noise (the episode then
-    # runs on the area)
-    channels: int  # channels moved beyond their noise at some snapshot
+    devices: int  # devices with a channel moved beyond its noise at some snapshot: 0 or more (a ramp
+    # may stay under the noise of every meter for its whole window; an overload moves at least one)
+    channels: int  # channels moved beyond their noise at some snapshot: 0 or more
     evaluated: int  # candidate supports solved
 
 

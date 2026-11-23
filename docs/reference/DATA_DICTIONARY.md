@@ -216,17 +216,19 @@ and branches are positions: a bus is a row of the node layers, a branch a column
 **The support search**, one row per episode whose support a search chose (`m` rows). Of the
 package's two designs, a ramp `At` has a row when `SearchSettings.min_tamper` is on, which is the
 default, and an overload `Am` always has one. A file with no such row has none of these datasets.
+Noise here is the meter's accuracy class at its true reading, the noise the file's readings carry.
 
 | dataset | shape | dtype | holds |
 |---|---|---|---|
 | `min_episode` | `[m]` | int32 | the episode's index |
-| `min_devices` | `[m]` | int32 | the devices the chosen support moves beyond their noise at some snapshot of the window; -1 on a ramp when no candidate the search tried met every constraint and moved a device beyond noise, and the episode ran on its area |
-| `min_channels` | `[m]` | int32 | the channels it moves beyond their noise at some snapshot; -1 in the same case |
+| `min_devices` | `[m]` | int32 | the devices the chosen support moves beyond their noise at some snapshot of the window: 0 or more for a ramp (0 when every change stays under the noise), 1 or more for an overload |
+| `min_channels` | `[m]` | int32 | the channels it moves beyond their noise at some snapshot: 0 or more |
 | `min_evaluated` | `[m]` | int32 | the candidate supports the search solved |
 | `min_support_ptr` | `[m + 1]` | int64 | where each row's support starts in `min_support_idx` |
-| `min_support_idx` | `[min_support_ptr[m]]` | int32 | the buses of each chosen support, sorted, one list after another; the area's buses on a row whose counts are -1 |
+| `min_support_idx` | `[min_support_ptr[m]]` | int32 | the buses of each chosen support, sorted, one list after another |
 
-These counts are not the tamper masks. `min_devices` and `min_channels` count what moves beyond
+Every episode is on the support its row gives: an episode for which no support was found is not in
+the file. These counts are not the tamper masks. `min_devices` and `min_channels` count what moves beyond
 noise somewhere in the window. For a ramp or an overload, `attack/node_tamper` and
 `attack/edge_tamper` mark every stored reading the attack changed in a frame, however little.
 

@@ -40,11 +40,11 @@ number is the position plus one.
    branch 10: true flow 6.43 to 6.21 MVA, goal 6.48 to 9.13 MVA, rating 9.13 MVA
    branch 11: true flow 9.00 to 9.13 MVA, goal 9.05 to 12.14 MVA, rating 12.14 MVA
 5. area: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13], boundary [0]
-   the whole area costs SupportCost(devices=5, channels=8, size=13)
-   support found: [9, 13], SupportCost(devices=3, channels=3, size=2)
+   the whole area costs SupportCost(devices=11, channels=41, size=13)
+   support found: [9, 13], SupportCost(devices=5, channels=20, size=2)
    candidates solved: 256
    boundary of the support: [8, 10, 12], reach [8, 9, 10, 12, 13]
-   the file recorded support [9, 13], devices, channels, solved [3, 3, 256]
+   the file recorded support [9, 13], devices, channels, solved [5, 20, 256]
 6. snapshot 0: converged True, voltages moved at [9, 13]
    flow reached [6.48, 9.05] MVA, pretended load change in MW {9: 0.05, 13: 0.08}
 6. snapshot 59: converged True, voltages moved at [9, 13]
@@ -148,12 +148,13 @@ window than at its start, while the goal climbs to the rating.
   candidate can grow by more than one bus. A candidate must hold a free injection.
 - **The cost.** `AttackWindow.cost` (`engine/attacks/window.py`) solves the false state of a
   candidate at all 60 snapshots and returns a `SupportCost`: the devices and the channels moved
-  beyond [WU26]'s noise at some snapshot [WU26 eq. 28], and the candidate's size. A candidate has
-  no cost when its solve fails at any snapshot, when it moves no device beyond noise, or when it
-  cannot beat the best found so far.
+  beyond their meter's noise at some snapshot [WU26 eq. 28], and the candidate's size. The noise is
+  each meter's accuracy at its true reading, the noise the file's readings carry. A candidate has
+  no cost when its solve fails at any snapshot, when it moves no device beyond noise (an overload
+  that no meter shows is no overload), or when it cannot beat the best found so far.
 - **The result.** The search solves at most `min_budget` candidates, 256 by default, and it used
-  all of them here. The cheapest it found is the support of positions 9 and 13: 3 devices, against
-  5 for the whole area. The search makes no claim that this is the minimum.
+  all of them here. The cheapest it found is the support of positions 9 and 13: 5 devices, against
+  11 for the whole area. The search makes no claim that this is the minimum.
 
 The boundary of that support is positions 8, 10 and 12: the buses one branch outside it. Their
 voltages stay true. The reach is the support with its boundary, the five buses whose reported
@@ -198,8 +199,8 @@ and hands it to `AttackFrames.frame_from_state` (`engine/attacks/frames.py`):
 5. `AttackFrames.currents_with_attack` does the same for the PMU currents, and the masks of every
    meter moved are returned as a `MeterLayers` (`models/frames.py`): node, flow and PMU current.
 
-Two counts appear on this page and they measure different things. The search's 3 devices are those
-moved beyond [WU26]'s noise somewhere in the window. The masks mark every stored reading the attack
+Two counts appear on this page and they measure different things. The search's 5 devices are those
+moved beyond their meters' noise somewhere in the window. The masks mark every stored reading the attack
 changed in this frame, however little: 12 node channels across the reach, and both flow channels of
 the four metered branches with an end in the support. No PMU current is written, because neither
 PMU sits at an end of those branches.

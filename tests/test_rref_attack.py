@@ -92,11 +92,14 @@ def test_the_reduction_names_buses_3_and_11_for_lines_3_4_and_6_11():
 
 @pytest.mark.parametrize(
     "scenario, margin, trusted, counts",
-    [(0, 1.1, False, (7, 14)), (0, 1.1, True, (6, 11)), (1, 1.1, False, (8, 24)), (1, 1.1, True, (9, 28))],
+    [(0, 1.1, False, (6, 13)), (0, 1.1, True, (6, 11)), (1, 1.1, False, (9, 27)), (1, 1.1, True, (9, 27))],
 )
 def test_the_rref_attack_is_feasible_and_pinned(scenario, margin, trusted, counts):
     """The row-reduction attack reaches both ratings at every snapshot inside the limits, with and
-    without the paper's trust schedule, and its device and channel counts are pinned."""
+    without the paper's trust schedule, and its device and channel counts are pinned. The counts and
+    the limit tolerance are on the paper's noise, which the scenario's meters carry
+    (`case_studies.paper_noise`); three of the four were pinned again when the tolerance began to
+    follow the meters' noise as the count does."""
     g, window, knobs, goal = _setup(scenario, margin)
     trust = (
         TrustSchedule([int(b) for b in case_studies.buses(g, ORDER[scenario])], SLOTS) if trusted else None
@@ -107,14 +110,17 @@ def test_the_rref_attack_is_feasible_and_pinned(scenario, margin, trusted, count
     _reaches_the_goal(g, window, knobs, goal, r, trust)
 
 
-@pytest.mark.parametrize("scenario", [0, 1])
-def test_the_schedule_stops_the_rref_attack_at_k_1_2(scenario):
-    """At k = 1.2 no support the reduction ranks reaches both ratings with the four PMUs trusted, as for
-    the search."""
+@pytest.mark.parametrize("scenario, defended", [(0, (9, 36)), (1, None)])
+def test_the_schedule_at_k_1_2_against_the_rref_attack(scenario, defended):
+    """At k = 1.2 with the four PMUs trusted, as for the search: on lines 1-2 and 4-5 no support the
+    reduction ranks reaches both ratings. On lines 3-4 and 6-11 one does, at 9 devices and 36 channels:
+    a generator's implied output may pass its limit by what its bus's injection meter resolves, and on
+    the paper's noise that is 0.03 pu, 3 MW, which is enough here. With the limits held to 0.001 MW the
+    schedule stopped this scenario too."""
     g, window, knobs, goal = _setup(scenario, 1.2)
     trust = TrustSchedule([int(b) for b in case_studies.buses(g, ORDER[scenario])], SLOTS)
     r = g.minimizer.min_tamper(window, goal, knobs._replace(support_method="rref"), trust=trust)
-    assert r.devices == -1
+    assert (None if r is None else (r.devices, r.channels)) == defended
 
 
 def test_a_line_no_free_bus_moves_leaves_the_snapshot_nothing_to_rank(monkeypatch):
@@ -128,4 +134,4 @@ def test_a_line_no_free_bus_moves_leaves_the_snapshot_nothing_to_rank(monkeypatc
     seeds, _, _ = g.minimizer._goal_seeds(goal)
     area = np.asarray(g.area.hop_area(seeds, knobs.hops))
     assert RrefSupport(g).ladder(AttackWindow(g, window, goal, knobs), 0, area) == []
-    assert g.minimizer.min_tamper(window, goal, knobs._replace(support_method="rref")).devices == -1
+    assert g.minimizer.min_tamper(window, goal, knobs._replace(support_method="rref")) is None

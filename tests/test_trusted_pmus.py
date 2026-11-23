@@ -146,20 +146,21 @@ def _named(g, window, knobs, goal, trust, result) -> set[str]:
 
 
 def test_scenario_2_survives_the_schedule_at_a_higher_cost():
-    """Lines 1-2 and 4-5, PMUs trusted 4, 6, 1, 13 at k = 1.1: 9 devices and 28 channels against 7 and 23
-    undefended (+28.6% and +21.7%; the paper's Table II: 35.2% and 27.0%). The extra devices are SCADA 6
-    and PMU 6, whose |V| and angle are trusted from snapshot 4 but whose branch currents are not (eq. 27)."""
+    """Lines 1-2 and 4-5, PMUs trusted 4, 6, 1, 13 at k = 1.1: 9 devices and 27 channels against 8 and 23
+    undefended (+12.5% and +17.4%; the paper's Table II: 35.2% and 27.0%). The defended attack holds SCADA 6
+    and PMU 6, whose |V| and angle are trusted from snapshot 4 but whose branch currents are not (eq. 27).
+    The counts and the limit tolerance are on the paper's noise, which the scenario's meters carry."""
     g, window, knobs, goal = _setup(1, 1.1)
     trust = _schedule(g, 1)
     r = g.minimizer.min_tamper(window, goal, knobs, trust=trust)
-    assert (r.devices, r.channels) == (9, 28)
+    assert (r.devices, r.channels) == (9, 27)
     assert {"SCADA 6", "PMU 6"} <= _named(g, window, knobs, goal, trust, r)
 
 
 @SLOW
 @pytest.mark.parametrize(
     "scenario, before, after",
-    [(0, (5, 8), (6, 11)), (1, (7, 23), (9, 28))],
+    [(0, (4, 8), (6, 11)), (1, (8, 23), (9, 27))],
 )
 def test_the_ieee14_scenarios_at_k_1_1(scenario, before, after):
     """Undefended and defended counts, and the paper's order against the swapped one: the order does not
@@ -175,13 +176,19 @@ def test_the_ieee14_scenarios_at_k_1_1(scenario, before, after):
 
 
 @SLOW
-@pytest.mark.parametrize("scenario", [0, 1])
-def test_the_schedule_stops_the_ieee14_scenarios_at_k_1_2(scenario):
-    """At k = 1.2 no candidate reaches both ratings with the four PMUs trusted, while the undefended
-    attack does (8 and 10 devices)."""
+@pytest.mark.parametrize("scenario, undefended, defended", [(0, (8, 27), (9, 36)), (1, (10, 39), None)])
+def test_the_schedule_at_k_1_2_on_the_ieee14_scenarios(scenario, undefended, defended):
+    """At k = 1.2 with the four PMUs trusted. On lines 1-2 and 4-5 no candidate reaches both ratings,
+    while the undefended attack does at 10 devices: the schedule stops it. On lines 3-4 and 6-11 the
+    schedule raises the cost from 8 devices and 27 channels to 9 and 36 and does not stop the attack: a
+    generator's implied output may pass its limit by what its bus's injection meter resolves, and on
+    the paper's noise that is 0.03 pu, 3 MW. With the limits held to 0.001 MW the schedule stopped
+    this scenario too."""
     g, window, knobs, goal = _setup(scenario, 1.2)
-    assert g.minimizer.min_tamper(window, goal, knobs).devices == (8, 10)[scenario]
-    assert g.minimizer.min_tamper(window, goal, knobs, trust=_schedule(g, scenario)).devices == -1
+    bare = g.minimizer.min_tamper(window, goal, knobs)
+    assert (bare.devices, bare.channels) == undefended
+    r = g.minimizer.min_tamper(window, goal, knobs, trust=_schedule(g, scenario))
+    assert (None if r is None else (r.devices, r.channels)) == defended
 
 
 @pytest.mark.parametrize("bus", [2, 99])  # MATPOWER bus 2 has no PMU in the paper's plan; 99 is no bus

@@ -1,10 +1,11 @@
 """What one candidate support costs over a window (`AttackWindow.cost`).
 
 The cost is the devices and channels the support's false states tamper over the whole window [WU26
-eq. 12], counted against the meters' noise. A support has no cost when its false state fails at a
-snapshot, or when its step between snapshots is larger than noise where a stealth bound holds.
-It calls `FalseState.goal_state` for each snapshot, `Emitter` for the true flows and currents,
-`AttackArea.boundary`, `formulas.attacks` for the counts and `formulas.noise` for [WU26]'s noise."""
+eq. 12], counted against the meters' own noise: the accuracy class of each meter at its true reading,
+which is the noise the file's readings carry (`NoiseModel.sigmas`). A support has no cost when its
+false state fails at a snapshot, or when its step between snapshots is larger than that noise where a
+stealth bound holds. It calls `FalseState.goal_state` for each snapshot, `Emitter` for the true flows
+and currents, `AttackArea.boundary` and `formulas.attacks` for the counts."""
 
 from __future__ import annotations
 
@@ -15,7 +16,6 @@ import numpy as np
 from ...constants.channels import NodeChannel
 from ...formulas.attacks import tampered_channels, tampered_devices
 from ...formulas.network import _row_block, complex_voltages
-from ...formulas.noise import paper_current_sigma, paper_sigma
 from ...models.choices import CostUnit
 from ...models.config import TrustSchedule
 from ...models.frames import AttackVector, FrameKnobs, Goal, MeterLayers, SupportCost
@@ -58,8 +58,8 @@ class AttackWindow:
         trust: Optional[TrustSchedule] = None,
     ) -> None:
         # The between-snapshot stealth bound is At's alone (a sub-noise ramp is what At is). [WU26]'s
-        # model has no increment constraint: its noise only decides which changes the l0 count
-        # ignores, so a flow goal (Am) is never bounded. `stealth_bound` off is for analysis.
+        # model has no increment constraint: noise only decides which changes the l0 count ignores
+        # [WU26, Sec. V-A], so a flow goal (Am) is never bounded. `stealth_bound` off is for analysis.
         self.g, self.states, self.goal, self.knobs = g, states, goal, knobs
         self.stealth_bound = stealth_bound and goal.kind == "load"
         self.channels_first = knobs.objective == CostUnit.CHANNELS.value  # what the cost minimizes first
@@ -76,20 +76,18 @@ class AttackWindow:
         # the PMU branch-current channels [WU26 eqs. 19-20]: their mask, true values and noise scale
         self.i_m: np.ndarray = g.masks.current
         self.currents: np.ndarray = g.emitter.currents_from_states(np.stack(states))
-        self.sigma, self.i_sigma = self._sigmas(g, states, goal)
+        self.sigma, self.i_sigma = self._sigmas(g, states)
         self.zero = np.array(sorted({int(b) for b in g.zero_inj} - {g.slack_bus}), dtype=np.int64)
         self.prev = self._before(prev)
 
     def _sigmas(
-        self, g: FdiaGenerator, states: list[np.ndarray], goal: Goal
+        self, g: FdiaGenerator, states: list[np.ndarray]
     ) -> tuple[list[tuple[np.ndarray, np.ndarray]], list[np.ndarray]]:
         """What a change must exceed to count as tampering at each snapshot, and for At also the most a
         channel may move between snapshots, as (the node and flow layers, the PMU current layer) per
-        snapshot: [WU26]'s own noise for the overload attack (0.01 pu on a current), the l0 threshold
-        only; the meters' rated accuracy at the true readings for At (`NoiseModel.sigmas`)."""
-        if goal.kind == "flow":
-            paper = paper_sigma(self.node_m.shape, self.edge_m.shape, self.pmu, g.case.base_mva)
-            return [paper for _ in states], [paper_current_sigma((g.n_branch, 4)) for _ in states]
+        snapshot: the meters' rated accuracy at the true readings (`NoiseModel.sigmas`), for both
+        families. It is the noise the readings of the file carry, so a change under it is one no
+        reader of the file can tell from noise."""
         exact = (np.asarray(X, np.float64) for X in states)
         true = (g.plan.gather(X, F, I) for X, F, I in zip(exact, self.flows, self.currents))
         rated = [g.emitter.layers(g.noise.sigmas(z)) for z in true]
@@ -102,21 +100,34 @@ class AttackWindow:
             return AttackVector(*(np.zeros(shape) for shape in shapes))
         return AttackVector(*(np.asarray(part, float) for part in prev))
 
+    @property
+    def least(self) -> tuple[int, int]:
+        """The fewest (devices, channels) a support of this goal can cost. A ramp may stay under the
+        noise of every meter, which is zero of each; an overload has to move at least one."""
+        return (1, 1) if self.goal.kind == "flow" else (0, 0)
+
     def cost(self, support: np.ndarray, beat: Optional[SupportCost]) -> Optional[SupportCost]:
         """The cost of a support held for the window: the union of the tampered devices and channels over
-        every snapshot [WU26 eq. 28]. None when the support is infeasible at a snapshot, moves no device
-        beyond its noise over the window (not an attack), or cannot beat `beat`."""
-        if self._zero_on_boundary(support):
-            return None  # never for a candidate of `Minimizer._supports`, which takes such a bus in
-        tampered = self._tampered(support, beat)
-        if tampered is None:
+        every snapshot [WU26 eq. 28]. None when the support is infeasible at a snapshot, breaks the
+        stealth bound, cannot beat `beat`, or carries a flow goal and moves no device beyond noise."""
+        tampered = None if self._zero_on_boundary(support) else self._tampered(support, beat)
+        if tampered is None:  # a zero-injection boundary: never for a candidate of `Minimizer._supports`
             return None
         union, devices = tampered
-        if not devices:
-            return None  # within noise at every snapshot: no effect, so not an attack
+        # A change under the noise is not tampering [WU26, Sec. V-A]. A ramp that stays under the noise
+        # of every meter is the cheapest ramp there is, and costs nothing. A flow goal that moves no
+        # meter beyond its noise shows no overload, so it is no attack.
+        if devices < self.least[0]:
+            return None
         cost = SupportCost(devices, _channel_count(union), len(support))
         first = self.channels_first
         return cost if beat is None or cost.key(first) < beat.key(first) else None
+
+    def holds(self, support: np.ndarray) -> bool:
+        """Whether the goal has a false state on `support` at every snapshot, inside the operating
+        limits and, for a ramp, inside the stealth bound: what a ramp run on a given support must
+        keep, whatever it costs."""
+        return not self._zero_on_boundary(support) and self._tampered(support, None) is not None
 
     def support_at(self, t: int, support: np.ndarray) -> np.ndarray:
         """The buses of the support free at snapshot t: the support less the buses of the PMUs trusted by then
