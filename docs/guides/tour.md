@@ -173,8 +173,9 @@ which calls `FalseState.solve_flow_local` and gets a `FlowSolve` (`models/frames
   The free injections of the support change to make that so. Here both are loads, and
   `FlowSolve.load_change` is the load each one pretends.
 - **Bounds.** A load shows a change of at most `load_cap` times its true load [YUA11]. A generator
-  stays inside its limits and a voltage inside its limit [WU26 eqs. 21-23]. A value that would pass
-  a bound is pinned there and the solve repeated.
+  stays inside its limits, to within what its bus's injection meter resolves, and a voltage inside
+  its limit [WU26 eqs. 21-23]. A value that would pass a bound is pinned there and the solve
+  repeated.
 - **The last check.** `flow_goal_state` then rejects a state that leaves the limits anywhere on
   the reach (`formulas.attacks.within_limits`).
 

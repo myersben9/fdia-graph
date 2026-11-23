@@ -20,6 +20,9 @@ from fdia_graph.systems.network import Network
 from fdia_graph.timeline import generate_timeline  # noqa: E402
 
 
+HELD_MW = 1e-6  # a generator within this of a shut limit was pinned there by the solve
+
+
 @pytest.fixture(scope="module")
 def g():
     return FdiaGenerator(Network.from_ieee(14), seed=123)
@@ -428,13 +431,17 @@ def _generator_only_case(g, pool):
 
 def test_a_generator_at_its_p_limit_keeps_its_q_free(g, pool):
     # [WU26 eqs. 22-23]
-    """Review fix: pinning is per component. With the generator's P range shut to its true output, the
-    solve pins P alone and still meets the goal by moving Q; pinning both would leave no free injection."""
+    """Pinning is per component. The goal moves this generator's P by more than its bus's injection meter
+    resolves, so with its P range shut to its true output the solve must pin P; it pins P alone and still
+    meets the goal by moving Q. Pinning both would leave no free injection."""
 
     x_true, support, line, target = _generator_only_case(g, pool)
     b = int(support[0])
     gen = g.split.generation(x_true)
     limits = _knobs(g, pool).limits
+    free = g.false_state.solve_flow_local(x_true, support, line, target).x_false
+    moved = abs(free[b, NodeChannel.P_INJ] - x_true[b, NodeChannel.P_INJ])
+    assert moved > g.false_state.limit_tolerance(x_true)[b, 0]  # so the shut range does bind
     # every other generator (the boundary's too, D16) unbounded, so only this one's P limit binds
     p_lo, p_hi = np.full(g.n_bus, -np.inf), np.full(g.n_bus, np.inf)
     p_lo[b] = p_hi[b] = gen[b, 0]
@@ -485,31 +492,50 @@ def _boundary_cases(g, pool):
 
 
 def test_a_boundary_generator_stays_inside_its_limits(g, pool):
-    """D16: (22)-(23) bound every generator whose reported output the attack changes, a generator on
-    the support's boundary included: shut its P range and the solve holds its P there or refuses. A
-    change the bus's injection meter cannot resolve passes no limit, so only a larger one is held."""
+    """(22)-(23) bound every generator whose reported output the attack changes, a generator on the
+    support's boundary included. With its P range shut, the state the solve returns shows it either held
+    at the limit or past it by no more than its bus's injection meter resolves, and the goal is met."""
 
     base = _knobs(g, pool).limits
-    gen = None
-    checked = 0
-    for x_true, support, line, target, boundary_gens, free in _boundary_cases(g, pool):
+    held = within = 0
+    for x_true, support, line, target, boundary_gens, _ in _boundary_cases(g, pool):
         gen = g.split.generation(x_true)
         b = boundary_gens[0]
         resolved = g.false_state.limit_tolerance(x_true)[b, 0]
-        if abs(free[b, NodeChannel.P_INJ] - x_true[b, NodeChannel.P_INJ]) <= resolved:
-            continue  # the unbounded solve moves this generator's P by less than its meter resolves
         p_lo, p_hi = base.p_lo.copy(), base.p_hi.copy()
         p_lo[b] = p_hi[b] = gen[b, 0]
         x_false = g.false_state.solve_flow_local(
             x_true, support, line, target, base._replace(p_lo=p_lo, p_hi=p_hi)
         ).x_false
-        if x_false is not None:
-            out = gen[b, 0] - (x_false[b, NodeChannel.P_INJ] - x_true[b, NodeChannel.P_INJ])
-            assert out == pytest.approx(gen[b, 0], abs=1e-6)
-            reached = g.emitter.clean_flows_from_states(x_false[None])[0, line]
-            assert np.hypot(*reached) == pytest.approx(target, rel=1e-6)
-            checked += 1
-    assert checked, "no boundary generator case solved"
+        if x_false is None:
+            continue  # no state keeps this generator's shut range: the solve refuses
+        past = abs(x_false[b, NodeChannel.P_INJ] - x_true[b, NodeChannel.P_INJ])  # MW past the shut limit
+        if past <= HELD_MW:
+            held += 1  # the active set pinned it at the limit
+        else:
+            assert past <= resolved  # left free, since its meter cannot tell the change from noise
+            within += 1
+        reached = g.emitter.clean_flows_from_states(x_false[None])[0, line]
+        assert np.hypot(*reached) == pytest.approx(target, rel=1e-6)
+    assert held, "no boundary generator was pinned at its limit"
+    assert within, "no boundary generator was left free inside its tolerance"
+
+
+def test_the_active_set_pins_a_generator_only_past_what_its_meter_resolves():
+    """`_clip_generator` at the boundary of the tolerance: a generator at its limit moved past it by half
+    the tolerance is left free, and by one and a half times it is pinned, exactly at the limit."""
+    from fdia_graph.engine.attacks.false_state import _clip_generator, _Pins
+    from fdia_graph.models.frames import OperatingLimits
+
+    one = np.ones(1)
+    limits = OperatingLimits(0.9 * one, 1.1 * one, 10.0 * one, 20.0 * one, -5.0 * one, 5.0 * one)
+    tol = np.array([0.4, 0.2])  # MW on P, MVAr on Q
+    for gen, sign in ((np.array([20.0, 5.0]), 1.0), (np.array([10.0, -5.0]), -1.0)):  # at the upper, the lower
+        held, over = _Pins({}, {}, {}), _Pins({}, {}, {})
+        _clip_generator(0, gen, sign * complex(0.5 * tol[0], 0.5 * tol[1]), limits, tol, held, over)
+        assert not over.any()
+        _clip_generator(0, gen, sign * complex(1.5 * tol[0], 1.5 * tol[1]), limits, tol, held, over)
+        assert over.p == {0: 0.0} and over.q == {0: 0.0}  # the change that puts it at the limit: none
 
 
 def test_the_load_cap_bounds_every_load_the_attack_moves(g, pool):

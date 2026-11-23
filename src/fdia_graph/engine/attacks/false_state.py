@@ -16,7 +16,7 @@ from typing import NamedTuple, Optional, Union, cast
 import numpy as np
 
 from ...constants.channels import NodeChannel
-from ...constants.meters import KIND_ACCURACY, MeterKind
+from ...constants.meters import MeterKind
 from ...formulas.attacks import limit_tolerance, operating_limits, within_limits
 from ...formulas.network import (
     _dense,
@@ -208,7 +208,9 @@ class FalseState(Part):
         # With `limits`, each generator the attack changes stays inside [WU26 eqs. 22-23] and each voltage of
         # the support inside eq. 21; with `load_cap`, a load bus shows at most that share of its true load. A
         # component (P or Q) the solve drives past its bound is pinned there and the solve repeated (an active
-        # set). The state is None when the solve fails, a bound cannot be met, or the support has no free bus.
+        # set); a generator's is pinned only when it is past its limit by more than its bus's injection meter
+        # resolves (`limit_tolerance`). The state is None when the solve fails, a bound cannot be met, or the
+        # support has no free bus.
         dload = np.zeros(self.g.n_bus)
         free = np.intersect1d(support, self.free_injection_buses())
         if len(free) == 0:
@@ -456,25 +458,22 @@ class FalseState(Part):
     def limit_tolerance(self, x_true: np.ndarray) -> np.ndarray:
         """How far past a generator limit counts as past it at the true state x_true, per bus [N, 2] (P MW,
         Q MVAr): the standard deviation the noise model gives the bus's P and Q injection meters at their
-        true readings (`formulas.attacks.limit_tolerance`), the class the ramp's stealth bound and tamper
-        count use. One rule for a load goal and a flow goal, and for the flow solve's active set."""
+        true readings (`formulas.attacks.limit_tolerance`). That is the accuracy class of the meter as the
+        package simulates it [ASP14], the noise that is in the file and the class the ramp's stealth bound
+        uses. An overload's tamper count uses another scale, the flat noise of [WU26]'s case study
+        (`AttackWindow`). One rule for P and Q in a load goal, a flow goal and the flow solve's active set."""
         cls, floor = self._injection_class()
         injected = np.asarray(x_true, float)[:, [NodeChannel.P_INJ, NodeChannel.Q_INJ]]
         return limit_tolerance(injected, cls, floor)
 
     def _injection_class(self) -> tuple[np.ndarray, np.ndarray]:
-        """The accuracy class and the floor of every bus's P and Q injection meter, each [N, 2]: the plan's
-        own, and at a bus the plan gives no injection meter, the class of that kind of meter
-        (`KIND_ACCURACY`), which is what a meter placed there would have."""
-        cached = getattr(self, "_injection_classes", None)
-        if cached is None:  # asked once per false state: built once
-            plan, n_bus = self.g.plan, self.g.n_bus
-            cls, floor = np.empty((n_bus, 2)), np.empty((n_bus, 2))
-            for column, kind in enumerate((MeterKind.P, MeterKind.Q)):
-                cls[:, column], floor[:, column] = KIND_ACCURACY[kind]
-                rows = np.flatnonzero(plan.kind == kind)
-                cls[plan.bus[rows], column] = plan.sigma_rel[rows]
-                floor[plan.bus[rows], column] = plan.sigma_abs[rows]
-            cached = (cls, floor)
-            self._injection_classes = cached
-        return cached
+        """The accuracy class and the floor of every bus's P and Q injection meter, each [N, 2], read from
+        the generator's plan as it is now. A generator's plan has one P and one Q injection meter at every
+        bus (`MeterPlan.from_placement`), so each column is the plan's meters of that kind in bus order."""
+        plan = self.g.plan
+        cls, floor = np.empty((self.g.n_bus, 2)), np.empty((self.g.n_bus, 2))
+        for column, kind in enumerate((MeterKind.P, MeterKind.Q)):
+            rows = np.flatnonzero(plan.kind == kind)
+            rows = rows[np.argsort(plan.bus[rows], kind="stable")]
+            cls[:, column], floor[:, column] = plan.sigma_rel[rows], plan.sigma_abs[rows]
+        return cls, floor

@@ -295,8 +295,12 @@ def test_operating_limits_are_the_case_limits_widened_to_the_pool():
 
 def test_a_generator_limit_is_passed_only_by_more_than_the_injection_meter_resolves():
     """A bus reports one injection, so a generator shown past a limit by less than the accuracy of that
-    bus's injection meter cannot be told from noise and is no violation [WU26, Sec. V-A]; past it by more,
-    the state is refused. The tolerance is the meter's class at the true reading, never under 1e-3 MW."""
+    bus's injection meter cannot be told from the noise in the file and is no violation; past it by more,
+    the state is refused. The tolerance is each meter's own class at the true reading, never under 1e-3
+    MW, and it holds at each of the four limits. The Q meters here have three times the class of the P
+    meters, so a tolerance read from the wrong meter, or used on the wrong component, fails."""
+    from dataclasses import replace
+
     from fdia_graph.constants.meters import KIND_ACCURACY, MeterKind
     from fdia_graph.constants.numerics import LIMIT_TOL_PQ
     from fdia_graph.engine.core import FdiaGenerator
@@ -304,26 +308,36 @@ def test_a_generator_limit_is_passed_only_by_more_than_the_injection_meter_resol
     from fdia_graph.systems.network import Network
 
     g = FdiaGenerator(Network.from_ieee(14), seed=1)
+    wider = np.where(g.plan.kind == MeterKind.Q, 3.0, 1.0)
+    g.use_plan(replace(g.plan, sigma_rel=wider * g.plan.sigma_rel, sigma_abs=wider * g.plan.sigma_abs))
     X = _load_states("ieee14", None)[:200]
     lim, x_true = g.false_state.operating_limits(X), X[0]
-    tol = g.false_state.limit_tolerance(x_true)
-    rel, floor = KIND_ACCURACY[MeterKind.P]
     P, Q = NodeChannel.P_INJ, NodeChannel.Q_INJ
-    assert np.allclose(tol[:, 0], np.maximum(LIMIT_TOL_PQ, rel * np.abs(x_true[:, P]) + floor))
-    assert np.allclose(tol[:, 1], np.maximum(LIMIT_TOL_PQ, rel * np.abs(x_true[:, Q]) + floor))
+
+    # the tolerance of each bus is its own meter's class: P from the P meter, Q from the Q meter
+    tol = g.false_state.limit_tolerance(x_true)
+    (p_rel, p_floor), (q_rel, q_floor) = KIND_ACCURACY[MeterKind.P], KIND_ACCURACY[MeterKind.Q]
+    assert np.allclose(tol[:, 0], np.maximum(LIMIT_TOL_PQ, p_rel * np.abs(x_true[:, P]) + p_floor))
+    assert np.allclose(tol[:, 1], np.maximum(LIMIT_TOL_PQ, 3.0 * (q_rel * np.abs(x_true[:, Q]) + q_floor)))
     assert (tol >= LIMIT_TOL_PQ).all()
+
+    # each limit is passed only beyond its own component's tolerance: a small one on P, a large one on Q
+    tol = np.tile([0.2, 5.0], (g.n_bus, 1))
     gen, none, everywhere = g.split.generation(x_true), np.zeros(g.n_bus), np.arange(g.n_bus)
-    checked = 0
+    # (channel, tolerance column, the limit, the sign of the injection change that reaches it)
+    sides = ((P, 0, lim.p_lo, 1.0), (P, 0, lim.p_hi, -1.0), (Q, 1, lim.q_lo, 1.0), (Q, 1, lim.q_hi, -1.0))
+    checked = set()
     for b in g.false_state.generator_buses():
-        to_the_floor = gen[b, 0] - lim.p_lo[b]  # the injection rise that puts the generator at its P_min
-        if not np.isfinite(to_the_floor):
-            continue
-        for share, allowed in ((0.5, True), (2.0, False)):
-            x_false = x_true.copy()
-            x_false[b, P] += to_the_floor + share * tol[b, 0]  # load positive: the implied output falls
-            assert within_limits(x_false, x_true, gen, none, lim, everywhere, tol) == allowed
-        checked += 1
-    assert checked
+        for side, (channel, column, limit, sign) in enumerate(sides):
+            if not np.isfinite(limit[b]):
+                continue
+            to_the_limit = gen[b, column] - limit[b]  # load positive: a rise of the injection lowers the output
+            for share, allowed in ((0.5, True), (2.0, False)):
+                x_false = x_true.copy()
+                x_false[b, channel] += to_the_limit + sign * share * tol[b, column]
+                assert within_limits(x_false, x_true, gen, none, lim, everywhere, tol) == allowed
+            checked.add(side)
+    assert checked == {0, 1, 2, 3}
 
 
 def test_the_fixture_records_its_limits(timeline_file):

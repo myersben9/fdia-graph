@@ -39,11 +39,18 @@ outside take up the change in their reported injection, so a generator there is 
 too: both families check the generators of the reach, the buses re-solved and the buses one branch
 outside. A state that shows a generator outside its limits anywhere on the reach is rejected.
 
-A bus reports one injection, its load less its generation. A limit therefore counts as passed only
-when the implied output is outside it by more than that bus's injection meter can resolve: the
-meter's accuracy at the true reading, and never less than 0.001 MW. A smaller difference cannot be
-told from noise, and [WU26] does not count tampering below the noise (Sec. V-A). The slack and a
-static generator on a load bus have no limits in the case, so they are never refused.
+A bus reports one net injection, its load less its generation, and the model has no separate
+telemetry of a unit's output. A change of a unit's implied output inside the injection meter's
+error is therefore not visible. A limit counts as passed only when the implied output is outside it
+by more than that meter can resolve: the meter's accuracy at the true reading, as the package
+simulates it [ASP14], and never less than 0.001 MW. The tolerance follows the bus's reading, not the
+unit's size. The slack and a static generator on a load bus have no limits in the case, so they are
+never refused.
+
+[WU26] leaves tampering below the noise out of its tamper count (Sec. V-A). Applying that idea to a
+limit is this package's step, not the paper's. The two use different noise scales here: the limit
+uses the meter's simulated accuracy, which is the noise in the file, and the overload's tamper count
+uses the flat noise of the paper's case study.
 
 A bus with no load and no producing unit injects nothing, whether or not it has a shunt: a shunt is
 part of the grid's admittances, not an injection. No attack shows an injection at such a bus. An

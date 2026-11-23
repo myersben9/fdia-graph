@@ -6,19 +6,41 @@ the public API, the generated files and the numbers are the same as the previous
 ## Unreleased
 
 - **A generator limit counts as passed only beyond what the bus's injection meter resolves (generated
-  files change).** A bus reports one injection, its load less its generation, so a generator shown past
-  a limit by less than the error of that meter cannot be told from noise, and [WU26] does not count
-  tampering below the noise (Sec. V-A). The limit check charged a bus's whole injection change to its
+  files change).** A bus reports one net injection, its load less its generation, and the model has no
+  separate telemetry of a unit's output, so a generator shown past a limit by less than the error of
+  that meter cannot be told from noise. The limit check charged a bus's whole injection change to its
   generator and refused a state past a limit by more than 0.001 MW. It now refuses one past a limit by
   more than the accuracy of the bus's P or Q injection meter at its true reading
   (`formulas.attacks.limit_tolerance`, `FalseState.limit_tolerance`), and never by less than 0.001 MW.
-  `formulas.attacks.within_limits` takes that tolerance per bus as a seventh argument. One rule holds
-  for both families: the ramp's check, the overload's check on its reach, and the overload solve's
-  active set, which pins a generator at its limit only when it is past it by more than the tolerance.
+  `formulas.attacks.within_limits` takes that tolerance per bus as a seventh argument.
+  - The tolerance is the meter's accuracy class as the package simulates it [ASP14], the noise that is
+    in a file. [WU26] leaves tampering below the noise out of its tamper count (Sec. V-A); applying
+    that idea to a limit is this package's step, not the paper's. The overload's tamper count still
+    uses the flat noise of the paper's case study (`paper_sigma`), a different scale; a later change
+    brings the two to one.
+  - The tolerance follows the bus's reading, not the unit's size: nothing caps it by the generator's
+    own range.
+  - One rule holds for P and Q in both families: the ramp's check, the overload's check on its reach,
+    and the overload solve's active set, which pins a generator at its limit only when it is past it
+    by more than the tolerance. The voltage limits are checked as before.
   - An overload changes: a generator may now sit past a limit by less than its bus's meter resolves,
     where the solve held it exactly at the limit. On two fixed IEEE-14 windows with the load cap, one
     goal is met on a smaller support (28 tampered channels where it took 43) and one that had no false
-    state has one. A generated timeline with an overload differs from one generated before.
+    state has one.
+  - A ramp changes against the stricter check of the entry below: the two pinned ramp searches of
+    `tests/test_search_speed.py` return to a support of one device and one channel, which that check
+    had refused over a difference the meter cannot resolve.
+  - Both golden digests of `tests/golden` are re-frozen. Each timeline was generated before and after
+    the two entries. In the suite's timeline the readings and the tamper masks (`data/node_x`, `edge_x`,
+    `pmu_i`, `attack/node_tamper`, `edge_tamper`, `pmu_i_tamper`) differ in 46 frames, every one an
+    overload frame; `attack/mag` and the episode columns `am_emitted_mva`, `am_reached_mva`,
+    `min_devices` and `min_channels` differ; `data/swing` and `data/temporal_delta`, which are computed
+    across neighbouring frames, differ in benign and ramp frames too. In the searched timeline the same
+    datasets differ, the readings in 23 overload frames, and its episodes change composition: one
+    overload episode is placed on other target lines, so `data/y`, `episodes/am_line`, `am_rating_mva`,
+    `am_target_mva`, `bus_idx`, `bus_ptr`, `min_evaluated`, `min_support_ptr` and `min_support_idx`
+    differ and `attack/mag` holds 708 values where it held 744. No ramp frame's readings differ in
+    either file.
   - `schema.Static.BUS_IS_ZERO_INJ` and `schema.EPISODE_TARGET_BRANCH` are removed: no writer wrote
     either dataset and no reader read one.
 

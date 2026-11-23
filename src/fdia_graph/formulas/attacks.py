@@ -58,8 +58,10 @@ def limit_tolerance(inj_true: np.ndarray, cls: np.ndarray, floor: np.ndarray) ->
     """How far past a generator limit an implied output may sit before the limit counts as passed, per
     bus [N, 2] (P MW, Q MVAr): the accuracy-class standard deviation of the bus's injection meter at its
     true reading `inj_true` [N, 2], sigma = cls |z| + floor [ASP14], and never less than `LIMIT_TOL_PQ`.
-    A bus reports one injection, so a change of its generator's output smaller than that meter's error
-    cannot be told from noise: tampering below the noise is not counted [WU26, Sec. V-A]."""
+    This is the noise the package simulates, the one that is in a file. A bus reports one injection, so a
+    change of its generator's output smaller than that meter's error cannot be told from noise. [WU26,
+    Sec. V-A] leaves tampering below the noise out of its tamper count; applying the same idea to a limit
+    is this package's step, not the paper's."""
     relative = np.ones(np.shape(inj_true), bool)  # an injection meter's class is relative to its reading
     return np.maximum(LIMIT_TOL_PQ, accuracy_class_sigma(np.abs(inj_true), cls, relative, floor))
 
