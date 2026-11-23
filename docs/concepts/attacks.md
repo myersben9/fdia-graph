@@ -38,6 +38,10 @@ voltage limits and the generator limits of the case [WU26, eqs. 21-23]. The buse
 outside take up the change in their reported injection. An overload checks the generator limits
 there too; a ramp does not.
 
+A bus with no load and no producing unit injects nothing, whether or not it has a shunt: a shunt is
+part of the grid's admittances, not an injection. No attack shows an injection at such a bus. An
+area that would have one on its boundary grows to take it in.
+
 ## The two families
 
 | Family | Code | What the attacker does |

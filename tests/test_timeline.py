@@ -513,3 +513,26 @@ def test_the_file_records_its_settings(timeline_file):
             record["ramp"]["length"] == int(f.attrs["ramp_len"])
             and record["search"]["hops"] == f.attrs["hops"]
         )
+
+
+def test_a_bus_with_a_shunt_and_nothing_else_injects_nothing():
+    """A shunt is in the admittance matrix, not an injection: IEEE-118 positions 4 and 36 (buses 5 and
+    37) hold a shunt and no load and no unit, the pool stores zero there, and they are zero-injection
+    buses. On every case a bus is zero-injection exactly when it has no load and no producing unit."""
+    from fdia_graph.engine.core import FdiaGenerator
+    from fdia_graph.systems.network import Network
+
+    for system, shunt_only in ((118, {4, 36}), (30, {4}), (300, {95, 142, 144, 218})):
+        g = FdiaGenerator(Network.from_ieee(system), seed=1)
+        case = g.case
+        shunted = set(np.flatnonzero((case.gs != 0) | (case.bs != 0)).tolist())
+        injecting = set(g.load_bus.tolist()) | set(case.unit_bus[~g.split.idle_units(case)].tolist())
+        assert shunt_only <= shunted - injecting  # the named buses have a shunt and nothing else
+        assert shunt_only <= set(g.zero_inj)
+        assert set(g.zero_inj) == set(range(g.n_bus)) - injecting
+    net = ieee_net(118)  # the solved base case: what the bus injects once the shunt's draw is left out
+    injected = net.res_bus.loc[[4, 36], ["p_mw", "q_mvar"]].to_numpy()
+    for b, ps, qs in zip(net.shunt.bus, net.res_shunt.p_mw, net.res_shunt.q_mvar):
+        if int(b) in (4, 36):
+            injected[(4, 36).index(int(b))] -= (ps, qs)
+    assert np.abs(injected).max() < 1e-6  # MW and MVAr: nothing is injected at a shunt-only bus

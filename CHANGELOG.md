@@ -5,6 +5,24 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- **A bus with a shunt and nothing else is a zero-injection bus (generated files change on six
+  cases).** `FdiaGenerator.zero_inj` counted a bus with a shunt as injecting. A shunt is in the
+  admittance matrix, and a pool stores a bus's injection without the shunt's draw, so a bus with a
+  shunt, no load and no producing unit injects nothing: the released pools hold zero there. Such a
+  bus is now a zero-injection bus, so an area grows over it and no attack shows an injection at it.
+
+  | Case | Buses that change (positions) |
+  |---|---|
+  | IEEE-30 | 4 |
+  | IEEE-89 | 37 buses |
+  | IEEE-118 | 4, 36 |
+  | IEEE-145 | 34 buses |
+  | IEEE-200 | 14 |
+  | IEEE-300 | 95, 142, 144, 218 |
+
+  IEEE-14, IEEE-57 and the New York case have no such bus and do not change. The released data
+  v0.8.3 was made before this change.
+
 - **The episode tables are in the data dictionary (docs only).** `docs/reference/DATA_DICTIONARY.md`
   has a new part, "The episode tables", with the shape, type and meaning of every dataset under
   `episodes/`: the episode rows, the support search's `min_` columns and the overload's `am_` columns,
